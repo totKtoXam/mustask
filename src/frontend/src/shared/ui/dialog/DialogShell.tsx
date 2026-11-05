@@ -30,8 +30,12 @@ export interface DialogGuard {
 export interface DialogShellProps {
   open: boolean;
   onClose: (reason: DialogCloseReason) => void;
-  /** `confirm` is MUI's xs, `form` sm, `card` 90 % × 90 % of the window (`layout.card.dialogShare`). */
-  size: 'confirm' | 'form' | 'card';
+  /**
+   * `confirm` is MUI's xs, `form` sm, `wide` up to `layout.dialogWideMaxWidth` and the window's width below that
+   * (a read-only table that must not scroll sideways), `card` 90 % × 90 % of the window
+   * (`layout.card.dialogShare`).
+   */
+  size: 'confirm' | 'form' | 'wide' | 'card';
   /** A plain title: the dialog's `h2` with its «Закрыть». */
   title?: string;
   /** The fixed area on top: a `CardHeaderBar`. */
@@ -72,7 +76,7 @@ const COLLAPSE_LABEL = 'Свернуть';
 const CLOSE_LABEL = 'Закрыть';
 const GUARD_CANCEL_LABEL = 'Продолжить редактирование';
 
-const MAX_WIDTH = { confirm: 'xs', form: 'sm', card: false } as const;
+const MAX_WIDTH = { confirm: 'xs', form: 'sm', wide: false, card: false } as const;
 
 /** The card's Paper: 90 % × 90 %, no margin, no height cap, a column, and the card container. */
 function cardPaperSx(theme: Theme, fullScreen: boolean) {
@@ -182,7 +186,11 @@ export function DialogShell({
             // MUI names a dialog by `aria-labelledby` unconditionally, and a generated
             // id would point at nothing when `label` names it instead.
             ...(label === undefined ? {} : { 'aria-labelledby': undefined, 'aria-label': label }),
-            sx: card ? cardPaperSx(theme, fullScreen) : undefined,
+            sx: card
+              ? cardPaperSx(theme, fullScreen)
+              : size === 'wide'
+                ? { maxWidth: theme.layout.dialogWideMaxWidth }
+                : undefined,
           },
           transition: { onExited },
         }}

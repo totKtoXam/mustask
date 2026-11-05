@@ -221,12 +221,12 @@ describe('mod-016 design § 3.4: the states of the page', () => {
 });
 
 describe('mod-016 design § 10: keyboard', () => {
-  it('Tab reaches «Добавить участника» and then one «Действия: <имя>» per row in row order; text and headers are not stops', async () => {
+  it('Tab reaches «Добавить участника», feat-033’s «История назначений» and then one «Действия: <имя>» per row in row order; text and headers are not stops', async () => {
     openPage();
     await membersTable();
 
     const stops: string[] = [];
-    for (let step = 0; step < 5; step += 1) {
+    for (let step = 0; step < 6; step += 1) {
       await userEvent.tab();
       const focused = document.activeElement;
       stops.push(focused?.getAttribute('aria-label') ?? focused?.textContent ?? '');
@@ -234,6 +234,7 @@ describe('mod-016 design § 10: keyboard', () => {
 
     expect(stops).toEqual([
       'Добавить участника',
+      'История назначений',
       'Действия: Анна Смирнова',
       'Действия: Иван Петров',
       'Действия: Олег Иванов',

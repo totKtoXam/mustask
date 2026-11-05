@@ -98,6 +98,7 @@ public static class SessionEndpoints
         RefreshGrantClient refreshGrantClient,
         RenewedIdTokenValidator idTokenValidator,
         KeycloakOptions keycloak,
+        ISessionSignInRecorder projection,
         ILogger<Program> logger,
         TimeProvider clock,
         CancellationToken cancellationToken)
@@ -209,6 +210,13 @@ public static class SessionEndpoints
             throw new ForbiddenException(SessionErrorCodes.NoAccess);
         }
 
+        // tech-025 (ADR-0034): the renewed id token may describe the person differently (a name changed in Keycloak). A renewal
+        // whose claims hash to the fingerprint in the ticket writes nothing. A failure never ends a session here, not even for
+        // a person the directory does not know yet (a session older than the directory): it is logged, the ticket keeps no
+        // fingerprint, and the next renewal tries again.
+        authenticateResult.Properties.Items.TryGetValue(SessionAuthenticationSetup.ProfileFingerprintItemsKey, out var knownFingerprint);
+        var recording = await projection.RecordAsync(refreshed.IdToken, knownFingerprint, cancellationToken);
+
         var expiresAtUtc = clock.GetUtcNow() + refreshed.ExpiresIn;
         cache.Set(sessionKey, refreshed.AccessToken, expiresAtUtc);
 
@@ -219,6 +227,15 @@ public static class SessionEndpoints
             new AuthenticationToken { Name = "id_token", Value = refreshed.IdToken },
             new AuthenticationToken { Name = "refresh_token", Value = refreshed.RefreshToken },
         ]);
+
+        if (recording.Fingerprint is not null)
+        {
+            properties.Items[SessionAuthenticationSetup.ProfileFingerprintItemsKey] = recording.Fingerprint;
+        }
+        else
+        {
+            properties.Items.Remove(SessionAuthenticationSetup.ProfileFingerprintItemsKey);
+        }
 
         if (refreshed.RefreshExpiresIn is { } refreshExpiresIn)
         {

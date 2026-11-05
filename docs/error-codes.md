@@ -74,6 +74,14 @@ guarantees it exists and differs from the Russian, not its quality
 |organizations.project.name_taken|409|Проект с таким названием уже есть в организации|Ұйымда мұндай атауы бар жоба бар|organizations|—|needs review|
 |organizations.project.name_taken_by_deactivated|409|Проект с таким названием уже есть в организации: он деактивирован|Ұйымда мұндай атауы бар жоба бар: ол сөндірілген|organizations|—|needs review|
 |organizations.project.not_found|404|Проект не найден.|Жоба табылмады.|organizations|—|needs review|
+|organizations.rescue.already_admin|409|Пользователь уже администратор этой организации|Пайдаланушы бұл ұйымның әкімшісі болып табылады|organizations|—|needs review|
+|organizations.rescue.forbidden|403|Недостаточно прав|Құқықтар жеткіліксіз|organizations|—|needs review|
+|organizations.rescue.invalid_page|400|Некорректный номер страницы.|Бет нөмірі дұрыс емес.|organizations|—|needs review|
+|organizations.rescue.reason_invalid|400|Причина содержит недопустимые символы|Себепте жарамсыз таңбалар бар|organizations|—|needs review|
+|organizations.rescue.reason_required|400|Укажите причину|Себебін көрсетіңіз|organizations|—|needs review|
+|organizations.rescue.reason_too_long|400|Не более 500 символов|500 таңбадан аспауы керек|organizations|—|needs review|
+|organizations.rescue.self_appointment|409|Нельзя назначить администратором себя|Өзіңізді әкімші етіп тағайындауға болмайды|organizations|—|needs review|
+|organizations.rescue.user_unavailable|409|Этого пользователя нельзя назначить администратором|Бұл пайдаланушыны әкімші етіп тағайындауға болмайды|organizations|—|needs review|
 |organizations.team.default_area_not_owned|409|Область по умолчанию должна принадлежать самой команде|Әдепкі аймақ команданың өзіне тиесілі болуы керек|organizations|yes|needs review|
 |organizations.team.destination_required|400|Выберите команду или «Без команды»|Команданы немесе «Командасыз» таңдаңыз|organizations|—|needs review|
 |organizations.team.first_team_cannot_be_deleted|409|Нельзя удалить команду, которой принадлежит корневая область проекта|Жобаның түбірлік аймағы тиесілі команданы жоюға болмайды|organizations|yes|needs review|
@@ -90,13 +98,13 @@ guarantees it exists and differs from the Russian, not its quality
 |session.expired|401|Сессия истекла. Войдите заново.|Сессия мерзімі аяқталды. Қайта кіріңіз.|session|—|needs review|
 |session.invalid_return_url|400|Недопустимый адрес возврата после входа.|Кіргеннен кейінгі қайту мекенжайы жарамсыз.|session|—|needs review|
 |session.no_access|403|У вашей учётной записи нет доступа к MUSTASK. Обратитесь к администратору.|Сіздің тіркелгіңізде MUSTASK-қа қолжетімділік жоқ. Әкімшіге хабарласыңыз.|session|—|needs review|
-|user_directory.push_malformed|400|Запрос канала пользователей не разобран: тело повреждено или слишком велико.|Пайдаланушылар арнасының сұранысы талданбады: денесі бүлінген немесе тым үлкен.|user_directory|—|needs review|
-|user_directory.push_unauthorized|401|Запрос канала пользователей отклонён: подпись отсутствует, неверна или устарела.|Пайдаланушылар арнасының сұранысы қабылданбады: қолтаңба жоқ, қате немесе ескірген.|user_directory|—|needs review|
-|user_directory.snapshot_conflict|409|Сверка с этим идентификатором уже начата с другим моментом или устарела.|Осы идентификатормен салыстыру басқа сәтпен басталған немесе ескірген.|user_directory|—|needs review|
-|user_directory.snapshot_incomplete|409|Сверка пользователей не завершена: получено записей — {received} из {expected}.|Пайдаланушыларды салыстыру аяқталмады: {expected} жазбаның {received} алынды.|user_directory|—|needs review|
-|user_directory.snapshot_not_found|404|Сверка пользователей не найдена.|Пайдаланушыларды салыстыру табылмады.|user_directory|—|needs review|
-|user_directory.snapshot_not_open|409|Сверка пользователей уже завершена или заменена более новой.|Пайдаланушыларды салыстыру аяқталған немесе жаңасымен ауыстырылған.|user_directory|—|needs review|
-|user_directory.too_many_entries|400|Слишком много записей в одном запросе: не больше {limit}.|Бір сұраныста жазбалар тым көп: {limit} аспауы керек.|user_directory|—|needs review|
+|user_directory.push_malformed|400|Запрос канала пользователей не разобран: тело повреждено или слишком велико.|Пайдаланушылар арнасының сұранысы талданбады: денесі бүлінген немесе тым үлкен.|user_directory|yes|needs review|
+|user_directory.push_unauthorized|401|Запрос канала пользователей отклонён: подпись отсутствует, неверна или устарела.|Пайдаланушылар арнасының сұранысы қабылданбады: қолтаңба жоқ, қате немесе ескірген.|user_directory|yes|needs review|
+|user_directory.snapshot_conflict|409|Сверка с этим идентификатором уже начата с другим моментом или устарела.|Осы идентификатормен салыстыру басқа сәтпен басталған немесе ескірген.|user_directory|yes|needs review|
+|user_directory.snapshot_incomplete|409|Сверка пользователей не завершена: получено записей — {received} из {expected}.|Пайдаланушыларды салыстыру аяқталмады: {expected} жазбаның {received} алынды.|user_directory|yes|needs review|
+|user_directory.snapshot_not_found|404|Сверка пользователей не найдена.|Пайдаланушыларды салыстыру табылмады.|user_directory|yes|needs review|
+|user_directory.snapshot_not_open|409|Сверка пользователей уже завершена или заменена более новой.|Пайдаланушыларды салыстыру аяқталған немесе жаңасымен ауыстырылған.|user_directory|yes|needs review|
+|user_directory.too_many_entries|400|Слишком много записей в одном запросе: не больше {limit}.|Бір сұраныста жазбалар тым көп: {limit} аспауы керек.|user_directory|yes|needs review|
 |user_directory.too_many_ids|400|Слишком много идентификаторов в одном запросе: не больше {limit}.|Бір сұраныста идентификаторлар тым көп: {limit} аспауы керек.|user_directory|—|needs review|
 |user_directory.validation_failed|400|Проверьте правильность переданных данных.|Берілген деректердің дұрыстығын тексеріңіз.|user_directory|—|needs review|
 |user_directory.value_invalid|400|Недопустимое значение.|Жарамсыз мән.|user_directory|—|needs review|

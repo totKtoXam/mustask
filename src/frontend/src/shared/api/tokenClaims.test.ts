@@ -6,6 +6,7 @@ import { decodeAccessToken, INSTANCE_ROLE_CODES, permissionsFromRoles } from './
 const READ = 'dictionaries.languages.read';
 const WRITE = 'dictionaries.languages.write';
 const CREATE = 'organizations.organization.create';
+const RESCUE = 'organizations.organization.rescue';
 
 function withRoles(roles: string[]) {
   return token({ resource_access: { 'mustask-api': { roles } } });
@@ -17,7 +18,7 @@ describe('decodeAccessToken', () => {
     [['user'], [READ]],
     [['user', 'organization-creator'], [READ, CREATE]],
     [['user', 'dictionaries-admin'], [READ, WRITE]],
-    [['user', 'system-admin'], [READ, WRITE, CREATE]],
+    [['user', 'system-admin'], [READ, WRITE, CREATE, RESCUE]],
   ])('роли %j дают права %j', (roles, expected) => {
     expect([...decodeAccessToken(withRoles(roles)).permissions].sort()).toEqual([...expected].sort());
   });

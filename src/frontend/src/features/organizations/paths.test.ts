@@ -73,7 +73,7 @@ describe('mod-002 US-1 Scenario: No screen grants the right to create organizati
     expect(MEMBERS_ROUTE).not.toMatch(/right|role|group|permission|access/i);
     // mod-016: the twelve organization codes of api-contract § 0.2 are served per
     // organization (`GET …/access`), never in the token, and feat-028 adds four (its § 0.1);
-    // the create right is the slice's one instance code.
+    // the create right and feat-033's rescue right (ADR-0035) are the slice's instance codes.
     expect(Object.values(organizationsPermissions)).toEqual([
       'organizations.organization.read',
       'organizations.organization.write',
@@ -94,6 +94,7 @@ describe('mod-002 US-1 Scenario: No screen grants the right to create organizati
       'organizations.area.create',
       'organizations.area.link',
       'organizations.organization.create',
+      'organizations.organization.rescue',
     ]);
   });
 });

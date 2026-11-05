@@ -3,6 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
 import Box from '@mui/material/Box';
 import AddIcon from '@mui/icons-material/Add';
+import HistoryOutlinedIcon from '@mui/icons-material/HistoryOutlined';
 import { focusMainRegion } from '../../../shared/lib/mainRegion';
 import { useAccessCheck } from '../../../shared/lib/access';
 import { useWorkContext } from '../../../shared/lib/workContext';
@@ -16,6 +17,7 @@ import { useForgetAccessOnLeave } from '../access/useForgetAccessOnLeave';
 import type { Member } from '../api/membershipApi';
 import { organizationsKeys } from '../api/queryKeys';
 import { AddMemberDialog } from '../components/AddMemberDialog';
+import { AppointmentHistoryDialog } from '../components/AppointmentHistoryDialog';
 import { ChangeRoleDialog } from '../components/ChangeRoleDialog';
 import { MembersTable } from '../components/MembersTable';
 import { useNotify } from '../components/notice';
@@ -25,12 +27,17 @@ import { useMembers, useOrganization } from '../hooks/queries';
 import { useRowFocus } from '../hooks/useRowFocus';
 import { MEMBERS_COLUMNS, membersPage, memberNotices } from '../lib/memberTexts';
 import { notFoundLevel } from '../lib/notFoundLevel';
+import { rescuePage } from '../lib/rescueTexts';
 import { plainName } from '../lib/userName';
 import { ORGANIZATIONS_PATH } from '../paths';
 import { organizationsPermissions } from '../permissions';
 
 type MembersDialog =
-  { kind: 'add' } | { kind: 'role'; member: Member } | { kind: 'remove'; member: Member } | null;
+  | { kind: 'add' }
+  | { kind: 'history' }
+  | { kind: 'role'; member: Member }
+  | { kind: 'remove'; member: Member }
+  | null;
 
 /**
  * «Участники» (US-1; mod-016 design § 3): the organization's members with
@@ -108,6 +115,18 @@ export function MembersPage() {
               }
             : undefined
         }
+        commands={
+          canWrite
+            ? [
+                {
+                  label: rescuePage.history,
+                  icon: <HistoryOutlinedIcon />,
+                  tone: 'neutral',
+                  onClick: () => setDialog({ kind: 'history' }),
+                },
+              ]
+            : undefined
+        }
       />
       {loading ? (
         <RegistrySkeleton columns={canWrite ? [...MEMBERS_COLUMNS, ''] : [...MEMBERS_COLUMNS]} />
@@ -132,6 +151,14 @@ export function MembersPage() {
               notify(memberNotices.added(plainName(member.user)));
             }}
             onReread={rereadMembers}
+            onClose={closeDialog}
+          />
+        )}
+        {dialog?.kind === 'history' && (
+          <AppointmentHistoryDialog
+            organizationId={organizationId}
+            organizationName={organizationName}
+            host="organization"
             onClose={closeDialog}
           />
         )}

@@ -84,6 +84,15 @@ export const organizationsKeys = {
     [ROOT, 'team-members', organizationId, teamId] as const,
   /** Every team-members list of an organization: a member's removal invalidates them all. */
   teamMembersOf: (organizationId: string) => [ROOT, 'team-members', organizationId] as const,
+  /** The instance administrator's list of every organization (feat-033 § 1.1): one entry per page and filter. */
+  rescueList: (page: number, name: string) => [ROOT, 'rescue-list', page, name] as const,
+  /** Every rescue list page: an appointment refreshes them all. */
+  rescueLists: [ROOT, 'rescue-list'] as const,
+  /** The appointee search of the rescue dialog (§ 1.2): no organization. */
+  appointeeCandidates: (text: string) => [ROOT, 'appointee-candidates', text] as const,
+  /** An organization's appointment record, read by either host (§ 1.4, § 2.1). */
+  appointments: (organizationId: string, host: 'rescue' | 'organization') =>
+    [ROOT, 'appointments', organizationId, host] as const,
   /** The add-to-team search (§ 2.2). */
   teamMemberCandidates: (organizationId: string, teamId: string, text: string) =>
     [ROOT, 'team-member-candidates', organizationId, teamId, text] as const,

@@ -20,6 +20,7 @@ export const INSTANCE_ROLE_CODES: Readonly<Record<string, readonly string[]>> = 
     'dictionaries.languages.read',
     'dictionaries.languages.write',
     'organizations.organization.create',
+    'organizations.organization.rescue',
   ],
 };
 

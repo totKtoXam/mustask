@@ -59,9 +59,9 @@ public sealed class PermissionCatalogTests
         });
     }
 
-    // ADR-0027 rule 1: exactly three instance codes live in the token; every other code is organization-scoped.
+    // ADR-0027 rule 1: exactly four instance codes live in the token; every other code is organization-scoped.
     [Fact]
-    public void InstanceCodes_AreExactlyTheThreeTheTokenCarries()
+    public void InstanceCodes_AreExactlyTheFourTheTokenCarries()
     {
         Assert.Equal(
             new[]
@@ -69,6 +69,7 @@ public sealed class PermissionCatalogTests
                 "dictionaries.languages.read",
                 "dictionaries.languages.write",
                 "organizations.organization.create",
+                "organizations.organization.rescue",
             },
             PermissionCatalog.InstanceCodes.Order(StringComparer.Ordinal));
     }

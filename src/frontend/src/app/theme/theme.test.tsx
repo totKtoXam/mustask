@@ -115,6 +115,10 @@ describe('US-1 The panel speaks one visual language — the theme', () => {
       expect(getComputedStyle(screen.getByRole('tab', { name: 'Вторая' })).fontWeight).toBe('400');
     });
 
+    it('caps the wide dialog at 900 px (feat-033)', () => {
+      expect(theme.layout.dialogWideMaxWidth).toBe(900);
+    });
+
     it('makes the top bar 48 px high at every width', () => {
       expect(theme.layout.topBarHeight).toBe(48);
       // The toolbar mixin is the bar's height; MUI's own is 56/64 px.

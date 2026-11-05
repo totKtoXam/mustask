@@ -73,7 +73,6 @@ public static class DependencyInjection
         // slices consume (ADR-0025 § 9).
         builder.Services.AddScoped<IUserDirectory, UserDirectoryReadModel>();
         builder.Services.AddScoped<IProjectedUserStore, ProjectedUserStore>();
-        builder.Services.AddScoped<IDirectorySnapshotStore, DirectorySnapshotStore>();
 
         // Organizations (mod-002): M1's repositories, read models and the reads for other modules.
         builder.Services.AddOrganizationsInfrastructure();
@@ -143,6 +142,10 @@ public static class DependencyInjection
         services.AddScoped<ITeamMembershipRepository, TeamMembershipRepository>();
         services.AddScoped<IMemberReadModel, MemberReadModel>();
         services.AddScoped<IOrganizationAccessReadModel, OrganizationAccessReadModel>();
+
+        // feat-033: the appointment record of a system administrator's rescue.
+        services.AddScoped<IAppointmentRecordRepository, AppointmentRecordRepository>();
+        services.AddScoped<IAppointmentReadModel, AppointmentReadModel>();
 
         return services;
     }

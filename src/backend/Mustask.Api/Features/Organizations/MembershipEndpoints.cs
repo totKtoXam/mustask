@@ -4,6 +4,7 @@ using Mustask.Application.Features.Organizations.AddMember;
 using Mustask.Application.Features.Organizations.AddTeamMember;
 using Mustask.Application.Features.Organizations.ChangeMemberRole;
 using Mustask.Application.Features.Organizations.GetMembers;
+using Mustask.Application.Features.Organizations.GetAppointments;
 using Mustask.Application.Features.Organizations.GetOrganizationAccess;
 using Mustask.Application.Features.Organizations.GetTeamMembers;
 using Mustask.Application.Features.Organizations.RemoveMember;
@@ -47,6 +48,15 @@ public static class MembershipEndpoints
         organization.MapGet("/members", GetMembersAsync)
             .RequiresOrganizationPermission(PermissionCatalog.OrganizationsMembershipRead)
             .Produces<IReadOnlyList<MemberView>>()
+            .ProducesProblem(StatusCodes.Status401Unauthorized)
+            .ProducesProblem(StatusCodes.Status403Forbidden)
+            .ProducesProblem(StatusCodes.Status404NotFound);
+
+        // feat-033 api-contract § 2.1: the organization's own record of administrator appointments. A GET with a write code, as
+        // member-candidates: only the organization's administrators hold organizations.membership.write.
+        organization.MapGet("/appointments", GetAppointmentsAsync)
+            .RequiresOrganizationPermission(PermissionCatalog.OrganizationsMembershipWrite)
+            .Produces<IReadOnlyList<AppointmentView>>()
             .ProducesProblem(StatusCodes.Status401Unauthorized)
             .ProducesProblem(StatusCodes.Status403Forbidden)
             .ProducesProblem(StatusCodes.Status404NotFound);
@@ -148,6 +158,10 @@ public static class MembershipEndpoints
 
     private static async Task<IResult> GetMembersAsync(string organizationId, GetMembersHandler handler, CancellationToken cancellationToken) =>
         Results.Ok((await handler.Handle(new GetMembersQuery(organizationId), cancellationToken)).Items);
+
+    private static async Task<IResult> GetAppointmentsAsync(
+        string organizationId, GetAppointmentsHandler handler, CancellationToken cancellationToken) =>
+        Results.Ok(await handler.Handle(new GetAppointmentsQuery(organizationId), cancellationToken));
 
     private static async Task<IResult> SearchMemberCandidatesAsync(
         string organizationId, string? text, SearchMemberCandidatesHandler handler, CancellationToken cancellationToken) =>

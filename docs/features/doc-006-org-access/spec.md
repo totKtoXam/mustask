@@ -347,6 +347,10 @@ disabled can be enabled again in the Keycloak console, which restores its role
 (BR-M1-17); a deleted account cannot come back. Neither is a MUSTASK recovery
 path.
 
+The recovery path for H-1 was added later by feat-033 (ADR-0035): a system
+administrator appoints an administrator of any organization from the instance
+list, with an audited record.
+
 **Release 2** (named here only to fix the boundary — not queued by this
 task): team-selected areas as a set; per-project and per-area permission
 overrides beyond the organization role (BR-5); notifications — in-app

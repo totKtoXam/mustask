@@ -33,6 +33,12 @@ public static class PermissionCatalog
     /// </summary>
     public const string OrganizationsOrganizationCreate = "organizations.organization.create";
 
+    /// <summary>
+    /// Appointing an administrator in any organization and reading its appointment record (feat-033, ADR-0035 § 2).
+    /// Instance-level: held through <c>system-admin</c> only; it reads no organization content (ADR-0029 § 9).
+    /// </summary>
+    public const string OrganizationsOrganizationRescue = "organizations.organization.rescue";
+
     // ----- Organization codes (the membership) -----
 
     /// <summary>Reading an organization and its served access.</summary>
@@ -125,6 +131,7 @@ public static class PermissionCatalog
         new(DictionariesLanguagesRead, PermissionScope.Instance, "Просмотр справочника языков"),
         new(DictionariesLanguagesWrite, PermissionScope.Instance, "Изменение справочника языков"),
         new(OrganizationsOrganizationCreate, PermissionScope.Instance, "Создание организаций"),
+        new(OrganizationsOrganizationRescue, PermissionScope.Instance, "Назначение администратора в любую организацию"),
         new(OrganizationsOrganizationRead, PermissionScope.Organization, "Просмотр организации"),
         new(OrganizationsOrganizationWrite, PermissionScope.Organization, "Переименование организации"),
         new(OrganizationsOrganizationDeactivate, PermissionScope.Organization, "Деактивация и восстановление организации"),

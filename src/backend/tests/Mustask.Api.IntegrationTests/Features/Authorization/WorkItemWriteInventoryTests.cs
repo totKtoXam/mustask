@@ -104,6 +104,8 @@ public sealed class WorkItemWriteInventoryTests(MustaskApiFactory factory)
         ["DELETE " + Org + "/members/{userId}"] = new(Kind.NamesNoWorkItem, ReasonMembership),
         ["POST " + OrgTeam + "/members"] = new(Kind.NamesNoWorkItem, ReasonMembership),
         ["DELETE " + OrgTeam + "/members/{userId}"] = new(Kind.NamesNoWorkItem, ReasonMembership),
+        // feat-033: a system administrator appoints an administrator (instance route, ADR-0029 § 9).
+        ["POST /api/organizations/rescue/{organizationId}/appointments"] = new(Kind.NamesNoWorkItem, ReasonMembership),
     };
 
     private static bool IsWrite(string method) => method is "POST" or "PUT" or "PATCH" or "DELETE";
@@ -201,11 +203,14 @@ public sealed class WorkItemWriteInventoryTests(MustaskApiFactory factory)
         Assert.True(problems.Count == 0, string.Join(Environment.NewLine, problems));
     }
 
-    // The table is also the route inventory's: the same write routes as OrganizationAddressedRoutes.
+    // The table is also the route inventory's: the same write routes as OrganizationAddressedRoutes, plus the instance routes that carry an
+    // organization id (ADR-0029 § 9, feat-033), which the organization inventory lists as its exceptions.
     [Fact]
-    public void TheTable_IsTheRouteInventorysWriteRoutes()
+    public void TheTable_IsTheRouteInventorysWriteRoutes_AndTheInstanceExceptions()
     {
-        var inventory = OrganizationAddressedRoutes.All.Where(route => route.IsWrite).Select(route => $"{route.Method} {route.Template}").Order(StringComparer.Ordinal);
+        var inventory = OrganizationAddressedRoutes.All.Where(route => route.IsWrite).Select(route => $"{route.Method} {route.Template}")
+            .Append("POST /api/organizations/rescue/{organizationId}/appointments")
+            .Order(StringComparer.Ordinal);
 
         Assert.Equal(inventory, Table.Keys.Order(StringComparer.Ordinal));
     }

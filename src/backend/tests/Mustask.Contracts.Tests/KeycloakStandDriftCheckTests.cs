@@ -145,12 +145,15 @@ public sealed class KeycloakStandDriftCheckTests
             Assert.Contains(findings, finding => finding.StartsWith($"Client role `mustask-api/{role}` is in the realm import but not in the live realm", StringComparison.Ordinal));
         }
 
-        foreach (var code in PermissionCatalog.InstanceCodes)
+        // The frozen pre-tech-024 import predates the rescue code (feat-033): it carries every other instance code as a client role.
+        var oldCodes = PermissionCatalog.InstanceCodes.Where(code => code != PermissionCatalog.OrganizationsOrganizationRescue).ToList();
+
+        foreach (var code in oldCodes)
         {
             Assert.Contains(findings, finding => finding.StartsWith($"Client role `mustask-api/{code}` is in the live realm but not in the realm import", StringComparison.Ordinal));
         }
 
-        Assert.Equal(3 + InstanceRoles.Names.Count + PermissionCatalog.InstanceCodes.Count, findings.Count);
+        Assert.Equal(3 + InstanceRoles.Names.Count + oldCodes.Count, findings.Count);
         Assert.All(findings, finding => Assert.Contains("scripts/stand-reset.sh", finding, StringComparison.Ordinal));
     }
 
@@ -170,15 +173,6 @@ public sealed class KeycloakStandDriftCheckTests
         lacking.Clients["mustask-api"].Roles.Remove("system-admin");
 
         AssertOneFindingNamingTheReset(await CheckAsync(lacking), "`mustask-api/system-admin`");
-    }
-
-    [Fact]
-    public async Task TheListenerNotEnabledInTheLiveRealm_Fails()
-    {
-        var live = FakeKeycloak.FromImport(Import(), PanelSecret, AdminPassword);
-        live.Listeners.Remove(UserProjectionIdentifiers.ProviderId);
-
-        AssertOneFindingNamingTheReset(await CheckAsync(live), UserProjectionIdentifiers.ProviderId);
     }
 
     // R-13 / D-9: a changed administrator password is announced at the start, by name, never printed.
@@ -271,8 +265,6 @@ public sealed class KeycloakStandDriftCheckTests
 
         public string AdminPassword { get; private init; } = string.Empty;
 
-        public List<string> Listeners { get; } = [];
-
         public Dictionary<string, (HashSet<string> Realm, Dictionary<string, HashSet<string>> Client)> RealmRoles { get; } = new(StringComparer.Ordinal);
 
         public Dictionary<string, FakeClient> Clients { get; } = new(StringComparer.Ordinal);
@@ -283,7 +275,6 @@ public sealed class KeycloakStandDriftCheckTests
         public static FakeKeycloak FromImport(KeycloakRealmImport import, string panelSecret, string adminPassword)
         {
             var live = new FakeKeycloak { AdminPassword = adminPassword, Realm = import.Realm };
-            live.Listeners.AddRange(import.EventsListeners);
 
             foreach (var role in import.RealmRoles.Values)
             {
@@ -345,7 +336,7 @@ public sealed class KeycloakStandDriftCheckTests
 
             return segments[3..] switch
             {
-                [] => Json(new JsonObject { ["realm"] = Realm, ["eventsListeners"] = Array(Listeners) }),
+                [] => Json(new JsonObject { ["realm"] = Realm }),
                 ["clients"] => Json(new JsonArray(Clients.Select(pair => (JsonNode)ClientJson(pair.Key, pair.Value)).ToArray())),
                 ["clients", var id, "roles"] => Json(RolesJson(ClientById(id).Roles)),
                 ["clients", var id, "client-secret"] => Json(new JsonObject { ["value"] = ClientById(id).Secret }),

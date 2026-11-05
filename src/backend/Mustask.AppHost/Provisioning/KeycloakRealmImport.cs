@@ -7,7 +7,7 @@ namespace Mustask.AppHost.Provisioning;
 /// What a realm-import file of <c>deploy/keycloak/realms</c> declares, for
 /// the stand's drift check (ADR-0025 § 7): realm roles and their composites,
 /// the declared clients with their roles, URLs and whether they carry a
-/// secret, and the event listeners (tech-024: the import declares no realm roles and no groups).
+/// secret (tech-024: the import declares no realm roles and no groups).
 /// Keycloak's <c>${NAME:default}</c> placeholders are resolved with the
 /// stand's own values, the way Keycloak resolved them when the store was
 /// created.
@@ -15,8 +15,7 @@ namespace Mustask.AppHost.Provisioning;
 public sealed partial record KeycloakRealmImport(
     string Realm,
     IReadOnlyDictionary<string, DeclaredRole> RealmRoles,
-    IReadOnlyDictionary<string, DeclaredClient> Clients,
-    IReadOnlyList<string> EventsListeners)
+    IReadOnlyDictionary<string, DeclaredClient> Clients)
 {
     /// <summary>Reads the import file of <paramref name="realm"/> among the <c>*.json</c> files of <paramref name="realmsDirectory"/>.</summary>
     public static KeycloakRealmImport Load(string realmsDirectory, string realm, IReadOnlyDictionary<string, string> placeholders)
@@ -107,8 +106,7 @@ public sealed partial record KeycloakRealmImport(
         return new KeycloakRealmImport(
             Resolve(root.GetProperty("realm").GetString()!),
             realmRoles,
-            clients,
-            Strings(root, "eventsListeners").ToList());
+            clients);
     }
 
     /// <summary>Keycloak's <c>${NAME:default}</c> substitution, the way it resolves it when it imports the file.</summary>

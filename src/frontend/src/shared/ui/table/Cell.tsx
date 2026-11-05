@@ -24,6 +24,11 @@ export interface CellProps extends CellAttributes {
   padding?: CellPadding;
   /** One line with an ellipsis; a text child is also the native `title`. */
   clip?: boolean;
+  /**
+   * A long text wraps in the cell, even one unbroken word (`overflow-wrap: anywhere`), and is
+   * never cut. Not with `clip`.
+   */
+  wrap?: boolean;
   align?: 'left' | 'center' | 'right';
   children?: ReactNode;
   ref?: Ref<HTMLTableCellElement>;
@@ -37,6 +42,7 @@ export interface CellProps extends CellAttributes {
 export function Cell({
   padding = 'cell',
   clip = false,
+  wrap = false,
   align,
   role,
   children,
@@ -49,7 +55,7 @@ export function Cell({
       ref={ref}
       role={role ?? (tableRole === 'treegrid' ? 'gridcell' : undefined)}
       align={align}
-      sx={(theme) => cellSx(theme, padding)}
+      sx={(theme) => cellSx(theme, padding, wrap)}
       {...attributes}
     >
       {clip ? (
@@ -67,12 +73,13 @@ export function Cell({
   );
 }
 
-function cellSx(theme: Theme, padding: CellPadding) {
+function cellSx(theme: Theme, padding: CellPadding, wrap: boolean) {
   return {
     ...theme.typography.tableCell,
     color: theme.palette.text.primary,
     borderBottom: 'none',
     padding: padding === 'tree' ? theme.spacing(0, 0.5) : theme.spacing(0, 1),
+    ...(wrap ? { overflowWrap: 'anywhere' } : {}),
     ...(padding === 'hierarchy' ? { position: 'relative', paddingLeft: theme.spacing(1.5) } : {}),
   } as const;
 }

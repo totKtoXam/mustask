@@ -17,7 +17,7 @@ public sealed class KeycloakDriftHealthCheckTests
     private const string MatchesLine = "Keycloak store: the live realm matches the realm import.";
 
     private static async Task<HealthStatus> ProbeAsync(HealthCheckService health) =>
-        (await health.CheckHealthAsync()).Entries[UserProjectionIdentifiers.DriftHealthCheckKey].Status;
+        (await health.CheckHealthAsync()).Entries[KeycloakStandIdentifiers.DriftHealthCheckKey].Status;
 
     private static ServiceProvider Stand(KeycloakStandDriftCheckTests.FakeKeycloak live, RecordingLogger log)
     {
@@ -60,28 +60,6 @@ public sealed class KeycloakDriftHealthCheckTests
 
         Assert.Equal(1, live.AdminSignIns);
         Assert.Single(log.Entries, entry => entry.Message == MatchesLine);
-    }
-
-    // US-5 lets an operator remove the listener from the realm during a run; the start check has passed by then,
-    // so the running stand stays healthy and nothing tells anyone to reset it.
-    [Fact]
-    public async Task AListenerRemovedAfterThePass_LeavesTheRunningStandHealthy()
-    {
-        var live = LiveRealmFromTheImport();
-        var log = new RecordingLogger();
-        await using var stand = Stand(live, log);
-        var health = stand.GetRequiredService<HealthCheckService>();
-
-        Assert.Equal(HealthStatus.Healthy, await ProbeAsync(health));
-
-        live.Listeners.Remove(UserProjectionIdentifiers.ProviderId);
-
-        for (var probe = 0; probe < 3; probe++)
-        {
-            Assert.Equal(HealthStatus.Healthy, await ProbeAsync(health));
-        }
-
-        Assert.DoesNotContain(log.Entries, entry => entry.Level >= LogLevel.Error);
     }
 
     // The class's own promise: "each new finding is logged once". A failing check keeps checking, so restoring

@@ -24,6 +24,17 @@ public sealed class InstanceRolesTests
         Assert.Equal(expected.Order(StringComparer.Ordinal), role.Codes.Order(StringComparer.Ordinal));
     }
 
+    // feat-033 BR-RS-1, ADR-0035 § 2: the rescue code is held by system-admin and by no other role.
+    [Fact]
+    public void RescueCode_IsHeldBySystemAdminOnly()
+    {
+        var holders = InstanceRoles.All
+            .Where(role => role.Codes.Contains(PermissionCatalog.OrganizationsOrganizationRescue))
+            .Select(role => role.Name);
+
+        Assert.Equal([InstanceRoles.SystemAdmin], holders);
+    }
+
     [Fact]
     public void SystemAdmin_HoldsEveryInstanceCode()
     {

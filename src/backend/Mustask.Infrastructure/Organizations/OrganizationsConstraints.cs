@@ -53,6 +53,9 @@ internal static class OrganizationsConstraints
     /// <summary>"My organizations" and the scoped check's read by user (mod-016).</summary>
     public const string MembershipUser = "ix_organization_memberships_user_id";
 
+    /// <summary>The record of an organization read newest first, and the list's newest-record lookup (feat-033).</summary>
+    public const string AppointmentOrganizationAppointedAt = "ix_organization_appointments_organization_id_appointed_at";
+
     /// <summary>A user is in a team at most once — the primary key <c>(team_id, user_id)</c> (mod-016).</summary>
     public const string TeamMembershipPrimaryKey = "pk_team_memberships";
 

@@ -8,8 +8,7 @@ namespace Mustask.Architecture.Tests;
 /// sub-slice holds an <c>HttpClient</c> or names Keycloak's admin surface —
 /// MUSTASK never calls Keycloak for a user (BR-UP-9).</item>
 /// <item>US-6 "A sign-in does not fill the projection": the write side and the
-/// storage — the stores <c>IProjectedUserStore</c> and
-/// <c>IDirectorySnapshotStore</c>, the entities <c>ProjectedUser</c> and
+/// storage — the store <c>IProjectedUserStore</c>, the entities <c>ProjectedUser</c> and
 /// <c>DirectorySnapshot*</c>, and <c>MustaskDbContext</c>'s sets of them — are
 /// used only by the sub-slice's own folders, the context, its migrations and
 /// the DI wiring (BR-UP-1; api-contract.md A.8: consumers never read the
@@ -28,7 +27,7 @@ public sealed class UserDirectoryBoundaryRules
     /// context's set of users. Consumers read <c>IUserDirectory</c> and <c>DirectoryUser</c>, which match none.
     /// </summary>
     private static readonly string[] ProjectionInternals =
-        ["IProjectedUserStore", "IDirectorySnapshotStore", "ProjectedUser", "DirectorySnapshot", "DirectoryUsers"];
+        ["IProjectedUserStore", "ProjectedUser", "DirectorySnapshot", "DirectoryUsers"];
 
     /// <summary>Where the internals may appear: the sub-slice, the context that maps them, its migrations, DI.</summary>
     private static readonly string[] InternalsAllowedIn =
