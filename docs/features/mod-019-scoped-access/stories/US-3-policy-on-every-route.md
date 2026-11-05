@@ -24,6 +24,9 @@ Scenario Outline: A role of a scope gives its codes on the objects it reaches
     | «Изменение» on «Логистика» | reorders the project backlog   | A      | 403 «Недостаточно прав» |
     | «Изменение» on A           | reorders the project backlog   | A      | kept                    |
     | «Управление» on A          | renames the project            | A      | kept                    |
+    | «Управление» on «Логистика» | renames the project            | A      | kept                    |
+    | «Изменение» on «Логистика» | renames the project            | A      | 403 «Недостаточно прав» |
+    | «Управление» on «Логистика» | renames the project            | D      | 403 «Недостаточно прав» |
     | «Изменение» on A           | changes a work item            | B      | 403 «Недостаточно прав» |
     | «Планирование» on MARS     | reorders the team's backlog    | MARS   | kept                    |
     | «Планирование» on MARS     | changes a work item            | A      | 403 «Недостаточно прав» |

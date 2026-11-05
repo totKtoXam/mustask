@@ -23,6 +23,7 @@ Scenario: Switching a project node off stops what comes from above, not what is 
   Then Pavel's next change to an item of B answers 403, and Kirill's is kept
   And Pavel still changes an item of A
   And Pavel is no longer listed as inherited in B's «Участники и доступ»
+  And if Pavel held «Управление» on «Логистика» instead, his rename of B, its default team, links and grants (OQ-8 A) answer 403 as well, and he still does them on A
 
 Scenario: Switching back on restores the reach with no sign-out
   When Anna switches it on again

@@ -37,6 +37,13 @@ Scenario: A manager gives, changes and removes a grant from the page
   Then each step shows without a page reload
   And the picker offers only active members who hold no grant on A, and typing narrows it
 
+Scenario: A department manager sees the grant controls of the projects it reaches (OQ-8 A)
+  Given Pavel holds «Управление» on «Логистика»
+  When he opens A's «Участники и доступ» and then D's
+  Then A's page offers him the give, change and remove controls, and D's offers none
+  When Anna switches A's node off and he reloads A's page
+  Then A's controls are gone and he is not listed as inherited
+
 Scenario: Without the grant code the controls are absent
   Given Olga holds «Изменение» on A
   When she opens A's «Участники и доступ»

@@ -51,6 +51,7 @@ Plans: `plan-backend.md`, `plan-frontend.md`.
   (the bundle contract carries the instance table and replaces the
   tokenClaims.ts mirror). gate-1 itself waits for the fix round on R-1..R-21
 - 2026-11-06 [business-analyst] fix round for review round 1: R-1..R-21 all fixed, none rejected (Author's response in review.md). OQ-1..OQ-7 marked answered in spec.md; stories US-7 (links under grants) and US-8 (managing the tree) added; new OQ-8 for the human (what a department manager holds on a project it creates); OQ-3 B / OQ-4 B need a new ADR amending ADR-0029 § 4 (BR-SA-16, -17)
+- 2026-11-06 [business-analyst] OQ-8 answered A by the human (department «Управление» holds project.write/.link/.grant on the projects it reaches): spec BR-SA-16, Roles, § Breaks, OQ-8 updated; scenarios added in US-2, US-3, US-5, US-8. The new ADR amending ADR-0029 § 4 must record it (a widening of existing grants)
 
 ## Notes
 

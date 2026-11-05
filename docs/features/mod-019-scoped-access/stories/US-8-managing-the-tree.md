@@ -19,6 +19,15 @@ Scenario: A department manager creates a project in the department (OQ-4 B)
   Then each answers 403 «Недостаточно прав» and stores nothing
   And Anna creates in any place, a top-level one included
 
+Scenario: A department manager runs the projects it reaches (OQ-8 A)
+  Given Pavel holds «Управление» on «Логистика» and has created the project E in it
+  When he renames E, sets its default team, links a team he also manages to E, and gives Irina «Изменение» on E
+  Then each is kept, and the same on A and B
+  And the same on D (top level) answers 403
+  When Anna switches A's node off
+  Then his rename of A, its default team, its links and its grants each answer 403 at his next request, and E is unaffected
+  And he cannot set A's visibility (`organizations.visibility.write`, feat-041) or deactivate it: those stay the project role's and the admin's
+
 Scenario: The place decides, and the order of the codes is fixed (mod-018 TC-2 kept)
   When Olga, who manages nothing, creates a project in «Логистика»
   Then it answers 403, before a name taken or a malformed body is looked at
