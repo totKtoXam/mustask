@@ -3,7 +3,7 @@
 - type: module
 - size: L
 - branch: mod/019-scoped-access
-- stage: 01-business-analysis
+- stage: 02-requirements-review
 - epic: core/org-access
 - deps: mod-018,feat-043
 - gates: gate-1, gate-2, gate-3
@@ -38,6 +38,7 @@ Plans: `plan-backend.md`, `plan-frontend.md`.
   sync PR https://github.com/totKtoXam/mustask/pull/88 (auto-merge squash)
 - 2026-11-06 [orchestrator] session bound: host DESKTOP-2S17CA7, toplevel
   .claude/worktrees/workflow-debts-c5f842, branch mod/019-scoped-access
+- 2026-11-06 [business-analyst] spec.md + US-1..US-6 written; stage → 02-requirements-review. Open for gate-1: OQ-1..OQ-6 (department-only grants, the switch per type, project managers and sub-areas, department managers and project creation, one L or cut lines, confirmation on switch off)
 
 ## Notes
 
