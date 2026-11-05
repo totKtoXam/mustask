@@ -280,14 +280,15 @@ describe('feat-018: the editor inside the form', () => {
     expect(patches(api)).toEqual([]);
   });
 
-  it('a submit while the editor still holds a change reads it first (flush)', async () => {
+  it('a save while the editor still holds a change reads it first (flush)', async () => {
     const { api, description, title } = await openWith({ description: '' });
     await userEvent.click(description());
-    await userEvent.keyboard('быстро');
+    pasteInto(description(), { text: 'быстро' });
 
-    // The form is submitted at once, before the editor's own delay has passed.
+    // The card has no form: Enter in the title saves. It is pressed at once, before the
+    // editor's own report delay (150 ms) has passed, so only the flush can carry the text.
     act(() => {
-      fireEvent.submit(title().closest('form') as HTMLFormElement);
+      fireEvent.keyDown(title(), { key: 'Enter' });
     });
 
     await screen.findByText('Изменения сохранены.');
