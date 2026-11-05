@@ -295,11 +295,15 @@ cmd_nginx() {
     if [ -n "$path" ]; then
         [ -z "$host$cert$key" ] || die "nginx: --path installs locations for a server that is not ours; it takes no --host, --cert or --key"
         # What an earlier run recorded, else nginx's own scheme.
-        [ -n "$proto" ] || proto=$(head -n 1 "$proto_file" 2>/dev/null || true)
+        local from='--forwarded-proto'
+        if [ -z "$proto" ]; then
+            proto=$(head -n 1 "$proto_file" 2>/dev/null || true)
+            from=$proto_file
+        fi
         proto=${proto:-scheme}
         case $proto in
             https|http|scheme) ;;
-            *) die "--forwarded-proto '$proto' must be https, http or scheme" ;;
+            *) die "$from: '$proto' must be https, http or scheme" ;;
         esac
         cmd_nginx_locations "$path" "$proto"
         return

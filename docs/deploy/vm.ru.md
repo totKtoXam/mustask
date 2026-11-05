@@ -542,7 +542,7 @@ sudo bash mustask-v0.2.0/kit/install.sh status      # активный VERSION �
 | `install: the snippet failed nginx -t` (с `--path`) | Сниппет не прошёл `nginx -t` в отдельном временном сервере; сообщение выше называет строку. Сниппет, установленный раньше, остаётся как был. |
 | `install: nginx -t fails on the current configuration` (с `--path`) | Конфигурация портала не проходит с новым сниппетом; прежний сниппет восстановлен (или новый удалён). Сообщение выше называет строку. |
 | Под путём: панель открывается, но её скрипты дают 404, или вход зацикливается | Панель собрана для другого пути, чем отдаёт nginx, либо в сервере портала нет `include` (раздел 7). Пересоберите с полным адресом (раздел 4). |
-| Keycloak показывает «Invalid redirect URI» | У `mustask-panel` нет `https://mustask.example.com/api/session/callback` (под путём — `https://portal.example.com/mustask/api/session/callback`), либо не задан `ASPNETCORE_FORWARDEDHEADERS_ENABLED`, и API отправил адрес `http://`. |
+| Keycloak показывает «Invalid redirect URI» | У `mustask-panel` нет `https://mustask.example.com/api/session/callback` (под путём — `https://portal.example.com/mustask/api/session/callback`), либо не задан `ASPNETCORE_FORWARDEDHEADERS_ENABLED`, и API отправил адрес `http://`, либо TLS завершается на прокси перед порталом, а сниппет установлен без `--forwarded-proto https` (раздел 7.2). |
 | После входа каждый вызов API — 401 | В access token нет `aud = mustask-api`, или `Keycloak__Authority`/`Keycloak__Issuer` не совпадают с `iss` токена. |
 | Вход возвращается с `authError=no_access` | У пользователя нет роли клиента `mustask-api` `user` (назначьте напрямую). |
 | Вход есть, но роль не действует | В access token нет `resource_access.mustask-api.roles` (маппер, раздел 1). |
