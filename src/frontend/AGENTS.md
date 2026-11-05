@@ -33,7 +33,7 @@ Node 23. The dev server is pinned to port 3000 — that port is in the
   run next to the affected ones. Force the whole suite with `VERIFY_FULL=1 bash
   scripts/verify.sh` — `finish-task.sh` and CI (the required check on every
   pull request) do, so a merge is always gated by a full run; the pre-push hook
-  runs the quick one, and `VERIFY_FULL=1 git push` makes it full — instant
+  runs no tests at all (`VERIFY_TESTS=0`, tech-055), and `VERIFY_FULL=1 git push` makes it full — instant
   when a green full run of the same tree and merge-base, on a clean working
   tree, already left its stamp in the git directory (`VERIFY_FORCE=1` repeats
   it; use it after changing `node_modules` or the environment). A full run holds a lock
