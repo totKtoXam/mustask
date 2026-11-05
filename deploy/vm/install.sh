@@ -5,7 +5,7 @@
 # Usage:
 #   install.sh prepare --host <host> [--path /<path>]
 #                      --keycloak-host <host> --realm <realm>
-#                      [--install-packages] [--create-db]
+#                      [--run-as <user>] [--install-packages] [--create-db]
 #   install.sh nginx   --host <host> --cert <fullchain.pem> --key <privkey.pem>
 #   install.sh nginx   --path /<path>
 #   install.sh deploy  <release-dir>
@@ -16,8 +16,12 @@
 #           mustask.env from the template (kept when it exists). --path is
 #           the path of the public address when MUSTASK lives under a path of
 #           a shared host (ADR-0037): it goes into Session__PanelUrl and
-#           Hosting__PathBase; leave it out at a host root. With
-#           --install-packages it runs apt-get for the ASP.NET Core 10
+#           Hosting__PathBase; leave it out at a host root. --run-as names
+#           the account the service runs as: by default the system user
+#           mustask, created here; any other must already exist (a VM whose
+#           apps all run as one account, e.g. ubuntu). It is kept in
+#           /etc/mustask/run-as for deploy, and a re-run without --run-as
+#           keeps the recorded one. With --install-packages it runs apt-get for the ASP.NET Core 10
 #           runtime, PostgreSQL and nginx; with --create-db it creates the
 #           role and the database `mustask` on the local PostgreSQL under a
 #           generated password, written straight into mustask.env and never
@@ -40,6 +44,7 @@
 set -euo pipefail
 
 env_file=/etc/mustask/mustask.env
+run_as_file=/etc/mustask/run-as
 root=/opt/mustask
 releases=$root/releases
 state=/var/lib/mustask
@@ -64,6 +69,9 @@ base_path() {
     printf '%s' "$1" | grep -Eq '^(/[A-Za-z0-9._-]+)+$' || return 1
     case $1/ in */./*|*/../*) return 1 ;; esac
 }
+# The account the service runs as: what prepare recorded, else mustask.
+run_as() { if [ -f "$run_as_file" ]; then head -n 1 "$run_as_file"; else echo mustask; fi; }
+
 # A flag that takes a value must have one.
 val() { [ $# -ge 2 ] && [ -n "$2" ] && [ "${2#--}" = "$2" ] || die "$1 needs a value"; }
 
@@ -80,12 +88,16 @@ wait_health() {
 
 cmd_prepare() {
     local host='' path='' kc_host='' realm='' packages=0 create_db=0
+    # A re-run keeps the recorded account unless --run-as says otherwise.
+    local user
+    user=$(run_as)
     while [ $# -gt 0 ]; do
         case $1 in
             --host) val "$@"; host=$2; shift 2 ;;
             --path) val "$@"; path=$2; shift 2 ;;
             --keycloak-host) val "$@"; kc_host=$2; shift 2 ;;
             --realm) val "$@"; realm=$2; shift 2 ;;
+            --run-as) val "$@"; user=$2; shift 2 ;;
             --install-packages) packages=1; shift ;;
             --create-db) create_db=1; shift ;;
             *) die "prepare: unknown argument '$1'" ;;
@@ -99,6 +111,11 @@ cmd_prepare() {
     printf '%s' "$kc_host" | grep -Eq '^[A-Za-z0-9.-]+(:[0-9]+)?(/[A-Za-z0-9._-]+)*$' \
         || die "--keycloak-host '$kc_host' is not host[:port][/path]"
     printf '%s' "$realm" | grep -Eq '^[A-Za-z0-9._-]+$' || die "--realm '$realm' is not a plain name"
+    printf '%s' "$user" | grep -Eq '^[a-z_][a-z0-9_-]*$' || die "--run-as '$user' is not a plain user name"
+    # Any other account is somebody's already: never created here.
+    [ "$user" = mustask ] || id "$user" >/dev/null 2>&1 \
+        || die "--run-as: no user '$user' on this machine (only mustask is created)"
+    [ "$(id -u "$user" 2>/dev/null)" != 0 ] || die "--run-as: not root"
 
     if [ "$packages" = 1 ]; then
         # Only what is missing, and never an upgrade: on a shared VM an
@@ -120,12 +137,20 @@ cmd_prepare() {
     fi
     command -v dotnet >/dev/null || die "no dotnet: install aspnetcore-runtime-10.0 (or pass --install-packages)"
 
-    if ! id mustask >/dev/null 2>&1; then
+    if [ "$user" = mustask ] && ! id mustask >/dev/null 2>&1; then
         say "service user mustask"
         useradd --system --create-home --home-dir "$state" --shell /usr/sbin/nologin mustask
     fi
-    mkdir -p "$releases" /etc/mustask
-    chown mustask:mustask "$state"
+    local group
+    group=$(id -gn "$user")
+    printf '%s' "$group" | grep -Eq '^[a-z_][a-z0-9_-]*$' \
+        || die "the primary group of '$user' ('$group') is not a plain name"
+    mkdir -p "$releases" /etc/mustask "$state"
+    say "the service runs as $user (group $group)"
+    printf '%s\n' "$user" > "$run_as_file"
+    chmod 0644 "$run_as_file"
+    # -R: after a switch of account, the keys already there move with it.
+    chown -R "$user:$group" "$state"
     chmod 0750 "$state"
 
     if [ -f "$env_file" ]; then
@@ -136,7 +161,7 @@ cmd_prepare() {
             -e "s|@KEYCLOAK_HOST@|$kc_host|g" -e "s|@REALM@|$realm|g" \
             "$kit/mustask.env.template" > "$env_file"
     fi
-    chown root:mustask "$env_file"
+    chown "root:$group" "$env_file"
     chmod 0640 "$env_file"
 
     if [ "$create_db" = 1 ]; then
@@ -304,6 +329,12 @@ cmd_deploy() {
         die "$env_file still has CHANGE_ME on line(s) $(placeholders | cut -d: -f1 | paste -sd, -)"
     fi
 
+    local user
+    user=$(run_as)
+    printf '%s' "$user" | grep -Eq '^[a-z_][a-z0-9_-]*$' || die "bad user '$user' in $run_as_file"
+    id "$user" >/dev/null 2>&1 || die "the service user '$user' ($run_as_file) does not exist: run 'install.sh prepare' again"
+    [ "$(id -u "$user")" != 0 ] || die "$run_as_file names root: run 'install.sh prepare --run-as <user>' again"
+
     local tag target
     tag=$(sed -n 's/^tag=//p' "$src/VERSION")
     [ -n "$tag" ] || die "VERSION has no tag"
@@ -337,8 +368,10 @@ cmd_deploy() {
     say "migrations (bundle)"
     ConnectionStrings__mustask=$(env_value ConnectionStrings__mustask) "$target/efbundle"
 
-    say "systemd unit"
-    install -m 0644 "$target/kit/mustask-api.service" /etc/systemd/system/mustask-api.service
+    say "systemd unit (User=$user)"
+    sed -e "s|@RUN_USER@|$user|g" \
+        "$target/kit/mustask-api.service" > /etc/systemd/system/mustask-api.service
+    chmod 0644 /etc/systemd/system/mustask-api.service
     systemctl daemon-reload
     systemctl enable mustask-api >/dev/null 2>&1
 
