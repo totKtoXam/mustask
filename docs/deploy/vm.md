@@ -362,9 +362,9 @@ HTTP.
    `user` comes back with `authError=no_access` and has no session.
 4. The roles take effect: a user with only `user` opens the dictionaries but
    is refused creating an organization ("Недостаточно прав"); the first
-   administrator (all four roles, section 1) creates the first organization. If the second user is refused
-   too, run the Evaluate check from section 1 for that user:
-   `resource_access.mustask-api.roles` must list both roles.
+   administrator (all four roles, section 1) creates the first organization.
+   If the administrator is refused too, run the Evaluate check from section 1
+   for them: `resource_access.mustask-api.roles` must list all four roles.
 5. After the first sign-in the user appears in member search (the directory
    fills at sign-in; there is no import): the organization's creator finds
    the other test user by name or e-mail when adding a member.
