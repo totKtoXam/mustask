@@ -13,6 +13,13 @@ const slowFiles: string[] =
       }).files
     : [];
 
+// VITE_BASE_PATH (ADR-0037): the path the panel is served under, `/` by default.
+// `/mustask` and `/mustask/` both become `/mustask/`.
+function normaliseBase(value: string | undefined): string {
+  const trimmed = (value ?? '').trim().replace(/^\/+|\/+$/g, '');
+  return trimmed === '' ? '/' : `/${trimmed}/`;
+}
+
 // https://vite.dev/config/
 export default defineConfig(({ command, mode }) => {
   // VITE_API_BASE_URL вшивается на этапе сборки, и прод-бандл без неё
@@ -29,6 +36,7 @@ export default defineConfig(({ command, mode }) => {
   }
 
   return {
+    base: normaliseBase(loadEnv(mode, process.cwd(), 'VITE_').VITE_BASE_PATH),
     plugins: [react()],
     server: {
       // Порт пришпилен: он внесён в CORS-список Mustask.Api

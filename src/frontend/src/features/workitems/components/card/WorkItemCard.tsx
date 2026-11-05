@@ -53,6 +53,7 @@ import { PurgeWorkItemDialog } from './PurgeWorkItemDialog';
 import { RestoreWorkItemDialog } from './RestoreWorkItemDialog';
 import { StateField } from './StateField';
 import type { WorkItemCardSlots } from './cardSlots';
+import { withBase } from '../../../../shared/config/basePath';
 
 /** Which of mod-005's three dialogs is open over the card, if any. */
 type DeletionDialog = 'delete' | 'restore' | 'purge';
@@ -254,10 +255,8 @@ export function WorkItemCard({
   }
 
   async function copyLink() {
-    const address = `${window.location.origin}${workItemPath(
-      organizationId,
-      projectId,
-      item.identifier,
+    const address = `${window.location.origin}${withBase(
+      workItemPath(organizationId, projectId, item.identifier),
     )}`;
     try {
       await navigator.clipboard.writeText(address);

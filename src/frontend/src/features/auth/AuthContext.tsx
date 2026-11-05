@@ -11,6 +11,7 @@ import {
   signIn as sessionSignIn,
   signOut as sessionSignOut,
 } from '../../shared/api/session';
+import { stripBase } from '../../shared/config/basePath';
 
 /** Причины экрана `anonymous` — тексты и кнопки см. `AnonymousScreen`. */
 export type AnonymousReason =
@@ -59,7 +60,8 @@ export const AuthContext = createContext<AuthContextValue | null>(null);
 const AUTH_ERROR_PARAM = 'authError';
 
 function currentPath(): string {
-  return `${window.location.pathname}${window.location.search}`;
+  // Path INSIDE the panel, base removed: the API redirects to {PanelUrl}{returnUrl} and PanelUrl already carries the base.
+  return `${stripBase(window.location.pathname)}${window.location.search}`;
 }
 
 function stripAuthErrorFromUrl(): void {
@@ -78,7 +80,7 @@ function stripAuthErrorFromUrl(): void {
 type BootstrapDecision = { kind: 'signed_out' } | { kind: 'login_failed'; code: string } | { kind: 'network' };
 
 function decideBootstrap(): BootstrapDecision {
-  if (window.location.pathname === '/signed-out') {
+  if (stripBase(window.location.pathname) === '/signed-out') {
     return { kind: 'signed_out' };
   }
   const authError = new URLSearchParams(window.location.search).get(AUTH_ERROR_PARAM);
