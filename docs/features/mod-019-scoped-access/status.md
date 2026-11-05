@@ -34,6 +34,10 @@ Plans: `plan-backend.md`, `plan-frontend.md`.
   semantics of mod-016 api-contract §§ 0.2, 1.1; migrations are additive in
   the module's own tables (3.2 not asked: L already fired). Size matches the
   queue line's size:L
+- 2026-11-06 [orchestrator] queue line taken: scripts/queue.sh take mod-019,
+  sync PR https://github.com/totKtoXam/mustask/pull/88 (auto-merge squash)
+- 2026-11-06 [orchestrator] session bound: host DESKTOP-2S17CA7, toplevel
+  .claude/worktrees/workflow-debts-c5f842, branch mod/019-scoped-access
 
 ## Notes
 
