@@ -3,7 +3,7 @@
 - type: tech
 - size: M
 - branch: tech/058-vm-deploy-kit
-- stage: 04-backend
+- stage: gate-3
 - epic: platform/ci
 - deps: tech-056
 - gates: gate-3
@@ -49,3 +49,4 @@ Rehearsed on 2026-11-05: Ubuntu 24.04 container with systemd, Keycloak 26.4 `sta
 - 2026-11-05 [code-reviewer] review round 1 on 0e19fbbb: needs-fixes, 3 majors and 7 minors open (`review.md`).
 - 2026-11-05 [orchestrator] QA majors re-checked by the orchestrator on the rebuilt stand (entry above), not by a second QA session: the M cap is one QA pass. Review F1–F10 fixed: the temp env file 0600 and removed on exit, `pwd -P` for the release path, `--install-packages` installs only missing packages with `--no-upgrade`, the password kept out of the server log, the nginx site restored on a failed re-run, quote stripping in smoke, site URL without a port, host/realm/cert/tag validation, `out/` at the repo root; docs F3/F4/F6 reworded. Checked on a VM container: both `prepare` runs, a bad host refused, nginx bad-over-good restored, deploy through `/opt/mustask/current` keeps the release, tag `..` refused. Stand removed.
 - 2026-11-05 [code-reviewer] review round 2 on 55647772: approved, F1–F10 fixed, 0 findings open (`review.md`).
+- 2026-11-05 [orchestrator] review round 2 approved; stage gate-3, PR opened for the human's gate-3 decision. Part 2 waits for the human.
