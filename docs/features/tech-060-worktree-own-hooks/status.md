@@ -24,5 +24,5 @@ Check: `bash scripts/verify.sh`. The hand-over was tested: a copy under a pinned
 
 ## Log
 
-- 2026-11-06 [orchestrator] queued via PR #89 by the doc-012 session on the human's choice («⭐ Hook в каждом worktree»). Route: tech, S, light cycle (hooks, scripts and docs only); the human chose «⭐ S, лёгкий цикл».
+- 2026-11-06 [orchestrator] queued via PR #89 (take: PR #91) by the doc-012 session on the human's choice («⭐ Hook в каждом worktree»). Route: tech, S, light cycle (hooks, scripts and docs only); the human chose «⭐ S, лёгкий цикл».
 - 2026-11-06 [orchestrator] binding: worktree `.claude/worktrees/unruffled-banach-65f877`, branch `tech/060-worktree-own-hooks` from origin/main. The config repair is shared state that auto mode blocks; the human runs the script.
