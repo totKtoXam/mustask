@@ -44,6 +44,8 @@ Walk `docs/deploy/vm.md` literally on a clean Linux box standing in for the VM (
 - 2026-11-05 [orchestrator] scope addition via the doc-012 session: sub-path target and the first admin. Sub-path needs auth-touching code, so L. The human chose «B: под-путь отдельной L»: tech-057 queued (PR #80); tech-056 stays S.
 - 2026-11-05 [orchestrator] second rehearsal on a rebuilt stand: the first admin (all four roles) created the first organization and added a colleague; divergences 12–13. Stand removed.
 
+- 2026-11-05 [orchestrator] the human asked for the runbook in Russian for DevOps, then «засунь его в pr»: `docs/deploy/vm.ru.md` added, AGENTS.md names it as the one exception to the English rule; vm.md is the source.
+
 ## Notes
 
 Summary (from the queue line): VM runbook rehearsal: walk docs/deploy/vm.md step by step on a clean Linux (WSL2 or a container standing in for the VM) against a separate Keycloak whose realm is set up by hand exactly as section 1 asks (two clients, four client roles, nothing else), deploy main as it is, pass section 8's smoke check, fix the runbook wherever reality differs; the request to the Keycloak admin goes out in parallel.
