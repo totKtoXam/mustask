@@ -1,180 +1,159 @@
 import { createContext, useContext } from 'react';
 
 /**
- * The organization / project / team context (mod-015 BR-11, BR-18,
- * design § 5). The shell's switcher reads it from a context source; mod-015
- * shipped a fixed placeholder source, and mod-002 supplies the real lists
- * behind the same interface (design § 5.7), extended by mod-002 D-n with a
- * status and a retry per level and the fallback notice. Later slices read
- * the current context through `useWorkContext()`.
+ * The work context the shell holds and pages read through `useWorkContext()`
+ * (feat-043, ADR-0032 §§ 1, 5, 6): the organization plus at most one department, one team and
+ * one project. The address is its source (the most specific object in the prefix, the others in
+ * the query); the remembered selection fills a page that names no object of its own — an
+ * organization's own page such as «Участники», or a page with no organization. The shell's
+ * provider (`app/navigation/useNavigationSource`) reads the organizations and `selector-offers`
+ * and hands them over in this shape; there is no default team and no team level of its own
+ * (mod-020's fallback and feat-040's interim level are retired).
  */
-
-export type WorkContextLevel = 'organization' | 'project' | 'team';
 
 export interface WorkContextTeam {
   id: string;
   name: string;
+  /** The user is in this team (api-contract of feat-043 § 2). */
+  isMember?: boolean;
 }
 
 export interface WorkContextProject {
   id: string;
   name: string;
-  /** In the source's order; the project's first team is its default (D-19). */
-  teams: readonly WorkContextTeam[];
 }
 
 export interface WorkContextOrganization {
   id: string;
   name: string;
+  /** The effective organization's active projects (from `selector-offers`); empty for the others. */
   projects: readonly WorkContextProject[];
+  /** The effective organization's active teams, the user's own first; empty for the others. */
+  teams: readonly WorkContextTeam[];
 }
 
 export interface WorkContextSelection {
   organizationId?: string;
+  departmentId?: string;
   projectId?: string;
   teamId?: string;
+  /**
+   * The chosen project's node, the address of «Структура» (ADR-0031 rule 5): read from the
+   * project's own subtree, because the offers carry no node id. Absent until it is read.
+   */
+  structureId?: string;
+  /** A project's node or a sub-area is open (`areas/:areaId` that is no department): its id. */
+  nodeId?: string;
+}
+
+/** The kinds a row or a link opens (the selectors' kinds). */
+export type WorkContextObjectKind = 'department' | 'team' | 'project';
+
+/**
+ * Where a row or a link to an object leads (ADR-0032 § 5, D-3): the object becomes the most
+ * specific one, the less specific selectors that fit stay in the query, the others reset and
+ * the notice says so (`null`: nothing was reset).
+ */
+export interface WorkContextObjectLink {
+  to: string;
+  notice: string | null;
+}
+
+/** The chosen object of each selector, or `null` for «все». */
+export interface WorkContextObjects {
+  department: string | null;
+  team: string | null;
+  project: string | null;
+}
+
+/** `GET …/selector-offers` (feat-043 api-contract § 2), as far as the selectors need it. */
+export interface WorkContextOffers {
+  departments: readonly { id: string; name: string }[];
+  projects: readonly {
+    id: string;
+    name: string;
+    key: string;
+    departmentId: string | null;
+    teamIds: readonly string[];
+  }[];
+  teams: readonly {
+    id: string;
+    name: string;
+    isMember: boolean;
+    departmentIds: readonly string[];
+  }[];
 }
 
 export type WorkContextStatus = 'loading' | 'failed' | 'ready';
 
-/** The levels below the first, which load and fail on their own (mod-002 D-n). */
-export type WorkContextLowerLevel = Exclude<WorkContextLevel, 'organization'>;
+/** The levels below the organization, which load and fail together (one read of the offers). */
+export type WorkContextLowerLevel = 'project' | 'team';
 
 /**
- * mod-015 § 5.4's fallback notice: the names of the selection that replaced
- * a remembered or chosen one that is gone, top-down, a level with nothing in
- * it left out. `id` tells one notice from the next.
+ * The fallback notice (ADR-0032 § 6): a remembered organization or object is gone. `names` is
+ * what is selected instead, top-down, empty when nothing is left; `id` tells one notice from
+ * the next.
  */
 export interface WorkContextFallback {
   id: number;
   names: readonly string[];
 }
 
-/**
- * The hand-over to mod-002 (mod-015 plan-frontend.md § 4.3), as amended by
- * mod-002 D-n and D-o (mod-015 design § 5.7).
- */
 export interface WorkContextSource {
-  /** The organization level's status: the whole switcher's before mod-002. */
+  /** The organization list's status. */
   status: WorkContextStatus;
-  /**
-   * The project and team levels, each loading or failing on its own once the
-   * level above is shown (mod-002 D-n, design § 3.2). Absent, or a level
-   * absent: ready.
-   */
+  /** The offers' status: the department, team and project selectors load and fail together. */
   levelStatus?: Partial<Record<WorkContextLowerLevel, WorkContextStatus>>;
-  /** Ordered by the source; the switcher renders them as given. */
+  /** The user's active organizations as the server orders them. */
   organizations: readonly WorkContextOrganization[];
   selection: WorkContextSelection;
+  /** `selector-offers` of the effective organization; absent while it loads or after it failed. */
+  offers?: WorkContextOffers;
   /**
-   * `false` for the placeholder dataset: organization-, project- and
-   * team-scoped navigation entries stay hidden until a real context exists
-   * (BR-8 interim clause, D-18).
+   * `false` for a stub that stands for no real lists: organization-scoped navigation entries
+   * stay hidden until a real context exists and the organization's served codes are read.
    */
   isReal: boolean;
-  /**
-   * The organization list page. Undefined: «Все организации» is not shown
-   * and «Нет организаций» is plain text (BR-11, D-20).
-   */
+  /** The organization list page. Undefined: «Все организации» is not shown. */
   organizationListPath?: string;
-  /** Chooses an entry at a level and resets the levels below to their first entries. */
-  select(level: WorkContextLevel, id: string): void;
-  /** «Повторить» of the level that failed; no level: the organization level. */
-  retry?(level?: WorkContextLevel): void;
-  /** The fallback notice to show, or none (mod-015 § 5.4). */
+  /** «Повторить» of the organization list. */
+  retry?(): void;
+  /** «Повторить» of the offers. */
+  retryOffers?(): void;
+  /** «Все организации»: forgets the remembered selection (the shell moves the page). */
+  clearOrganizations?(): void;
+  /** The fallback notice to show, or none. */
   fallback?: WorkContextFallback | null;
   /** The notice was shown and closed. */
   dismissFallback?(): void;
+  /**
+   * The address of an object opened from a row or a link; absent in a stub: the plain path. With
+   * `nodeId` the link opens that node or sub-area of the project `id`, on its own page (D-6).
+   */
+  objectLink?(
+    kind: WorkContextObjectKind,
+    id: string,
+    nodeId?: string,
+  ): WorkContextObjectLink | null;
+  /**
+   * A selector in the address query names nothing, or does not fit the object of the prefix
+   * (ADR-0032 §§ 1, 3): the page is not found for that level, the menu kept.
+   */
+  selectorNotFound?: WorkContextObjectKind | null;
+  /**
+   * The user chose: the selection is remembered for the organization (ADR-0032 § 6). «все» is a
+   * choice too, and an address with no object reads this back.
+   */
+  remember?(organizationId: string, objects: WorkContextObjects): void;
 }
 
-/**
- * Where a choice in the switcher moves the page (mod-002 D-o, design § 2.2):
- * `app/` builds it from the navigation model and hands it to the source,
- * because a slice does not import `app/`.
- */
-export type SwitchTargetResolver = (request: {
-  /** The address on screen. */
-  pathname: string;
-  /** The levels the address carries, with its own ids. */
-  carried: WorkContextSelection;
-  /** The selection after the choice. */
-  next: WorkContextSelection;
-}) => string;
-
-/** The selection resolved to its entries; a level with nothing to choose is undefined. */
-export interface WorkContext {
-  organization?: WorkContextOrganization;
-  project?: WorkContextProject;
-  team?: WorkContextTeam;
-}
-
-function pick<T extends { id: string }>(
-  entries: readonly T[],
-  id: string | undefined,
-): T | undefined {
-  return entries.find((entry) => entry.id === id) ?? entries[0];
-}
-
-/**
- * Resolves a selection against the lists. An id the lists do not hold falls
- * back to the level's first entry, so the switcher always shows a choice
- * when there is one; mod-002 owns the notice for a remembered selection that
- * is gone (design § 5.4).
- */
-export function resolveWorkContext(
-  organizations: readonly WorkContextOrganization[],
-  selection: WorkContextSelection,
-): WorkContext {
-  const organization = pick(organizations, selection.organizationId);
-  const project = organization ? pick(organization.projects, selection.projectId) : undefined;
-  const team = project ? pick(project.teams, selection.teamId) : undefined;
-  return { organization, project, team };
-}
-
-function selectionOf(context: WorkContext): WorkContextSelection {
+/** The selection as the selectors' objects (`null`: «все»). */
+export function objectsOf(selection: WorkContextSelection): WorkContextObjects {
   return {
-    organizationId: context.organization?.id,
-    projectId: context.project?.id,
-    teamId: context.team?.id,
+    department: selection.departmentId ?? null,
+    team: selection.teamId ?? null,
+    project: selection.projectId ?? null,
   };
-}
-
-/** The first organization, its first project and that project's first team. */
-export function firstSelection(
-  organizations: readonly WorkContextOrganization[],
-): WorkContextSelection {
-  return selectionOf(resolveWorkContext(organizations, {}));
-}
-
-/**
- * Chooses `id` at `level` and resets every level below it to its first entry
- * (BR-11): the first team is the project's default until mod-016 (D-19).
- */
-export function selectInWorkContext(
-  organizations: readonly WorkContextOrganization[],
-  selection: WorkContextSelection,
-  level: WorkContextLevel,
-  id: string,
-): WorkContextSelection {
-  switch (level) {
-    case 'organization':
-      return selectionOf(resolveWorkContext(organizations, { organizationId: id }));
-    case 'project':
-      return selectionOf(
-        resolveWorkContext(organizations, {
-          organizationId: selection.organizationId,
-          projectId: id,
-        }),
-      );
-    case 'team':
-      return selectionOf(
-        resolveWorkContext(organizations, {
-          organizationId: selection.organizationId,
-          projectId: selection.projectId,
-          teamId: id,
-        }),
-      );
-  }
 }
 
 const NO_CONTEXT: WorkContextSource = {
@@ -182,7 +161,6 @@ const NO_CONTEXT: WorkContextSource = {
   organizations: [],
   selection: {},
   isReal: false,
-  select: () => {},
 };
 
 /** The shell provides the source; outside the shell there is no context. */

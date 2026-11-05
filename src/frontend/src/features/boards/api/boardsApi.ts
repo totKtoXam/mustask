@@ -10,21 +10,34 @@
 // ones included, and to every card. feat-027's api-contract § 1–§ 2 makes that
 // tree the whole one — every level below the page's, at full depth, in the one
 // answer — numbers only the top-level rows, and adds `effort`, `businessValue`
-// and `valueArea` to every row.
+// and `valueArea` to every row. feat-039's api-contract § 3 adds the project's
+// own backlog, reorder and board: the same rows, cards and columns over every
+// item of the project, answered with `project` where the team's answer has `team`.
+// feat-040's api-contract moves a team's views to the team's address (§ 3, no project in
+// it), adds the repeated `projectId` filter and `projects` (the team's linked active
+// projects) to both reads, and `project` to every row, child and card of every backlog
+// and board (§ 2).
 import { apiFetch } from '../../../shared/api/httpClient';
-import type {
-  WorkItemAssignee,
-  WorkItemRef,
-  WorkItemStateReference,
-  WorkItemTypeReference,
+import {
+  teamFilterQuery,
+  type WorkItemAssignee,
+  type WorkItemRef,
+  type WorkItemStateReference,
+  type WorkItemTeam,
+  type WorkItemTypeReference,
 } from '../../workitems';
 import type { BoardLevelCode } from '../lib/levels';
 
-/** § 2.1: the team, and its default area's path (mod-002 DC-9) the dialog quotes. */
+/** mod-017 api-contract § 1.4: the team as it stands now; it has no default area. */
 export interface BoardTeam {
   id: string;
   name: string;
-  defaultArea: { id: string; path: string };
+}
+
+/** feat-039 api-contract § 2.1: the project as it stands now, the project views' `h1`. */
+export interface BoardProject {
+  id: string;
+  name: string;
 }
 
 /** § 2.2: one type of the level, with the state a new item of it starts in. */
@@ -56,6 +69,35 @@ export interface BacklogItem {
   state: WorkItemStateReference;
   /** feat-022 § 5: the item's «Приоритет», 1 (the highest) to 4. */
   priority: number;
+  /** mod-017 api-contract § 1.5: the owning team, `null` for «Без команды». */
+  team: WorkItemTeam | null;
+  /** feat-040 api-contract § 2.3: the item's project as it stands now; every item has one. */
+  project: BoardProject;
+}
+
+/**
+ * feat-032 api-contract § 2.2: one entry of a card's checklist — a direct child
+ * of the card's item, live, of appearance `task`, `bug` or `testcase`. It carries
+ * no `order`, `priority`, parent, area or planning value.
+ */
+export interface ChecklistChild {
+  id: string;
+  identifier: string;
+  number: number;
+  type: WorkItemTypeReference;
+  title: string;
+  /** `null`: «Не назначен»; `displayName` `null`: «Неизвестный пользователь». */
+  assignee: WorkItemAssignee | null;
+  state: WorkItemStateReference;
+}
+
+/**
+ * feat-032 api-contract § 2.1: a board card — `BacklogItem` plus its `checklist`,
+ * the card's children in the order of their numbers; `[]` when it has none, never
+ * absent. (Not `children`: feat-027 pins that a board card carries none.)
+ */
+export interface BoardCardItem extends BacklogItem {
+  checklist: ChecklistChild[];
 }
 
 /**
@@ -100,13 +142,27 @@ export interface BacklogRow extends BacklogTreeItem {
 }
 
 /**
- * § 3.1's answer: the page's top-level rows in their order, each with the whole
- * tree beneath it (feat-027 § 2); `[]` when empty.
+ * What a backlog's answer holds under either scope: the page's top-level rows in
+ * their order, each with the whole tree beneath it (feat-027 § 2); `[]` when empty.
  */
-export interface Backlog {
-  team: BoardTeam;
+export interface BacklogSurface {
   level: BoardLevel;
   items: BacklogRow[];
+}
+
+/**
+ * feat-040 api-contract § 3.1's answer: a team's backlog over every project it works on.
+ * `projects` are the team's linked active projects by name — the filter's options, the empty
+ * state's and the create command's source — and are not narrowed by the filter.
+ */
+export interface Backlog extends BacklogSurface {
+  team: BoardTeam;
+  projects: BoardProject[];
+}
+
+/** feat-039 api-contract § 3.1's answer: the project's backlog. */
+export interface ProjectBacklog extends BacklogSurface {
+  project: BoardProject;
 }
 
 /** § 3.2's three positions (BR-M4-25). */
@@ -134,61 +190,138 @@ export interface BoardColumn {
   /** One entry per type of the level, in display order. */
   targets: BoardColumnTarget[];
   /** The cards, in the backlog's order; `order` is the backlog position. */
-  items: BacklogItem[];
+  items: BoardCardItem[];
 }
 
-/** § 3.3's answer: every column, an empty one with `[]`. */
-export interface Board {
-  team: BoardTeam;
+/** What a board's answer holds under either scope: every column, an empty one with `[]`. */
+export interface BoardSurface {
   level: BoardLevel;
   columns: BoardColumn[];
 }
 
+/** feat-040 api-contract § 3.3's answer: a team's board over every project it works on. */
+export interface Board extends BoardSurface {
+  team: BoardTeam;
+  projects: BoardProject[];
+}
+
+/** feat-039 api-contract § 3.3's answer: the project's board. */
+export interface ProjectBoard extends BoardSurface {
+  project: BoardProject;
+}
+
 const segment = encodeURIComponent;
 
-function teamApiPath(organizationId: string, projectId: string, teamId: string): string {
-  return `/api/organizations/${segment(organizationId)}/projects/${segment(projectId)}/teams/${segment(teamId)}`;
+/** feat-040 api-contract § 3: a team's views are under the team alone, `/api/organizations/{o}/teams/{t}`. */
+function teamApiPath(organizationId: string, teamId: string): string {
+  return `/api/organizations/${segment(organizationId)}/teams/${segment(teamId)}`;
 }
 
-function backlogApiPath(
-  organizationId: string,
-  projectId: string,
-  teamId: string,
-  level: BoardLevelCode,
-): string {
-  return `${teamApiPath(organizationId, projectId, teamId)}/backlogs/${level}`;
+function backlogApiPath(organizationId: string, teamId: string, level: BoardLevelCode): string {
+  return `${teamApiPath(organizationId, teamId)}/backlogs/${level}`;
 }
 
-/** § 3.1: a team's backlog of one level. */
+/**
+ * `?projectId=…&projectId=…` for a team view's project filter (feat-040 api-contract § 3.1, BR-TS-8),
+ * nothing without one: one parameter per chosen value, as sent from the address.
+ */
+export function projectFilterQuery(projectIds: readonly string[]): string {
+  return projectIds.length === 0
+    ? ''
+    : `?${projectIds.map((projectId) => `projectId=${encodeURIComponent(projectId)}`).join('&')}`;
+}
+
+/** § 3.1: a team's backlog of one level, over every project, narrowed by the project filter when it is set. */
 export function getBacklog(
   organizationId: string,
-  projectId: string,
   teamId: string,
   level: BoardLevelCode,
+  projectIds: readonly string[] = [],
 ): Promise<Backlog> {
-  return apiFetch(backlogApiPath(organizationId, projectId, teamId, level));
+  return apiFetch(
+    `${backlogApiPath(organizationId, teamId, level)}${projectFilterQuery(projectIds)}`,
+  );
 }
 
-/** § 3.2: 204 with no body; the panel reads § 3.1 again. */
+/** § 3.2: 204 with no body; the panel reads § 3.1 again. The filter is not sent: a reorder runs against the full list. */
 export function reorderBacklog(
   organizationId: string,
-  projectId: string,
   teamId: string,
   level: BoardLevelCode,
   body: ReorderBody,
 ): Promise<void> {
-  return apiFetch(`${backlogApiPath(organizationId, projectId, teamId, level)}/reorder`, {
+  return apiFetch(`${backlogApiPath(organizationId, teamId, level)}/reorder`, {
     method: 'POST',
     body,
   });
 }
 
-/** § 3.3: a team's board of one level. */
+/** § 3.3: a team's board of one level, over every project, narrowed by the project filter when it is set. */
 export function getBoard(
   organizationId: string,
-  projectId: string,
   teamId: string,
   level: BoardLevelCode,
+  projectIds: readonly string[] = [],
 ): Promise<Board> {
-  return apiFetch(`${teamApiPath(organizationId, projectId, teamId)}/boards/${level}`);
+  return apiFetch(
+    `${teamApiPath(organizationId, teamId)}/boards/${level}${projectFilterQuery(projectIds)}`,
+  );
+}
+
+function projectApiPath(organizationId: string, projectId: string): string {
+  return `/api/organizations/${segment(organizationId)}/projects/${segment(projectId)}`;
+}
+
+function projectBacklogApiPath(
+  organizationId: string,
+  projectId: string,
+  level: BoardLevelCode,
+): string {
+  return `${projectApiPath(organizationId, projectId)}/backlogs/${level}`;
+}
+
+/**
+ * feat-039 § 3.1: the project's backlog of one level, narrowed by the team filter when it is
+ * set (mod-017 api-contract § 2.6, § 3): `teamId` repeated, `none` for «Без команды».
+ */
+export function getProjectBacklog(
+  organizationId: string,
+  projectId: string,
+  level: BoardLevelCode,
+  teamIds: readonly string[] = [],
+): Promise<ProjectBacklog> {
+  return apiFetch(
+    `${projectBacklogApiPath(organizationId, projectId, level)}${filterQuery(teamIds)}`,
+  );
+}
+
+/** `?teamId=…&teamId=…` for a filter, nothing without one. */
+function filterQuery(teamIds: readonly string[]): string {
+  const query = teamFilterQuery(teamIds);
+  return query === '' ? '' : `?${query.slice(1)}`;
+}
+
+/** feat-039 § 3.2: 204 with no body; the panel reads § 3.1 again. */
+export function reorderProjectBacklog(
+  organizationId: string,
+  projectId: string,
+  level: BoardLevelCode,
+  body: ReorderBody,
+): Promise<void> {
+  return apiFetch(`${projectBacklogApiPath(organizationId, projectId, level)}/reorder`, {
+    method: 'POST',
+    body,
+  });
+}
+
+/** feat-039 § 3.3: the project's board of one level, narrowed by the team filter when it is set. */
+export function getProjectBoard(
+  organizationId: string,
+  projectId: string,
+  level: BoardLevelCode,
+  teamIds: readonly string[] = [],
+): Promise<ProjectBoard> {
+  return apiFetch(
+    `${projectApiPath(organizationId, projectId)}/boards/${level}${filterQuery(teamIds)}`,
+  );
 }

@@ -1,41 +1,43 @@
 import { useState } from 'react';
 import { useParams } from 'react-router-dom';
-import Box from '@mui/material/Box';
-import Chip from '@mui/material/Chip';
-import Paper from '@mui/material/Paper';
-import Table from '@mui/material/Table';
-import TableBody from '@mui/material/TableBody';
-import TableCell from '@mui/material/TableCell';
-import TableContainer from '@mui/material/TableContainer';
-import TableHead from '@mui/material/TableHead';
-import TableRow from '@mui/material/TableRow';
-import AccountTreeOutlinedIcon from '@mui/icons-material/AccountTreeOutlined';
 import AddIcon from '@mui/icons-material/Add';
-import DeleteOutlineOutlinedIcon from '@mui/icons-material/DeleteOutlineOutlined';
-import EditOutlinedIcon from '@mui/icons-material/EditOutlined';
-import { ErrorBanner } from '../../../shared/ui/ErrorBanner';
+import InboxOutlinedIcon from '@mui/icons-material/InboxOutlined';
+import LinkOffOutlinedIcon from '@mui/icons-material/LinkOffOutlined';
+import { useAccessCheck } from '../../../shared/lib/access';
+import { apiErrorText } from '../../../shared/lib/apiErrorText';
+import { useWorkContext } from '../../../shared/lib/workContext';
+import {
+  DataTable,
+  MoreActionsMenu,
+  Tag,
+  TruncatedText,
+  type DataColumn,
+} from '../../../shared/ui';
 import { PageHeader } from '../../../shared/ui/PageHeader';
-import { RegistrySkeleton } from '../../../shared/ui/RegistrySkeleton';
+import { RequiresOrganizationCode } from '../../../shared/ui/RequiresOrganizationCode';
 import { NotFound } from '../../../shared/ui/StateFrame';
-import type { Team } from '../api/organizationsApi';
-import { NameDialog } from '../components/NameDialog';
+import type { ProjectTeam } from '../api/organizationsApi';
+import { LinkDialog, type LinkOption } from '../components/LinkDialog';
 import { useNotify } from '../components/notice';
-import { RowActionsMenu, type RowAction } from '../components/RowActionsMenu';
-import { TeamDialogs, type TeamDialog } from '../components/TeamDialogs';
-import { TruncatedName } from '../components/TruncatedName';
-import { useAddTeam } from '../hooks/mutations';
-import { useTeams } from '../hooks/queries';
+import { UnlinkDialog } from '../components/UnlinkDialog';
+import { useLinkTeamsToProject, useUnlinkTeam } from '../hooks/mutations';
+import { useProject, useTeams } from '../hooks/queries';
+import { useObjectLink } from '../hooks/useObjectLink';
+import { DEFAULT_MARK_LABEL } from '../lib/defaultMark';
 import { notFoundLevel } from '../lib/notFoundLevel';
-import { teamPath } from '../paths';
+import { linkDialog, projectTeamsPage, unlinkDialog } from '../lib/teamTexts';
+import { organizationsPermissions } from '../permissions';
 
-/** The first team's mark: text, never colour alone (design § 9.2). */
-export const FIRST_TEAM_CHIP = 'Владеет корневой областью';
+/** What the page asks of its user in a dialog. */
+type Dialog = { kind: 'link' } | { kind: 'unlink'; team: ProjectTeam } | null;
 
 /**
- * «Команды» (US-4, US-7; design § 9): a project's active teams, the first
- * team first with its chip, each with its default area's path and its row
- * menu. There is no empty state: a project always has its first team
- * (BR-M1-9).
+ * The project's «Команды» (feat-043 design § 7.1; feat-028 US-2..US-4): the teams of the
+ * organization linked to the project, by name, as the server orders them. The named default carries
+ * «По умолчанию», the only linked team «По умолчанию: единственная команда». A name sets the team
+ * (D-3). The row menu holds «Отключить от проекта» alone; «Добавить команды» links existing teams
+ * and needs both link codes. **A project with no team is the normal first state**, not a fault. The
+ * default team is named in the project's «Параметры».
  */
 export function TeamsPage() {
   const { organizationId = '', projectId = '' } = useParams<{
@@ -43,10 +45,17 @@ export function TeamsPage() {
     projectId: string;
   }>();
   const query = useTeams(organizationId, projectId);
-  const addTeam = useAddTeam(organizationId, projectId);
+  const project = useProject(organizationId, projectId);
+  const link = useLinkTeamsToProject(organizationId, projectId);
+  const unlink = useUnlinkTeam(organizationId);
+  const objectLink = useObjectLink(organizationId);
   const notify = useNotify();
-  const [adding, setAdding] = useState(false);
-  const [dialog, setDialog] = useState<TeamDialog>(null);
+  const context = useWorkContext();
+  const access = useAccessCheck();
+  const canLink =
+    access(organizationsPermissions.teamLink, 'organization') &&
+    access(organizationsPermissions.projectLink, 'organization');
+  const [dialog, setDialog] = useState<Dialog>(null);
 
   const level = query.isError ? notFoundLevel(query.error) : null;
   if (level) {
@@ -55,110 +64,133 @@ export function TeamsPage() {
 
   function closeDialog(contextGone: boolean) {
     setDialog(null);
-    setAdding(false);
     if (contextGone) {
       void query.refetch();
     }
   }
 
-  function rowActions(team: Team): RowAction[] {
-    const rename: RowAction = {
-      label: 'Переименовать',
-      icon: <EditOutlinedIcon fontSize="small" />,
-      onClick: () => setDialog({ kind: 'rename', team }),
-    };
-    if (team.isFirstTeam) {
-      return [rename];
-    }
-    return [
-      rename,
-      {
-        label: 'Изменить область по умолчанию',
-        icon: <AccountTreeOutlinedIcon fontSize="small" />,
-        onClick: () => setDialog({ kind: 'defaultArea', team }),
-      },
-      {
-        label: 'Удалить команду',
-        icon: <DeleteOutlineOutlinedIcon fontSize="small" />,
-        onClick: () => setDialog({ kind: 'delete', team }),
-        destructive: true,
-      },
-    ];
+  const teams = query.data ?? [];
+
+  function linkedNotice(chosen: LinkOption[]): string {
+    const [only] = chosen;
+    return chosen.length === 1 && only
+      ? linkDialog.project.linkedOne(only.name)
+      : linkDialog.project.linkedMany(chosen.length);
   }
 
-  const loading = query.isPending || (query.isError && query.isFetching);
-  const firstTeamName = query.data?.find((team) => team.isFirstTeam)?.name ?? '';
+  const openLink = () => setDialog({ kind: 'link' });
+
+  const columns: DataColumn<ProjectTeam>[] = [
+    {
+      key: 'team',
+      header: projectTeamsPage.column,
+      render: (team) => {
+        const target = objectLink('team', team.id);
+        return (
+          <>
+            <TruncatedText to={target.to} linkState={target.state} look="link">
+              {team.name}
+            </TruncatedText>
+            {team.defaultMark && <Tag label={DEFAULT_MARK_LABEL[team.defaultMark]} />}
+          </>
+        );
+      },
+    },
+  ];
+  if (canLink) {
+    columns.push({
+      key: 'actions',
+      header: '',
+      align: 'right',
+      width: 48,
+      render: (team) => (
+        <MoreActionsMenu
+          label={projectTeamsPage.rowMenu(team.name)}
+          size="row"
+          items={[
+            {
+              label: projectTeamsPage.unlink,
+              icon: <LinkOffOutlinedIcon />,
+              onSelect: () => setDialog({ kind: 'unlink', team }),
+              destructive: true,
+            },
+          ]}
+        />
+      ),
+    });
+  }
 
   return (
     <>
       <PageHeader
-        title="Команды"
-        primaryAction={{
-          label: 'Добавить команду',
-          icon: <AddIcon />,
-          onClick: () => setAdding(true),
+        title={projectTeamsPage.title}
+        primaryAction={
+          canLink && query.isSuccess
+            ? { label: projectTeamsPage.add, icon: <AddIcon />, onClick: openLink }
+            : undefined
+        }
+      />
+      <DataTable
+        aria-label={projectTeamsPage.tableLabel}
+        columns={columns}
+        rows={teams}
+        rowKey={(team) => team.id}
+        loading={query.isPending || (query.isError && query.isFetching)}
+        error={query.isError && !query.isFetching ? apiErrorText(query.error) : undefined}
+        onRetry={() => void query.refetch()}
+        empty={{
+          icon: InboxOutlinedIcon,
+          heading: projectTeamsPage.empty.heading,
+          hint: canLink ? projectTeamsPage.empty.adminHint : projectTeamsPage.empty.otherHint,
+          action: canLink
+            ? { label: projectTeamsPage.add, icon: <AddIcon />, onClick: openLink }
+            : undefined,
         }}
       />
-      {loading ? (
-        <RegistrySkeleton columns={['Команда', 'Область по умолчанию', '']} />
-      ) : query.isError ? (
-        <ErrorBanner error={query.error} onRetry={() => void query.refetch()} />
-      ) : (
-        <TableContainer component={Paper} variant="outlined">
-          <Table size="small" aria-label="Команды">
-            <TableHead>
-              <TableRow>
-                <TableCell>Команда</TableCell>
-                <TableCell>Область по умолчанию</TableCell>
-                <TableCell />
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {query.data.map((team) => (
-                <TableRow key={team.id} hover>
-                  <TableCell sx={{ maxWidth: 0, width: '50%' }}>
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, minWidth: 0 }}>
-                      <Box sx={{ minWidth: 0 }}>
-                        <TruncatedName
-                          name={team.name}
-                          to={teamPath(organizationId, projectId, team.id)}
-                        />
-                      </Box>
-                      {team.isFirstTeam && <Chip size="small" label={FIRST_TEAM_CHIP} />}
-                    </Box>
-                  </TableCell>
-                  <TableCell sx={{ maxWidth: 0, width: '50%' }}>
-                    <TruncatedName name={team.defaultArea.path} />
-                  </TableCell>
-                  <TableCell align="right">
-                    <RowActionsMenu name={team.name} actions={rowActions(team)} />
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </TableContainer>
+      {dialog?.kind === 'link' && (
+        <RequiresOrganizationCode code={organizationsPermissions.projectLink}>
+          <LinkDialog
+            end="project"
+            organizationId={organizationId}
+            ownName={project.data?.name ?? ''}
+            linkedIds={teams.map((team) => team.id)}
+            submit={(ids) => link.mutateAsync(ids)}
+            onSucceeded={(chosen) => {
+              setDialog(null);
+              notify(linkedNotice(chosen));
+            }}
+            onClose={closeDialog}
+          />
+        </RequiresOrganizationCode>
       )}
-      {adding && (
-        <NameDialog
-          title="Новая команда"
-          helper="От 1 до 100 символов. Под корневой областью появится область с тем же названием, и она станет областью по умолчанию команды."
-          submitLabel="Добавить"
-          submit={(name) => addTeam.mutateAsync(name)}
-          onSucceeded={(team) => {
-            setAdding(false);
-            notify(`Команда «${team.name}» добавлена.`);
-          }}
-          onClose={closeDialog}
-        />
+      {dialog?.kind === 'unlink' && (
+        <RequiresOrganizationCode code={organizationsPermissions.projectLink}>
+          <UnlinkDialog
+            organizationId={organizationId}
+            projectId={projectId}
+            projectName={project.data?.name ?? ''}
+            teamId={dialog.team.id}
+            teamName={dialog.team.name}
+            submit={async (destinationTeamId) => {
+              const { team } = dialog;
+              const { selection } = context;
+              const fallsBack =
+                selection.organizationId === organizationId &&
+                selection.projectId === projectId &&
+                selection.teamId === team.id;
+              await unlink.mutateAsync({ projectId, teamId: team.id, destinationTeamId });
+              return fallsBack;
+            }}
+            onSucceeded={(fallsBack) => {
+              setDialog(null);
+              if (!fallsBack) {
+                notify(unlinkDialog.unlinked);
+              }
+            }}
+            onClose={closeDialog}
+          />
+        </RequiresOrganizationCode>
       )}
-      <TeamDialogs
-        organizationId={organizationId}
-        projectId={projectId}
-        dialog={dialog}
-        firstTeamName={firstTeamName}
-        onClose={closeDialog}
-      />
     </>
   );
 }

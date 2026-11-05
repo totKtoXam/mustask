@@ -31,6 +31,7 @@ const ITEM: WorkItem = {
   identifier: 'MSK-BUG-4',
   number: 4,
   projectId: 'project-1',
+  project: { id: 'project-1', name: 'Мастаск' },
   type: { id: 'type-bug', key: 'BUG', name: 'Баг', appearance: 'bug' },
   title: 'Падение при входе',
   description: '',
@@ -42,11 +43,13 @@ const ITEM: WorkItem = {
   },
   assignee: { id: 'anna', displayName: 'Анна Смирнова', email: 'anna@example.com' },
   area: { id: 'area-api', path: 'Платформа / API' },
+  team: { id: 'team-mars', name: 'MARS' },
   createdBy: 'creator',
   createdAt: '2026-10-05T14:30:00+00:00',
   changedAt: '2026-10-05T14:30:00+00:00',
   parent: null,
   children: [],
+  deletion: null,
   ...defaultFields('bug'),
 };
 
@@ -96,6 +99,20 @@ describe('changesOf', () => {
     ).toEqual({ areaId: 'area-root' });
     expect(
       changesOf(ITEM, { ...draftOf(ITEM), area: { id: 'area-api', path: 'Отчёты / Шлюз' } }),
+    ).toEqual({});
+  });
+
+  it('carries the team in a wrapper: a team by id, «Без команды» as `{ teamId: null }`, the same team is no change (mod-017 § 0.2)', () => {
+    const venus = { id: 'team-venus', name: 'VENUS' };
+    expect(changesOf(ITEM, { ...draftOf(ITEM), team: venus })).toEqual({
+      team: { teamId: 'team-venus' },
+    });
+    expect(changesOf(ITEM, { ...draftOf(ITEM), team: null })).toEqual({ team: { teamId: null } });
+    expect(
+      changesOf(ITEM, {
+        ...draftOf(ITEM),
+        team: { id: 'team-mars', name: 'MARS (переименована)' },
+      }),
     ).toEqual({});
   });
 
@@ -295,17 +312,30 @@ describe('changesOf: the fields per type (feat-022 US-1 «A save sends only the 
     });
   });
 
-  it('sends US-1’s three values of a story in one body: points, risk in `{ value }`, the criteria as a string', () => {
+  it('sends US-1’s three values of a story in one body: points, risk in `{ value }`, and structured acceptance criteria', () => {
     const item = itemOf('story');
     const draft = withFields(item, {
       storyPoints: '5',
       risk: '2',
-      acceptanceCriteria: 'Вход без пароля',
+      acceptanceCriteria: [
+        {
+          id: 'crit-1',
+          given: 'пользователь на странице',
+          when: 'вводит пароль',
+          then: 'входит',
+        },
+      ],
     });
     expect(changesOf(item, draft)).toEqual({
       storyPoints: { value: 5 },
       risk: { value: 2 },
-      acceptanceCriteria: 'Вход без пароля',
+      acceptanceCriteria: [
+        {
+          given: 'пользователь на странице',
+          when: 'вводит пароль',
+          then: 'входит',
+        },
+      ],
     });
   });
 
@@ -362,7 +392,7 @@ describe('changesOf: the fields per type (feat-022 US-1 «A save sends only the 
     const item = itemOf('task');
     const draft = withFields(item, {
       storyPoints: '5',
-      acceptanceCriteria: 'x',
+      acceptanceCriteria: [{ id: 'crit-x', given: 'x', when: 'y', then: 'z' }],
       startDate: '2026-01-01',
     });
     expect(changesOf(item, draft)).toEqual({});

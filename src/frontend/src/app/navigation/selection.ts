@@ -1,0 +1,295 @@
+import { matchPath } from 'react-router-dom';
+import { NO_TEAM_FILTER_VALUE } from '../../features/workitems';
+import {
+  KIND_ROUTE_PREFIX,
+  LANDING_LEVEL_SEGMENT,
+  SELECTOR_QUERY,
+  type MenuKind,
+  type MenuRow,
+} from './addressModel';
+import {
+  NO_SELECTION,
+  SELECTOR_KINDS,
+  primaryKind,
+  type ObjectSelection,
+  type SelectorKind,
+} from './selectorFit';
+
+/**
+ * The work context as the address and the browser hold it (feat-043: ADR-0032 §§ 1, 5, 6). The
+ * most specific chosen object stands in the address prefix, the others ride in the query
+ * (`teamId`, `departmentId`); the remembered selection lives in `localStorage` per user and
+ * organization. Pure: storage is injected, nothing here reads `window`.
+ */
+
+/** What an address says of the selection. */
+export interface AddressSelection {
+  /** `undefined`: the address is not an organization's. */
+  organizationId?: string;
+  selection: ObjectSelection;
+  /** The kind the address prefix names (`projects/`, `teams/`, `areas/`); `null`: it has none. */
+  prefixKind: SelectorKind | null;
+}
+
+/** Whether a selection names any object: an address with none leaves the remembered one standing. */
+export function namesObjects(selection: ObjectSelection): boolean {
+  return SELECTOR_KINDS.some((kind) => selection[kind] !== null);
+}
+
+const PREFIX_KINDS: readonly SelectorKind[] = ['project', 'team', 'department'];
+
+function idOf(pattern: string, pathname: string, param: string): string | null {
+  const match = matchPath({ path: pattern, end: false }, pathname);
+  const value = match?.params[param];
+  if (value === undefined || value === '') return null;
+  try {
+    return decodeURIComponent(value);
+  } catch {
+    return value;
+  }
+}
+
+/**
+ * Reads the selection an address carries: the object its prefix names, the others from the
+ * query. Matching is the router's own (case and percent-encoding, bug-003 and tech-009 F4); an
+ * empty query value is ignored, a repeated one is read as the first wins, and a `teamId` of
+ * mod-017's filter, `none` («Без команды»), is no team (the first other value is).
+ */
+export function readAddressSelection(pathname: string, search: string): AddressSelection {
+  // The list of deactivated organizations is a page of the list, not of an organization.
+  const isList = matchPath({ path: '/organizations/deactivated', end: true }, pathname) !== null;
+  const organizationId = isList
+    ? undefined
+    : (idOf(`${KIND_ROUTE_PREFIX.organization}/*`, pathname, 'organizationId') ?? undefined);
+  const selection: ObjectSelection = { ...NO_SELECTION };
+  if (organizationId === undefined) return { selection, prefixKind: null };
+
+  const params = new URLSearchParams(search);
+  const department = params.get(SELECTOR_QUERY.department);
+  if (department) selection.department = department;
+  // `teamId` is also mod-017's filter, repeated, and its `none` («Без команды») is no team: the
+  // selector takes the first value that is one, whatever the order (D-1).
+  const team = params
+    .getAll(SELECTOR_QUERY.team)
+    .find((value) => value !== '' && value !== NO_TEAM_FILTER_VALUE);
+  if (team !== undefined) selection.team = team;
+  const idParams: Record<SelectorKind, string> = {
+    project: 'projectId',
+    team: 'teamId',
+    department: 'areaId',
+  };
+  const prefixes: Record<SelectorKind, MenuKind> = {
+    project: 'project',
+    team: 'team',
+    department: 'department',
+  };
+  let prefixKind: SelectorKind | null = null;
+  for (const kind of PREFIX_KINDS) {
+    const id = idOf(`${KIND_ROUTE_PREFIX[prefixes[kind]]}/*`, pathname, idParams[kind]);
+    if (id !== null) {
+      selection[kind] = id;
+      prefixKind = kind;
+      break;
+    }
+  }
+  // On the organization's settings pages, which have no object prefix, the project rides in the
+  // query too (ADR-0032 § 1: read only there); under a prefix the prefix is the most specific
+  // object and no project is chosen, and on any other page `projectId` is that page's own filter.
+  const isSettings =
+    matchPath({ path: `${KIND_ROUTE_PREFIX.organization}/settings/*`, end: true }, pathname) !==
+    null;
+  if (prefixKind === null && isSettings) {
+    const value = params.get(SELECTOR_QUERY.project);
+    if (value) selection.project = value;
+  }
+  return { organizationId, selection, prefixKind };
+}
+
+/** The menu kind of a selection: its most specific object, else the organization. */
+export function menuKindOf(selection: ObjectSelection): MenuKind {
+  return primaryKind(selection) ?? 'organization';
+}
+
+/** The prefix path of the most specific object of a selection (no query). */
+export function prefixPath(organizationId: string, selection: ObjectSelection): string {
+  const org = `/organizations/${encodeURIComponent(organizationId)}`;
+  const primary = primaryKind(selection);
+  if (primary === null) return org;
+  const id = encodeURIComponent(selection[primary] as string);
+  switch (primary) {
+    case 'project':
+      return `${org}/projects/${id}`;
+    case 'team':
+      return `${org}/teams/${id}`;
+    case 'department':
+      return `${org}/areas/${id}`;
+  }
+}
+
+/** The query the non-primary selectors ride in, `''` when there is none. */
+export function selectionQuery(selection: ObjectSelection): string {
+  const primary = primaryKind(selection);
+  const params = new URLSearchParams();
+  for (const kind of ['team', 'department'] as const) {
+    const id = selection[kind];
+    if (kind !== primary && id !== null) params.set(SELECTOR_QUERY[kind], id);
+  }
+  const text = params.toString();
+  return text === '' ? '' : `?${text}`;
+}
+
+/**
+ * The query of an address with no object prefix, an organization's settings page: every chosen
+ * object rides in it, the project too, so the address names the whole selection (QA F-3).
+ */
+export function fullSelectionQuery(selection: ObjectSelection): string {
+  const params = new URLSearchParams();
+  for (const kind of ['team', 'department', 'project'] as const) {
+    const id = selection[kind];
+    if (id !== null) params.set(SELECTOR_QUERY[kind], id);
+  }
+  const text = params.toString();
+  return text === '' ? '' : `?${text}`;
+}
+
+/** The address of a menu row under the selection: prefix, segment, then the query of the rest. */
+export function menuHref(
+  organizationId: string,
+  selection: ObjectSelection,
+  row: Pick<MenuRow, 'segment'>,
+): string {
+  const segment = row.segment.replace(':level', LANDING_LEVEL_SEGMENT);
+  return `${prefixPath(organizationId, selection)}/${segment}${selectionQuery(selection)}`;
+}
+
+/**
+ * The id the selection may name, matched without regard to case (tech-009 F4: an address may
+ * write an id in capitals): the known id spelled as the server spells it, else `null`.
+ */
+export function resolveKnownId(candidate: string, known: readonly string[]): string | null {
+  const lower = candidate.toLowerCase();
+  return known.find((id) => id.toLowerCase() === lower) ?? null;
+}
+
+const STORAGE_ROOT = 'mustask.context.v2';
+
+export function selectionStorageKey(subject: string, organizationId: string): string {
+  return `${STORAGE_ROOT}.${subject}.${organizationId}`;
+}
+
+export function organizationStorageKey(subject: string): string {
+  return `${STORAGE_ROOT}.${subject}.organization`;
+}
+
+/** The part of `Storage` this module needs. */
+export interface KeyValueStore {
+  getItem(key: string): string | null;
+  setItem(key: string, value: string): void;
+}
+
+function idOrNull(value: unknown): string | null {
+  return typeof value === 'string' && value !== '' ? value : null;
+}
+
+/** The remembered selection of an organization; an unreadable or malformed value is absent. */
+export function readRemembered(
+  store: KeyValueStore,
+  subject: string,
+  organizationId: string,
+): ObjectSelection | null {
+  try {
+    const raw = store.getItem(selectionStorageKey(subject, organizationId));
+    if (raw === null) return null;
+    const parsed: unknown = JSON.parse(raw);
+    if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) return null;
+    const record = parsed as Record<string, unknown>;
+    return {
+      department: idOrNull(record.department),
+      team: idOrNull(record.team),
+      project: idOrNull(record.project),
+    };
+  } catch {
+    return null;
+  }
+}
+
+export function writeRemembered(
+  store: KeyValueStore,
+  subject: string,
+  organizationId: string,
+  selection: ObjectSelection,
+): void {
+  try {
+    store.setItem(selectionStorageKey(subject, organizationId), JSON.stringify(selection));
+    store.setItem(organizationStorageKey(subject), organizationId);
+  } catch {
+    // A full or blocked store only costs the memory, never the page.
+  }
+}
+
+/**
+ * A visit to an organization's page that names no object: only the last organization is noted,
+ * the remembered selection stays as it was (ADR-0032 § 6: it is written when an address names
+ * objects or the user chooses).
+ */
+export function writeRememberedOrganization(
+  store: KeyValueStore,
+  subject: string,
+  organizationId: string,
+): void {
+  try {
+    store.setItem(organizationStorageKey(subject), organizationId);
+  } catch {
+    // A full or blocked store only costs the memory, never the page.
+  }
+}
+
+/**
+ * «Все организации» (ADR-0032 § 5): clears all four. The last organization is stored empty, so
+ * a page with no organization of its own shows none, and the organization's own selection is
+ * emptied.
+ */
+export function clearRemembered(
+  store: KeyValueStore,
+  subject: string,
+  organizationId: string | null,
+): void {
+  try {
+    if (organizationId !== null) {
+      store.setItem(
+        selectionStorageKey(subject, organizationId),
+        JSON.stringify({ department: null, team: null, project: null }),
+      );
+    }
+    store.setItem(organizationStorageKey(subject), '');
+  } catch {
+    // A full or blocked store only costs the memory, never the page.
+  }
+}
+
+/** Whether the last organization was cleared on purpose («Все организации»): stored, but empty. */
+export function isOrganizationCleared(store: KeyValueStore, subject: string): boolean {
+  try {
+    return store.getItem(organizationStorageKey(subject)) === '';
+  } catch {
+    return false;
+  }
+}
+
+/** The last organization the user chose or opened, or `null`. */
+export function readRememberedOrganization(store: KeyValueStore, subject: string): string | null {
+  try {
+    return idOrNull(store.getItem(organizationStorageKey(subject)));
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * «Ранее выбранный контекст недоступен. Выбрано: Ромашка.» (design § 8); without the name
+ * when nothing is left.
+ */
+export function fallbackNotice(names: readonly string[]): string {
+  const base = 'Ранее выбранный контекст недоступен.';
+  return names.length === 0 ? base : `${base} Выбрано: ${names.join(' / ')}.`;
+}

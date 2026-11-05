@@ -1,162 +1,184 @@
 using System.Net;
 using System.Text.Json;
-using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.DependencyInjection;
-using Mustask.Application.Abstractions.Organizations;
+using Mustask.Domain.Identity;
 using Mustask.Domain.Organizations;
-using Mustask.Infrastructure;
+using static Mustask.Api.IntegrationTests.Features.Organizations.TeamTestData;
 
 namespace Mustask.Api.IntegrationTests.Features.Organizations;
 
 /// <summary>
-/// <c>POST /api/organizations/{organizationId}/projects/{projectId}/teams</c>
-/// (api-contract § 3.3) through the real host and a real PostgreSQL (plan-backend
-/// § 13, lane L-17). Every test builds its own organization
-/// (<see cref="OrganizationsTestData"/>): the database is shared and never
-/// emptied. A fresh structure holds the project «Пример проекта» with its first
-/// team and root, and a second team «Платформа» with its area.
+/// <c>POST /api/organizations/{organizationId}/teams</c> (feat-028 api-contract § 2.1; US-1, US-7, US-8) through the real host and a real
+/// PostgreSQL. Every test builds its own organization (<see cref="OrganizationsTestData"/>): the database is shared and never emptied.
+/// A fresh structure holds the project «Пример проекта» with a team of its name and a second team «Платформа», both linked to it.
+/// Rewritten from the project-nested add (mod-017 api-contract § 2.7; D-16): a team is created in the organization, with no project.
 /// </summary>
 [Trait("Category", "Integration")]
 [Trait("Category", "RequiresDocker")]
 [Collection(MustaskApiCollection.Name)]
 public sealed class AddTeamEndpointTests(MustaskApiFactory factory)
 {
-    private Task<Answer> AddAsync(
-        Guid organizationId, string projectId, object body, string? token = null, CommitGate? gate = null) =>
-        OrganizationsApi.SendAsync(
-            factory,
-            HttpMethod.Post,
-            $"/api/organizations/{organizationId}/projects/{Uri.EscapeDataString(projectId)}/teams",
-            body,
-            token ?? OrganizationsTokens.SignedIn(),
-            gate);
-
-    private Task<Answer> AddAsync(OrganizationStructure structure, object body, CommitGate? gate = null) =>
-        AddAsync(structure.OrganizationId, structure.ProjectId.ToString(), body, gate: gate);
-
-    // US-4 · "A second team comes with its own area": «Аналитика» joins «Пример проекта» and «Платформа»; the root gains a
-    // child «Аналитика», owned by the new team and set as its default (BR-M1-9, BR-M1-14).
+    // US-1 · "created with a name only" (BR-OL-2): the team alone — no project, no link, no member, the caller included.
     [Fact]
-    public async Task Add_CreatesTeam_WithRootChildOwnedAndDefault()
+    public async Task Add_NameOnly_CreatesTeamAlone_NoProjectLinkOrMembership()
     {
         var structure = await OrganizationsTestData.CreateStructureAsync(factory);
 
-        var answer = await AddAsync(structure, new { name = " Аналитика " });
+        var answer = await CreateTeamAsync(factory, structure.OrganizationId, new { name = " MARS " });
         var teamId = answer.Body.GetProperty("id").GetGuid();
-        var areaId = answer.Body.GetProperty("defaultArea").GetProperty("id").GetGuid();
 
         Assert.Equal(HttpStatusCode.Created, answer.Status);
         Assert.Equal("application/json", answer.MediaType);
-        Assert.Equal(
-            $"/api/organizations/{structure.OrganizationId}/projects/{structure.ProjectId}/teams/{teamId}",
-            answer.Location?.OriginalString);
-        Assert.Equal(["defaultArea", "id", "isFirstTeam", "name", "projectId"], PropertyNames(answer.Body));
-        Assert.Equal(["id", "path"], PropertyNames(answer.Body.GetProperty("defaultArea")));
-        Assert.Equal(structure.ProjectId, answer.Body.GetProperty("projectId").GetGuid());
-        Assert.Equal("Аналитика", answer.Body.GetProperty("name").GetString());
-        Assert.False(answer.Body.GetProperty("isFirstTeam").GetBoolean());
-        Assert.Equal("Аналитика", answer.Body.GetProperty("defaultArea").GetProperty("path").GetString());
+        Assert.Equal($"/api/organizations/{structure.OrganizationId}/teams/{teamId}", answer.Location?.OriginalString);
+        Assert.Equal(["description", "id", "name"], PropertyNames(answer.Body));
+        Assert.Equal("MARS", answer.Body.GetProperty("name").GetString());
+        Assert.Equal(JsonValueKind.Null, answer.Body.GetProperty("description").ValueKind);
 
-        var tree = await OrganizationsTestData.ReadTreeAsync(factory, structure.ProjectId);
-        var area = tree[areaId];
-        Assert.Equal(structure.RootId, area.ParentId);
-        Assert.Equal("Аналитика", area.Name);
-        Assert.Equal(teamId, area.OwnerTeamId);
-        Assert.Equal(teamId, area.DefaultOfTeamId);
-        Assert.Equal(new ResolvedOwner(teamId, false), tree.ResolveOwner(areaId));
-        Assert.Equal("Аналитика", tree.PathOf(areaId));
-
-        // The first team comes first in the project's teams, then display order; the others are untouched.
-        var listed = await ListActiveTeamsAsync(structure);
-        Assert.Equal(["Пример проекта", "Аналитика", "Платформа"], listed.Select(team => team.Name));
-        Assert.Equal(structure.FirstTeamId, listed[0].Id);
-        Assert.True(listed[0].IsFirstTeam);
-        Assert.Equal(structure.Platform.Area.Id, listed.Single(team => team.Id == structure.Platform.Team.Id).DefaultAreaId);
-        Assert.Equal(areaId, listed.Single(team => team.Id == teamId).DefaultAreaId);
+        var stored = await StoredTeamAsync(factory, teamId);
+        Assert.Equal((structure.OrganizationId, TeamStatus.Active), (stored.OrganizationId, stored.Status));
+        Assert.Empty(await LinksOfTeamAsync(factory, teamId));
+        Assert.Empty(await TeamMemberIdsAsync(factory, teamId));
     }
 
-    // US-1 · "A visitor who is not signed in sees nothing".
+    // US-1 · "A visitor who is not signed in sees nothing"; "created with a name only" for a member and a viewer: 403, nothing created.
     [Fact]
-    public async Task Add_NoToken_Returns401_CreatesNothing()
+    public async Task Add_NoToken_Returns401()
     {
         var structure = await OrganizationsTestData.CreateStructureAsync(factory);
 
-        var answer = await OrganizationsApi.SendAsync(
-            factory,
-            HttpMethod.Post,
-            OrganizationsApi.Teams(structure.OrganizationId, structure.ProjectId),
-            new { name = "Аналитика" });
+        var answer = await OrganizationsApi.SendAsync(factory, HttpMethod.Post, OrganizationsApi.OrgTeams(structure.OrganizationId), new { name = "MARS" });
 
         Assert.Equal(HttpStatusCode.Unauthorized, answer.Status);
-        Assert.Equal(2, (await TeamsOfAsync(structure.ProjectId)).Count);
-        Assert.Equal(2, (await OrganizationsTestData.ReadTreeAsync(factory, structure.ProjectId)).Count);
+        Assert.Equal(2, (await StoredTeamsAsync(factory, structure.OrganizationId)).Count);
     }
 
-    // US-3 · "A project id names no project of the organization" (BR-M1-20, BR-M1-22): malformed, unknown, or of another
-    // organization, the project level answers before the body is looked at.
     [Theory]
-    [InlineData("malformed")]
-    [InlineData("unknown")]
-    [InlineData("of another organization")]
-    public async Task Add_ProjectNotOfOrganization_Returns404ProjectNotFound(string how)
+    [InlineData(OrganizationRole.Member)]
+    [InlineData(OrganizationRole.Viewer)]
+    public async Task Add_MemberAndViewer_Return403_CreateNothing(OrganizationRole role)
+    {
+        var structure = await OrganizationsTestData.CreateStructureAsync(factory);
+        var caller = await MembershipTestData.NewMemberAsync(factory, structure.OrganizationId, role);
+
+        var answer = await CreateTeamAsync(factory, structure.OrganizationId, new { name = "MARS" }, caller.Token);
+
+        Assert.Equal((HttpStatusCode.Forbidden, "organizations.access.forbidden"), (answer.Status, answer.ErrorCode));
+        Assert.Equal(2, (await StoredTeamsAsync(factory, structure.OrganizationId)).Count);
+    }
+
+    // US-8 · a non-member of the organization gets the organization's not-found, an instance administrator included.
+    [Fact]
+    public async Task Add_NonMember_Is404Organization()
+    {
+        var structure = await OrganizationsTestData.CreateStructureAsync(factory);
+
+        var answer = await CreateTeamAsync(factory, structure.OrganizationId, new { name = "MARS" }, MembershipTestData.Outsider());
+
+        Assert.Equal((HttpStatusCode.NotFound, "organizations.organization.not_found"), (answer.Status, answer.ErrorCode));
+    }
+
+    // US-1 · "created with its optional parts in one operation": the description as typed, the people and the links — each link
+    // records the caller and the time; the team owns nothing and the caller joined nothing (BR-OL-2).
+    [Fact]
+    public async Task Add_DescriptionMembersAndProjects_AreOneOperation_LinksRecordTheCallerAndTime()
+    {
+        var structure = await OrganizationsTestData.CreateStructureAsync(factory);
+        var second = await OrganizationsTestData.CreateBareProjectAsync(factory, structure.OrganizationId, "Второй проект", "SEC");
+        var ivan = await MembershipTestData.NewNamedMemberAsync(factory, structure.OrganizationId, OrganizationRole.Member, "Иван", "Иванов");
+        var maria = await MembershipTestData.NewNamedMemberAsync(factory, structure.OrganizationId, OrganizationRole.Viewer, "Мария", "Петрова");
+
+        var before = DateTimeOffset.UtcNow.AddSeconds(-5);
+        var answer = await CreateTeamAsync(
+            factory,
+            structure.OrganizationId,
+            new
+            {
+                name = "MARS",
+                description = "  Платформа\nи инструменты ",
+                memberIds = new[] { ivan.Id, maria.Id, ivan.Id },
+                projectIds = new[] { structure.ProjectId.ToString(), second.Project.Id.ToString() },
+            });
+        var teamId = answer.Body.GetProperty("id").GetGuid();
+
+        Assert.Equal(HttpStatusCode.Created, answer.Status);
+        Assert.Equal("  Платформа\nи инструменты ", answer.Body.GetProperty("description").GetString());
+        Assert.Equal(new[] { ivan.Id, maria.Id }.Order(), await TeamMemberIdsAsync(factory, teamId));
+        var links = await LinksOfTeamAsync(factory, teamId);
+        Assert.Equal(new[] { structure.ProjectId, second.Project.Id }.Order(), links.Select(link => link.ProjectId));
+        Assert.All(links, link =>
+        {
+            Assert.Equal(OrganizationsTestData.Creator, link.LinkedBy);
+            Assert.True(link.LinkedAt > before);
+        });
+    }
+
+    // US-3 · "a project that gets its first team has it as its default by inference" (BR-OL-7), through the project's list.
+    [Fact]
+    public async Task Add_OnlyLinkedTeam_IsTheProjectsDefaultByInference()
+    {
+        var organization = await OrganizationsTestData.CreateOrganizationAsync(factory);
+        var project = await OrganizationsTestData.CreateBareProjectAsync(factory, organization.Id);
+
+        var created = await CreateTeamAsync(factory, organization.Id, new { name = "MARS", projectIds = new[] { project.Project.Id.ToString() } });
+        var listed = await GetAsync(factory, OrganizationsApi.Teams(organization.Id, project.Project.Id));
+
+        Assert.Equal(HttpStatusCode.Created, created.Status);
+        var team = Assert.Single(listed.Body.EnumerateArray());
+        Assert.Equal("onlyTeam", team.GetProperty("defaultMark").GetString());
+        Assert.Null(await SettingAsync(factory, project.Project.Id));
+    }
+
+    // US-1 · "a choice that cannot be made" (4 rows): a person of another organization 409, a project of another organization or a
+    // deactivated one 404, a description over 2 000 characters 400 — nothing is created and the name stays free.
+    [Theory]
+    [InlineData("other-organization user")]
+    [InlineData("unknown user")]
+    [InlineData("foreign project")]
+    [InlineData("deactivated project")]
+    [InlineData("malformed project")]
+    [InlineData("description over 2000")]
+    public async Task Add_Refusals_CreateNothing_NameStaysFree(string how)
     {
         var structure = await OrganizationsTestData.CreateStructureAsync(factory);
         var other = await OrganizationsTestData.CreateStructureAsync(factory);
-        var projectId = how switch
+        var outsider = await MembershipTestData.NewNamedMemberAsync(factory, other.OrganizationId, OrganizationRole.Member, "Олег", "Чужой");
+        var deactivated = await OrganizationsTestData.CreateBareProjectAsync(
+            factory, structure.OrganizationId, "Старый", "OLD", ProjectStatus.Deactivated);
+
+        var (body, status, code) = how switch
         {
-            "malformed" => "PRM",
-            "unknown" => Guid.CreateVersion7().ToString(),
-            _ => other.ProjectId.ToString(),
+            "other-organization user" => ((object)new { name = "ORION", memberIds = new[] { outsider.Id } }, HttpStatusCode.Conflict, "organizations.team.member_not_in_organization"),
+            "unknown user" => (new { name = "ORION", memberIds = new[] { "never-projected" } }, HttpStatusCode.Conflict, "organizations.team.member_not_in_organization"),
+            "foreign project" => (new { name = "ORION", projectIds = new[] { other.ProjectId.ToString() } }, HttpStatusCode.NotFound, "organizations.project.not_found"),
+            "deactivated project" => (new { name = "ORION", projectIds = new[] { deactivated.Project.Id.ToString() } }, HttpStatusCode.NotFound, "organizations.project.not_found"),
+            "malformed project" => (new { name = "ORION", projectIds = new[] { "not-an-id" } }, HttpStatusCode.NotFound, "organizations.project.not_found"),
+            _ => (new { name = "ORION", description = new string('я', 2001) }, HttpStatusCode.BadRequest, "organizations.validation_failed"),
         };
 
-        var answer = await AddAsync(structure.OrganizationId, projectId, new { name = "" });
+        var refused = await CreateTeamAsync(factory, structure.OrganizationId, body);
+        var teams = await StoredTeamsAsync(factory, structure.OrganizationId);
 
-        Assert.Equal(HttpStatusCode.NotFound, answer.Status);
-        Assert.Equal("organizations.project.not_found", answer.ErrorCode);
-        Assert.Equal("Проект не найден.", answer.Detail);
-        Assert.Equal(2, (await TeamsOfAsync(other.ProjectId)).Count);
-        Assert.Equal(2, (await OrganizationsTestData.ReadTreeAsync(factory, other.ProjectId)).Count);
+        Assert.Equal((status, code), (refused.Status, refused.ErrorCode));
+        Assert.DoesNotContain(teams, team => team.Name == "ORION");
+
+        var retry = await CreateTeamAsync(factory, structure.OrganizationId, new { name = "ORION" });
+        Assert.Equal(HttpStatusCode.Created, retry.Status);
     }
 
-    // US-3 · "A project is deactivated": a write under it answers project.not_found and changes nothing (ADR-0026 rule 5).
+    // US-1 · the description over 2 000 characters names its field reason.
     [Fact]
-    public async Task Add_UnderDeactivatedProject_Returns404AndChangesNothing()
-    {
-        var structure = await OrganizationsTestData.CreateStructureAsync(factory);
-        await OrganizationsTestData.SetProjectStatusAsync(factory, structure.OrganizationId, structure.ProjectId, ProjectStatus.Deactivated);
-
-        var answer = await AddAsync(structure, new { name = "Аналитика" });
-
-        Assert.Equal(HttpStatusCode.NotFound, answer.Status);
-        Assert.Equal("organizations.project.not_found", answer.ErrorCode);
-        Assert.Equal(2, (await TeamsOfAsync(structure.ProjectId)).Count);
-        Assert.Equal(2, (await OrganizationsTestData.ReadTreeAsync(factory, structure.ProjectId)).Count);
-    }
-
-    // US-4 · "An empty name, or one longer than 100 characters, is refused with «Название должно содержать от 1 до 100
-    // символов»": no team and no area is created.
-    [Theory]
-    [InlineData(null)]
-    [InlineData("")]
-    [InlineData("   ")]
-    [InlineData("101")]
-    public async Task Add_InvalidName_Returns400NameLength_CreatesNothing(string? name)
+    public async Task Add_DescriptionOver2000_Returns400WithTheFieldReason()
     {
         var structure = await OrganizationsTestData.CreateStructureAsync(factory);
 
-        var answer = await AddAsync(structure, new { name = name == "101" ? new string('я', 101) : name });
+        var answer = await CreateTeamAsync(factory, structure.OrganizationId, new { name = "MARS", description = new string('я', 2001) });
 
-        Assert.Equal(HttpStatusCode.BadRequest, answer.Status);
-        Assert.Equal("organizations.validation_failed", answer.ErrorCode);
-        var reason = Assert.Single(answer.Body.GetProperty("errors").GetProperty("name").EnumerateArray());
-        Assert.Equal("organizations.name_length", reason.GetProperty("code").GetString());
-        Assert.Equal("Название должно содержать от 1 до 100 символов", reason.GetProperty("detail").GetString());
-        Assert.Equal(2, (await TeamsOfAsync(structure.ProjectId)).Count);
-        Assert.Equal(2, (await OrganizationsTestData.ReadTreeAsync(factory, structure.ProjectId)).Count);
+        Assert.Equal("organizations.description_length", ReasonOf(answer, "description"));
+        Assert.Equal(
+            "Описание должно содержать не более 2000 символов",
+            answer.Body.GetProperty("errors").GetProperty("description")[0].GetProperty("detail").GetString());
     }
 
-    // US-4 · "A team's name is unique among the project's active teams", compared ignoring case and spaces: «платформа »
-    // and the first team's own name. The new name's area is taken too, and the team's refusal answers first (§ 3.3).
+    // US-1 · "names are unique per organization" (5 rows): the name of an active team in any letter case and with spaces is taken.
     [Theory]
     [InlineData("платформа ")]
     [InlineData(" ПЛАТФОРМА")]
@@ -166,236 +188,101 @@ public sealed class AddTeamEndpointTests(MustaskApiFactory factory)
     {
         var structure = await OrganizationsTestData.CreateStructureAsync(factory);
 
-        var answer = await AddAsync(structure, new { name });
+        var answer = await CreateTeamAsync(factory, structure.OrganizationId, new { name });
 
         Assert.Equal(HttpStatusCode.Conflict, answer.Status);
         Assert.Equal("organizations.team.name_taken", answer.ErrorCode);
-        Assert.Equal("Команда с таким названием уже есть в проекте", answer.Detail);
-        Assert.Equal(2, (await TeamsOfAsync(structure.ProjectId)).Count);
-        Assert.Equal(2, (await OrganizationsTestData.ReadTreeAsync(factory, structure.ProjectId)).Count);
+        Assert.Equal("Команда с таким названием уже есть в организации", answer.Detail);
+        Assert.Equal(2, (await StoredTeamsAsync(factory, structure.OrganizationId)).Count);
     }
 
-    // US-4 · "«Платформа» is still free as a team name in another project", and its area lands under that project's root.
+    // US-1 · a name is free in another organization (a team no longer belongs to a project: the name is the organization's alone).
     [Fact]
-    public async Task Add_SameNameInAnotherProject_Succeeds()
+    public async Task Add_NameInAnotherOrganization_IsFree()
     {
         var structure = await OrganizationsTestData.CreateStructureAsync(factory);
-        var second = await OrganizationsTestData.CreateProjectAsync(factory, structure.OrganizationId, "Второй проект", "SEC");
+        var other = await OrganizationsTestData.CreateOrganizationAsync(factory);
 
-        var answer = await AddAsync(structure.OrganizationId, second.Project.Id.ToString(), new { name = "Платформа" });
+        var answer = await CreateTeamAsync(factory, other.Id, new { name = "Платформа" });
 
         Assert.Equal(HttpStatusCode.Created, answer.Status);
-        Assert.Equal(second.Project.Id, answer.Body.GetProperty("projectId").GetGuid());
-        var areaId = answer.Body.GetProperty("defaultArea").GetProperty("id").GetGuid();
-        var secondTree = await OrganizationsTestData.ReadTreeAsync(factory, second.Project.Id);
-        Assert.Equal(second.Root.Id, secondTree[areaId].ParentId);
-        Assert.Equal(2, (await TeamsOfAsync(structure.ProjectId)).Count);
-        Assert.Equal(2, (await OrganizationsTestData.ReadTreeAsync(factory, structure.ProjectId)).Count);
+        Assert.Equal(2, (await StoredTeamsAsync(factory, structure.OrganizationId)).Count);
     }
 
-    // US-4 · "A new team's area name must be free under the root": the root has a child «Аналитика» and there is no team of
-    // that name; the answer is the area's, and no team and no area is created.
+    // US-7 · "The deleted team's name is free": «Платформа» was deleted and the team is added again at once.
     [Fact]
-    public async Task Add_RootHasChildOfThatName_Returns409AreaNameTaken_CreatesNothing()
+    public async Task Add_NameOfDeletedTeam_IsFree()
     {
         var structure = await OrganizationsTestData.CreateStructureAsync(factory);
-        await OrganizationsTestData.AddAreaAsync(factory, structure.ProjectId, structure.RootId, "Аналитика");
+        await OrganizationsTestData.DeleteTeamAsync(factory, structure.ProjectId, structure.Platform.Id);
 
-        var answer = await AddAsync(structure, new { name = " аналитика " });
-
-        Assert.Equal(HttpStatusCode.Conflict, answer.Status);
-        Assert.Equal("organizations.area.name_taken", answer.ErrorCode);
-        Assert.Equal("Область с таким названием уже есть на этом уровне", answer.Detail);
-        Assert.Equal(2, (await TeamsOfAsync(structure.ProjectId)).Count);
-        Assert.Equal(3, (await OrganizationsTestData.ReadTreeAsync(factory, structure.ProjectId)).Count);
-    }
-
-    // US-7 · "The deleted team's name is free, but its area's name is not": «Платформа» was deleted and the root still has the
-    // child «Платформа»; adding the team again is refused with the area's code (not the team's), and nothing is created.
-    [Fact]
-    public async Task Add_NameOfDeletedTeam_WhileRootChildRemains_Returns409AreaNameTaken()
-    {
-        var structure = await OrganizationsTestData.CreateStructureAsync(factory);
-        await OrganizationsTestData.DeleteTeamAsync(factory, structure.ProjectId, structure.Platform.Team.Id);
-
-        var answer = await AddAsync(structure, new { name = "Платформа" });
-
-        Assert.Equal(HttpStatusCode.Conflict, answer.Status);
-        Assert.Equal("organizations.area.name_taken", answer.ErrorCode);
-        Assert.Equal(2, (await TeamsOfAsync(structure.ProjectId)).Count);
-        Assert.Equal(2, (await OrganizationsTestData.ReadTreeAsync(factory, structure.ProjectId)).Count);
-    }
-
-    // US-7 · "The deleted team's name is free, but its area's name is not": that area renamed «Платформа (архив)», the team is
-    // created, with a new child area «Платформа» of the root as its default.
-    [Fact]
-    public async Task Add_NameOfDeletedTeam_AfterAreaRenamed_Succeeds()
-    {
-        var structure = await OrganizationsTestData.CreateStructureAsync(factory);
-        await OrganizationsTestData.DeleteTeamAsync(factory, structure.ProjectId, structure.Platform.Team.Id);
-        await RenameAreaAsync(structure.ProjectId, structure.Platform.Area.Id, "Платформа (архив)");
-
-        var answer = await AddAsync(structure, new { name = "Платформа" });
+        var answer = await CreateTeamAsync(factory, structure.OrganizationId, new { name = "Платформа" });
         var teamId = answer.Body.GetProperty("id").GetGuid();
-        var areaId = answer.Body.GetProperty("defaultArea").GetProperty("id").GetGuid();
 
         Assert.Equal(HttpStatusCode.Created, answer.Status);
-        Assert.NotEqual(structure.Platform.Team.Id, teamId);
-        Assert.NotEqual(structure.Platform.Area.Id, areaId);
-        Assert.Equal("Платформа", answer.Body.GetProperty("defaultArea").GetProperty("path").GetString());
-
-        var tree = await OrganizationsTestData.ReadTreeAsync(factory, structure.ProjectId);
-        Assert.Equal(structure.RootId, tree[areaId].ParentId);
-        Assert.Equal(teamId, tree[areaId].OwnerTeamId);
-        Assert.Equal(teamId, tree[areaId].DefaultOfTeamId);
-        Assert.Equal("Платформа (архив)", tree[structure.Platform.Area.Id].Name);
-
-        var teams = await TeamsOfAsync(structure.ProjectId);
-        Assert.Equal(TeamStatus.Deleted, teams.Single(team => team.Id == structure.Platform.Team.Id).Status);
+        Assert.NotEqual(structure.Platform.Id, teamId);
+        var teams = await StoredTeamsAsync(factory, structure.OrganizationId);
+        Assert.Equal(TeamStatus.Deleted, teams.Single(team => team.Id == structure.Platform.Id).Status);
         Assert.Equal(TeamStatus.Active, teams.Single(team => team.Id == teamId).Status);
     }
 
-    // US-4 · "Two teams of one name at the same moment" (NFR Concurrency). Request A is held at its commit with its team and
-    // area rows written; B passes the pre-checks (A is not committed), then blocks on the team index until A commits, and
-    // loses with the pre-check's code (plan-backend § 6.3, § 8.1, § 8.3). Exactly one team and one area exist.
+    // US-1 · "An empty name, or one longer than 100 characters, is refused with «Название должно содержать от 1 до 100 символов»".
+    [Theory]
+    [InlineData(null)]
+    [InlineData("")]
+    [InlineData("   ")]
+    [InlineData("101")]
+    public async Task Add_BlankOrTooLongName_Returns400NameLength(string? name)
+    {
+        var structure = await OrganizationsTestData.CreateStructureAsync(factory);
+
+        var answer = await CreateTeamAsync(factory, structure.OrganizationId, new { name = name == "101" ? new string('я', 101) : name });
+
+        Assert.Equal(HttpStatusCode.BadRequest, answer.Status);
+        Assert.Equal("organizations.validation_failed", answer.ErrorCode);
+        Assert.Equal("organizations.name_length", ReasonOf(answer, "name"));
+        Assert.Equal(2, (await StoredTeamsAsync(factory, structure.OrganizationId)).Count);
+    }
+
+    // US-1 · "two creations of one name" (NFR Concurrency): request A is held at its commit with its team row written; B passes the
+    // pre-check, blocks on the team index until A commits, and loses with the pre-check's code. Exactly one team of the name exists.
     [Fact]
-    public async Task Add_TwoConcurrentSameName_OneTeamAndOneArea()
+    public async Task Add_TwoConcurrentSameName_OneTeam()
     {
         var structure = await OrganizationsTestData.CreateStructureAsync(factory);
         var body = new { name = "Аналитика" };
         using var gate = factory.CommitGates.Open();
 
-        var first = AddAsync(structure, body, gate);
+        var first = CreateTeamAsync(factory, structure.OrganizationId, body, gate: gate);
         await Task.WhenAny(gate.Reached, first);
-        Assert.False(first.IsCompleted, "The first addition finished before reaching its commit gate.");
+        Assert.False(first.IsCompleted, "The first creation finished before reaching its commit gate.");
 
-        var second = AddAsync(structure, body);
+        var second = CreateTeamAsync(factory, structure.OrganizationId, body);
         await PgLocks.WaitUntilBlockedAsync(factory.ConnectionString, second);
-        Assert.False(second.IsCompleted, "The second addition did not wait for the first one's uncommitted row.");
+        Assert.False(second.IsCompleted, "The second creation did not wait for the first one's uncommitted row.");
 
         gate.Release();
         var (a, b) = (await first, await second);
 
         Assert.Equal(HttpStatusCode.Created, a.Status);
-        Assert.Equal(HttpStatusCode.Conflict, b.Status);
-        Assert.Equal("organizations.team.name_taken", b.ErrorCode);
-
-        var winnerId = a.Body.GetProperty("id").GetGuid();
-        var named = (await TeamsOfAsync(structure.ProjectId)).Where(team => team.NormalizedName == "АНАЛИТИКА").ToList();
-        Assert.Equal(winnerId, Assert.Single(named).Id);
-
-        var tree = await OrganizationsTestData.ReadTreeAsync(factory, structure.ProjectId);
-        var area = Assert.Single(tree.ChildrenOf(structure.RootId), node => node.Name == "Аналитика");
-        Assert.Equal(winnerId, area.OwnerTeamId);
-        Assert.Equal(winnerId, area.DefaultOfTeamId);
-        Assert.Equal(3, tree.Count);
+        Assert.Equal((HttpStatusCode.Conflict, "organizations.team.name_taken"), (b.Status, b.ErrorCode));
+        var named = (await StoredTeamsAsync(factory, structure.OrganizationId)).Where(team => team.NormalizedName == "АНАЛИТИКА").ToList();
+        Assert.Equal(a.Body.GetProperty("id").GetGuid(), Assert.Single(named).Id);
     }
 
-    // NFR Concurrency, BR-M1-9 "a team and its root child area" (QA pass 1): the team «Аналитика» is added at the same
-    // moment a child area «Аналитика» is created under the root, in both orders. Each passes its pre-checks alone (the
-    // other is not committed); the sibling index decides. The team first: the creation loses with area.name_taken. The
-    // area first: the addition loses with area.name_taken and leaves no team without its area behind.
-    [Theory]
-    [InlineData(true)]
-    [InlineData(false)]
-    public async Task Add_ConcurrentWithARootChildAreaOfTheSameName_OneRefused_NoTeamWithoutItsArea(bool teamFirst)
+    // US-7 · "an administrator rebuilds the structure": after the upgrade the organization has no team; the name is free, the team is
+    // linked to the chosen projects and owns nothing.
+    [Fact]
+    public async Task Add_AfterTheUpgrade_NameIsFree_LinkedToTheChosenProjects_OwnsNothing()
     {
-        var structure = await OrganizationsTestData.CreateStructureAsync(factory);
-        var teamBody = new { name = "Аналитика" };
-        var areaBody = new { parentId = structure.RootId.ToString(), name = "Аналитика" };
-        using var gate = factory.CommitGates.Open();
+        var organization = await OrganizationsTestData.CreateOrganizationAsync(factory);
+        var project = await OrganizationsTestData.CreateBareProjectAsync(factory, organization.Id);
 
-        Task<Answer> addition;
-        Task<Answer> creation;
+        var answer = await CreateTeamAsync(factory, organization.Id, new { name = "Platform", projectIds = new[] { project.Project.Id.ToString() } });
+        var teamId = answer.Body.GetProperty("id").GetGuid();
 
-        if (teamFirst)
-        {
-            addition = AddAsync(structure, teamBody, gate);
-            await Task.WhenAny(gate.Reached, addition);
-            Assert.False(addition.IsCompleted, "The addition finished before reaching its commit gate.");
-
-            creation = CreateAreaAsync(structure, areaBody);
-            await PgLocks.WaitUntilBlockedAsync(factory.ConnectionString, creation);
-            Assert.False(creation.IsCompleted, "The creation did not wait for the addition's uncommitted area.");
-        }
-        else
-        {
-            creation = CreateAreaAsync(structure, areaBody, gate);
-            await Task.WhenAny(gate.Reached, creation);
-            Assert.False(creation.IsCompleted, "The creation finished before reaching its commit gate.");
-
-            addition = AddAsync(structure, teamBody);
-            await PgLocks.WaitUntilBlockedAsync(factory.ConnectionString, addition);
-            Assert.False(addition.IsCompleted, "The addition did not wait for the creation's uncommitted area.");
-        }
-
-        gate.Release();
-        var (added, created) = (await addition, await creation);
-
-        var (winner, loser) = teamFirst ? (added, created) : (created, added);
-        Assert.Equal(HttpStatusCode.Created, winner.Status);
-        Assert.Equal(HttpStatusCode.Conflict, loser.Status);
-        Assert.Equal("organizations.area.name_taken", loser.ErrorCode);
-
-        var tree = await OrganizationsTestData.ReadTreeAsync(factory, structure.ProjectId);
-        var area = Assert.Single(tree.ChildrenOf(structure.RootId), node => node.Name == "Аналитика");
-        var named = (await TeamsOfAsync(structure.ProjectId)).Where(team => team.NormalizedName == "АНАЛИТИКА").ToList();
-
-        if (teamFirst)
-        {
-            var teamId = added.Body.GetProperty("id").GetGuid();
-            Assert.Equal(teamId, Assert.Single(named).Id);
-            Assert.Equal((teamId, teamId), (area.OwnerTeamId, area.DefaultOfTeamId));
-        }
-        else
-        {
-            Assert.Empty(named);
-            Assert.Equal(created.Body.GetProperty("id").GetGuid(), area.Id);
-            Assert.Null(area.OwnerTeamId);
-        }
+        Assert.Equal(HttpStatusCode.Created, answer.Status);
+        Assert.Equal([project.Project.Id], (await LinksOfTeamAsync(factory, teamId)).Select(link => link.ProjectId));
+        Assert.Equal(0, await OwnedItemCountAsync(factory, teamId));
     }
-
-    private Task<Answer> CreateAreaAsync(OrganizationStructure structure, object body, CommitGate? gate = null) =>
-        OrganizationsApi.SendAsync(
-            factory,
-            HttpMethod.Post,
-            OrganizationsApi.Areas(structure.OrganizationId, structure.ProjectId),
-            body,
-            OrganizationsTokens.SignedIn(),
-            gate);
-
-    /// <summary>The project's teams of every status, as stored now.</summary>
-    private async Task<IReadOnlyList<Team>> TeamsOfAsync(Guid projectId)
-    {
-        using var scope = factory.Services.CreateScope();
-        var db = scope.ServiceProvider.GetRequiredService<MustaskDbContext>();
-
-        return await db.Teams.AsNoTracking().Where(team => team.ProjectId == projectId).ToListAsync();
-    }
-
-    /// <summary>The project's active teams as the read model lists them: the first team first, then display order.</summary>
-    private async Task<IReadOnlyList<TeamRow>> ListActiveTeamsAsync(OrganizationStructure structure)
-    {
-        using var scope = factory.Services.CreateScope();
-
-        return await scope.ServiceProvider
-            .GetRequiredService<ITeamReadModel>()
-            .ListActiveAsync(structure.OrganizationId, structure.ProjectId, CancellationToken.None);
-    }
-
-    /// <summary>Renames a child area as US-5 does, in a unit of work of its own.</summary>
-    private Task RenameAreaAsync(Guid projectId, Guid areaId, string name) =>
-        OrganizationsTestData.InUnitOfWorkAsync(factory, async (services, ct) =>
-        {
-            var areas = services.GetRequiredService<IAreaRepository>();
-            var area = await areas.LockForUpdateAsync(projectId, areaId, ct)
-                ?? throw new ArgumentException("The area is not an area of the project.", nameof(areaId));
-            area.Rename(OrganizationsTestData.Name(name));
-            await areas.SaveAsync(ct);
-
-            return true;
-        });
-
-    private static IEnumerable<string> PropertyNames(JsonElement element) =>
-        element.EnumerateObject().Select(property => property.Name).Order(StringComparer.Ordinal);
 }

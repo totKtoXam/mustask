@@ -25,8 +25,8 @@ export function RegistrySkeleton({ columns, rows = 5 }: RegistrySkeletonProps) {
       <Table size="small">
         <TableHead>
           <TableRow>
-            {columns.map((column) => (
-              <TableCell key={column}>{column}</TableCell>
+            {columns.map((column, columnIndex) => (
+              <TableCell key={`${columnIndex}-${column}`}>{column}</TableCell>
             ))}
           </TableRow>
         </TableHead>

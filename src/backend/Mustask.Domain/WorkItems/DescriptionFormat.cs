@@ -2,7 +2,7 @@ namespace Mustask.Domain.WorkItems;
 
 /// <summary>
 /// How a work item's Описание is to be read (feat-018 BR-RT-10): exactly the characters it holds
-/// (<see cref="Plain"/>, mod-003 BR-M3-19) or the server-reduced safe html subset (<see cref="Html"/>, ADR-0027).
+/// (<see cref="Plain"/>, mod-003 BR-M3-19) or the server-reduced safe html subset (<see cref="Html"/>, ADR-0037).
 /// Stored by name (conventions, "Named values" rule 2); the wire key is <see cref="DescriptionFormats.Key"/>.
 /// </summary>
 public enum DescriptionFormat

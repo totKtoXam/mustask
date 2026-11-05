@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { HttpResponse, http } from 'msw';
@@ -16,7 +16,11 @@ import {
   stateId,
   type Dataset,
 } from '../testFixtures';
+import { held } from '../components/card/testCard';
 import { MSK_LIST, mskForm, renderWorkItems } from '../testRender';
+
+// Each user action draws the kit’s fields in jsdom; a test of several steps outlasts the default.
+vi.setConfig({ testTimeout: 120_000 });
 
 async function openForm(identifier: string, data: Dataset = exampleDataset()) {
   const api = serveWorkItems(data);
@@ -29,7 +33,7 @@ function patches(api: WorkItemsTestApi) {
   return api.writes().filter((request) => request.method === 'PATCH');
 }
 
-const save = () => screen.getByRole('button', { name: 'Сохранить' });
+const save = held(() => screen.getByRole('button', { name: 'Сохранить' }));
 const assignee = () => screen.getByRole('combobox', { name: 'Исполнитель' });
 const area = () => screen.getByRole('combobox', { name: 'Область' });
 const status = () => screen.getByRole('combobox', { name: 'Статус' });

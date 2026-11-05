@@ -44,6 +44,20 @@
       "kk": "Атауы 1-ден 100 таңбаға дейін болуы керек",
       "kkNeedsReview": true
     },
+    "organizations.description_length": {
+      "statuses": [400],
+      "params": {},
+      "ru": "Описание должно содержать не более 2000 символов",
+      "kk": "Сипаттама 2000 таңбадан аспауы керек",
+      "kkNeedsReview": true
+    },
+    "organizations.team.destination_required": {
+      "statuses": [400],
+      "params": {},
+      "ru": "Выберите команду или «Без команды»",
+      "kk": "Команданы немесе «Командасыз» таңдаңыз",
+      "kkNeedsReview": true
+    },
     "organizations.organization.create_forbidden": {
       "statuses": [403],
       "params": {},
@@ -103,30 +117,48 @@
     "organizations.team.name_taken": {
       "statuses": [409],
       "params": {},
-      "ru": "Команда с таким названием уже есть в проекте",
-      "kk": "Жобада мұндай атауы бар команда бар",
+      "ru": "Команда с таким названием уже есть в организации",
+      "kk": "Ұйымда мұндай атауы бар команда бар",
       "kkNeedsReview": true
+    },
+    "organizations.team.not_in_project": {
+      "statuses": [409],
+      "params": {},
+      "ru": "Команда не участвует в проекте.",
+      "kk": "Команда жобаға қатыспайды.",
+      "kkNeedsReview": true
+    },
+    "organizations.team.last_team_cannot_be_deleted": {
+      "statuses": [409],
+      "params": {},
+      "ru": "Нельзя удалить единственную команду проекта.",
+      "kk": "Жобаның жалғыз командасын жоюға болмайды.",
+      "kkNeedsReview": true,
+      "deprecated": true
     },
     "organizations.team.default_area_not_owned": {
       "statuses": [409],
       "params": {},
       "ru": "Область по умолчанию должна принадлежать самой команде",
       "kk": "Әдепкі аймақ команданың өзіне тиесілі болуы керек",
-      "kkNeedsReview": true
+      "kkNeedsReview": true,
+      "deprecated": true
     },
     "organizations.team.first_team_default_fixed": {
       "statuses": [409],
       "params": {},
       "ru": "У первой команды область по умолчанию не меняется",
       "kk": "Бірінші команданың әдепкі аймағы өзгермейді",
-      "kkNeedsReview": true
+      "kkNeedsReview": true,
+      "deprecated": true
     },
     "organizations.team.first_team_cannot_be_deleted": {
       "statuses": [409],
       "params": {},
       "ru": "Нельзя удалить команду, которой принадлежит корневая область проекта",
       "kk": "Жобаның түбірлік аймағы тиесілі команданы жоюға болмайды",
-      "kkNeedsReview": true
+      "kkNeedsReview": true,
+      "deprecated": true
     },
     "organizations.area.name_taken": {
       "statuses": [409],
@@ -147,13 +179,42 @@
       "params": { "team": "string" },
       "ru": "Область используется как область по умолчанию команды «{team}»",
       "kk": "Аймақ «{team}» командасының әдепкі аймағы ретінде пайдаланылады",
+      "kkNeedsReview": true,
+      "deprecated": true
+    },
+    "organizations.area.depth_exceeded": {
+      "statuses": [409],
+      "params": {},
+      "ru": "Дерево областей не может быть глубже 10 уровней",
+      "kk": "Аймақ ағашы 10 деңгейден терең болмауы керек",
+      "kkNeedsReview": true
+    },
+    "organizations.area.type_not_allowed": {
+      "statuses": [409],
+      "params": {},
+      "ru": "Область этого типа нельзя разместить в выбранном месте. Департамент стоит на верхнем уровне, проект — на верхнем уровне или в департаменте, вложенная область — внутри своего проекта.",
+      "kk": "Мұндай түрдегі аймақты таңдалған жерге орналастыруға болмайды. Департамент жоғарғы деңгейде, жоба — жоғарғы деңгейде немесе департаментте, ішкі аймақ — өз жобасының ішінде тұрады.",
+      "kkNeedsReview": true
+    },
+    "organizations.area.outside_project": {
+      "statuses": [409],
+      "params": {},
+      "ru": "Вложенную область нельзя переместить за пределы её проекта",
+      "kk": "Ішкі аймақты өз жобасының шегінен тыс жылжытуға болмайды",
+      "kkNeedsReview": true
+    },
+    "organizations.area.link_type_not_allowed": {
+      "statuses": [409],
+      "params": {},
+      "ru": "Команду можно связать только с департаментом. Команды проекта подключаются на странице проекта.",
+      "kk": "Команданы тек департаментпен байланыстыруға болады. Жоба командалары жоба бетінде қосылады.",
       "kkNeedsReview": true
     },
     "organizations.area.not_empty": {
       "statuses": [409],
       "params": {},
-      "ru": "Нельзя удалить область, в которой есть рабочие элементы (включая удалённые) или вложенные области",
-      "kk": "Жұмыс элементтері (жойылғандарын қоса) немесе ішкі аймақтары бар аймақты жоюға болмайды",
+      "ru": "Нельзя удалить область, в которой есть проекты, вложенные области или рабочие элементы",
+      "kk": "Жобалары, ішкі аймақтары немесе жұмыс элементтері бар аймақты жоюға болмайды",
       "kkNeedsReview": true
     },
     "organizations.area.root_is_fixed": {
@@ -161,6 +222,132 @@
       "params": {},
       "ru": "Корневая область меняется только вместе с проектом",
       "kk": "Түбірлік аймақ тек жобамен бірге өзгереді",
+      "kkNeedsReview": true
+    },
+    "organizations.access.forbidden": {
+      "statuses": [403],
+      "params": {},
+      "ru": "Недостаточно прав",
+      "kk": "Құқықтар жеткіліксіз",
+      "kkNeedsReview": true
+    },
+    "organizations.membership.already_member": {
+      "statuses": [409],
+      "params": {},
+      "ru": "Пользователь уже состоит в организации",
+      "kk": "Пайдаланушы ұйымның құрамында бұрыннан бар",
+      "kkNeedsReview": true
+    },
+    "organizations.membership.last_admin": {
+      "statuses": [409],
+      "params": {},
+      "ru": "В организации должен остаться хотя бы один администратор",
+      "kk": "Ұйымда кемінде бір әкімші қалуы керек",
+      "kkNeedsReview": true
+    },
+    "organizations.membership.user_unavailable": {
+      "statuses": [409],
+      "params": {},
+      "ru": "Этого пользователя нельзя добавить в организацию",
+      "kk": "Бұл пайдаланушыны ұйымға қосуға болмайды",
+      "kkNeedsReview": true
+    },
+    "organizations.membership.not_found": {
+      "statuses": [404],
+      "params": {},
+      "ru": "Участник не найден.",
+      "kk": "Мүше табылмады.",
+      "kkNeedsReview": true
+    },
+    "organizations.membership.role_invalid": {
+      "statuses": [400],
+      "params": {},
+      "ru": "Выберите роль: администратор, участник или читатель",
+      "kk": "Рөлді таңдаңыз: әкімші, қатысушы немесе оқырман",
+      "kkNeedsReview": true
+    },
+    "organizations.membership.user_invalid": {
+      "statuses": [400],
+      "params": {},
+      "ru": "Укажите пользователя",
+      "kk": "Пайдаланушыны көрсетіңіз",
+      "kkNeedsReview": true
+    },
+    "organizations.team.member_exists": {
+      "statuses": [409],
+      "params": {},
+      "ru": "Пользователь уже состоит в команде",
+      "kk": "Пайдаланушы командада бұрыннан бар",
+      "kkNeedsReview": true
+    },
+    "organizations.team.member_not_in_organization": {
+      "statuses": [409],
+      "params": {},
+      "ru": "Добавить в команду можно только активного участника организации",
+      "kk": "Командаға ұйымның тек белсенді мүшесін ғана қосуға болады",
+      "kkNeedsReview": true
+    },
+    "organizations.team.member_not_found": {
+      "statuses": [404],
+      "params": {},
+      "ru": "Участник команды не найден.",
+      "kk": "Команда мүшесі табылмады.",
+      "kkNeedsReview": true
+    },
+    "organizations.rescue.forbidden": {
+      "statuses": [403],
+      "params": {},
+      "ru": "Недостаточно прав",
+      "kk": "Құқықтар жеткіліксіз",
+      "kkNeedsReview": true
+    },
+    "organizations.rescue.user_unavailable": {
+      "statuses": [409],
+      "params": {},
+      "ru": "Этого пользователя нельзя назначить администратором",
+      "kk": "Бұл пайдаланушыны әкімші етіп тағайындауға болмайды",
+      "kkNeedsReview": true
+    },
+    "organizations.rescue.self_appointment": {
+      "statuses": [409],
+      "params": {},
+      "ru": "Нельзя назначить администратором себя",
+      "kk": "Өзіңізді әкімші етіп тағайындауға болмайды",
+      "kkNeedsReview": true
+    },
+    "organizations.rescue.already_admin": {
+      "statuses": [409],
+      "params": {},
+      "ru": "Пользователь уже администратор этой организации",
+      "kk": "Пайдаланушы бұл ұйымның әкімшісі болып табылады",
+      "kkNeedsReview": true
+    },
+    "organizations.rescue.reason_required": {
+      "statuses": [400],
+      "params": {},
+      "ru": "Укажите причину",
+      "kk": "Себебін көрсетіңіз",
+      "kkNeedsReview": true
+    },
+    "organizations.rescue.reason_too_long": {
+      "statuses": [400],
+      "params": {},
+      "ru": "Не более 500 символов",
+      "kk": "500 таңбадан аспауы керек",
+      "kkNeedsReview": true
+    },
+    "organizations.rescue.reason_invalid": {
+      "statuses": [400],
+      "params": {},
+      "ru": "Причина содержит недопустимые символы",
+      "kk": "Себепте жарамсыз таңбалар бар",
+      "kkNeedsReview": true
+    },
+    "organizations.rescue.invalid_page": {
+      "statuses": [400],
+      "params": {},
+      "ru": "Некорректный номер страницы.",
+      "kk": "Бет нөмірі дұрыс емес.",
       "kkNeedsReview": true
     }
   }

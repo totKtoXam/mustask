@@ -15,7 +15,7 @@ namespace Mustask.Application.Features.Organizations.GetProjects;
 /// <b>The order of answers</b> (plan-backend § 5.3): the route's only address
 /// level is the organization, so the only refusal is
 /// <see cref="OrganizationErrorCodes.OrganizationNotFound"/>. The
-/// organization-context filter is the boundary and has answered already; the
+/// scoped check is the boundary and has answered already; the
 /// handler checks the level once more, through the same reachability
 /// specification (<see cref="IOrganizationReadModel.FindActiveAsync"/>), so a
 /// call that does not pass the filter can never be told apart from a

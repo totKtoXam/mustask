@@ -2,7 +2,7 @@ namespace Mustask.Application.Abstractions.RichText;
 
 /// <summary>
 /// The server's reduction of a rich-text description to the safe subset and its canonical form (feat-018 US-2, US-7,
-/// ADR-0027 decision 5). The implementation lives in Infrastructure, so the domain and the application stay free of
+/// ADR-0037 decision 5). The implementation lives in Infrastructure, so the domain and the application stay free of
 /// an HTML parser; the Domain keeps the limits and the order they are applied in.
 /// </summary>
 /// <remarks>
@@ -41,7 +41,7 @@ public sealed record RichTextReduction(bool Exceeded, string Html, int MarkupLen
 }
 
 /// <summary>
-/// A profile point of the reduction (ADR-0027 "What later features inherit"): the budget is an argument, so a
+/// A profile point of the reduction (ADR-0037 "What later features inherit"): the budget is an argument, so a
 /// narrower profile for comments is a new value, not a fork.
 /// </summary>
 /// <param name="MaxMarkupCodePoints">The most reduced markup, in Unicode code points, the output may reach.</param>

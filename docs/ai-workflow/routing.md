@@ -240,8 +240,12 @@ has two shortcuts:
 
 - **`gate-1` and `gate-2` are shown as a single package** after stage 3. The
   spec and the design of an `M` are small, and keeping a separate stop between
-  them means paying with a second wait for a look at a couple of screens. For
-  `L` the gates stay separate: there the design leans on the approved spec so
+  them means paying with a second wait for a look at a couple of screens.
+  Until the package `gate-1` stays as the human left it (`pending`, or
+  `rejected` on a rework round), and stage 3 starts from the
+  spec reviewed at stage 2 ([stages/02-requirements-review.md](stages/02-requirements-review.md),
+  "Human Gate 1"). An `M` with no UI has no stage 3, so its `gate-1` is asked
+  alone after stage 2. For `L` the gates stay separate: there the design leans on the approved spec so
   much that doing it before the approve is a risk of rework.
 - **One QA pass instead of two.** For `M` stages 5 and 7 merge into a single
   QA after the frontend: the acceptance criteria are shared, and two test

@@ -13,7 +13,7 @@ const paper = { light: theme.palette.background.paper, dark: darkSurfaces.paper 
 const codeBackground = { light: theme.palette.shell.tableHeader, dark: darkSurfaces.raised };
 const highlightText = { light: theme.palette.text.primary, dark: darkSurfaces.highlightText };
 
-describe('theme.richText maps the vocabulary one to one (ADR-0027 decision 6)', () => {
+describe('theme.richText maps the vocabulary one to one (ADR-0037 decision 6)', () => {
   const mapped = new Set(theme.richText.classes());
   const tokens = [...TEXT_COLOURS, ...HIGHLIGHTS, ...FONT_SIZES].map((token) => token.class);
 

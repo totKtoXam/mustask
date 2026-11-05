@@ -2,7 +2,7 @@ import raw from '../../../../../../contracts/rich-text/vocabularies.json';
 
 /**
  * The closed vocabularies of the rich-text subset as a typed view of
- * `contracts/rich-text/vocabularies.json` (ADR-0027 decision 6). The server
+ * `contracts/rich-text/vocabularies.json` (ADR-0037 decision 6). The server
  * embeds the same file; neither side hand-writes a token. No class literal of
  * the vocabulary appears anywhere else in `src/` outside tests and the theme
  * table (`vocabulary.test.ts` greps for it).

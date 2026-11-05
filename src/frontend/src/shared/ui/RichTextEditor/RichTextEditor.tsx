@@ -92,7 +92,7 @@ const Card = styled('div', {
 });
 
 /**
- * The generic rich-text editor (feat-018, ADR-0027): no business logic. The
+ * The generic rich-text editor (feat-018, ADR-0037): no business logic. The
  * editor itself is a lazy chunk; until it arrives a skeleton stands in and the
  * form's other controls work, and a failed load is an `Alert` with «Повторить».
  */

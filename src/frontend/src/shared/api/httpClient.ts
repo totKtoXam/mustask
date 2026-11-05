@@ -22,17 +22,37 @@ export interface ProblemDetails {
 export class ApiError extends Error {
   readonly status: number;
   readonly body: ProblemDetails | null;
+  /**
+   * The request path (with its query) that got the answer, set by `send()` for
+   * a non-OK answer; absent on an error built by hand. The access watcher
+   * reads it to tell an organization-scoped 403/404 from any other
+   * (mod-016 plan-frontend P-4): absent means "not scoped".
+   */
+  readonly path?: string;
+  /**
+   * The wait the server asked for with `Retry-After`, in milliseconds (feat-048, ADR-0036: the
+   * read limiter's 429). Absent when the answer carried no usable header.
+   */
+  readonly retryAfterMs?: number;
 
-  constructor(status: number, body: ProblemDetails | null) {
+  constructor(status: number, body: ProblemDetails | null, path?: string, retryAfterMs?: number) {
     super(body?.errorCode ?? body?.title ?? `HTTP ${status}`);
     this.name = 'ApiError';
     this.status = status;
     this.body = body;
+    this.path = path;
+    this.retryAfterMs = retryAfterMs;
   }
 
   get errorCode(): string | undefined {
     return this.body?.errorCode;
   }
+}
+
+/** `Retry-After` in whole seconds, as milliseconds; the date form or garbage is no wait. */
+function retryAfterOf(response: Response): number | undefined {
+  const raw = response.headers.get('Retry-After')?.trim();
+  return raw !== undefined && /^\d+$/.test(raw) ? Number(raw) * 1000 : undefined;
 }
 
 async function parseProblem(response: Response): Promise<ProblemDetails | null> {
@@ -109,7 +129,7 @@ async function send(path: string, options: SendOptions = {}): Promise<Response> 
   }
 
   if (!response.ok) {
-    throw new ApiError(response.status, await parseProblem(response));
+    throw new ApiError(response.status, await parseProblem(response), path, retryAfterOf(response));
   }
 
   return response;

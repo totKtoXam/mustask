@@ -21,7 +21,7 @@ function readCatalog(): ErrorCatalog {
 
 /**
  * mod-003 api-contract § 4, feat-001 api-contract § 5, feat-022 api-contract
- * § 6 and feat-027 api-contract § 5, row by row: code, status and parameters
+ * § 6, feat-027 api-contract § 5 and mod-005 api-contract § 4, row by row: code, status and parameters
  * (only the cycle and the depth bound have any).
  */
 const CONTRACT_TABLE: readonly (readonly [string, number, readonly string[]])[] = [
@@ -54,6 +54,8 @@ const CONTRACT_TABLE: readonly (readonly [string, number, readonly string[]])[] 
   ['workitems.workitem.target_before_start', 400, []],
   ['workitems.workitem.text_too_long', 400, []],
   ['workitems.workitem.field_not_on_type', 400, []],
+  ['workitems.workitem.deleted', 409, []],
+  ['workitems.workitem.not_deleted', 409, []],
 ];
 
 describe('mod-003 api-contract § 4: the panel holds the workitems codes one to one with the catalog', () => {

@@ -7,6 +7,7 @@ import DialogActions from '@mui/material/DialogActions';
 import DialogContent from '@mui/material/DialogContent';
 import { useTheme } from '@mui/material/styles';
 import { DialogTitleBar } from './DialogTitleBar';
+import { useDialogLocked } from './RequiresOrganizationCode';
 
 export interface ConfirmDialogProps {
   open: boolean;
@@ -26,6 +27,16 @@ export interface ConfirmDialogProps {
    * accident (mod-002 design § 4.3). Absent: MUI's initial focus as before.
    */
   cancelAutoFocus?: boolean;
+  /**
+   * The cancel button's label. Default «Отмена»; the card's unsaved-changes question
+   * reads «Продолжить редактирование» (tech-015 design § 5.10).
+   */
+  cancelLabel?: string;
+  /**
+   * The primary is unavailable while the host cannot say what it would do yet — the
+   * count of a team's items is still being read (mod-017 design § 7.2).
+   */
+  confirmDisabled?: boolean;
   onConfirm: () => void;
   onClose: () => void;
 }
@@ -46,10 +57,15 @@ export function ConfirmDialog({
   error,
   destructive = false,
   cancelAutoFocus = false,
+  cancelLabel = 'Отмена',
+  confirmDisabled = false,
   onConfirm,
   onClose,
 }: ConfirmDialogProps) {
   const theme = useTheme();
+  // The code of the wrapping page has gone (RequiresOrganizationCode): the
+  // dialog stays with its refusal, but nothing it could do is allowed.
+  const locked = useDialogLocked();
 
   return (
     <Dialog open={open} onClose={busy ? undefined : onClose} maxWidth="xs" fullWidth>
@@ -63,12 +79,18 @@ export function ConfirmDialog({
         {children}
       </DialogContent>
       <DialogActions>
-        <CancelButton open={open} focusOnOpen={cancelAutoFocus} disabled={busy} onClick={onClose} />
+        <CancelButton
+          open={open}
+          label={cancelLabel}
+          focusOnOpen={cancelAutoFocus}
+          disabled={busy}
+          onClick={onClose}
+        />
         <Button
           variant="contained"
           color={destructive ? 'error' : 'primary'}
           onClick={onConfirm}
-          disabled={busy}
+          disabled={busy || locked || confirmDisabled}
           startIcon={busy ? <CircularProgress size={theme.spacing(2)} /> : undefined}
         >
           {confirmLabel}
@@ -95,11 +117,13 @@ export function ConfirmDialog({
  */
 function CancelButton({
   open,
+  label,
   focusOnOpen,
   disabled,
   onClick,
 }: {
   open: boolean;
+  label: string;
   focusOnOpen: boolean;
   disabled: boolean;
   onClick: () => void;
@@ -114,7 +138,7 @@ function CancelButton({
 
   return (
     <Button ref={ref} variant="text" onClick={onClick} disabled={disabled}>
-      Отмена
+      {label}
     </Button>
   );
 }

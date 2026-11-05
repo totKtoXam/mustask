@@ -14,8 +14,10 @@ namespace Mustask.Api.IntegrationTests.Features.Organizations;
 /// (<see cref="OrganizationsTestData"/>): the database is shared and never
 /// emptied. A deactivation is arranged through the data helpers, never through
 /// another lane's endpoint, and the outcome is read back through the seam and the
-/// read models of phase 1. Every request is made by a signed-in user with no
-/// right at all, because until mod-016 any signed-in user may restore (BR-M1-19).
+/// read models of phase 1. Every request is made by the organization's creator, an
+/// administrator, with a token that carries no right: the restore needs
+/// <c>organizations.organization.deactivate</c>, which only an administrator's
+/// membership holds (mod-016 BR-M1-7, D-13).
 /// </summary>
 [Trait("Category", "Integration")]
 [Trait("Category", "RequiresDocker")]
@@ -41,34 +43,33 @@ public sealed class RestoreOrganizationEndpointTests(MustaskApiFactory factory)
         OrganizationsTestData.SetOrganizationStatusAsync(factory, organizationId, OrganizationStatus.Deactivated);
 
     /// <summary>
-    /// «Пример организации» with its project «Пример проекта», a second team «Платформа», and under the root «Отчёты»
-    /// (owned by «Платформа») with «Квартальные» inheriting it: a tree with an explicit owner, an inherited one and two
-    /// default areas.
+    /// «Пример организации» with its project «Пример проекта», a second team «Платформа» (the project's default team), and under the root «Отчёты»
+    /// with «Квартальные» beneath it: a tree of two levels and the default-team setting.
     /// </summary>
     private async Task<(OrganizationStructure Structure, Area Reports, Area Quarterly)> CreateRichStructureAsync()
     {
         var structure = await OrganizationsTestData.CreateStructureAsync(factory, OrganizationsTestData.UniqueName("Пример организации"));
-        var reports = await OrganizationsTestData.AddAreaAsync(
-            factory, structure.ProjectId, structure.RootId, "Отчёты", structure.Platform.Team.Id);
+        var reports = await OrganizationsTestData.AddAreaAsync(factory, structure.ProjectId, structure.RootId, "Отчёты");
         var quarterly = await OrganizationsTestData.AddAreaAsync(factory, structure.ProjectId, reports.Id, "Квартальные");
+        await OrganizationsTestData.SetDefaultTeamAsync(factory, structure.OrganizationId, structure.ProjectId, structure.Platform.Id);
 
         return (structure, reports, quarterly);
     }
 
     /// <summary>
     /// Everything the seam and the stored tree say about one organization's structure, the whole of it comparable as a
-    /// value: statuses, names, process, reachability, the first team, the root, the default areas and the tree in pre-order.
+    /// value: statuses, names, process, reachability, the teams, the root, the default team and the tree in pre-order.
     /// </summary>
     private sealed record Stored(
         OrganizationInfo Organization,
         ProjectInfo Project,
-        TeamInfo FirstTeam,
+        TeamInfo ProjectTeam,
         TeamInfo Platform,
         string Tree,
         ProjectInfo? Old,
         string? OldTree);
 
-    private async Task<Stored> ReadAsync(OrganizationStructure structure, NewProject? old = null)
+    private async Task<Stored> ReadAsync(OrganizationStructure structure, ProjectWithTeam? old = null)
     {
         using var scope = factory.Services.CreateScope();
         var seam = scope.ServiceProvider.GetRequiredService<IOrganizationStructure>();
@@ -76,11 +77,11 @@ public sealed class RestoreOrganizationEndpointTests(MustaskApiFactory factory)
 
         return new Stored(
             (await seam.FindOrganizationAsync(structure.OrganizationId, ct))!,
-            (await seam.FindProjectAsync(structure.ProjectId, ct))!,
-            (await seam.FindTeamAsync(structure.FirstTeamId, ct))!,
-            (await seam.FindTeamAsync(structure.Platform.Team.Id, ct))!,
+            (await seam.FindProjectAsync(structure.OrganizationId, structure.ProjectId, ct))!,
+            (await seam.FindTeamAsync(structure.OrganizationId, structure.ProjectTeamId, ct))!,
+            (await seam.FindTeamAsync(structure.OrganizationId, structure.Platform.Id, ct))!,
             await DescribeTreeAsync(structure.ProjectId),
-            old is null ? null : await seam.FindProjectAsync(old.Project.Id, ct),
+            old is null ? null : await seam.FindProjectAsync(structure.OrganizationId, old.Project.Id, ct),
             old is null ? null : await DescribeTreeAsync(old.Project.Id));
     }
 
@@ -90,7 +91,8 @@ public sealed class RestoreOrganizationEndpointTests(MustaskApiFactory factory)
     private async Task<IReadOnlyList<Guid>> ListedOrganizationsAsync(OrganizationStatus status)
     {
         using var scope = factory.Services.CreateScope();
-        var rows = await scope.ServiceProvider.GetRequiredService<IOrganizationReadModel>().ListAsync(status, CancellationToken.None);
+        var rows = await scope.ServiceProvider.GetRequiredService<IOrganizationReadModel>()
+            .ListAsync(status, OrganizationsTestData.Creator, onlyRoles: null, CancellationToken.None);
 
         return rows.Select(row => row.Id).ToList();
     }
@@ -104,10 +106,11 @@ public sealed class RestoreOrganizationEndpointTests(MustaskApiFactory factory)
     }
 
     // US-2 · "The organization is restored exactly as it was": «Пример организации» comes back with its name, process,
-    // project, teams, default areas and area tree as before, and is listed among the active organizations again. The
-    // answer is the contract's Organization (api-contract § 1.7). The caller holds no right: any signed-in user may.
+    // project, teams, default team and area tree as before, and is listed among the active organizations again. The
+    // answer is the contract's Organization (api-contract § 1.7). The token carries no right: the caller is the creator, an
+    // administrator, and the membership gives the code.
     [Fact]
-    public async Task Restore_BringsBackNameProcessProjectsTeamsDefaultsAndTrees()
+    public async Task Restore_BringsBackNameProcessProjectsTeamsTheDefaultTeamAndTrees()
     {
         var (structure, reports, quarterly) = await CreateRichStructureAsync();
         var before = await ReadAsync(structure);
@@ -135,15 +138,13 @@ public sealed class RestoreOrganizationEndpointTests(MustaskApiFactory factory)
         Assert.Equal(structure.Organization.Name, after.Organization.Name);
         Assert.True(after.Project.IsReachable);
 
-        // The default areas: the first team keeps the root, «Платформа» keeps its own area.
-        Assert.Equal(structure.RootId, after.FirstTeam.DefaultAreaId);
-        Assert.Equal(structure.Platform.Area.Id, after.Platform.DefaultAreaId);
+        // The default team: the setting names «Платформа», and the restore leaves it so (mod-017 BR-OT-4).
+        Assert.Equal(structure.Platform.Id, after.Project.DefaultTeamId);
 
-        // The tree: «Отчёты» is explicit and «Квартальные» inherits it, as before.
+        // The tree: «Квартальные» is under «Отчёты», as before.
         var tree = await OrganizationsTestData.ReadTreeAsync(factory, structure.ProjectId);
-        Assert.Equal("Отчёты / Квартальные", tree.PathOf(quarterly.Id));
-        Assert.Equal(new ResolvedOwner(structure.Platform.Team.Id, false), tree.ResolveOwner(reports.Id));
-        Assert.Equal(new ResolvedOwner(structure.Platform.Team.Id, true), tree.ResolveOwner(quarterly.Id));
+        Assert.Equal("Пример проекта / Отчёты / Квартальные", tree.PathOf(quarterly.Id));
+        Assert.Equal(reports.Id, tree[quarterly.Id].ParentId);
 
         Assert.Contains(structure.OrganizationId, await ListedOrganizationsAsync(OrganizationStatus.Active));
         Assert.DoesNotContain(structure.OrganizationId, await ListedOrganizationsAsync(OrganizationStatus.Deactivated));

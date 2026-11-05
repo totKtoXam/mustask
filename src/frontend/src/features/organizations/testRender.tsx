@@ -1,32 +1,59 @@
 /* eslint-disable react-refresh/only-export-components -- a test-only module:
    the probe lives beside the helper that mounts it. */
 import { StrictMode } from 'react';
-import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom';
+import { MemoryRouter, Route, Routes, useLocation, useSearchParams } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { render } from '@testing-library/react';
 import { vi } from 'vitest';
 import { AccessCheckContext, type AccessCheck } from '../../shared/lib/access';
+import { NoticeProvider } from '../../shared/ui';
+import { AuthContext, type AuthContextValue } from '../auth/AuthContext';
 import { WorkContextContext, type WorkContextSource } from '../../shared/lib/workContext';
+import { checkFor, checkForCodes, type TestRole } from '../../test/organizationRoles';
 import { OrganizationsSection } from './components/OrganizationsSection';
 import { OrganizationGeneralPage } from './pages/OrganizationGeneralPage';
+import { OrganizationOverviewPage } from './pages/OrganizationOverviewPage';
 import { OrganizationListPage } from './pages/OrganizationListPage';
+import { AllOrganizationsPage } from './pages/AllOrganizationsPage';
+import { MembersPage } from './pages/MembersPage';
 import { ProjectGeneralPage } from './pages/ProjectGeneralPage';
 import { ProjectListPage } from './pages/ProjectListPage';
+import { AreaPage } from './pages/AreaPage';
 import { AreasPage } from './pages/AreasPage';
+import { OrganizationTeamsPage } from './pages/OrganizationTeamsPage';
 import { TeamPage } from './pages/TeamPage';
 import { TeamsPage } from './pages/TeamsPage';
 import {
-  AREAS_ROUTE,
+  ADMIN_ORGANIZATIONS_PATH,
+  ORG_AREAS_ROUTE,
+  AREA_PROJECTS_ROUTE,
+  AREA_SETTINGS_ROUTE,
+  AREA_TEAMS_ROUTE,
+  ORG_AREA_ROUTE,
   DEACTIVATED_ORGANIZATIONS_ROUTE,
-  DEACTIVATED_PROJECTS_ROUTE,
+  MEMBERS_ROUTE,
   ORGANIZATIONS_ROUTE,
   ORGANIZATION_GENERAL_ROUTE,
+  ORGANIZATION_OVERVIEW_ROUTE,
   PROJECTS_ROUTE,
+  ORG_TEAMS_ROUTE,
+  ORG_TEAM_ROUTE,
+  TEAM_MEMBERS_ROUTE,
+  TEAM_PROJECTS_ROUTE,
+  TEAM_SETTINGS_ROUTE,
   PROJECT_GENERAL_ROUTE,
+  PROJECT_SETTINGS_ROUTE,
   TEAMS_ROUTE,
-  TEAM_ROUTE,
 } from './paths';
 import { organizationsPermissions } from './permissions';
+
+/** «Проекты»: `?status=deactivated` is the administrator's other view, as the product routes it. */
+function ProjectsView() {
+  const [params] = useSearchParams();
+  return (
+    <ProjectListPage view={params.get('status') === 'deactivated' ? 'deactivated' : 'active'} />
+  );
+}
 
 /** Shows the router's address, so a test reads where an action led. */
 export function LocationProbe() {
@@ -38,17 +65,16 @@ export function LocationProbe() {
   );
 }
 
-/** The holder of the create right (the realm role or `admin`, D-i). */
+/** The holder of the create right (the instance code in the token, ADR-0018). */
 export const CREATE_RIGHT = [organizationsPermissions.organizationCreate];
 
-/** A context source with no selection: what a page sees outside the switcher's choice. */
+/** A context source with no selection: what a page sees outside the selectors’ choice. */
 export function contextSource(overrides: Partial<WorkContextSource> = {}): WorkContextSource {
   return {
     status: 'ready',
     organizations: [],
     selection: {},
     isReal: true,
-    select: vi.fn(),
     ...overrides,
   };
 }
@@ -56,11 +82,44 @@ export function contextSource(overrides: Partial<WorkContextSource> = {}): WorkC
 export interface PageRenderOptions {
   /** The address to open. */
   path: string;
-  /** Instance codes in the token; the scoped ones pass for any signed-in user (BR-M1-19). */
+  /** Instance codes in the token. */
   permissions?: readonly string[];
+  /**
+   * The caller's role in the page's organization (mod-016): the organization
+   * codes the check answers are that role's bundle of api-contract § 0.2.
+   * Default: the administrator, who holds every one. A page rendered here
+   * stands without the gate, so this is the bound check the gate would give.
+   */
+  role?: TestRole;
+  /** Exactly these organization codes, whatever the role: a bundle the catalog does not define. */
+  orgCodes?: readonly string[];
   context?: WorkContextSource;
+  /**
+   * The signed-in user's id, the token's `sub` (mod-016): «Участники» marks
+   * the row that is the caller's own by it. Default: `ACTING_USER`.
+   */
+  subject?: string;
   /** Under `<StrictMode>`, as `src/main.tsx` renders the panel in development (qa.md D-2). */
   strict?: boolean;
+}
+
+/** The user the pages are rendered as unless a test names another. */
+export const ACTING_USER = 'user-acting';
+
+/** A signed-in stub session: only the token's subject and instance codes matter to a page here. */
+function sessionOf(subject: string, permissions: readonly string[]): AuthContextValue {
+  return {
+    status: 'authenticated',
+    reason: null,
+    loginFailedCode: null,
+    displayName: 'Тестовый пользователь',
+    subject,
+    can: (code) => permissions.includes(code),
+    signIn: vi.fn(),
+    signOut: vi.fn(),
+    retryBootstrap: vi.fn(),
+    retrySignOut: vi.fn(),
+  };
 }
 
 /**
@@ -72,66 +131,108 @@ export interface PageRenderOptions {
 export function renderPage({
   path,
   permissions = [],
+  role: initialRole = 'admin',
+  orgCodes,
   context = contextSource(),
+  subject = ACTING_USER,
   strict = false,
 }: PageRenderOptions) {
   const queryClient = new QueryClient({
     defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
   });
 
-  function tree(currentPermissions: readonly string[], currentContext: WorkContextSource) {
-    const access: AccessCheck = (code, scope) =>
-      scope === 'instance' ? currentPermissions.includes(code) : true;
+  function tree(
+    currentPermissions: readonly string[],
+    currentContext: WorkContextSource,
+    role: TestRole,
+  ) {
+    const access: AccessCheck = orgCodes
+      ? checkForCodes(orgCodes, currentPermissions)
+      : checkFor(role, currentPermissions);
     return (
       <QueryClientProvider client={queryClient}>
-        <AccessCheckContext.Provider value={access}>
-          <WorkContextContext.Provider value={currentContext}>
-            <MemoryRouter initialEntries={[path]}>
-              <Routes>
-                <Route element={<OrganizationsSection />}>
-                  <Route
-                    path={ORGANIZATIONS_ROUTE}
-                    element={<OrganizationListPage view="active" />}
-                  />
-                  <Route
-                    path={DEACTIVATED_ORGANIZATIONS_ROUTE}
-                    element={<OrganizationListPage view="deactivated" />}
-                  />
-                  <Route path={ORGANIZATION_GENERAL_ROUTE} element={<OrganizationGeneralPage />} />
-                  <Route path={PROJECTS_ROUTE} element={<ProjectListPage view="active" />} />
-                  <Route
-                    path={DEACTIVATED_PROJECTS_ROUTE}
-                    element={<ProjectListPage view="deactivated" />}
-                  />
-                  <Route path={PROJECT_GENERAL_ROUTE} element={<ProjectGeneralPage />} />
-                  <Route path={TEAMS_ROUTE} element={<TeamsPage />} />
-                  <Route path={TEAM_ROUTE} element={<TeamPage />} />
-                  <Route path={AREAS_ROUTE} element={<AreasPage />} />
-                  <Route path="*" element={<p>Другая страница</p>} />
-                </Route>
-              </Routes>
-              <LocationProbe />
-            </MemoryRouter>
-          </WorkContextContext.Provider>
-        </AccessCheckContext.Provider>
+        <NoticeProvider>
+          <AuthContext.Provider value={sessionOf(subject, currentPermissions)}>
+            <AccessCheckContext.Provider value={access}>
+              <WorkContextContext.Provider value={currentContext}>
+                <MemoryRouter initialEntries={[path]}>
+                  <Routes>
+                    <Route element={<OrganizationsSection />}>
+                      <Route path={ADMIN_ORGANIZATIONS_PATH} element={<AllOrganizationsPage />} />
+                      <Route
+                        path={ORGANIZATIONS_ROUTE}
+                        element={<OrganizationListPage view="active" />}
+                      />
+                      <Route
+                        path={DEACTIVATED_ORGANIZATIONS_ROUTE}
+                        element={<OrganizationListPage view="deactivated" />}
+                      />
+                      <Route
+                        path={ORGANIZATION_GENERAL_ROUTE}
+                        element={<OrganizationGeneralPage />}
+                      />
+                      <Route
+                        path={ORGANIZATION_OVERVIEW_ROUTE}
+                        element={<OrganizationOverviewPage />}
+                      />
+                      <Route path={PROJECTS_ROUTE} element={<ProjectsView />} />
+                      <Route path={MEMBERS_ROUTE} element={<MembersPage />} />
+                      {[PROJECT_GENERAL_ROUTE, PROJECT_SETTINGS_ROUTE].map((path) => (
+                        <Route key={path} path={path} element={<ProjectGeneralPage />} />
+                      ))}
+                      <Route path={TEAMS_ROUTE} element={<TeamsPage />} />
+                      <Route path={ORG_TEAMS_ROUTE} element={<OrganizationTeamsPage />} />
+                      {[
+                        ORG_TEAM_ROUTE,
+                        TEAM_PROJECTS_ROUTE,
+                        TEAM_MEMBERS_ROUTE,
+                        TEAM_SETTINGS_ROUTE,
+                      ].map((path) => (
+                        <Route key={path} path={path} element={<TeamPage />} />
+                      ))}
+                      <Route path={ORG_AREAS_ROUTE} element={<AreasPage />} />
+                      {[
+                        ORG_AREA_ROUTE,
+                        AREA_PROJECTS_ROUTE,
+                        AREA_TEAMS_ROUTE,
+                        AREA_SETTINGS_ROUTE,
+                      ].map((path) => (
+                        <Route key={path} path={path} element={<AreaPage />} />
+                      ))}
+                      <Route path="*" element={<p>Другая страница</p>} />
+                    </Route>
+                  </Routes>
+                  <LocationProbe />
+                </MemoryRouter>
+              </WorkContextContext.Provider>
+            </AccessCheckContext.Provider>
+          </AuthContext.Provider>
+        </NoticeProvider>
       </QueryClientProvider>
     );
   }
 
   let currentPermissions = permissions;
+  let currentRole = initialRole;
   let currentContext = context;
   const result = render(
-    tree(currentPermissions, currentContext),
+    tree(currentPermissions, currentContext, currentRole),
     strict ? { wrapper: StrictMode } : undefined,
   );
   return {
     ...result,
     queryClient,
     /** Re-renders with a renewed token's codes or a new context, keeping state. */
-    update(next: { permissions?: readonly string[]; context?: WorkContextSource }) {
+    update(next: {
+      permissions?: readonly string[];
+      context?: WorkContextSource;
+      /** The role the served codes now show (a re-read that found it changed). */
+      role?: TestRole;
+    }) {
+      currentRole = next.role ?? currentRole;
       currentPermissions = next.permissions ?? currentPermissions;
       currentContext = next.context ?? currentContext;
-      result.rerender(tree(currentPermissions, currentContext));
+      result.rerender(tree(currentPermissions, currentContext, currentRole));
     },
   };
 }

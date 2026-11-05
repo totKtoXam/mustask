@@ -20,6 +20,9 @@ guarantees it exists and differs from the Russian, not its quality
 |---|---|---|---|---|---|---|
 |boards.backlog.position_invalid|400|Некорректная позиция перемещения.|Жылжыту орны дұрыс емес.|boards|—|needs review|
 |boards.backlog.reorder_stale|409|Не удалось переместить: бэклог изменился. Список обновлён — повторите перемещение.|Жылжыту мүмкін болмады: бэклог өзгерді. Тізім жаңартылды — жылжытуды қайталаңыз.|boards|—|needs review|
+|boards.invalid_cursor|400|Некорректный курсор страницы.|Бет курсоры дұрыс емес.|boards|—|needs review|
+|boards.invalid_grouping|400|Такая группировка для этого уровня недоступна.|Бұл деңгей үшін мұндай топтау қолжетімсіз.|boards|—|needs review|
+|boards.invalid_parameter|400|Некорректное значение параметра запроса.|Сұраныс параметрінің мәні дұрыс емес.|boards|—|needs review|
 |boards.level.not_found|404|Уровень бэклога не найден.|Бэклог деңгейі табылмады.|boards|—|needs review|
 |boards.validation_failed|400|Проверьте правильность запроса.|Сұраудың дұрыстығын тексеріңіз.|boards|—|needs review|
 |dictionaries.invalid_page_size|400|Некорректные параметры страницы: размер страницы — от 1 до {limit}, номер страницы не может быть отрицательным.|Бет параметрлері дұрыс емес: бет өлшемі — 1-ден {limit} дейін, бет нөмірі теріс бола алмайды.|dictionaries|—|needs review|
@@ -44,13 +47,26 @@ guarantees it exists and differs from the Russian, not its quality
 |http.not_found|404|Ресурс не найден.|Ресурс табылмады.|assigned by HTTP status|—|needs review|
 |http.request_failed|any|Не удалось обработать запрос.|Сұранысты өңдеу мүмкін болмады.|assigned by HTTP status|—|needs review|
 |http.service_unavailable|503|Сервис временно недоступен, повторите позже.|Қызмет уақытша қолжетімсіз, кейінірек қайталаңыз.|assigned by HTTP status|—|needs review|
+|http.too_many_requests|429|Сервис сейчас занят. Повторите запрос через несколько секунд.|Қызмет қазір бос емес. Сұранысты бірнеше секундтан кейін қайталаңыз.|assigned by HTTP status|—|needs review|
 |http.unauthorized|401|Требуется аутентификация.|Аутентификация қажет.|assigned by HTTP status|—|needs review|
-|organizations.area.is_team_default|409|Область используется как область по умолчанию команды «{team}»|Аймақ «{team}» командасының әдепкі аймағы ретінде пайдаланылады|organizations|—|needs review|
+|organizations.access.forbidden|403|Недостаточно прав|Құқықтар жеткіліксіз|organizations|—|needs review|
+|organizations.area.depth_exceeded|409|Дерево областей не может быть глубже 10 уровней|Аймақ ағашы 10 деңгейден терең болмауы керек|organizations|—|needs review|
+|organizations.area.is_team_default|409|Область используется как область по умолчанию команды «{team}»|Аймақ «{team}» командасының әдепкі аймағы ретінде пайдаланылады|organizations|yes|needs review|
+|organizations.area.link_type_not_allowed|409|Команду можно связать только с департаментом. Команды проекта подключаются на странице проекта.|Команданы тек департаментпен байланыстыруға болады. Жоба командалары жоба бетінде қосылады.|organizations|—|needs review|
 |organizations.area.move_into_own_subtree|409|Нельзя переместить область внутрь неё самой или её вложенной области|Аймақты өзінің ішіне немесе оның ішкі аймағына жылжытуға болмайды|organizations|—|needs review|
 |organizations.area.name_taken|409|Область с таким названием уже есть на этом уровне|Бұл деңгейде мұндай атауы бар аймақ бар|organizations|—|needs review|
-|organizations.area.not_empty|409|Нельзя удалить область, в которой есть рабочие элементы (включая удалённые) или вложенные области|Жұмыс элементтері (жойылғандарын қоса) немесе ішкі аймақтары бар аймақты жоюға болмайды|organizations|—|needs review|
+|organizations.area.not_empty|409|Нельзя удалить область, в которой есть проекты, вложенные области или рабочие элементы|Жобалары, ішкі аймақтары немесе жұмыс элементтері бар аймақты жоюға болмайды|organizations|—|needs review|
 |organizations.area.not_found|404|Область не найдена.|Аймақ табылмады.|organizations|—|needs review|
+|organizations.area.outside_project|409|Вложенную область нельзя переместить за пределы её проекта|Ішкі аймақты өз жобасының шегінен тыс жылжытуға болмайды|organizations|—|needs review|
 |organizations.area.root_is_fixed|409|Корневая область меняется только вместе с проектом|Түбірлік аймақ тек жобамен бірге өзгереді|organizations|—|needs review|
+|organizations.area.type_not_allowed|409|Область этого типа нельзя разместить в выбранном месте. Департамент стоит на верхнем уровне, проект — на верхнем уровне или в департаменте, вложенная область — внутри своего проекта.|Мұндай түрдегі аймақты таңдалған жерге орналастыруға болмайды. Департамент жоғарғы деңгейде, жоба — жоғарғы деңгейде немесе департаментте, ішкі аймақ — өз жобасының ішінде тұрады.|organizations|—|needs review|
+|organizations.description_length|400|Описание должно содержать не более 2000 символов|Сипаттама 2000 таңбадан аспауы керек|organizations|—|needs review|
+|organizations.membership.already_member|409|Пользователь уже состоит в организации|Пайдаланушы ұйымның құрамында бұрыннан бар|organizations|—|needs review|
+|organizations.membership.last_admin|409|В организации должен остаться хотя бы один администратор|Ұйымда кемінде бір әкімші қалуы керек|organizations|—|needs review|
+|organizations.membership.not_found|404|Участник не найден.|Мүше табылмады.|organizations|—|needs review|
+|organizations.membership.role_invalid|400|Выберите роль: администратор, участник или читатель|Рөлді таңдаңыз: әкімші, қатысушы немесе оқырман|organizations|—|needs review|
+|organizations.membership.user_invalid|400|Укажите пользователя|Пайдаланушыны көрсетіңіз|organizations|—|needs review|
+|organizations.membership.user_unavailable|409|Этого пользователя нельзя добавить в организацию|Бұл пайдаланушыны ұйымға қосуға болмайды|organizations|—|needs review|
 |organizations.name_length|400|Название должно содержать от 1 до 100 символов|Атауы 1-ден 100 таңбаға дейін болуы керек|organizations|—|needs review|
 |organizations.organization.create_failed|500|Не удалось создать организацию. Попробуйте ещё раз|Ұйымды құру мүмкін болмады. Қайталап көріңіз|organizations|—|needs review|
 |organizations.organization.create_forbidden|403|Недостаточно прав|Құқықтар жеткіліксіз|organizations|—|needs review|
@@ -62,22 +78,37 @@ guarantees it exists and differs from the Russian, not its quality
 |organizations.project.name_taken|409|Проект с таким названием уже есть в организации|Ұйымда мұндай атауы бар жоба бар|organizations|—|needs review|
 |organizations.project.name_taken_by_deactivated|409|Проект с таким названием уже есть в организации: он деактивирован|Ұйымда мұндай атауы бар жоба бар: ол сөндірілген|organizations|—|needs review|
 |organizations.project.not_found|404|Проект не найден.|Жоба табылмады.|organizations|—|needs review|
-|organizations.team.default_area_not_owned|409|Область по умолчанию должна принадлежать самой команде|Әдепкі аймақ команданың өзіне тиесілі болуы керек|organizations|—|needs review|
-|organizations.team.first_team_cannot_be_deleted|409|Нельзя удалить команду, которой принадлежит корневая область проекта|Жобаның түбірлік аймағы тиесілі команданы жоюға болмайды|organizations|—|needs review|
-|organizations.team.first_team_default_fixed|409|У первой команды область по умолчанию не меняется|Бірінші команданың әдепкі аймағы өзгермейді|organizations|—|needs review|
-|organizations.team.name_taken|409|Команда с таким названием уже есть в проекте|Жобада мұндай атауы бар команда бар|organizations|—|needs review|
+|organizations.rescue.already_admin|409|Пользователь уже администратор этой организации|Пайдаланушы бұл ұйымның әкімшісі болып табылады|organizations|—|needs review|
+|organizations.rescue.forbidden|403|Недостаточно прав|Құқықтар жеткіліксіз|organizations|—|needs review|
+|organizations.rescue.invalid_page|400|Некорректный номер страницы.|Бет нөмірі дұрыс емес.|organizations|—|needs review|
+|organizations.rescue.reason_invalid|400|Причина содержит недопустимые символы|Себепте жарамсыз таңбалар бар|organizations|—|needs review|
+|organizations.rescue.reason_required|400|Укажите причину|Себебін көрсетіңіз|organizations|—|needs review|
+|organizations.rescue.reason_too_long|400|Не более 500 символов|500 таңбадан аспауы керек|organizations|—|needs review|
+|organizations.rescue.self_appointment|409|Нельзя назначить администратором себя|Өзіңізді әкімші етіп тағайындауға болмайды|organizations|—|needs review|
+|organizations.rescue.user_unavailable|409|Этого пользователя нельзя назначить администратором|Бұл пайдаланушыны әкімші етіп тағайындауға болмайды|organizations|—|needs review|
+|organizations.team.default_area_not_owned|409|Область по умолчанию должна принадлежать самой команде|Әдепкі аймақ команданың өзіне тиесілі болуы керек|organizations|yes|needs review|
+|organizations.team.destination_required|400|Выберите команду или «Без команды»|Команданы немесе «Командасыз» таңдаңыз|organizations|—|needs review|
+|organizations.team.first_team_cannot_be_deleted|409|Нельзя удалить команду, которой принадлежит корневая область проекта|Жобаның түбірлік аймағы тиесілі команданы жоюға болмайды|organizations|yes|needs review|
+|organizations.team.first_team_default_fixed|409|У первой команды область по умолчанию не меняется|Бірінші команданың әдепкі аймағы өзгермейді|organizations|yes|needs review|
+|organizations.team.last_team_cannot_be_deleted|409|Нельзя удалить единственную команду проекта.|Жобаның жалғыз командасын жоюға болмайды.|organizations|yes|needs review|
+|organizations.team.member_exists|409|Пользователь уже состоит в команде|Пайдаланушы командада бұрыннан бар|organizations|—|needs review|
+|organizations.team.member_not_found|404|Участник команды не найден.|Команда мүшесі табылмады.|organizations|—|needs review|
+|organizations.team.member_not_in_organization|409|Добавить в команду можно только активного участника организации|Командаға ұйымның тек белсенді мүшесін ғана қосуға болады|organizations|—|needs review|
+|organizations.team.name_taken|409|Команда с таким названием уже есть в организации|Ұйымда мұндай атауы бар команда бар|organizations|—|needs review|
 |organizations.team.not_found|404|Команда не найдена.|Команда табылмады.|organizations|—|needs review|
+|organizations.team.not_in_project|409|Команда не участвует в проекте.|Команда жобаға қатыспайды.|organizations|—|needs review|
 |organizations.validation_failed|400|Проверьте правильность заполнения полей.|Өрістердің дұрыс толтырылғанын тексеріңіз.|organizations|—|needs review|
 |session.anonymous|401|Вы не вошли в систему.|Сіз жүйеге кірмегенсіз.|session|—|needs review|
 |session.expired|401|Сессия истекла. Войдите заново.|Сессия мерзімі аяқталды. Қайта кіріңіз.|session|—|needs review|
 |session.invalid_return_url|400|Недопустимый адрес возврата после входа.|Кіргеннен кейінгі қайту мекенжайы жарамсыз.|session|—|needs review|
-|user_directory.push_malformed|400|Запрос канала пользователей не разобран: тело повреждено или слишком велико.|Пайдаланушылар арнасының сұранысы талданбады: денесі бүлінген немесе тым үлкен.|user_directory|—|needs review|
-|user_directory.push_unauthorized|401|Запрос канала пользователей отклонён: подпись отсутствует, неверна или устарела.|Пайдаланушылар арнасының сұранысы қабылданбады: қолтаңба жоқ, қате немесе ескірген.|user_directory|—|needs review|
-|user_directory.snapshot_conflict|409|Сверка с этим идентификатором уже начата с другим моментом или устарела.|Осы идентификатормен салыстыру басқа сәтпен басталған немесе ескірген.|user_directory|—|needs review|
-|user_directory.snapshot_incomplete|409|Сверка пользователей не завершена: получено записей — {received} из {expected}.|Пайдаланушыларды салыстыру аяқталмады: {expected} жазбаның {received} алынды.|user_directory|—|needs review|
-|user_directory.snapshot_not_found|404|Сверка пользователей не найдена.|Пайдаланушыларды салыстыру табылмады.|user_directory|—|needs review|
-|user_directory.snapshot_not_open|409|Сверка пользователей уже завершена или заменена более новой.|Пайдаланушыларды салыстыру аяқталған немесе жаңасымен ауыстырылған.|user_directory|—|needs review|
-|user_directory.too_many_entries|400|Слишком много записей в одном запросе: не больше {limit}.|Бір сұраныста жазбалар тым көп: {limit} аспауы керек.|user_directory|—|needs review|
+|session.no_access|403|У вашей учётной записи нет доступа к MUSTASK. Обратитесь к администратору.|Сіздің тіркелгіңізде MUSTASK-қа қолжетімділік жоқ. Әкімшіге хабарласыңыз.|session|—|needs review|
+|user_directory.push_malformed|400|Запрос канала пользователей не разобран: тело повреждено или слишком велико.|Пайдаланушылар арнасының сұранысы талданбады: денесі бүлінген немесе тым үлкен.|user_directory|yes|needs review|
+|user_directory.push_unauthorized|401|Запрос канала пользователей отклонён: подпись отсутствует, неверна или устарела.|Пайдаланушылар арнасының сұранысы қабылданбады: қолтаңба жоқ, қате немесе ескірген.|user_directory|yes|needs review|
+|user_directory.snapshot_conflict|409|Сверка с этим идентификатором уже начата с другим моментом или устарела.|Осы идентификатормен салыстыру басқа сәтпен басталған немесе ескірген.|user_directory|yes|needs review|
+|user_directory.snapshot_incomplete|409|Сверка пользователей не завершена: получено записей — {received} из {expected}.|Пайдаланушыларды салыстыру аяқталмады: {expected} жазбаның {received} алынды.|user_directory|yes|needs review|
+|user_directory.snapshot_not_found|404|Сверка пользователей не найдена.|Пайдаланушыларды салыстыру табылмады.|user_directory|yes|needs review|
+|user_directory.snapshot_not_open|409|Сверка пользователей уже завершена или заменена более новой.|Пайдаланушыларды салыстыру аяқталған немесе жаңасымен ауыстырылған.|user_directory|yes|needs review|
+|user_directory.too_many_entries|400|Слишком много записей в одном запросе: не больше {limit}.|Бір сұраныста жазбалар тым көп: {limit} аспауы керек.|user_directory|yes|needs review|
 |user_directory.too_many_ids|400|Слишком много идентификаторов в одном запросе: не больше {limit}.|Бір сұраныста идентификаторлар тым көп: {limit} аспауы керек.|user_directory|—|needs review|
 |user_directory.validation_failed|400|Проверьте правильность переданных данных.|Берілген деректердің дұрыстығын тексеріңіз.|user_directory|—|needs review|
 |user_directory.value_invalid|400|Недопустимое значение.|Жарамсыз мән.|user_directory|—|needs review|
@@ -94,11 +125,13 @@ guarantees it exists and differs from the Russian, not its quality
 |workitems.validation_failed|400|Проверьте правильность заполнения полей.|Өрістердің дұрыс толтырылғанын тексеріңіз.|workitems|—|needs review|
 |workitems.workitem.assignee_unavailable|409|Этого пользователя нельзя назначить исполнителем.|Бұл пайдаланушыны орындаушы етіп тағайындауға болмайды.|workitems|—|needs review|
 |workitems.workitem.date_out_of_range|400|Укажите дату с 2000 по 2099 год.|2000 жылдан 2099 жылға дейінгі күнді көрсетіңіз.|workitems|—|needs review|
+|workitems.workitem.deleted|409|Рабочий элемент удалён и доступен только для чтения.|Жұмыс элементі жойылған және тек оқуға арналған.|workitems|—|needs review|
 |workitems.workitem.description_format_unknown|400|Неизвестный формат описания. Обновите страницу и попробуйте ещё раз.|Сипаттама пішімі белгісіз. Бетті жаңартып, қайталап көріңіз.|workitems|—|needs review|
 |workitems.workitem.description_markup_too_large|400|Слишком много разметки. Упростите форматирование или сократите текст.|Белгілеу тым көп. Пішімдеуді жеңілдетіңіз немесе мәтінді қысқартыңыз.|workitems|—|needs review|
 |workitems.workitem.description_too_long|400|Не более 100 000 символов.|100 000 таңбадан аспауы керек.|workitems|—|needs review|
 |workitems.workitem.field_not_on_type|400|Это поле недоступно для рабочего элемента этого типа.|Бұл өріс осы түрдегі жұмыс элементі үшін қолжетімсіз.|workitems|—|needs review|
 |workitems.workitem.integer_required|400|Введите целое число.|Бүтін сан енгізіңіз.|workitems|—|needs review|
+|workitems.workitem.not_deleted|409|Рабочий элемент не удалён.|Жұмыс элементі жойылмаған.|workitems|—|needs review|
 |workitems.workitem.not_found|404|Рабочий элемент не найден.|Жұмыс элементі табылмады.|workitems|—|needs review|
 |workitems.workitem.number_out_of_range|400|Допустимо значение от 0 до 9 999.|0-ден 9 999-ға дейінгі мән енгізуге болады.|workitems|—|needs review|
 |workitems.workitem.number_too_precise|400|Не более двух знаков после запятой.|Үтірден кейін екі таңбадан аспауы керек.|workitems|—|needs review|

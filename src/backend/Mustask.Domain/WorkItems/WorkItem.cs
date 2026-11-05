@@ -32,7 +32,8 @@ public sealed class WorkItem
         string title,
         Guid creationRequestId,
         DateTimeOffset createdAt,
-        string createdBy)
+        string createdBy,
+        Guid? owningTeamId)
     {
         Id = id;
         ProjectId = projectId;
@@ -40,6 +41,7 @@ public sealed class WorkItem
         TypeId = typeId;
         StateId = stateId;
         AreaId = areaId;
+        OwningTeamId = owningTeamId;
         Title = title;
         Description = string.Empty;
         CreationRequestId = creationRequestId;
@@ -63,6 +65,13 @@ public sealed class WorkItem
     public string? AssigneeId { get; private set; }
 
     public Guid AreaId { get; private set; }
+
+    /// <summary>
+    /// mod-017 (BR-OT-1): the item's one owning team, a team of its project, or <c>null</c> for «Без команды». Changing it
+    /// changes nothing else on the item; the project, the area and the parent are not decided by it, and it is not decided by
+    /// them.
+    /// </summary>
+    public Guid? OwningTeamId { get; private set; }
 
     public string Title { get; private set; } = null!;
 
@@ -88,6 +97,22 @@ public sealed class WorkItem
     /// <see cref="WorkItemHierarchy.Write"/>, which holds the rules; a parent's deletion leaves it as it is (BR-H-8).
     /// </summary>
     public Guid? ParentId { get; private set; }
+
+    // --- mod-005: the marks of a deletion (ADR-0030 rule 1) ----------------------------------------------------------
+    // All three are set together by Delete and cleared together by Restore, so they are all-or-none (the CHECK keeps them so
+    // in the table). They are memory, not truth: an item is deleted when its state is in the Removed category, marks or not.
+
+    /// <summary>The state the item held when it was deleted, the restore's preset (BR-DR-2); <c>null</c> on a live item.</summary>
+    public Guid? DeletedFromStateId { get; private set; }
+
+    /// <summary>The Keycloak subject that deleted the item, no key (as <see cref="CreatedBy"/>); <c>null</c> on a live item.</summary>
+    public string? DeletedBy { get; private set; }
+
+    /// <summary>
+    /// When the item was deleted. Not <see cref="ChangedAt"/>: a system clean-up (a team's deletion) moves
+    /// <see cref="ChangedAt"/> of a deleted item and leaves this (BR-DR-9).
+    /// </summary>
+    public DateTimeOffset? DeletedAt { get; private set; }
 
     // --- feat-022: the fields per type (its spec § The field table) -------------------------------------------------
 
@@ -133,8 +158,8 @@ public sealed class WorkItem
     /// <summary>«Вид ценности», set on every epic, feature and story (BR-M3-31).</summary>
     public WorkItemValueArea? ValueArea { get; private set; }
 
-    /// <summary>«Критерии приёмки», a story's plain text, <c>""</c> when empty (BR-M3-36).</summary>
-    public string? AcceptanceCriteria { get; private set; }
+    /// <summary>«Критерии приёмки», a story's structured scenarios, <c>[]</c> when empty, <c>null</c> on other types (R1, BR-M3-36).</summary>
+    public IReadOnlyList<AcceptanceCriterion>? AcceptanceCriteria { get; private set; }
 
     /// <summary>«Шаги воспроизведения», a bug's plain text, <c>""</c> when empty.</summary>
     public string? ReproSteps { get; private set; }
@@ -150,7 +175,8 @@ public sealed class WorkItem
     /// empty (BR-M3-37). The caller has validated
     /// the title (<see cref="WorkItemText.ValidateTitle"/>), resolved the type in
     /// the organization's process and taken <paramref name="number"/> from the
-    /// project's sequence.
+    /// project's sequence. mod-017 (BR-OT-3): <paramref name="owningTeamId"/> is the team the caller decided under its locks
+    /// (an explicit one, the project default or the parent's), a team of the project, or <c>null</c> for «Без команды».
     /// </summary>
     public static WorkItem Create(
         Guid projectId,
@@ -160,7 +186,8 @@ public sealed class WorkItem
         string title,
         Guid creationRequestId,
         DateTimeOffset createdAt,
-        string createdBy)
+        string createdBy,
+        Guid? owningTeamId = null)
     {
         ArgumentNullException.ThrowIfNull(type);
         ArgumentOutOfRangeException.ThrowIfLessThan(number, 1);
@@ -186,7 +213,8 @@ public sealed class WorkItem
             title,
             creationRequestId,
             createdAt,
-            createdBy);
+            createdBy,
+            owningTeamId);
 
         item.TakeDefaults(type.Appearance);
 
@@ -225,7 +253,7 @@ public sealed class WorkItem
         Check(reasons, kind, WorkItemField.RemainingWork, fields.RemainingWork, WorkItemFieldRules.ValidateDecimal);
         Check(reasons, kind, WorkItemField.CompletedWork, fields.CompletedWork, WorkItemFieldRules.ValidateDecimal);
         CheckKey(reasons, kind, WorkItemField.ValueArea, fields.ValueArea, key => WorkItemFieldRules.ParseValueArea(key) is not null);
-        CheckText(reasons, kind, WorkItemField.AcceptanceCriteria, fields.AcceptanceCriteria);
+        CheckAcceptanceCriteria(reasons, kind, fields.AcceptanceCriteria);
         CheckText(reasons, kind, WorkItemField.ReproSteps, fields.ReproSteps);
         CheckText(reasons, kind, WorkItemField.SystemInfo, fields.SystemInfo);
 
@@ -247,11 +275,123 @@ public sealed class WorkItem
     }
 
     /// <summary>
+    /// mod-005 (ADR-0030 rule 2): whether the item is in its type's «Удалена» — the state's category decides, never the
+    /// name and never the marks (BR-DR-18).
+    /// </summary>
+    /// <param name="type">The item's own type, as the organization's process holds it.</param>
+    public bool IsDeleted(WorkItemTypeStates type)
+    {
+        RequireOwnType(type);
+
+        return type.IsRemoved(StateId);
+    }
+
+    /// <summary>
+    /// mod-005 (ADR-0030 rule 3, BR-DR-8): the refusal of every write to a deleted item, decided on the <b>stored</b> state
+    /// — the caller holds the item's lock, so no value of the write has been applied yet. Only Restore, Purge and the
+    /// system clean-up act on a deleted item.
+    /// </summary>
+    /// <exception cref="ConflictException"><see cref="WorkItemErrorCodes.WorkItemDeleted"/>.</exception>
+    public void EnsureLive(WorkItemTypeStates type)
+    {
+        if (IsDeleted(type))
+        {
+            throw new ConflictException(WorkItemErrorCodes.WorkItemDeleted);
+        }
+    }
+
+    /// <summary>mod-005: the refusal of Restore and Purge on an item that is not in «Удалена» (BR-DR-10, BR-DR-12).</summary>
+    /// <exception cref="ConflictException"><see cref="WorkItemErrorCodes.WorkItemNotDeleted"/>.</exception>
+    public void EnsureDeleted(WorkItemTypeStates type)
+    {
+        if (!IsDeleted(type))
+        {
+            throw new ConflictException(WorkItemErrorCodes.WorkItemNotDeleted);
+        }
+    }
+
+    /// <summary>
+    /// mod-005 (BR-DR-1..-3, ADR-0030 rule 1): moves the item into its type's «Удалена» and records, on the same row, the
+    /// state it held, who deleted it and when. «Изменён» takes the deletion's time. <b>Nothing else is assigned</b> — not
+    /// the title, fields, assignee, area, owning team, parent or anything of a child. A deletion is never refused for a
+    /// stale form: it is a separate write (BR-DR-11).
+    /// </summary>
+    /// <param name="type">The item's own type, as the organization's process holds it.</param>
+    /// <param name="deletedBy">The deleting user's Keycloak subject (<c>sub</c>) — the token's, never user input.</param>
+    /// <exception cref="ConflictException"><see cref="WorkItemErrorCodes.WorkItemDeleted"/>: already in «Удалена».</exception>
+    public void Delete(WorkItemTypeStates type, string deletedBy, DateTimeOffset now)
+    {
+        ArgumentNullException.ThrowIfNull(type);
+        ArgumentException.ThrowIfNullOrWhiteSpace(deletedBy);
+
+        if (deletedBy.Length > WorkItemLimits.UserIdMaxLength)
+        {
+            throw new ArgumentException("A user id is at most the width of its column.", nameof(deletedBy));
+        }
+
+        EnsureLive(type);
+
+        var removedStateId = type.RemovedStateId;
+
+        DeletedFromStateId = StateId;
+        StateId = removedStateId;
+        DeletedBy = deletedBy;
+        DeletedAt = now;
+        ChangedAt = now;
+    }
+
+    /// <summary>
+    /// mod-005 (BR-DR-10): the state a restore without a choice goes to — the state held at deletion if the type still
+    /// allows it, else the type's first state (an item put in «Удалена» outside Delete has no marks; a held state the type
+    /// no longer allows never happens in the MVP, and falls back rather than failing, plan D-P8).
+    /// </summary>
+    public Guid RestoreTarget(WorkItemTypeStates type)
+    {
+        RequireOwnType(type);
+
+        return DeletedFromStateId is { } held && type.Allows(held) ? held : type.FirstStateId;
+    }
+
+    /// <summary>
+    /// mod-005 (BR-DR-10, ADR-0030 rule 1): takes the item out of «Удалена» into the chosen state, else the held one, else
+    /// the type's first, clears the three marks and moves «Изменён». The checks run in this order and a refusal throws
+    /// before anything is assigned: not deleted (whatever the chosen state), then a chosen state the type does not allow.
+    /// No hierarchy is read: a restore is never refused for a cycle or a depth.
+    /// </summary>
+    /// <param name="type">The item's own type, as the organization's process holds it.</param>
+    /// <param name="chosenStateId">
+    /// The state the user chose, or <c>null</c> for the preset. <see cref="Guid.Empty"/> stands for a sent value that named
+    /// nothing (as <c>ParentChange.SeenId</c> does) and is never allowed.
+    /// </param>
+    /// <exception cref="ConflictException">
+    /// <see cref="WorkItemErrorCodes.WorkItemNotDeleted"/>, then <see cref="WorkItemErrorCodes.StateNotAllowed"/>.
+    /// </exception>
+    public void Restore(WorkItemTypeStates type, Guid? chosenStateId, DateTimeOffset now)
+    {
+        ArgumentNullException.ThrowIfNull(type);
+
+        EnsureDeleted(type);
+
+        if (chosenStateId is { } chosen && !type.Allows(chosen))
+        {
+            throw new ConflictException(WorkItemErrorCodes.StateNotAllowed);
+        }
+
+        StateId = chosenStateId ?? RestoreTarget(type);
+        DeletedFromStateId = null;
+        DeletedBy = null;
+        DeletedAt = null;
+        ChangedAt = now;
+    }
+
+    /// <summary>
     /// One save of the form (US-3, US-4, US-5): exactly the fields of
     /// <paramref name="edit"/> that are set, all of them or none (BR-M3-25). The
     /// state is checked before the assignee, and a refusal throws before anything
     /// changes. A value equal to the stored one changes nothing; when nothing
     /// changes, <see cref="ChangedAt"/> stays. Returns whether anything changed.
+    /// mod-005: an item in «Удалена» takes no save at all (<see cref="EnsureLive"/>, BR-DR-8), judged on the stored
+    /// state before any value, state or assignee is looked at.
     /// </summary>
     /// <param name="type">The item's own type, as the organization's process holds it.</param>
     public bool Save(WorkItemEdit edit, WorkItemTypeStates type, DateTimeOffset now)
@@ -260,6 +400,7 @@ public sealed class WorkItem
         ArgumentNullException.ThrowIfNull(type);
 
         RequireOwnType(type);
+        EnsureLive(type);
 
         // feat-022's fields are checked by the caller (CheckFields), with the other field reasons, before any 404 or 409.
         if (edit.Fields is { } fields && CheckFields(fields, type).Count > 0)
@@ -328,6 +469,13 @@ public sealed class WorkItem
             changed = true;
         }
 
+        // mod-017 (BR-OT-1): the team changes nothing else on the item; «Изменён» moves only when the value differs.
+        if (edit.Team is { } team && team.TeamId != OwningTeamId)
+        {
+            OwningTeamId = team.TeamId;
+            changed = true;
+        }
+
         if (edit.Fields is { } sent)
         {
             changed |= Apply(sent);
@@ -360,7 +508,7 @@ public sealed class WorkItem
         Priority = WorkItemFieldRules.DefaultPriority;
         Severity = kind.Has(WorkItemField.Severity) ? WorkItemFieldRules.DefaultSeverity : null;
         ValueArea = kind.Has(WorkItemField.ValueArea) ? WorkItemFieldRules.DefaultValueArea : null;
-        AcceptanceCriteria = kind.Has(WorkItemField.AcceptanceCriteria) ? string.Empty : null;
+        AcceptanceCriteria = kind.Has(WorkItemField.AcceptanceCriteria) ? [] : null;
         ReproSteps = kind.Has(WorkItemField.ReproSteps) ? string.Empty : null;
         SystemInfo = kind.Has(WorkItemField.SystemInfo) ? string.Empty : null;
     }
@@ -449,7 +597,11 @@ public sealed class WorkItem
 
         if (fields.AcceptanceCriteria is { } acceptanceCriteria)
         {
-            changed |= Set(AcceptanceCriteria, acceptanceCriteria, value => AcceptanceCriteria = value);
+            if (!SequenceEqual(AcceptanceCriteria, acceptanceCriteria))
+            {
+                AcceptanceCriteria = acceptanceCriteria;
+                changed = true;
+            }
         }
 
         if (fields.ReproSteps is { } reproSteps)
@@ -535,6 +687,40 @@ public sealed class WorkItem
         }
     }
 
+    /// <summary>Sent acceptance criteria scenarios: not on the type, or scenario text length reason.</summary>
+    private static void CheckAcceptanceCriteria(
+        List<WorkItemFieldReason> reasons, AppearanceToken kind, IReadOnlyList<AcceptanceCriterion>? sent)
+    {
+        if (sent is null)
+        {
+            return;
+        }
+
+        if (!kind.Has(WorkItemField.AcceptanceCriteria))
+        {
+            reasons.Add(new WorkItemFieldReason(WorkItemField.AcceptanceCriteria, WorkItemErrorCodes.FieldNotOnType));
+        }
+        else if (WorkItemFieldRules.ValidateAcceptanceCriteria(sent) is { } code)
+        {
+            reasons.Add(new WorkItemFieldReason(WorkItemField.AcceptanceCriteria, code));
+        }
+    }
+
+    private static bool SequenceEqual(IReadOnlyList<AcceptanceCriterion>? first, IReadOnlyList<AcceptanceCriterion>? second)
+    {
+        if (ReferenceEquals(first, second))
+        {
+            return true;
+        }
+
+        if (first is null || second is null)
+        {
+            return false;
+        }
+
+        return first.SequenceEqual(second);
+    }
+
     private void RequireOwnType(WorkItemTypeStates type)
     {
         ArgumentNullException.ThrowIfNull(type);
@@ -560,7 +746,8 @@ public sealed class WorkItem
 /// The fields one save sends (BR-M3-25); <c>null</c> means "not sent, keep the
 /// stored value". The caller has validated the texts, has resolved the area as
 /// an area of the item's project (BR-M3-23), and has checked
-/// <paramref name="Fields"/> with <see cref="WorkItem.CheckFields"/> (feat-022).
+/// <paramref name="Fields"/> with <see cref="WorkItem.CheckFields"/> (feat-022). mod-017: the caller has judged
+/// <paramref name="Team"/> with <c>ProjectTeams.EnsureBindable</c> under the team's lock.
 /// </summary>
 public sealed record WorkItemEdit(
     string? Title = null,
@@ -569,7 +756,14 @@ public sealed record WorkItemEdit(
     AssigneeEdit? Assignee = null,
     Guid? AreaId = null,
     WorkItemFieldsEdit? Fields = null,
+    TeamEdit? Team = null,
     DescriptionFormat? DescriptionFormat = null);
+
+/// <summary>
+/// The sent owning team (mod-017 BR-OT-2): a team of the item's project, or <c>null</c> for «Без команды». A save that sends
+/// no team has no <see cref="TeamEdit"/> at all and keeps the stored value (BR-M3-25).
+/// </summary>
+public sealed record TeamEdit(Guid? TeamId);
 
 /// <summary>
 /// The sent assignee: a user id, or <c>null</c> for «Не назначен» (BR-M3-22).

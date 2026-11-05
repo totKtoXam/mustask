@@ -1,109 +1,31 @@
-import { useId, useRef, useState, type FormEvent } from 'react';
-import { useParams } from 'react-router-dom';
-import Alert from '@mui/material/Alert';
-import Box from '@mui/material/Box';
-import Button from '@mui/material/Button';
-import CircularProgress from '@mui/material/CircularProgress';
-import FormHelperText from '@mui/material/FormHelperText';
-import InputBase from '@mui/material/InputBase';
-import Skeleton from '@mui/material/Skeleton';
-import Stack from '@mui/material/Stack';
-import TextField from '@mui/material/TextField';
-import Typography from '@mui/material/Typography';
-import useMediaQuery from '@mui/material/useMediaQuery';
-import { useTheme, type Theme } from '@mui/material/styles';
-import { useProcessDefinition } from '../../process';
-import { apiErrorText } from '../../../shared/lib/apiErrorText';
-import { ErrorBanner } from '../../../shared/ui/ErrorBanner';
-import { FormSkeleton } from '../../../shared/ui/FormSkeleton';
-import { PageHeader } from '../../../shared/ui/PageHeader';
+import { useState } from 'react';
+import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import {
-  RichTextEditor,
-  type RichTextEditorHandle,
-} from '../../../shared/ui/RichTextEditor/RichTextEditor';
-import { NotFound } from '../../../shared/ui/StateFrame';
-import { TypeMark } from '../../../shared/ui/WorkTrackingMarks';
-import type { WorkItem, WorkItemFieldName, WorkItemStateReference } from '../api/workItemsApi';
-import { AreaPicker } from '../components/AreaPicker';
-import { AssigneePicker } from '../components/AssigneePicker';
-import { FieldControl } from '../components/FieldControl';
-import { FormSection } from '../components/FormSection';
-import { HeaderChrome } from '../components/HeaderChrome';
-import { useNotice } from '../components/Notice';
-import { RelatedWorkSection } from '../components/RelatedWorkSection';
-import { StatePicker } from '../components/StatePicker';
-import { useSaveWorkItem } from '../hooks/mutations';
-import { useRefreshWorkItem, useWorkItem } from '../hooks/queries';
-import {
-  changesOf,
-  draftErrors,
-  draftOf,
-  isDirty,
-  rebaseDraft,
-  type WorkItemDraft,
-} from '../lib/draft';
-import { TEXT_FIELDS, TEXT_HELPER, fieldsOf, layoutOf } from '../lib/fields';
+  CardSkeleton,
+  ErrorBanner,
+  NotFound,
+  PageHeader,
+  PanelShell,
+  useNotice,
+  usePageHead,
+} from '../../../shared/ui';
+import type { WorkItem } from '../api/workItemsApi';
+import { PageFrame } from '../components/card/KitFrames';
+import { WorkItemCard } from '../components/card/WorkItemCard';
+import { useWorkItem } from '../hooks/queries';
+import { useWorkItemAccess } from '../hooks/useWorkItemAccess';
+import { cardTexts, loadingName } from '../lib/cardTexts';
+import { listOriginOf } from '../lib/listOrigin';
 import { notFoundLevel, type WorkItemsNotFoundLevel } from '../lib/notFoundLevel';
-import { allowedParentTypes, editableStates, parentHelperText, typeById } from '../lib/process';
-import { isParentChanged, placeRefusal, type RefusalField } from '../lib/refusals';
-
-/** mod-003's fields of the form a refusal can land on; feat-022 adds the type's own. */
-const FORM_FIELDS: readonly RefusalField[] = [
-  'title',
-  'description',
-  'state',
-  'assignee',
-  'area',
-  'parent',
-];
-
-type FieldErrors = Partial<Record<RefusalField, string>>;
+import { workItemsPath } from '../paths';
 
 /**
- * The «Детали» grid (mod-015 § 10.3; feat-022 spec § The form's sections): two
- * columns, 8/4, at ≥ 1280 px; one below, the left column's sections first.
- */
-function gridSx(wide: boolean) {
-  return {
-    mt: 3,
-    display: 'grid',
-    gridTemplateColumns: wide ? 'minmax(0, 2fr) minmax(0, 1fr)' : 'minmax(0, 1fr)',
-    gap: 3,
-    alignItems: 'start',
-  } as const;
-}
-
-/** Whether the form stands in two columns: `lg` is 1280 px (ADR-0024). */
-function useWideForm(): boolean {
-  const theme = useTheme();
-  return useMediaQuery(theme.breakpoints.up('lg'));
-}
-
-/** The band's stripe in the type's colour (mod-015 § 10.3: 4 px). */
-function bandSx(appearance: string) {
-  return (theme: Theme) => ({
-    mt: 2,
-    px: 2,
-    py: 1.5,
-    display: 'flex',
-    alignItems: 'flex-start',
-    gap: 2,
-    backgroundColor: theme.palette.background.paper,
-    borderLeft: `${theme.spacing(0.5)} solid ${theme.workTracking.typeAppearance(appearance).colour}`,
-  });
-}
-
-/**
- * A work item's form (US-3, US-4, US-5; spec § Page: a work item's form;
- * mod-015 § 10.3 without its tabs, «Ещё действия», Итерация, Теги and
- * «Обсуждение»), a project-level page at `…/workitems/:identifier` (D-5). Its
- * read validates the whole address and answers the outermost level not found.
- * Keyed by the address, so another item starts with its own values. feat-001
- * adds the section «Связанная работа»: «Родитель» is a field of the draft, and
- * the children list is read-only. feat-022 lays the body out in sections per
- * type, by `type.appearance`: «Описание» and the type's texts on the left,
- * «Планирование», «Трудозатраты (часы)» or «Классификация» on the right, and
- * «Связанная работа» last there, as mod-015 § 10.3 places it.
+ * A work item's page (feat-029 US-7; mod-003 spec § Page: a work item's form), a
+ * project-level page at `…/workitems/:identifier` (D-5). It reads the item, keys the
+ * card by the address — another item starts with its own values — and hosts it in the
+ * kit's page panel; everything the card shows and does is `WorkItemCard`'s, the same
+ * card the dialog hosts. The read validates the whole address and answers the
+ * outermost level not found; so does a save that finds the item gone.
  */
 export function WorkItemFormPage() {
   const {
@@ -112,7 +34,7 @@ export function WorkItemFormPage() {
     identifier = '',
   } = useParams<{ organizationId: string; projectId: string; identifier: string }>();
   return (
-    <WorkItemForm
+    <WorkItemPage
       key={`${organizationId}/${projectId}/${identifier}`}
       organizationId={organizationId}
       projectId={projectId}
@@ -121,7 +43,7 @@ export function WorkItemFormPage() {
   );
 }
 
-function WorkItemForm({
+function WorkItemPage({
   organizationId,
   projectId,
   identifier,
@@ -140,21 +62,20 @@ function WorkItemForm({
     return <NotFound level={level} keepNavigation={level === 'workItem'} />;
   }
   if (query.isPending || (query.isError && query.isFetching)) {
-    return <FormLoading />;
+    return <PageLoading identifier={identifier} />;
   }
   if (query.isError) {
     return (
       <>
-        <PageHeader title="Рабочий элемент" />
+        <PageHeader title={cardTexts.frame.errorTitle} />
         <ErrorBanner error={query.error} onRetry={() => void query.refetch()} />
       </>
     );
   }
   return (
-    <LoadedForm
+    <PageCard
       organizationId={organizationId}
       projectId={projectId}
-      identifier={identifier}
       item={query.data}
       onGone={setGone}
     />
@@ -162,306 +83,73 @@ function WorkItemForm({
 }
 
 /**
- * Loading (feat-022 spec § States): band and strip skeletons, and a
- * `FormSkeleton` in each column of the «Детали» grid — the type, and so its
- * sections, is not known yet. The second is hidden from assistive technology:
- * one «Загрузка данных» is announced for the page.
+ * Loading (design § 6): the card's frame at once with the kit's skeleton in its shape,
+ * announced once as «Загрузка данных». The page has its `h1` meanwhile — the type is
+ * not known yet — so it is named «Рабочий элемент <ID>».
  */
-function FormLoading() {
-  const wide = useWideForm();
+function PageLoading({ identifier }: { identifier: string }) {
+  const { trail } = usePageHead({});
   return (
-    <>
-      <HeaderChrome />
-      <Box aria-hidden="true" sx={{ mt: 2 }}>
-        <Skeleton variant="rounded" sx={(theme) => ({ height: theme.spacing(10) })} />
-        <Stack direction="row" spacing={2} sx={{ mt: 2 }}>
-          {[0, 1, 2].map((index) => (
-            <Skeleton
-              key={index}
-              variant="rounded"
-              sx={(theme) => ({ width: theme.spacing(28), height: theme.spacing(5) })}
-            />
-          ))}
-        </Stack>
-      </Box>
-      <Box sx={gridSx(wide)}>
-        <FormSkeleton fields={1} />
-        <Box aria-hidden="true">
-          <FormSkeleton fields={3} />
-        </Box>
-      </Box>
-    </>
+    <PanelShell trail={trail}>
+      <CardSkeleton heading={{ text: loadingName(identifier), level: 1 }} />
+    </PanelShell>
   );
 }
 
-function LoadedForm({
+/** The loaded card in the page's panel: the type line is the `h1` and the browser tab. */
+function PageCard({
   organizationId,
   projectId,
-  identifier,
   item,
   onGone,
 }: {
   organizationId: string;
   projectId: string;
-  identifier: string;
   item: WorkItem;
-  onGone(level: WorkItemsNotFoundLevel): void;
+  onGone: (level: WorkItemsNotFoundLevel) => void;
 }) {
-  const theme = useTheme();
-  const wide = useWideForm();
-  const process = useProcessDefinition(organizationId);
-  const save = useSaveWorkItem(organizationId, projectId, identifier);
-  const refresh = useRefreshWorkItem(organizationId, projectId, identifier);
-  const { notice, show } = useNotice();
-  /** The user's edits; `null` until the first one, and again after a save. */
-  const [edited, setEdited] = useState<WorkItemDraft | null>(null);
-  const [errors, setErrors] = useState<FieldErrors>({});
-  const [alert, setAlert] = useState<string | null>(null);
-  const titleHelperId = useId();
-  const editorRef = useRef<RichTextEditorHandle>(null);
-  /**
-   * The editor reports its change after a short delay (and at once on `flush()`): what it
-   * last reported, so a save that flushes first reads the description as it is now, not as
-   * the last render saw it (plan § 7.2). `null`: nothing reported since the last save.
-   */
-  const reportedDescription = useRef<string | null>(null);
+  const { show } = useNotice();
+  // The role views (mod-016 design § 6.5): the card is read-only without the write
+  // code, and «Родитель» alone is without the link code.
+  const { readOnly, parentReadOnly, canDelete, canPurge } = useWorkItemAccess();
+  const navigate = useNavigate();
+  const location = useLocation();
+  const { trail } = usePageHead({ title: `${item.type.name} ${item.identifier}` });
 
-  const draft = edited ?? draftOf(item);
-  const dirty = isDirty(item, draft);
-  const busy = save.isPending;
-  const layout = layoutOf(item.type.appearance);
-  const formFields: readonly RefusalField[] = [...FORM_FIELDS, ...fieldsOf(item.type.appearance)];
-
-  function edit(field: RefusalField, patch: Partial<WorkItemDraft>) {
-    setEdited((current) => ({ ...(current ?? draftOf(item)), ...patch }));
-    setErrors((current) => ({ ...current, [field]: undefined }));
-  }
-
-  /**
-   * One field per type edited: its error clears; «Дата начала» clears
-   * «Целевая дата»'s too, where the pair's order is reported (BR-M3-35).
-   */
-  function editField(name: WorkItemFieldName, value: string) {
-    setEdited((current) => {
-      const base = current ?? draftOf(item);
-      return { ...base, fields: { ...base.fields, [name]: value } };
-    });
-    setErrors((current) => ({
-      ...current,
-      [name]: undefined,
-      ...(name === 'startDate' ? { targetDate: undefined } : {}),
-    }));
-  }
-
-  async function handleSave(event: FormEvent) {
-    event.preventDefault();
-    if (busy) {
-      return;
-    }
-    // A change the editor still holds is reported first, synchronously.
-    editorRef.current?.flush();
-    const current: WorkItemDraft =
-      reportedDescription.current === null
-        ? draft
-        : { ...draft, description: reportedDescription.current };
-    if (!isDirty(item, current)) {
-      return;
-    }
-    // The browser's checks: nothing is sent while one stands.
-    const refused: FieldErrors = draftErrors(item, current);
-    if (Object.keys(refused).length > 0) {
-      setErrors((previous) => ({ ...previous, ...refused }));
-      return;
-    }
-    setAlert(null);
-    try {
-      await save.mutateAsync(changesOf(item, current));
-      reportedDescription.current = null;
-      setEdited(null);
-      setErrors({});
-      show('Изменения сохранены.');
-    } catch (error) {
-      const placed = placeRefusal(error, formFields);
-      if (placed.frame) {
-        onGone(placed.frame);
-        return;
-      }
-      if (isParentChanged(error)) {
-        // feat-001 BR-H-4: read the item again first, then «Родитель» shows
-        // the stored parent; the user's other changes stay on the form.
-        try {
-          setEdited(rebaseDraft(item, await refresh(), current));
-        } catch (readError) {
-          const gone = notFoundLevel(readError);
-          if (gone) {
-            onGone(gone);
-            return;
-          }
-          setErrors(placed.fields);
-          setAlert(apiErrorText(readError));
-          return;
-        }
-      }
-      setErrors(placed.fields);
-      setAlert(placed.alert);
+  // «Сохранить и закрыть» goes back in history, or to «Рабочие элементы» when the
+  // page was the first the user opened (US-4).
+  function goBack() {
+    if (location.key === 'default') {
+      navigate(workItemsPath(organizationId, projectId));
+    } else {
+      navigate(-1);
     }
   }
-
-  // «Статус» offers the type's states without «Удалена» once the process is
-  // read; until then, only the current one.
-  const type = process.data ? typeById(process.data.workItemTypes, item.type.id) : undefined;
-  const states: WorkItemStateReference[] = type ? editableStates(type) : [item.state];
-  if (!states.some((state) => state.id === item.state.id)) {
-    states.unshift(item.state);
-  }
-  // «Родитель»'s helper names the types the item's level allows once the
-  // process is read (feat-001 api-contract § 1); until then, none.
-  const parentHelper = process.data
-    ? parentHelperText(allowedParentTypes(process.data, item.type.id))
-    : null;
-  const heading = `${item.type.name} ${item.identifier}`;
 
   return (
-    <Box component="form" noValidate onSubmit={(event: FormEvent) => void handleSave(event)}>
-      <HeaderChrome title={heading} />
-      {alert && (
-        <Alert severity="error" sx={{ mt: 2 }}>
-          {alert}
-        </Alert>
-      )}
-      <Box sx={bandSx(item.type.appearance)}>
-        <Box sx={{ flex: 1, minWidth: 0 }}>
-          <Typography
-            variant="subtitle2"
-            component="h1"
-            sx={{ display: 'flex', alignItems: 'center', gap: 1 }}
-          >
-            <TypeMark appearance={item.type.appearance} />
-            {heading}
-          </Typography>
-          <InputBase
-            value={draft.title}
-            disabled={busy}
-            fullWidth
-            error={errors.title !== undefined}
-            onChange={(event) => edit('title', { title: event.target.value })}
-            inputProps={{
-              'aria-label': 'Заголовок',
-              'aria-required': true,
-              'aria-invalid': errors.title !== undefined,
-              'aria-describedby': errors.title !== undefined ? titleHelperId : undefined,
-            }}
-            sx={{ typography: 'h1', mt: 0.5 }}
-          />
-          {errors.title !== undefined && (
-            <FormHelperText error id={titleHelperId}>
-              {errors.title}
-            </FormHelperText>
-          )}
-        </Box>
-        <Button
-          type="submit"
-          variant="contained"
-          disabled={busy || !dirty}
-          startIcon={busy ? <CircularProgress size={theme.spacing(2)} /> : undefined}
-          sx={{ flexShrink: 0 }}
-        >
-          Сохранить
-        </Button>
-      </Box>
-      <Stack direction="row" spacing={2} useFlexGap sx={{ mt: 2, flexWrap: 'wrap' }}>
-        <AssigneePicker
-          organizationId={organizationId}
-          value={draft.assignee}
-          disabled={busy}
-          error={errors.assignee}
-          onChange={(assignee) => edit('assignee', { assignee })}
-        />
-        <StatePicker
-          states={states}
-          value={draft.stateId}
-          disabled={busy}
-          error={errors.state}
-          onChange={(stateId) => edit('state', { stateId })}
-        />
-        <AreaPicker
-          organizationId={organizationId}
-          projectId={projectId}
-          value={draft.area}
-          disabled={busy}
-          error={errors.area}
-          onChange={(area) => edit('area', { area })}
-        />
-      </Stack>
-      <Box sx={gridSx(wide)}>
-        <Stack spacing={3} useFlexGap sx={{ minWidth: 0 }}>
-          <FormSection title="Описание">
-            <RichTextEditor
-              ref={editorRef}
-              label="Описание"
-              value={draft.description}
-              disabled={busy}
-              helperText={TEXT_HELPER}
-              errorText={errors.description}
-              onChange={({ html }) => {
-                reportedDescription.current = html;
-                edit('description', { description: html });
-              }}
-            />
-          </FormSection>
-          {layout.texts.map((name) => (
-            <FormSection key={name} title={TEXT_FIELDS[name].label}>
-              <TextField
-                label={TEXT_FIELDS[name].label}
-                placeholder={TEXT_FIELDS[name].placeholder}
-                multiline
-                minRows={6}
-                fullWidth
-                value={draft.fields[name]}
-                disabled={busy}
-                error={errors[name] !== undefined}
-                helperText={errors[name] ?? TEXT_HELPER}
-                onChange={(event) => editField(name, event.target.value)}
-              />
-            </FormSection>
-          ))}
-        </Stack>
-        <Stack spacing={3} useFlexGap sx={{ minWidth: 0 }}>
-          {layout.sections.map((section) => (
-            <FormSection key={section.title} title={section.title}>
-              <Stack
-                spacing={2}
-                useFlexGap
-                sx={{ maxWidth: wide ? undefined : theme.layout.formColumnWidth }}
-              >
-                {section.fields.map((name) => (
-                  <FieldControl
-                    key={name}
-                    name={name}
-                    value={draft.fields[name]}
-                    disabled={busy}
-                    error={errors[name]}
-                    onChange={(value) => editField(name, value)}
-                  />
-                ))}
-              </Stack>
-            </FormSection>
-          ))}
-          <RelatedWorkSection
-            organizationId={organizationId}
-            projectId={projectId}
-            identifier={identifier}
-            stored={item.parent}
-            childItems={item.children}
-            value={draft.parent}
-            disabled={busy}
-            error={errors.parent}
-            helperText={parentHelper}
-            onChange={(parent) => edit('parent', { parent })}
-          />
-        </Stack>
-      </Box>
-      {notice}
-    </Box>
+    <WorkItemCard
+      organizationId={organizationId}
+      projectId={projectId}
+      item={item}
+      mode="page"
+      readOnly={readOnly}
+      parentReadOnly={parentReadOnly}
+      canDelete={canDelete}
+      canPurge={canPurge}
+      notify={show}
+      onGone={onGone}
+      onClose={goBack}
+      // The purged address must not be one Back returns to (mod-005 design § 6). A card opened from
+      // a row of the list returns to that list under its filters, page 1; any other lands on the
+      // list unfiltered (feat-003 BR-WS-5, amending mod-005 design § 6).
+      onPurged={() =>
+        navigate(
+          listOriginOf(location.state, organizationId, projectId) ??
+            workItemsPath(organizationId, projectId),
+          { replace: true },
+        )
+      }
+      renderFrame={(frame) => <PageFrame frame={frame} trail={trail} />}
+    />
   );
 }

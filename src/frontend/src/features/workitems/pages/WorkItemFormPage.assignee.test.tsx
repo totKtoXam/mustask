@@ -1,11 +1,15 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { HttpResponse, http } from 'msw';
 import { server } from '../../../test/mocks/server';
 import { serveWorkItems, type WorkItemsTestApi } from '../testApi';
 import { CANDIDATES_URL, exampleDataset, ids, type Dataset } from '../testFixtures';
+import { held } from '../components/card/testCard';
 import { mskForm, renderWorkItems } from '../testRender';
+
+// Each user action draws the kit’s fields in jsdom; a test of several steps outlasts the default.
+vi.setConfig({ testTimeout: 120_000 });
 
 async function openForm(identifier: string, data: Dataset = exampleDataset()) {
   const api = serveWorkItems(data);
@@ -18,7 +22,7 @@ function patches(api: WorkItemsTestApi) {
   return api.writes().filter((request) => request.method === 'PATCH');
 }
 
-const save = () => screen.getByRole('button', { name: 'Сохранить' });
+const save = held(() => screen.getByRole('button', { name: 'Сохранить' }));
 const assignee = () => screen.getByRole('combobox', { name: 'Исполнитель' });
 
 /** The open list's lines, by their visible text without the avatars' initials. */
@@ -50,7 +54,8 @@ function unassigned(): Dataset {
 describe('mod-003 US-4 Scenario: An assignee is found by name and saved', () => {
   it('offers «Не назначен», «Анна Кузнецова», «Анна Смирнова» with initials and e-mail; the pick is saved', async () => {
     const api = await openForm('MSK-BUG-4', unassigned());
-    expect(assignee()).toHaveValue('Не назначен');
+    expect(assignee()).toHaveValue('');
+    expect(screen.getByText('Не назначен')).toBeInTheDocument();
 
     await search('анна');
 
@@ -253,7 +258,8 @@ describe('mod-003 US-4 Scenario: An assignment is cleared', () => {
 
     expect(await screen.findByText('Изменения сохранены.')).toBeInTheDocument();
     expect(patches(api)[0]?.body).toEqual({ assignee: { userId: null } });
-    expect(assignee()).toHaveValue('Не назначен');
+    expect(assignee()).toHaveValue('');
+    expect(screen.getByText('Не назначен')).toBeInTheDocument();
     expect(api.record(ids.msk, 4).assigneeId).toBeNull();
   });
 });

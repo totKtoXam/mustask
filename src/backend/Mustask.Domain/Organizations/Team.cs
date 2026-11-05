@@ -1,12 +1,10 @@
-using Mustask.Shared.Exceptions;
-
 namespace Mustask.Domain.Organizations;
 
 /// <summary>
-/// A team of a project (US-4, US-7). Its name is unique among the project's
-/// active teams and freed when it is deleted (BR-M1-1, ADR-0026 rule 6). The
-/// project's first team owns the root, cannot be deleted, and keeps the root as
-/// its default area for good (BR-M1-9, BR-M1-18).
+/// A team of an organization (feat-028 BR-OL-1, ADR-0028 rule 4). It belongs to the organization and to no project: the
+/// projects it works in are its <see cref="ProjectTeam"/> links. Its name is unique among the organization's active teams and
+/// freed when it is deleted (BR-OL-3, ADR-0026 rule 6). It has a name, an optional description, a status and the people in
+/// it; what it owns is the items whose owning team it is, and no team is the first or fixed (mod-017 BR-OT-11).
 /// </summary>
 public sealed class Team
 {
@@ -15,70 +13,63 @@ public sealed class Team
         // EF materialization.
     }
 
-    private Team(Guid id, Guid projectId, EntityName name, bool isFirstTeam)
+    private Team(Guid id, Guid organizationId, EntityName name, EntityDescription? description)
     {
         Id = id;
-        ProjectId = projectId;
+        OrganizationId = organizationId;
         Name = name.Value;
         NormalizedName = name.Normalized;
+        Description = description?.Value;
         Status = TeamStatus.Active;
-        IsFirstTeam = isFirstTeam;
     }
 
     public Guid Id { get; private set; }
 
-    public Guid ProjectId { get; private set; }
+    public Guid OrganizationId { get; private set; }
 
     public string Name { get; private set; } = null!;
 
     public string NormalizedName { get; private set; } = null!;
 
-    public TeamStatus Status { get; private set; }
+    /// <summary>The description as typed, or <c>null</c> when there is none (BR-OL-3).</summary>
+    public string? Description { get; private set; }
 
-    /// <summary>The team that owns the project's root (BR-M1-9). Exactly one per project.</summary>
-    public bool IsFirstTeam { get; private set; }
+    public TeamStatus Status { get; private set; }
 
     public bool IsActive => Status == TeamStatus.Active;
 
     /// <summary>
-    /// A second or later team, with its own area: a child of the root named after
-    /// the team, owned by it explicitly and set as its default (US-4, BR-M1-9).
+    /// A new, active team of the organization: a name, an optional description, no project, no member and no area
+    /// (BR-OL-2). The caller links it and adds its people in the same operation when the request names them.
     /// </summary>
-    public static NewTeam CreateWithArea(Guid projectId, EntityName name, Area root)
+    public static Team Create(Guid organizationId, EntityName name, EntityDescription? description = null)
     {
-        if (!root.IsRoot || root.ProjectId != projectId)
+        if (organizationId == Guid.Empty)
         {
-            throw new ArgumentException("A new team's area is a child of its own project's root.", nameof(root));
+            throw new ArgumentException("A team belongs to an organization.", nameof(organizationId));
         }
 
-        var team = new Team(Guid.CreateVersion7(), projectId, name, isFirstTeam: false);
-        var area = Area.CreateDefaultChild(root, name, team.Id);
-
-        return new NewTeam(team, area);
+        return new Team(Guid.CreateVersion7(), organizationId, name, description);
     }
 
-    internal static Team CreateFirst(Guid projectId, EntityName name) =>
-        new(Guid.CreateVersion7(), projectId, name, isFirstTeam: true);
-
-    /// <summary>Renames the team. Its areas keep their names (US-4).</summary>
+    /// <summary>Renames the team. What it owns, its people and its links do not change (US-1).</summary>
     public void Rename(EntityName name)
     {
         Name = name.Value;
         NormalizedName = name.Normalized;
     }
 
+    /// <summary>Sets or clears the description (BR-OL-3).</summary>
+    public void Describe(EntityDescription? description) => Description = description?.Value;
+
     /// <summary>
-    /// Deletes the team for good (US-7): the status is terminal and the name is
-    /// freed. The caller re-owns the team's explicit areas to the first team in
-    /// the same transaction (BR-M1-18). The first team is refused.
+    /// Deletes the team for good (BR-OL-9, BR-OL-10): the status is terminal and the name is freed. There is no guard: a
+    /// project's last team may go (the last-team rule of mod-017 BR-OT-11 is retired). The caller deletes in one operation
+    /// over what the team owns in every project it is linked to — the items go to «Без команды», its places, its links and
+    /// the default settings that named it go, its memberships end.
     /// </summary>
     public void Delete()
     {
-        if (IsFirstTeam)
-        {
-            throw new ConflictException(OrganizationErrorCodes.TeamFirstTeamCannotBeDeleted);
-        }
-
         if (!IsActive)
         {
             throw new InvalidOperationException("A deleted team answers not found before it reaches the domain.");
@@ -87,6 +78,3 @@ public sealed class Team
         Status = TeamStatus.Deleted;
     }
 }
-
-/// <summary>What <see cref="Team.CreateWithArea"/> builds: the team and its default area, to be stored together.</summary>
-public sealed record NewTeam(Team Team, Area Area);

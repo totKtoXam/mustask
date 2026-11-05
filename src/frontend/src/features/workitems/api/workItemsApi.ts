@@ -9,7 +9,10 @@
 // `children`, the save's `parent`, the «Родитель» picker's search, and the
 // parent write on its own that a team's backlog maps a row with (§ 3.2).
 // feat-022's api-contract § 1–§ 3 adds the 17 fields per type to the item and
-// to the save.
+// to the save. mod-005's api-contract § 1.1 adds the item's `deletion` and § 2 its
+// three writes — delete, restore and purge. feat-003's api-contract adds the list's
+// `state`, `assigneeId` and `search` (§ 2.1), the row's assignee flags (§ 1.1) and the
+// «Исполнитель» filter's options (§ 2.2).
 import { apiFetch } from '../../../shared/api/httpClient';
 
 /** § 1.1 `type`: as mod-001's process read gives it. */
@@ -17,7 +20,7 @@ export interface WorkItemTypeReference {
   id: string;
   key: string;
   name: string;
-  /** The appearance token the theme draws (`epic`, `feature`, `story`, `task`, `bug`). */
+  /** The appearance token the theme draws (`epic`, `feature`, `story`, `task`, `bug`, `testcase`). */
   appearance: string;
 }
 
@@ -43,12 +46,64 @@ export interface WorkItemAssignee {
   id: string;
   displayName: string | null;
   email: string | null;
+  isMember?: boolean;
+}
+
+/**
+ * mod-005 api-contract § 1.1 `deletion.by`: a user reference. `displayName` is `null` when
+ * the directory does not know the id (and `isActive` is then `false` too); `isMember` is
+ * whether the user is now a member of the item's organization, in any role.
+ */
+export interface WorkItemUserReference {
+  id: string;
+  displayName: string | null;
+  isActive: boolean;
+  isMember: boolean;
+}
+
+/**
+ * mod-005 api-contract § 1.1 `deletion`: the record of the latest deletion (BR-DR-2) — the
+ * state the item held (the restore's preset), who deleted it and when. The item is deleted
+ * exactly when its `state.category.code` is `Removed`, never when this is set: an item put
+ * there outside Delete has none (BR-DR-10).
+ */
+export interface WorkItemDeletion {
+  fromState: WorkItemStateReference;
+  by: WorkItemUserReference;
+  at: string;
 }
 
 /** § 1.1 `area`: its current path (mod-002 DC-9), the root by its own name. */
 export interface WorkItemArea {
   id: string;
   path: string;
+}
+
+/**
+ * mod-017 api-contract § 1.1: the owning team as it stands now (a rename shows at once);
+ * `null` on the item is «Без команды». A deleted team never appears.
+ */
+export interface WorkItemTeam {
+  id: string;
+  name: string;
+}
+
+/**
+ * feat-040 api-contract § 2.1: the item's project as it stands now (a rename shows at once). Every
+ * item has one; the card's «Проект» reads it (BR-TS-3).
+ */
+export interface WorkItemProject {
+  id: string;
+  name: string;
+}
+
+/**
+ * mod-017 api-contract § 0.2: a team is sent in a wrapper, never flat, because a flat `null`
+ * would read as «not changed». `{ teamId: null }` is «Без команды»; the member left out of
+ * the body leaves the field alone.
+ */
+export interface TeamChange {
+  teamId: string | null;
 }
 
 /**
@@ -71,6 +126,12 @@ export interface WorkItemRef {
  * `""` when empty, any other field is `null` when empty. Numbers come in their
  * shortest form, dates as `YYYY-MM-DD`, list values as their Latin keys.
  */
+export interface AcceptanceCriterion {
+  given: string;
+  when: string;
+  then: string;
+}
+
 export interface WorkItemFields {
   /** 1..4, 1 the highest; every type has it. */
   priority: number;
@@ -92,7 +153,7 @@ export interface WorkItemFields {
   completedWork: number | null;
   /** `Business` or `Architectural`. */
   valueArea: string | null;
-  acceptanceCriteria: string | null;
+  acceptanceCriteria: AcceptanceCriterion[] | null;
   reproSteps: string | null;
   systemInfo: string | null;
 }
@@ -115,6 +176,8 @@ export interface WorkItem extends WorkItemFields {
   identifier: string;
   number: number;
   projectId: string;
+  /** feat-040 api-contract § 4.2: the project with its name, beside `projectId`, which stays. */
+  project: WorkItemProject;
   type: WorkItemTypeReference;
   title: string;
   /** `""` when empty, never `null` (§ 0.6). Read by `descriptionFormat`. */
@@ -129,6 +192,8 @@ export interface WorkItem extends WorkItemFields {
   /** `null`: «Не назначен». */
   assignee: WorkItemAssignee | null;
   area: WorkItemArea;
+  /** mod-017 api-contract § 1.2: the owning team, `null` for «Без команды». */
+  team: WorkItemTeam | null;
   createdBy: string;
   createdAt: string;
   changedAt: string;
@@ -142,32 +207,68 @@ export interface WorkItem extends WorkItemFields {
    * rank descending, then by number — shown as received; `[]` for none.
    */
   children: WorkItemRef[];
+  /** mod-005 § 1.1: `null` for a live item and for one in «Удалена» that has no marks. */
+  deletion: WorkItemDeletion | null;
+}
+
+/**
+ * feat-003 api-contract § 1.1: a row's assignee. It gains `isActive` (the directory's flag, `false`
+ * for an id the directory does not know) beside `isMember`, so the list's column reads the marks
+ * the card's field does not carry until feat-017 (OQ-2 A).
+ */
+export interface WorkItemListAssignee {
+  id: string;
+  displayName: string | null;
+  email: string | null;
+  isActive: boolean;
+  isMember: boolean;
 }
 
 /**
  * § 1.2: a row of the list; feat-001 § 2.2 leaves it without the hierarchy,
- * feat-022 § 2 without the fields per type (BR-M3-40).
+ * feat-022 § 2 without the fields per type (BR-M3-40). feat-003 § 1.1: its assignee carries the
+ * marks. A row in «Удалена» reads like any row: its state is the Removed one.
  */
 export type WorkItemListItem = Omit<
   WorkItem,
   | 'projectId'
+  | 'project'
   | 'description'
   | 'descriptionFormat'
   | 'createdBy'
   | 'createdAt'
   | 'parent'
   | 'children'
+  | 'deletion'
+  | 'assignee'
   | WorkItemFieldName
->;
+> & {
+  /** `null`: «Не назначен». */
+  assignee: WorkItemListAssignee | null;
+};
 
-/** § 2.1: ADR-0015's `Paging<T>`; `count` is the project's item count. */
+/** § 2.1: ADR-0015's `Paging<T>`; `count` is the number of items that match the filter (mod-017 § 2.1). */
 export interface WorkItemPage {
   count: number;
   data: WorkItemListItem[];
 }
 
-/** § 2.1: the list's fixed page size; the route takes `page` only. */
+/** § 2.1: the list's fixed page size; the route takes `page` and the filter. */
 export const WORK_ITEMS_PAGE_SIZE = 50;
+
+/**
+ * feat-003 api-contract § 1.2: an option of the «Исполнитель» filter — a person assigned to the
+ * project's items. `displayName` and `email` are `null` (and `isActive` `false`) for an id the user
+ * directory does not know; `email` is `""` for a known user without one; `isMember` is the
+ * membership alone.
+ */
+export interface AssigneeFilterOption {
+  id: string;
+  displayName: string | null;
+  email: string | null;
+  isActive: boolean;
+  isMember: boolean;
+}
 
 /** § 2.2's body; feat-022 § 3.1: none of the fields per type (BR-M3-40). */
 export interface CreateWorkItemBody {
@@ -176,15 +277,15 @@ export interface CreateWorkItemBody {
   typeId: string;
   title: string;
   /**
-   * mod-006 api-contract § 7: the team whose backlog or board the item is
-   * created from — it takes that team's default area. Absent: the root.
+   * mod-017 api-contract § 2.2: the owning team the dialog shows; absent: the project's
+   * default team as stored when the item is saved (BR-OT-4). Never sent beside `parentId`.
    */
-  teamId?: string;
+  team?: TeamChange;
   /**
    * feat-027 api-contract § 3: the item the new one is created beneath — the
    * backlog row whose «+» opened the inline add row. `ParentChange`'s own
    * member, flat; absent: no parent, exactly as before. With it the item takes
-   * the parent's area, so `teamId` is not sent beside it.
+   * the parent's area and owning team (mod-017 BR-OT-3), so `team` is not sent beside it.
    */
   parentId?: string;
 }
@@ -207,17 +308,22 @@ export interface FieldValue<T> {
   value: T | null;
 }
 
-/** feat-022 § 3.2: the three type texts, sent as strings — `""` empties one. */
-export type WorkItemTextFieldName = 'acceptanceCriteria' | 'reproSteps' | 'systemInfo';
+/** feat-022 § 3.2: the two type texts, sent as strings — `""` empties one. */
+export type WorkItemTextFieldName = 'reproSteps' | 'systemInfo';
 
-/** feat-022 § 3.2: every other field of § 1, sent in a `{ value }` wrapper. */
-export type WorkItemValueFieldName = Exclude<WorkItemFieldName, WorkItemTextFieldName>;
+/** feat-022 § 3.2: every other field of § 1, sent in a `{ value }` wrapper, except acceptanceCriteria. */
+export type WorkItemValueFieldName = Exclude<
+  WorkItemFieldName,
+  WorkItemTextFieldName | 'acceptanceCriteria'
+>;
 
 /** feat-022 § 3.2's 17 optional members: absent leaves the field unchanged. */
 export type SaveFieldsBody = {
   [Name in WorkItemValueFieldName]?: FieldValue<NonNullable<WorkItemFields[Name]>>;
 } & {
   [Name in WorkItemTextFieldName]?: string;
+} & {
+  acceptanceCriteria?: AcceptanceCriterion[];
 };
 
 /**
@@ -239,7 +345,10 @@ export interface SaveWorkItemBody extends SaveFieldsBody {
   stateId?: string;
   assignee?: { userId: string | null };
   areaId?: string;
+  /** mod-017 api-contract § 2.4: absent keeps the stored team, whoever changed it meanwhile. */
+  team?: TeamChange;
   parent?: ParentChange;
+  acceptanceCriteria?: AcceptanceCriterion[];
 }
 
 /** feat-001 § 3.2's answer: the item's parent as stored after the write, `null` for none. */
@@ -284,13 +393,78 @@ function workItemApiPath(organizationId: string, projectId: string, identifier: 
   return `${workItemsApiPath(organizationId, projectId)}/${segment(identifier)}`;
 }
 
-/** § 2.1: one page of the project's list, 1-based. */
+/**
+ * mod-017 api-contract § 3: the filter's value for «Без команды» (`teamId=none`); any other value
+ * is a team's id.
+ */
+export const NO_TEAM_FILTER_VALUE = 'none';
+
+/** The `teamId=…` members of a filtered read, one per chosen value (api-contract § 3). */
+export function teamFilterQuery(teamIds: readonly string[]): string {
+  return teamIds.map((teamId) => `&teamId=${encodeURIComponent(teamId)}`).join('');
+}
+
+/**
+ * feat-003 api-contract § 2.1, § 3: the list's four filter dimensions as the address and the read
+ * carry them. Each of `teamId`, `state` and `assigneeId` is one value per chosen option (any of them
+ * matches); `search` is the trimmed keyword, `""` for none.
+ */
+export interface WorkItemListFilter {
+  /** Team ids and `none` (`NO_TEAM_FILTER_VALUE`). */
+  teamId: string[];
+  /** State names as stored. */
+  state: string[];
+  /** User ids and `none` (`NO_ASSIGNEE_FILTER_VALUE`). */
+  assigneeId: string[];
+  search: string;
+}
+
+/** The filter with nothing set: the whole list. */
+export const NO_LIST_FILTER: WorkItemListFilter = {
+  teamId: [],
+  state: [],
+  assigneeId: [],
+  search: '',
+};
+
+/** feat-003 api-contract § 2.1: the filter's value for «Не назначен» (`assigneeId=none`). */
+export const NO_ASSIGNEE_FILTER_VALUE = 'none';
+
+/** The `state=…` members of a read, one per chosen name (api-contract § 2.1). */
+export function stateFilterQuery(states: readonly string[]): string {
+  return states.map((name) => `&state=${encodeURIComponent(name)}`).join('');
+}
+
+/** The members the list's read adds to `?page=`: team, state, assignee, keyword — blank left out. */
+function listFilterQuery(filter: WorkItemListFilter): string {
+  const assignees = filter.assigneeId.map((id) => `&assigneeId=${encodeURIComponent(id)}`).join('');
+  const keyword = filter.search === '' ? '' : `&search=${encodeURIComponent(filter.search)}`;
+  return `${teamFilterQuery(filter.teamId)}${stateFilterQuery(filter.state)}${assignees}${keyword}`;
+}
+
+/** § 2.1: one page of the project's list, 1-based, narrowed by the filter when it is set. */
 export function getWorkItems(
   organizationId: string,
   projectId: string,
   page: number,
+  filter: WorkItemListFilter = NO_LIST_FILTER,
 ): Promise<WorkItemPage> {
-  return apiFetch(`${workItemsApiPath(organizationId, projectId)}?page=${page}`);
+  return apiFetch(
+    `${workItemsApiPath(organizationId, projectId)}?page=${page}${listFilterQuery(filter)}`,
+  );
+}
+
+/**
+ * feat-003 api-contract § 2.2: the options of «Исполнитель» — the people assigned to the project's
+ * items, those of its deleted items too while a chosen state names one (the server judges). Unpaged.
+ */
+export function getAssigneeFilterOptions(
+  organizationId: string,
+  projectId: string,
+  states: readonly string[],
+): Promise<AssigneeFilterOption[]> {
+  const query = stateFilterQuery(states).replace(/^&/, '?');
+  return apiFetch(`${workItemsApiPath(organizationId, projectId)}/assignee-options${query}`);
 }
 
 /** § 2.2: 201 creates; 200 is a replay of the same `requestId` — the same item either way. */
@@ -321,6 +495,47 @@ export function saveWorkItem(
   return apiFetch(workItemApiPath(organizationId, projectId, identifier), {
     method: 'PATCH',
     body,
+  });
+}
+
+/**
+ * mod-005 api-contract § 2.1: moves the item into its type's «Удалена» and records the state
+ * it held, who and when (no body). 409 `workitems.workitem.deleted` when it already is.
+ */
+export function deleteWorkItem(
+  organizationId: string,
+  projectId: string,
+  identifier: string,
+): Promise<WorkItem> {
+  return apiFetch(`${workItemApiPath(organizationId, projectId, identifier)}/delete`, {
+    method: 'POST',
+  });
+}
+
+/**
+ * mod-005 api-contract § 2.2: a deleted item back to `stateId`, a state of its type other than
+ * «Удалена»; without one, the state it held. 409 `not_deleted` comes before 409 `state_not_allowed`.
+ */
+export function restoreWorkItem(
+  organizationId: string,
+  projectId: string,
+  identifier: string,
+  stateId?: string,
+): Promise<WorkItem> {
+  return apiFetch(`${workItemApiPath(organizationId, projectId, identifier)}/restore`, {
+    method: 'POST',
+    body: stateId === undefined ? undefined : { stateId },
+  });
+}
+
+/** mod-005 api-contract § 2.3: removes a deleted item for good (administrator); 204, no body. */
+export function purgeWorkItem(
+  organizationId: string,
+  projectId: string,
+  identifier: string,
+): Promise<void> {
+  return apiFetch(`${workItemApiPath(organizationId, projectId, identifier)}/purge`, {
+    method: 'POST',
   });
 }
 
@@ -377,4 +592,59 @@ export function getParentCandidates(
   return apiFetch(
     `${workItemApiPath(organizationId, projectId, identifier)}/parent-candidates?${query}`,
   );
+}
+
+/**
+ * feat-048 api-contract § 2.5: a row of the organization-wide list — the list's row with its
+ * project (and the `team` the list already carries).
+ */
+export type OrganizationWorkItem = WorkItemListItem & {
+  project: { id: string; key: string; name: string };
+};
+
+export interface OrganizationWorkItemPage {
+  count: number;
+  data: OrganizationWorkItem[];
+}
+
+/** The selectors an organization-wide read is narrowed by (ADR-0032): ids, or none. */
+export interface OrganizationListSelectors {
+  departmentId?: string;
+  teamId?: string;
+  projectId?: string;
+}
+
+function selectorQuery(selectors: OrganizationListSelectors): string {
+  const params = new URLSearchParams();
+  if (selectors.departmentId) params.append('departmentId', selectors.departmentId);
+  if (selectors.teamId) params.append('teamId', selectors.teamId);
+  if (selectors.projectId) params.append('projectId', selectors.projectId);
+  const text = params.toString();
+  return text === '' ? '' : `&${text}`;
+}
+
+/**
+ * feat-048 api-contract § 2.5: one page of every item of the organization, narrowed by the
+ * selectors and by feat-003's filters (the team dimension is the selector's, not a filter here).
+ * Only «Без группировки» uses it; a grouped list reads the group routes.
+ */
+export function getOrganizationWorkItems(
+  organizationId: string,
+  page: number,
+  selectors: OrganizationListSelectors,
+  filter: WorkItemListFilter = NO_LIST_FILTER,
+): Promise<OrganizationWorkItemPage> {
+  const withoutTeam: WorkItemListFilter = { ...filter, teamId: [] };
+  return apiFetch(
+    `${organizationApiPath(organizationId)}/workitems?page=${page}${selectorQuery(selectors)}${listFilterQuery(withoutTeam)}`,
+  );
+}
+
+/** feat-048 api-contract § 2.6: the options of «Исполнитель» across the organization. */
+export function getOrganizationAssigneeOptions(
+  organizationId: string,
+  states: readonly string[],
+): Promise<AssigneeFilterOption[]> {
+  const query = stateFilterQuery(states).replace(/^&/, '?');
+  return apiFetch(`${organizationApiPath(organizationId)}/workitems/assignee-options${query}`);
 }

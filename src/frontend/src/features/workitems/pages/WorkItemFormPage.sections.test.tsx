@@ -1,5 +1,5 @@
-import { describe, expect, it } from 'vitest';
-import { act, fireEvent, screen, waitFor, within } from '@testing-library/react';
+import { describe, expect, it, vi } from 'vitest';
+import { fireEvent, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { HttpResponse, http } from 'msw';
 import { server } from '../../../test/mocks/server';
@@ -23,13 +23,11 @@ import {
 import { WORK_ITEM_URL, hierarchyDataset, recordOf, validationProblem } from '../testFixtures';
 import { mskForm, renderWorkItems } from '../testRender';
 
+// Each user action draws the kit’s fields in jsdom; a test of several steps outlasts the default.
+vi.setConfig({ testTimeout: 120_000 });
+
 // feat-022 US-1, US-4 and US-5 on the form (spec § Screens and copy). The
 // dataset is feat-001's: one item of every type in «Мастаск».
-
-/** The «Детали» grid: the parent of the column holding «Описание». */
-function grid(): HTMLElement {
-  return section('Описание').parentElement?.parentElement as HTMLElement;
-}
 
 describe('feat-022 US-1 Scenario Outline: Each type shows its own sections', () => {
   it.each([
@@ -47,48 +45,26 @@ describe('feat-022 US-1 Scenario Outline: Each type shows its own sections', () 
       ['Планирование', 'Трудозатраты (часы)'],
     ],
   ] as const)(
-    'a «%s» at 1440 px: the left column holds %j, the right one %j then «Связанная работа», and no tab bar',
-    async (type, left, right) => {
+    'a «%s»: the first column holds %j, the second %j, the third «Связанная работа» (feat-029 BR-C-14)',
+    async (type, first, second) => {
       await openFieldsForm(ITEM_OF_TYPE[type]);
 
-      expect(getComputedStyle(grid()).gridTemplateColumns).toBe('minmax(0, 2fr) minmax(0, 1fr)');
-      expect(columnOf('Описание')).toEqual(left);
-      expect(columnOf('Планирование')).toEqual([...right, 'Связанная работа']);
-      expect(sectionNames()).toEqual([...left, ...right, 'Связанная работа']);
-      expect(screen.queryByRole('tablist')).not.toBeInTheDocument();
+      expect(columnOf('Описание')).toEqual(first);
+      expect(columnOf('Планирование')).toEqual(second);
+      expect(columnOf('Связанная работа')).toEqual(['Связанная работа']);
+      expect(sectionNames()).toEqual([...first, ...second, 'Связанная работа']);
+      // The one tab the product has (BR-C-13).
+      expect(screen.getAllByRole('tab').map((tab) => tab.textContent)).toEqual(['Детали']);
     },
   );
 });
 
-describe('feat-022 US-1 Scenario: The columns fold into one below 1280 px', () => {
-  it('a «Баг» at 1280 px has «Планирование» beside «Описание»; at 1279 px one column in the fold order, controls at most 480 px', async () => {
-    setViewportWidth(1280);
-    await openFieldsForm(ITEM_OF_TYPE['Баг']);
-    expect(getComputedStyle(grid()).gridTemplateColumns).toBe('minmax(0, 2fr) minmax(0, 1fr)');
-    expect(
-      getComputedStyle(section('Планирование').querySelector('.MuiStack-root')!).maxWidth,
-    ).toBe('');
-
-    act(() => setViewportWidth(1279));
-
-    expect(getComputedStyle(grid()).gridTemplateColumns).toBe('minmax(0, 1fr)');
-    // One column, the left one's sections first: the reading and Tab order.
-    expect(sectionNames()).toEqual([
-      'Описание',
-      'Шаги воспроизведения',
-      'Сведения о системе',
-      'Планирование',
-      'Трудозатраты (часы)',
-      'Связанная работа',
-    ]);
-    for (const name of ['Планирование', 'Трудозатраты (часы)']) {
-      const controls = section(name).querySelector('.MuiStack-root') as HTMLElement;
-      expect(getComputedStyle(controls).maxWidth).toBe('480px');
-    }
-  });
-
-  it('Tab moves from «Описание» through the bug’s texts into «Планирование»', async () => {
-    setViewportWidth(1279);
+// The columns fold by the card’s own width, which jsdom does not lay out: the kit’s
+// ColumnLayout test pins the container queries and E2E 27.3 measures them. What a window
+// of any width keeps is the reading and Tab order of the three columns.
+describe('feat-022 US-1 Scenario: The window’s width changes nothing in the order', () => {
+  it('Tab moves from «Описание» through the bug’s texts into «Планирование», at 1279 px and at 640 px', async () => {
+    setViewportWidth(640);
     await openFieldsForm(ITEM_OF_TYPE['Баг']);
     textbox('Описание').focus();
 
@@ -104,11 +80,10 @@ describe('feat-022 US-1 Scenario: The columns fold into one below 1280 px', () =
 });
 
 describe('feat-022 US-1 Scenario: The form stays usable at 640 px', () => {
-  it('an «Эпик» at 640 px shows every section and field in one column, each enabled', async () => {
+  it('an «Эпик» at 640 px shows every section and field, each enabled', async () => {
     setViewportWidth(640);
     await openFieldsForm(ITEM_OF_TYPE['Эпик']);
 
-    expect(getComputedStyle(grid()).gridTemplateColumns).toBe('minmax(0, 1fr)');
     expect(sectionNames()).toEqual([
       'Описание',
       'Планирование',
@@ -147,7 +122,10 @@ describe('feat-022 US-1 Scenario: Several new fields are saved in one save', () 
 
     await retype('Оценка в пунктах', '5');
     await choose('Риск', '2 — Средний');
-    await userEvent.type(textbox('Критерии приёмки'), 'Вход без пароля');
+    await userEvent.click(screen.getByRole('button', { name: 'Добавить критерий' }));
+    fireEvent.change(textbox('GIVEN (предусловие)'), { target: { value: 'Дано' } });
+    fireEvent.change(textbox('WHEN (действие)'), { target: { value: 'Вход без пароля' } });
+    fireEvent.change(textbox('THEN (ожидаемый результат)'), { target: { value: 'Успех' } });
     await userEvent.click(save());
 
     expect(await screen.findByText('Изменения сохранены.')).toBeInTheDocument();
@@ -156,7 +134,13 @@ describe('feat-022 US-1 Scenario: Several new fields are saved in one save', () 
       {
         storyPoints: { value: 5 },
         risk: { value: 2 },
-        acceptanceCriteria: 'Вход без пароля',
+        acceptanceCriteria: [
+          {
+            given: 'Дано',
+            when: 'Вход без пароля',
+            then: 'Успех',
+          },
+        ],
       },
     ]);
 
@@ -164,7 +148,7 @@ describe('feat-022 US-1 Scenario: Several new fields are saved in one save', () 
     renderWorkItems(mskForm('MSK-US-2'));
     expect(await screen.findByRole('textbox', { name: 'Оценка в пунктах' })).toHaveValue('5');
     expect(list('Риск')).toHaveTextContent('2 — Средний');
-    expect(textbox('Критерии приёмки')).toHaveValue('Вход без пароля');
+    expect(textbox('WHEN (действие)')).toHaveValue('Вход без пароля');
   });
 });
 
@@ -205,7 +189,10 @@ describe('feat-022 US-1 Scenario: One refused value stores nothing', () => {
     expect(textbox('Бизнес-ценность')).toHaveValue('40');
     expect(list('Риск')).toHaveTextContent('1 — Высокий');
     expect(recordOf(data, 6).fields.risk).toBeNull();
-    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+    // The card's notice is absent: the only alert is the field's own error line.
+    expect(screen.getAllByRole('alert').map((alert) => alert.textContent)).toEqual([
+      'Допустимо значение от 0 до 9 999.',
+    ]);
     expect(save()).toBeEnabled();
     expect(patches(api)).toEqual([]);
   });
@@ -229,7 +216,7 @@ describe('feat-022 US-1 Scenario: Nothing to save', () => {
 });
 
 describe('feat-022 US-1 Scenario: While the save runs', () => {
-  it('every field, the strip and «Сохранить» are disabled until the answer', async () => {
+  it('every field is a value that cannot be edited and «Сохранить» is inert, focus kept, until the answer', async () => {
     await openFieldsForm(ITEM_OF_TYPE['Баг']);
     let release: () => void = () => {};
     const held = new Promise<void>((resolve) => {
@@ -249,21 +236,27 @@ describe('feat-022 US-1 Scenario: While the save runs', () => {
     await retype('Оставшаяся работа', '3');
     await userEvent.click(save());
 
-    await waitFor(() => expect(save()).toBeDisabled());
+    // The kit’s busy: the read-only look and `aria-busy`, not `disabled` — the button
+    // keeps its place in the Tab order (feat-029 design § 6, «Saving»).
+    await waitFor(() => expect(save()).toHaveAttribute('aria-disabled', 'true'));
+    expect(save()).toHaveAttribute('aria-busy', 'true');
+    expect(save()).not.toBeDisabled();
     for (const name of [
       'Оценка в пунктах',
       'Исходная оценка',
       'Оставшаяся работа',
       'Шаги воспроизведения',
+      'Заголовок',
     ]) {
-      expect(textbox(name)).toBeDisabled();
+      expect(textbox(name)).toHaveAttribute('readonly');
+      expect(textbox(name)).toHaveAttribute('aria-busy', 'true');
     }
     for (const name of ['Приоритет', 'Серьёзность', 'Вид работ', 'Статус']) {
-      expect(list(name)).toHaveAttribute('aria-disabled', 'true');
+      expect(list(name)).toHaveAttribute('aria-busy', 'true');
     }
     release();
     expect(await screen.findByRole('alert')).toHaveTextContent('Нет ответа.');
-    expect(textbox('Оставшаяся работа')).toBeEnabled();
+    expect(textbox('Оставшаяся работа')).not.toHaveAttribute('readonly');
     expect(textbox('Оставшаяся работа')).toHaveValue('3');
   });
 });
@@ -289,7 +282,7 @@ describe('feat-022 spec § States: loading', () => {
     renderWorkItems(mskForm('MSK-TASK-3'));
 
     expect(await screen.findByRole('status', { name: 'Загрузка данных' })).toBeInTheDocument();
-    expect(document.querySelectorAll('[aria-label="Загрузка данных"]')).toHaveLength(2);
+    expect(document.querySelectorAll('[aria-label="Загрузка данных"]')).toHaveLength(1);
     expect(screen.queryByRole('region')).not.toBeInTheDocument();
     release();
     expect(await screen.findByRole('alert')).toHaveTextContent('Нет ответа.');
@@ -300,13 +293,13 @@ describe('feat-022 US-4 Scenario Outline: Each text field appears on its own typ
   it.each([
     ['Эпик', []],
     ['Фича', []],
-    ['Пользовательская история', ['Критерии приёмки']],
+    ['Пользовательская история', []],
     ['Задача', []],
     ['Баг', ['Шаги воспроизведения', 'Сведения о системе']],
   ] as const)('a «%s» shows %j', async (type, shown) => {
     await openFieldsForm(ITEM_OF_TYPE[type]);
 
-    for (const name of ['Критерии приёмки', 'Шаги воспроизведения', 'Сведения о системе']) {
+    for (const name of ['Шаги воспроизведения', 'Сведения о системе']) {
       if ((shown as readonly string[]).includes(name)) {
         expect(textbox(name)).toBeInTheDocument();
       } else {
@@ -341,14 +334,11 @@ describe('feat-022 US-4 Scenario: The section sits under «Описание»', 
     expect(textbox('Сведения о системе')).toHaveAccessibleDescription('До 100 000 символов');
   });
 
-  it('a «Пользовательская история» has «Критерии приёмки» there, with its placeholder', async () => {
+  it('a «Пользовательская история» has «Критерии приёмки» there, with its button', async () => {
     await openFieldsForm(ITEM_OF_TYPE['Пользовательская история']);
 
     expect(columnOf('Описание')).toEqual(['Описание', 'Критерии приёмки']);
-    expect(textbox('Критерии приёмки')).toHaveAttribute(
-      'placeholder',
-      'Опишите, по каким признакам история считается готовой',
-    );
+    expect(screen.getByRole('button', { name: 'Добавить критерий' })).toBeInTheDocument();
   });
 });
 
@@ -375,14 +365,15 @@ describe('feat-022 US-4 Scenario: The text is plain', () => {
     const data = hierarchyDataset();
     await openFieldsForm(ITEM_OF_TYPE['Пользовательская история'], data);
     const text = '<b>важно</b>\nшаг 2';
-    fireEvent.change(textbox('Критерии приёмки'), { target: { value: text } });
+    await userEvent.click(screen.getByRole('button', { name: 'Добавить критерий' }));
+    fireEvent.change(textbox('GIVEN (предусловие)'), { target: { value: text } });
 
     await userEvent.click(save());
     await screen.findByText('Изменения сохранены.');
 
-    expect(textbox('Критерии приёмки')).toHaveValue(text);
+    expect(textbox('GIVEN (предусловие)')).toHaveValue(text);
     expect(document.querySelector('b')).toBeNull();
-    expect(recordOf(data, 2).fields.acceptanceCriteria).toBe(text);
+    expect(recordOf(data, 2).fields.acceptanceCriteria?.[0]?.given).toBe(text);
   });
 });
 
@@ -459,12 +450,20 @@ describe('feat-022 US-5 Scenario Outline: A new item takes its type’s defaults
     for (const [name, value] of Object.entries(lists)) {
       expect(list(name)).toHaveTextContent(value);
     }
+    // «Проект» (feat-040 D-2) is the band's one read-only text: it names the item's project, so it is
+    // not a field left empty.
+    const project = textbox('Проект');
+    expect(project).toHaveAttribute('readonly');
     for (const input of screen.getAllByRole('textbox')) {
       const name = input.getAttribute('aria-label') ?? '';
       if (name === 'Описание') {
         // The rich-text editor (feat-018): a contenteditable, empty as text.
         expect(input).toHaveTextContent('');
-      } else if (name !== 'Заголовок' && !input.closest('[role="combobox"]')) {
+      } else if (
+        input !== textbox('Заголовок') &&
+        input !== project &&
+        !input.closest('[role="combobox"]')
+      ) {
         expect(input).toHaveValue('');
       }
     }

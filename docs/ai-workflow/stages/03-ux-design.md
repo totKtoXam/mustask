@@ -1,8 +1,10 @@
 # Stage 3 — UX/UI design → Human Gate 2
 
 **Role:** ux-designer · **Model tier:** standard
-**Input:** `docs/features/<id>/spec.md` (approved, the index) + the stories
-it lists under `docs/features/<id>/stories/`, `docs/conventions/frontend.md`
+**Input:** `docs/features/<id>/spec.md` (the index; `gate-1: approved`, or on
+`M` reviewed at stage 2 with `gate-1: pending` — see "Human Gate 2") + the
+stories it lists under `docs/features/<id>/stories/`,
+`docs/conventions/frontend.md`
 **Output:** `docs/features/<id>/design.md` + HTML prototype (optional)
 
 ## Goal
@@ -50,3 +52,12 @@ The human, in `status.md`:
 ```
 gate-2: approved | rejected: <what to redo>
 ```
+
+On `M` this is one package with `gate-1`
+([../routing.md](../routing.md), "Route shortcuts for `M`"): the human gets
+the spec summary with its open questions and the design together, and gives
+two verdicts in one answer. A `gate-1: rejected` there sends the spec back to
+stage 1; after a fresh stage-2 verdict stage 3 runs again with `gate-1`
+still reading `rejected: …` (only the human changes it), the design is
+redone against the corrected spec, and the package — both gates — is shown
+again.

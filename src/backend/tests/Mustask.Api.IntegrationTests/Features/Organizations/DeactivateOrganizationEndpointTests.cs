@@ -14,8 +14,8 @@ namespace Mustask.Api.IntegrationTests.Features.Organizations;
 /// own organization (<see cref="OrganizationsTestData"/>): the database is
 /// shared and never emptied, so no test asserts the full content of a global
 /// list. The organization level of the not-found theories (malformed, unknown,
-/// deactivated, on every route) is phase 1's
-/// <c>OrganizationContextFilterTests</c>; here the deactivated case is the
+/// deactivated, a non-member, on every route) is the scoped check's
+/// <c>ScopedAccessTests</c> (mod-016 ADR-0027); here the deactivated case is the
 /// route's own second call.
 /// </summary>
 [Trait("Category", "Integration")]
@@ -37,7 +37,8 @@ public sealed class DeactivateOrganizationEndpointTests(MustaskApiFactory factor
         OrganizationsApi.SendAsync(factory, HttpMethod.Get, path, token: OrganizationsTokens.SignedIn());
 
     // US-2 · "The organization is deactivated": 204 with no body, it leaves the active organizations and is among the
-    // deactivated ones (BR-M1-24). The token carries no right: every signed-in user may deactivate (BR-M1-19).
+    // deactivated ones (BR-M1-24). The token carries no right: the caller is the creator, the administrator, who holds
+    // organizations.organization.deactivate (mod-016 BR-M1-7, D-13).
     [Fact]
     public async Task Deactivate_Returns204_LeavesActiveList_JoinsDeactivatedList()
     {
@@ -75,7 +76,8 @@ public sealed class DeactivateOrganizationEndpointTests(MustaskApiFactory factor
             $"{organization}/projects/deactivated",
             project,
             $"{project}/teams",
-            $"{project}/teams/{structure.Platform.Team.Id}",
+            $"{organization}/teams",
+            $"{organization}/teams/{structure.Platform.Id}",
             $"{project}/areas",
         })
         {
@@ -95,7 +97,8 @@ public sealed class DeactivateOrganizationEndpointTests(MustaskApiFactory factor
         var structure = await OrganizationsTestData.CreateStructureAsync(factory);
         var old = await OrganizationsTestData.CreateProjectAsync(
             factory, structure.OrganizationId, "Старый проект", "OLD", ProjectStatus.Deactivated);
-        await OrganizationsTestData.AddAreaAsync(factory, structure.ProjectId, structure.RootId, "Отчёты", structure.Platform.Team.Id);
+        await OrganizationsTestData.AddAreaAsync(factory, structure.ProjectId, structure.RootId, "Отчёты");
+        await OrganizationsTestData.SetDefaultTeamAsync(factory, structure.OrganizationId, structure.ProjectId, structure.Platform.Id);
         await OrganizationsTestData.AddAreaAsync(factory, old.Project.Id, old.Root.Id, "Архив");
         var before = await BeneathAsync(structure.OrganizationId);
 
@@ -204,8 +207,8 @@ public sealed class DeactivateOrganizationEndpointTests(MustaskApiFactory factor
     }
 
     /// <summary>
-    /// Everything beneath the organization, as stored now and whatever its status: every project with its status, every team
-    /// with its status, every area with its parent, owner and default, and the process with its levels, types and states.
+    /// Everything beneath the organization, as stored now and whatever its status: every project with its status
+    /// and default-team setting, every team with its status, every area with its parent, and the process with its levels, types and states.
     /// </summary>
     private async Task<IReadOnlyList<string>> BeneathAsync(Guid organizationId)
     {
@@ -214,8 +217,9 @@ public sealed class DeactivateOrganizationEndpointTests(MustaskApiFactory factor
 
         var projects = await db.Projects.AsNoTracking().Where(project => project.OrganizationId == organizationId).OrderBy(project => project.Id).ToListAsync();
         var projectIds = projects.Select(project => project.Id).ToList();
-        var teams = await db.Teams.AsNoTracking().Where(team => projectIds.Contains(team.ProjectId)).OrderBy(team => team.Id).ToListAsync();
-        var areas = await db.Areas.AsNoTracking().Where(area => projectIds.Contains(area.ProjectId)).OrderBy(area => area.Id).ToListAsync();
+        var teams = await db.Teams.AsNoTracking().Where(team => team.OrganizationId == organizationId).OrderBy(team => team.Id).ToListAsync();
+        var links = await db.ProjectTeams.AsNoTracking().Where(link => link.OrganizationId == organizationId).OrderBy(link => link.ProjectId).ThenBy(link => link.TeamId).ToListAsync();
+        var areas = await db.Areas.AsNoTracking().Where(area => area.ProjectId != null && projectIds.Contains(area.ProjectId.Value)).OrderBy(area => area.Id).ToListAsync();
         var processes = await db.Processes
             .AsNoTracking()
             .Include(process => process.BacklogLevels)
@@ -224,9 +228,10 @@ public sealed class DeactivateOrganizationEndpointTests(MustaskApiFactory factor
             .ToListAsync();
 
         var rows = new List<string>();
-        rows.AddRange(projects.Select(project => $"project {project.Id} {project.Status} {project.Name} {project.Key}"));
-        rows.AddRange(teams.Select(team => $"team {team.Id} {team.Status} {team.Name} first={team.IsFirstTeam}"));
-        rows.AddRange(areas.Select(area => $"area {area.Id} {area.Name} parent={area.ParentId} owner={area.OwnerTeamId} default={area.DefaultOfTeamId}"));
+        rows.AddRange(projects.Select(project => $"project {project.Id} {project.Status} {project.Name} {project.Key} default={project.DefaultTeamId}"));
+        rows.AddRange(teams.Select(team => $"team {team.Id} {team.Status} {team.Name} {team.Description}"));
+        rows.AddRange(links.Select(link => $"link {link.ProjectId} {link.TeamId} {link.LinkedBy} {link.LinkedAt:O}"));
+        rows.AddRange(areas.Select(area => $"area {area.Id} {area.Name} parent={area.ParentId}"));
 
         rows.AddRange(processes.Select(process =>
             $"process {process.Id.Value} levels={process.BacklogLevels.Count} types={process.WorkItemTypes.Count} states={process.WorkItemTypes.Sum(type => type.States.Count)}"));

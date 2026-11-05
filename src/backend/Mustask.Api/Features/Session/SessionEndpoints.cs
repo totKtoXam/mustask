@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using System.Security.Claims;
 using Mustask.Api.Authentication.Readiness;
+using Mustask.Api.Authentication;
 using Mustask.Api.Authorization;
 using Mustask.Shared.Exceptions;
 using Microsoft.AspNetCore.Authentication;
@@ -96,6 +97,8 @@ public static class SessionEndpoints
         SessionRenewalLock renewalLock,
         RefreshGrantClient refreshGrantClient,
         RenewedIdTokenValidator idTokenValidator,
+        KeycloakOptions keycloak,
+        ISessionSignInRecorder projection,
         ILogger<Program> logger,
         TimeProvider clock,
         CancellationToken cancellationToken)
@@ -197,6 +200,23 @@ public static class SessionEndpoints
             return Results.Empty;
         }
 
+        // tech-024 (ADR-0033): a user whose `user` client role was taken away keeps no session. Same shape as a dead refresh
+        // token: cache evicted, cookie cleared (deferred, see above), and the answer names the reason.
+        if (!SessionAccessGate.HoldsUserRole(refreshed.AccessToken, keycloak.Audience))
+        {
+            cache.Remove(sessionKey);
+            httpContext.Response.OnStarting(static state =>
+                ((HttpContext)state).SignOutAsync(SessionSchemes.Session), httpContext);
+            throw new ForbiddenException(SessionErrorCodes.NoAccess);
+        }
+
+        // tech-025 (ADR-0034): the renewed id token may describe the person differently (a name changed in Keycloak). A renewal
+        // whose claims hash to the fingerprint in the ticket writes nothing. A failure never ends a session here, not even for
+        // a person the directory does not know yet (a session older than the directory): it is logged, the ticket keeps no
+        // fingerprint, and the next renewal tries again.
+        authenticateResult.Properties.Items.TryGetValue(SessionAuthenticationSetup.ProfileFingerprintItemsKey, out var knownFingerprint);
+        var recording = await projection.RecordAsync(refreshed.IdToken, knownFingerprint, cancellationToken);
+
         var expiresAtUtc = clock.GetUtcNow() + refreshed.ExpiresIn;
         cache.Set(sessionKey, refreshed.AccessToken, expiresAtUtc);
 
@@ -207,6 +227,15 @@ public static class SessionEndpoints
             new AuthenticationToken { Name = "id_token", Value = refreshed.IdToken },
             new AuthenticationToken { Name = "refresh_token", Value = refreshed.RefreshToken },
         ]);
+
+        if (recording.Fingerprint is not null)
+        {
+            properties.Items[SessionAuthenticationSetup.ProfileFingerprintItemsKey] = recording.Fingerprint;
+        }
+        else
+        {
+            properties.Items.Remove(SessionAuthenticationSetup.ProfileFingerprintItemsKey);
+        }
 
         if (refreshed.RefreshExpiresIn is { } refreshExpiresIn)
         {

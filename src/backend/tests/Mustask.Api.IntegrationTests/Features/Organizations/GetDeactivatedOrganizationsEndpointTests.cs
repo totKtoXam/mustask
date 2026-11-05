@@ -99,20 +99,58 @@ public sealed class GetDeactivatedOrganizationsEndpointTests(MustaskApiFactory f
         Assert.Equal(treeBefore.Count, (await OrganizationsTestData.ReadTreeAsync(factory, structure.ProjectId)).Count);
     }
 
-    // US-1 · "Every signed-in user sees every organization" (BR-M1-19, C-2): the list is open to any signed-in user, with or
-    // without the create right, whoever created the organization.
+    // US-1 · the list is open to any signed-in user (BR-M1-19, C-2) — and since mod-016 it holds the deactivated organizations
+    // where the caller is an administrator (BR-M1-35), with or without the create right and whoever created the organization.
     [Theory]
     [InlineData("without the create right")]
     [InlineData("with the create right")]
-    public async Task Get_AnySignedInUser_SeesTheDeactivatedOnesOfOtherCreators(string how)
+    public async Task Get_AnAdministrator_SeesTheDeactivatedOnesOfOtherCreators(string how)
     {
-        var organization = await OrganizationsTestData.CreateOrganizationAsync(factory, status: OrganizationStatus.Deactivated);
-        var token = how == "with the create right" ? OrganizationsTokens.WithCreateRight() : OrganizationsTokens.SignedIn();
+        var organization = await OrganizationsTestData.CreateOrganizationAsync(factory, status: OrganizationStatus.Deactivated, founded: false);
+        var admin = await MembershipTestData.NewMemberAsync(factory, organization.Id, Mustask.Domain.Identity.OrganizationRole.Admin);
+        var token = how == "with the create right" ? OrganizationsTokens.WithCreateRight(admin.Id) : admin.Token;
 
         var answer = await GetAsync(token);
 
+        Assert.NotEqual(organization.CreatedBy, admin.Id);
         Assert.Equal(HttpStatusCode.OK, answer.Status);
         Assert.True(Contains(answer, organization.Id));
+    }
+
+    // mod-016 US-2 · "Deactivated lists and restore are the administrators'" (BR-M1-35, D-13): a user who is admin in C and
+    // member in D, both deactivated, and a viewer in E, finds C listed and neither D nor E — and an organization they hold no
+    // membership in is not listed either, however the token's rights read.
+    [Fact]
+    public async Task Get_AdminInC_MemberInD_ViewerInE_ListsOnlyC_AndNothingOfAnOrganizationOfNoMembership()
+    {
+        var c = await OrganizationsTestData.CreateOrganizationAsync(factory, status: OrganizationStatus.Deactivated, founded: false);
+        var d = await OrganizationsTestData.CreateOrganizationAsync(factory, status: OrganizationStatus.Deactivated, founded: false);
+        var e = await OrganizationsTestData.CreateOrganizationAsync(factory, status: OrganizationStatus.Deactivated, founded: false);
+        var elsewhere = await OrganizationsTestData.CreateOrganizationAsync(factory, status: OrganizationStatus.Deactivated);
+        var user = await MembershipTestData.NewMemberAsync(factory, c.Id, Mustask.Domain.Identity.OrganizationRole.Admin);
+        await MembershipTestData.AddMemberAsync(factory, d.Id, user.Id, Mustask.Domain.Identity.OrganizationRole.Member);
+        await MembershipTestData.AddMemberAsync(factory, e.Id, user.Id, Mustask.Domain.Identity.OrganizationRole.Viewer);
+
+        var answer = await GetAsync(OrganizationsTokens.WithCreateRight(user.Id));
+
+        Assert.Equal(HttpStatusCode.OK, answer.Status);
+        Assert.True(Contains(answer, c.Id));
+        Assert.False(Contains(answer, d.Id));
+        Assert.False(Contains(answer, e.Id));
+        Assert.False(Contains(answer, elsewhere.Id));
+    }
+
+    // mod-016 api-contract § 0.1: a user with no membership at all sees an empty list — 200 — even when deactivated
+    // organizations exist.
+    [Fact]
+    public async Task Get_UserWithNoMembership_GetsAnEmptyList()
+    {
+        await OrganizationsTestData.CreateOrganizationAsync(factory, status: OrganizationStatus.Deactivated);
+
+        var answer = await GetAsync(OrganizationsTokens.Stranger());
+
+        Assert.Equal(HttpStatusCode.OK, answer.Status);
+        Assert.Equal(0, answer.Body.GetArrayLength());
     }
 
     // US-1 · "A visitor who is not signed in sees nothing": the challenge, before anything is read.

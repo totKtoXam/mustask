@@ -1,10 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import { act, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { authValue, LANGUAGES_READ, renderShell } from '../test/renderShell';
+import { authValue, LANGUAGES_READ, renderShell, SELECTORS_SOURCE } from '../test/renderShell';
 import { setReducedMotion, setViewportWidth } from '../test/viewport';
 import { KEPT_CHOICE_KEY } from './navigation/keptChoice';
 import { theme } from './theme';
+import { PRODUCT_NAME } from '../shared/config/product';
 
 const reader = [LANGUAGES_READ];
 
@@ -272,9 +273,59 @@ describe('US-4 Scenario: Reduced motion', () => {
 });
 
 describe('US-12 Scenario: Reflow at 200 % zoom (D-8) — what yields below 1024 px (design § 3.6)', () => {
+  it('puts the selectors in a second row of the bar below 1024 px and beside the mark from 1024 px', () => {
+    setViewportWidth(640);
+    const narrow = renderShell({
+      path: '/dictionaries/languages/new',
+      auth: authValue(reader),
+      contextSource: SELECTORS_SOURCE,
+    });
+    const group = () => screen.getByRole('group', { name: 'Контекст работы' });
+    expect(group().parentElement).not.toBe(
+      screen.getByRole('button', { name: 'Меню' }).parentElement,
+    );
+    expect(group().parentElement?.parentElement).toBe(screen.getByRole('banner'));
+    narrow.unmount();
+
+    setViewportWidth(1440);
+    renderShell({
+      path: '/dictionaries/languages/new',
+      auth: authValue(reader),
+      contextSource: SELECTORS_SOURCE,
+    });
+    expect(group().parentElement).toBe(
+      screen.getByRole('link', { name: PRODUCT_NAME }).parentElement,
+    );
+  });
+
+  // The bar's height is two fixed rows and the content offset counts on it: a wrapped row (204 px
+  // at 360, 148 px at 480) covered the page heading. jsdom has no layout, so the style is pinned.
+  it.each([360, 480, 640])(
+    'keeps the selector row at %i px on one line, scrolling sideways instead of wrapping',
+    (width) => {
+      setViewportWidth(width);
+      renderShell({
+        path: '/dictionaries/languages/new',
+        auth: authValue(reader),
+        contextSource: SELECTORS_SOURCE,
+      });
+
+      const group = screen.getByRole('group', { name: 'Контекст работы' });
+      const row = group.parentElement as HTMLElement;
+      expect(getComputedStyle(group).flexWrap).toBe('nowrap');
+      expect(getComputedStyle(group).flexShrink).toBe('0');
+      expect(getComputedStyle(row).flexWrap).not.toBe('wrap');
+      expect(getComputedStyle(row).overflowX).toBe('auto');
+    },
+  );
+
   it('moves the trail out of the top bar into the page header, with the same name and links', () => {
     setViewportWidth(640);
-    renderShell({ path: '/dictionaries/languages/new', auth: authValue(reader) });
+    renderShell({
+      path: '/dictionaries/languages/new',
+      auth: authValue(reader),
+      contextSource: SELECTORS_SOURCE,
+    });
 
     const banner = screen.getByRole('banner');
     expect(
@@ -291,11 +342,17 @@ describe('US-12 Scenario: Reflow at 200 % zoom (D-8) — what yields below 1024 
     for (const name of [
       'Меню',
       'Организация: Пример организации 1',
-      'Проект: Пример проекта 1',
-      'Команда: Пример команды 1',
+      'Департамент: все',
+      'Команда: все',
+      'Проект: все',
       'Профиль: Иван Петров',
     ]) {
-      expect(within(banner).getByRole('button', { name })).toBeInTheDocument();
+      expect(
+        within(banner).getByRole(
+          name === 'Меню' || name.startsWith('Профиль') ? 'button' : 'combobox',
+          { name },
+        ),
+      ).toBeInTheDocument();
     }
   });
 });

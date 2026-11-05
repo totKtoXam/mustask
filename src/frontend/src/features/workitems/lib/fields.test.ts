@@ -27,7 +27,7 @@ describe('layoutOf (spec § The form’s sections)', () => {
     ],
     [
       'story',
-      ['acceptanceCriteria'],
+      [],
       [
         ['Планирование', ['storyPoints', 'priority', 'risk']],
         ['Классификация', ['valueArea']],
@@ -57,6 +57,10 @@ describe('layoutOf (spec § The form’s sections)', () => {
 
   it('a feature is laid out as an epic', () => {
     expect(layoutOf('feature')).toEqual(layoutOf('epic'));
+  });
+
+  it('a story has isStory set on its layout', () => {
+    expect(layoutOf('story').isStory).toBe(true);
   });
 
   it('a kind the process does not hold shows no section and has no field', () => {

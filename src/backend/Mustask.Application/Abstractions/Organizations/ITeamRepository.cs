@@ -3,40 +3,34 @@ using Mustask.Domain.Organizations;
 namespace Mustask.Application.Abstractions.Organizations;
 
 /// <summary>
-/// The write side of teams. The three lock methods take the row in the mode a
-/// use case needs (plan-backend § 8.2): the deletion <c>FOR UPDATE</c>, a rename
-/// or a default change <c>FOR NO KEY UPDATE</c>, and every write that binds to a
-/// team (an area's owner) <c>FOR SHARE</c>, then re-checks that the team is
-/// active (ADR-0026 rule 8). Each returns the team of any status in that
-/// project, or <c>null</c>.
+/// The write side of teams (feat-028 plan-backend § 6, § 7). The lock methods take the team row in the mode a use case needs
+/// and carry the organization, so a team of another organization locks nothing and answers <c>null</c>: a rename and a
+/// description write <c>FOR NO KEY UPDATE</c>; every write that binds to a team (a link, a project created with teams, a member
+/// add, a team reorder) <c>FOR SHARE</c>, then re-checks that the team is active (ADR-0026 rule 8, ADR-0028 rule 8). A deletion
+/// takes the team <c>FOR NO KEY UPDATE</c> too and then the team's links (<see cref="IProjectTeamRepository"/>). The single-team
+/// locks return the team of any status in that organization, or <c>null</c>.
 /// </summary>
 public interface ITeamRepository
 {
-    Task<Team?> LockForUpdateAsync(Guid projectId, Guid teamId, CancellationToken cancellationToken);
+    Task<Team?> LockForNoKeyUpdateAsync(Guid organizationId, Guid teamId, CancellationToken cancellationToken);
 
-    Task<Team?> LockForNoKeyUpdateAsync(Guid projectId, Guid teamId, CancellationToken cancellationToken);
+    Task<Team?> LockForShareAsync(Guid organizationId, Guid teamId, CancellationToken cancellationToken);
 
-    Task<Team?> LockForShareAsync(Guid projectId, Guid teamId, CancellationToken cancellationToken);
+    /// <summary>
+    /// The teams of the organization among <paramref name="teamIds"/>, locked <c>FOR SHARE</c> in <b>one statement ordered by
+    /// id</b> (ADR-0028 rule 8: rows of one step in one order) and tracked, of any status. An id that names no team of the
+    /// organization is simply absent from the answer; the caller compares the count and judges the status.
+    /// </summary>
+    Task<IReadOnlyList<Team>> LockManyForShareAsync(Guid organizationId, IReadOnlyCollection<Guid> teamIds, CancellationToken cancellationToken);
 
-    /// <summary>The project's first team, tracked, with no lock: it is never deleted (BR-M1-18).</summary>
-    Task<Team> GetFirstTeamAsync(Guid projectId, CancellationToken cancellationToken);
-
-    /// <summary>Whether an active team of the project, other than <paramref name="exceptId"/>, holds the normalized name.</summary>
-    Task<bool> IsActiveNameTakenAsync(Guid projectId, string normalizedName, Guid? exceptId, CancellationToken cancellationToken);
+    /// <summary>Whether an active team of the organization, other than <paramref name="exceptId"/>, holds the normalized name.</summary>
+    Task<bool> IsActiveNameTakenAsync(Guid organizationId, string normalizedName, Guid? exceptId, CancellationToken cancellationToken);
 
     /// <summary>The team's name, any status; <c>null</c> when there is none. For a refusal that names a team.</summary>
     Task<string?> FindNameAsync(Guid teamId, CancellationToken cancellationToken);
 
-    /// <summary>
-    /// One set-based statement: every area <paramref name="fromTeamId"/> owns
-    /// explicitly passes to <paramref name="toTeamId"/>, and its default mark is
-    /// cleared (BR-M1-18). Under READ COMMITTED it waits on any area another
-    /// transaction holds and re-evaluates its condition on the committed row.
-    /// </summary>
-    Task ReassignExplicitAreasAsync(Guid fromTeamId, Guid toTeamId, CancellationToken cancellationToken);
-
-    /// <summary>Adds the team with its default area.</summary>
-    void Add(NewTeam team);
+    /// <summary>Adds a team of the organization (<see cref="Team.Create"/>).</summary>
+    void Add(Team team);
 
     /// <inheritdoc cref="IOrganizationRepository.SaveAsync"/>
     Task SaveAsync(CancellationToken cancellationToken);

@@ -2,9 +2,19 @@ import { describe, expect, it } from 'vitest';
 import { fireEvent, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { HttpResponse, http } from 'msw';
+import { gate } from '../../../test/gate';
 import { server } from '../../../test/mocks/server';
 import { serveWorkItems, type WorkItemsTestApi } from '../testApi';
-import { WORK_ITEMS_URL, emptyDataset, ids, processType, validationProblem } from '../testFixtures';
+import {
+  PROBLEM_HEADERS,
+  TEAMS_URL,
+  WORK_ITEMS_URL,
+  emptyDataset,
+  ids,
+  problem,
+  processType,
+  validationProblem,
+} from '../testFixtures';
 import { MSK_LIST, renderWorkItems } from '../testRender';
 
 const TYPES_IN_ORDER = ['Эпик', 'Фича', 'Пользовательская история', 'Баг', 'Задача'];
@@ -94,9 +104,10 @@ describe('mod-003 US-1 Scenario: A work item is created with only a title', () =
     expect(body.typeId).toBe(processType('TASK').id);
     expect(body.title).toBe('  Настроить сборку  ');
     expect(body.requestId).toMatch(UUID);
-    // mod-006 US-7 Scenario "An item created from the project's list goes to
-    // the first team": the list names no team, so the item takes the root.
+    // mod-017 BR-OT-3: the dialog sends what it shows - "Мастаск" has two teams and names no
+    // default, so «Без команды»; the flat `teamId` of mod-006 is retired.
     expect(body).not.toHaveProperty('teamId');
+    expect(body).toMatchObject({ team: { teamId: null } });
 
     const table = await screen.findByRole('table', { name: 'Рабочие элементы' });
     const first = within(table).getAllByRole('row')[1] as HTMLElement;
@@ -110,6 +121,7 @@ describe('mod-003 US-1 Scenario: A work item is created with only a title', () =
       'Настроить сборку',
       'Не назначен',
       'Новая',
+      'Без команды',
       'Мастаск',
       expect.any(String) as unknown as string,
     ]);
@@ -341,4 +353,151 @@ describe('mod-003 spec § Error codes: a missing type is the dialog’s Alert', 
     expect(title).toHaveValue('Без типа');
     expect(screen.queryByRole('heading', { level: 1, name: /не найден/ })).toBeNull();
   });
+});
+
+/** «Мастаск» with «MARS» named as the project's default team. */
+function withDefault() {
+  const data = emptyDataset();
+  data.projects.find((project) => project.id === ids.msk)!.defaultTeamId = ids.marsTeam;
+  return data;
+}
+
+describe("mod-017 US-2 Scenario: «Команда» starts with the project's default and the dialog sends what it shows", () => {
+  it('the default team starts it, the line under it follows the choice, and the body names the team', async () => {
+    const { api, dialog, title, submit } = await openDialog('Баг', withDefault());
+    const team = await within(dialog).findByRole('combobox', { name: 'Команда' });
+    expect(team).toHaveValue('MARS');
+    expect(within(dialog).getByText('Встанет в конец бэклога команды «MARS».')).toBeVisible();
+    expect(team).toHaveAccessibleDescription('Встанет в конец бэклога команды «MARS».');
+
+    await userEvent.click(team);
+    expect(
+      within(await screen.findByRole('listbox'))
+        .getAllByRole('option')
+        .map((option) => option.textContent),
+    ).toEqual(['Без команды', 'MARS', 'VENUS']);
+    await userEvent.click(screen.getByRole('option', { name: 'Без команды' }));
+    expect(within(dialog).getByText('Попадёт только в бэклог проекта.')).toBeVisible();
+    await userEvent.click(within(dialog).getByRole('combobox', { name: 'Команда' }));
+    await userEvent.click(await screen.findByRole('option', { name: 'VENUS' }));
+    expect(within(dialog).getByText('Встанет в конец бэклога команды «VENUS».')).toBeVisible();
+
+    await userEvent.type(title, 'Падение');
+    await submit();
+
+    expect(await screen.findByText('Рабочий элемент MSK-BUG-1 создан.')).toBeInTheDocument();
+    expect(posts(api)[0]?.body).toMatchObject({ team: { teamId: ids.venusTeam } });
+    expect(api.record(ids.msk, 1).teamId).toBe(ids.venusTeam);
+  });
+
+  it('a «Задача» has no backlog line; the default still starts it', async () => {
+    const { dialog } = await openDialog('Задача', withDefault());
+
+    expect(await within(dialog).findByRole('combobox', { name: 'Команда' })).toHaveValue('MARS');
+    expect(within(dialog).queryByText(/бэклог/)).not.toBeInTheDocument();
+  });
+
+  it('reads the teams afresh at every opening: a default named meanwhile starts the next dialog', async () => {
+    const { api, dialog } = await openDialog('Баг');
+    expect(await within(dialog).findByRole('combobox', { name: 'Команда' })).toHaveValue(
+      'Без команды',
+    );
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Отмена' }));
+    api.data.projects.find((project) => project.id === ids.msk)!.defaultTeamId = ids.venusTeam;
+
+    const menu = await openPicker();
+    await userEvent.click(within(menu).getByRole('menuitem', { name: 'Баг' }));
+    const second = await screen.findByRole('dialog', { name: 'Новый рабочий элемент' });
+
+    expect(await within(second).findByRole('combobox', { name: 'Команда' })).toHaveValue('VENUS');
+  });
+
+  it('while the teams are read: a skeleton in the field place, «Создать» unavailable, «Заголовок» takes typing', async () => {
+    const held = gate();
+    const api = serveWorkItems(emptyDataset());
+    server.use(
+      http.get(TEAMS_URL, async () => {
+        await held.opened;
+        return undefined;
+      }),
+    );
+    renderWorkItems(MSK_LIST);
+    const menu = await openPicker();
+    await userEvent.click(within(menu).getByRole('menuitem', { name: 'Баг' }));
+    const dialog = await screen.findByRole('dialog', { name: 'Новый рабочий элемент' });
+    const title = within(dialog).getByRole('textbox', { name: 'Заголовок' });
+
+    expect(within(dialog).queryByRole('combobox', { name: 'Команда' })).not.toBeInTheDocument();
+    expect(within(dialog).getByRole('button', { name: 'Создать' })).toBeDisabled();
+    await userEvent.type(title, 'Пока читаем');
+    expect(title).toHaveValue('Пока читаем');
+
+    held.open();
+    expect(await within(dialog).findByRole('combobox', { name: 'Команда' })).toBeInTheDocument();
+    expect(within(dialog).getByRole('button', { name: 'Создать' })).toBeEnabled();
+    expect(posts(api)).toEqual([]);
+  });
+
+  it('a failed read says so with «Повторить», keeps «Создать» unavailable, and a retry shows the field with the default of that moment', async () => {
+    // The page's filter has read the teams already; the dialog's own read is the one that fails.
+    let failures = 0;
+    serveWorkItems(withDefault());
+    server.use(
+      http.get(TEAMS_URL, () => {
+        if (failures > 0) {
+          failures -= 1;
+          return HttpResponse.json(problem('organizations.access.forbidden'), {
+            status: 403,
+            headers: PROBLEM_HEADERS,
+          });
+        }
+        return undefined;
+      }),
+    );
+    renderWorkItems(MSK_LIST);
+    const menu = await openPicker();
+    failures = 1;
+    await userEvent.click(within(menu).getByRole('menuitem', { name: 'Баг' }));
+    const dialog = await screen.findByRole('dialog', { name: 'Новый рабочий элемент' });
+
+    const notice = await within(dialog).findByRole('alert');
+    expect(within(dialog).getByRole('button', { name: 'Создать' })).toBeDisabled();
+    await userEvent.click(within(notice).getByRole('button', { name: 'Повторить' }));
+
+    expect(await within(dialog).findByRole('combobox', { name: 'Команда' })).toHaveValue('MARS');
+    expect(within(dialog).getByRole('button', { name: 'Создать' })).toBeEnabled();
+  });
+
+  it.each([
+    ['organizations.team.not_in_project', 409, 'Команда не участвует в проекте.'],
+    ['organizations.team.not_found', 404, 'Команда не найдена.'],
+  ])(
+    '%s: «%s» under «Команда» with the focus on it, the title kept, the teams read again; a pick clears it',
+    async (code, status, text) => {
+      const { api, dialog, title, submit } = await openDialog('Баг');
+      await within(dialog).findByRole('combobox', { name: 'Команда' });
+      server.use(
+        http.post(
+          WORK_ITEMS_URL,
+          () => HttpResponse.json(problem(code), { status, headers: PROBLEM_HEADERS }),
+          { once: true },
+        ),
+      );
+      await userEvent.type(title, 'Падение');
+      const reads = () => api.reads('/teams').length;
+      const before = reads();
+
+      await submit();
+
+      expect(await within(dialog).findByText(text)).toBeInTheDocument();
+      expect(within(dialog).getByRole('combobox', { name: 'Команда' })).toHaveFocus();
+      expect(title).toHaveValue('Падение');
+      await waitFor(() => expect(reads()).toBeGreaterThan(before));
+      expect(api.data.items).toHaveLength(0);
+
+      await userEvent.click(within(dialog).getByRole('combobox', { name: 'Команда' }));
+      await userEvent.click(await screen.findByRole('option', { name: 'VENUS' }));
+      expect(within(dialog).queryByText(text)).not.toBeInTheDocument();
+    },
+  );
 });

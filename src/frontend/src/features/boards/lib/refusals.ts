@@ -25,6 +25,18 @@ export function notFoundLevel(error: unknown): BoardsNotFoundLevel | null {
   return code !== undefined ? (LEVELS[code] ?? null) : null;
 }
 
+/**
+ * The scoped check refused the write (`organizations.access.forbidden`, 403;
+ * mod-016 design § 9): the user's role no longer holds the code. By the
+ * `errorCode` alone. The page shows the refusal's notice at once, before the
+ * read that follows its write: the shell reads the served codes again, and a
+ * role that changed replaces that notice with its own (design § 2.4) — a
+ * refusal shown after the role-change notice would be the newer and close it.
+ */
+export function isAccessRefusal(error: unknown): boolean {
+  return error instanceof ApiError && error.errorCode === organizationErrorCodes.accessForbidden;
+}
+
 /** spec § Notices: no answer, or an answer without a code. */
 export const MOVE_FAILED_TEXT = 'Не удалось сохранить перемещение. Попробуйте ещё раз.';
 
@@ -35,7 +47,7 @@ export const MOVE_FAILED_TEXT = 'Не удалось сохранить пере
  * text: `boards.backlog.reorder_stale` and any other code show the server's
  * `detail` (the stale code's is the catalog's text the spec quotes); no
  * answer, or one without a code, `MOVE_FAILED_TEXT`. Every write is followed
- * by a read (`useReadTeamAgain`), which has answered before this is shown —
+ * by a read (`useReadAgain`), which has answered before this is shown —
  * so on the stale refusal the backlog is read again first.
  */
 export function moveRefusalNotice(error: unknown): string | null {
@@ -46,6 +58,26 @@ export function moveRefusalNotice(error: unknown): string | null {
     return MOVE_FAILED_TEXT;
   }
   return error.body?.detail || MOVE_FAILED_TEXT;
+}
+
+/** feat-032 spec § Screens and copy: no answer, or an answer without a code. */
+export const STATE_FAILED_TEXT = 'Не удалось сохранить статус. Попробуйте ещё раз.';
+
+/**
+ * The notice a refused tick or untick of a checklist row shows (feat-032 spec
+ * § Screens and copy), or `null` for none: a not-found of the address shows no
+ * notice — the page, read again, is replaced by its frame. The server's `detail`
+ * for an answer with a code, by the `errorCode` alone; `STATE_FAILED_TEXT` for
+ * no answer or one without a code.
+ */
+export function stateRefusalNotice(error: unknown): string | null {
+  if (notFoundLevel(error) !== null) {
+    return null;
+  }
+  if (!(error instanceof ApiError) || error.errorCode === undefined) {
+    return STATE_FAILED_TEXT;
+  }
+  return error.body?.detail || STATE_FAILED_TEXT;
 }
 
 /** feat-001 spec § Notices on «Бэклоги»: no answer, or an answer without a code. */

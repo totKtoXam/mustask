@@ -7,6 +7,8 @@ import TableRow from '@mui/material/TableRow';
 import Tooltip from '@mui/material/Tooltip';
 import { useTheme } from '@mui/material/styles';
 import MoreVertIcon from '@mui/icons-material/MoreVert';
+import { isPlainClick, teamTexts } from '../../workitems';
+import { ThinAddIcon, ThinChevronDownIcon, ThinChevronRightIcon } from '../../../shared/ui';
 import { CategoryMarker, TypeMark } from '../../../shared/ui/WorkTrackingMarks';
 import type { BacklogTreeItem } from '../api/boardsApi';
 import { addControlLabel, addEntryLabel, type AddEntry } from '../lib/addChild';
@@ -23,7 +25,6 @@ import {
   type LineEdge,
 } from './backlogRowStyle';
 import { BacklogCell } from './BacklogCell';
-import { ThinAddIcon, ThinChevronDownIcon, ThinChevronRightIcon } from './ThinIcons';
 
 /**
  * One row of the backlog (feat-027 US-1, US-2, US-4; design § 4): the
@@ -48,10 +49,13 @@ export const BacklogRow = memo(function BacklogRow({
   expanded,
   selected,
   off,
+  draggable,
+  showActions,
   addEntries,
   addMenuId,
   actionsId,
   formPath,
+  onOpenItem,
   onSelect,
   onToggle,
   onAdd,
@@ -75,13 +79,29 @@ export const BacklogRow = memo(function BacklogRow({
   selected: boolean;
   /** A write is being saved: the grip, «+» and «⋮» are off. */
   off: boolean;
-  /** What the row's «+» offers; none draws no «+» (BR-T-9). */
+  /**
+   * The user's codes allow some drop of this row (mod-016 design § 6.2): a drop
+   * onto a row needs `workitems.link.write`, a move between top-level blocks
+   * `boards.backlog.reorder` and a top-level row. Without either the row draws
+   * no grip and is not a drag source.
+   */
+  draggable: boolean;
+  /** One of the «⋮» menu's items is allowed: without it the row draws no «Ещё действия». */
+  showActions: boolean;
+  /**
+   * What the row's «+» offers; none draws no «+» (BR-T-9) — also when the user
+   * lacks `workitems.workitem.write` or `workitems.link.write` (the create
+   * carries the parent).
+   */
   addEntries: readonly AddEntry[];
   /** The open «+» menu's id when it is this row's. */
   addMenuId: string | null;
   /** The open «⋮» menu's id when it is this row's. */
   actionsId: string | null;
+  /** The item's full page: the title's `href`, followed by a modified click (BR-C-1). */
   formPath: string;
+  /** A plain click on the title opens the item's card as a dialog over this page (BR-C-1). */
+  onOpenItem(identifier: string): void;
   onSelect(id: string): void;
   onToggle(id: string): void;
   onAdd(
@@ -96,7 +116,7 @@ export const BacklogRow = memo(function BacklogRow({
   registerAdd(id: string, element: HTMLElement | null): void;
 }) {
   const theme = useTheme();
-  const table = theme.layout.backlogTable;
+  const { table, iconAction } = theme.layout;
   const describedBy = useId();
   const [onlyEntry] = addEntries;
   const addMany = addEntries.length > 1;
@@ -114,20 +134,22 @@ export const BacklogRow = memo(function BacklogRow({
       // The whole row is the drag source (D-11): a press anywhere on it drags it, the
       // buttons inside it included. The one text field of the table is in the add row,
       // which is not this component and is never draggable.
-      draggable={!off}
+      draggable={draggable && !off}
       onDragStart={(event: DragEvent<HTMLElement>) => onDragStart(event, item.id, item.identifier)}
       onDragEnd={onDragEnd}
       sx={line ? [rowSx(selected), dropLineSx(line)] : rowSx(selected)}
     >
       <BacklogCell kind="hierarchy">
-        <Box
-          component="span"
-          className={CONTROL}
-          data-grip=""
-          aria-hidden="true"
-          tabIndex={-1}
-          sx={(current) => gripSx(current, off)}
-        />
+        {draggable && (
+          <Box
+            component="span"
+            className={CONTROL}
+            data-grip=""
+            aria-hidden="true"
+            tabIndex={-1}
+            sx={(current) => gripSx(current, off)}
+          />
+        )}
         {onlyEntry && (
           <Tooltip title={addMany ? 'Добавить дочерний элемент' : addEntryLabel(onlyEntry)}>
             <IconButton
@@ -187,12 +209,12 @@ export const BacklogRow = memo(function BacklogRow({
               aria-expanded={expanded ? 'true' : 'false'}
               onClick={() => onToggle(item.id)}
               sx={(current) => ({
-                width: current.layout.backlogTable.chevronSlot,
-                height: current.layout.backlogTable.chevronSlot,
+                width: current.layout.iconAction.chevron.box,
+                height: current.layout.iconAction.chevron.box,
                 p: 0,
                 flexShrink: 0,
                 color: 'text.primary',
-                '& .MuiSvgIcon-root': { fontSize: current.layout.backlogTable.chevronGlyph },
+                '& .MuiSvgIcon-root': { fontSize: current.layout.iconAction.chevron.glyph },
               })}
             >
               {expanded ? <ThinChevronDownIcon /> : <ThinChevronRightIcon />}
@@ -200,7 +222,11 @@ export const BacklogRow = memo(function BacklogRow({
           ) : (
             <Box
               aria-hidden="true"
-              sx={{ width: table.chevronSlot, height: table.chevronSlot, flexShrink: 0 }}
+              sx={{
+                width: iconAction.chevron.box,
+                height: iconAction.chevron.box,
+                flexShrink: 0,
+              }}
             />
           )}
           <Box
@@ -219,6 +245,12 @@ export const BacklogRow = memo(function BacklogRow({
             color="inherit"
             underline="hover"
             title={`${item.identifier}: ${item.title}`}
+            onClick={(event: MouseEvent<HTMLElement>) => {
+              if (isPlainClick(event)) {
+                event.preventDefault();
+                onOpenItem(item.identifier);
+              }
+            }}
             // A link drags by itself: without this the browser would drag its address,
             // not the row.
             draggable={false}
@@ -231,30 +263,32 @@ export const BacklogRow = memo(function BacklogRow({
             {`${item.identifier}. Уровень вложенности: ${tier + 1}.`}
           </Box>
           <Box sx={{ flex: '1 1 0', minWidth: 0 }} />
-          <IconButton
-            size="small"
-            className={CONTROL}
-            ref={(element: HTMLElement | null) => registerActions(item.id, element)}
-            aria-label={`Ещё действия: ${item.identifier}`}
-            aria-haspopup="menu"
-            aria-expanded={actionsId !== null ? 'true' : 'false'}
-            aria-controls={actionsId ?? undefined}
-            aria-disabled={off ? 'true' : undefined}
-            onClick={(event: MouseEvent<HTMLElement>) => onOpenActions(event, item.id)}
-            onKeyDown={(event: KeyboardEvent<HTMLElement>) => {
-              // mod-015 § 12.4: ArrowDown opens a menu too.
-              if (event.key === 'ArrowDown') {
-                event.preventDefault();
-                onOpenActions(event, item.id);
-              }
-            }}
-            sx={(current) => ({
-              ...controlSx(current),
-              color: off ? current.palette.text.disabled : current.palette.text.primary,
-            })}
-          >
-            <MoreVertIcon />
-          </IconButton>
+          {showActions && (
+            <IconButton
+              size="small"
+              className={CONTROL}
+              ref={(element: HTMLElement | null) => registerActions(item.id, element)}
+              aria-label={`Ещё действия: ${item.identifier}`}
+              aria-haspopup="menu"
+              aria-expanded={actionsId !== null ? 'true' : 'false'}
+              aria-controls={actionsId ?? undefined}
+              aria-disabled={off ? 'true' : undefined}
+              onClick={(event: MouseEvent<HTMLElement>) => onOpenActions(event, item.id)}
+              onKeyDown={(event: KeyboardEvent<HTMLElement>) => {
+                // mod-015 § 12.4: ArrowDown opens a menu too.
+                if (event.key === 'ArrowDown') {
+                  event.preventDefault();
+                  onOpenActions(event, item.id);
+                }
+              }}
+              sx={(current) => ({
+                ...controlSx(current),
+                color: off ? current.palette.text.disabled : current.palette.text.primary,
+              })}
+            >
+              <MoreVertIcon />
+            </IconButton>
+          )}
         </Box>
       </BacklogCell>
       <BacklogCell>
@@ -267,6 +301,24 @@ export const BacklogRow = memo(function BacklogRow({
           <Box component="span" sx={clipped}>
             {item.state.name}
           </Box>
+        </Box>
+      </BacklogCell>
+      <BacklogCell>
+        {item.team ? (
+          <Box component="span" title={item.team.name} sx={clipped}>
+            {item.team.name}
+          </Box>
+        ) : (
+          <Box component="span" sx={[clipped, { color: 'text.secondary' }]}>
+            {teamTexts.noTeam}
+          </Box>
+        )}
+      </BacklogCell>
+      {/* feat-040 design § 5.1, D-1: the item's project after «Команда»; every item has one,
+          so there is no «без проекта» state. */}
+      <BacklogCell>
+        <Box component="span" title={item.project.name} sx={clipped}>
+          {item.project.name}
         </Box>
       </BacklogCell>
       <BacklogCell>{planningNumber(item.effort)}</BacklogCell>

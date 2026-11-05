@@ -17,6 +17,7 @@
  * Vitest globals are off — `src/test/setup.ts` cleans up by hand.
  */
 import type { ComponentType, ReactNode } from 'react';
+import { CacheProvider } from '@emotion/react';
 import { ThemeProvider } from '@mui/material/styles';
 import {
   render as pureRender,
@@ -27,6 +28,7 @@ import {
   type RenderResult,
 } from '@testing-library/react/pure';
 import { theme } from '../app/theme';
+import { styleCache } from './styleCache';
 
 export * from '@testing-library/react/pure';
 
@@ -36,9 +38,11 @@ type Wrapper = ComponentType<{ children: ReactNode }>;
 function themed(CallerWrapper: Wrapper | undefined): Wrapper {
   return function ThemedWrapper({ children }: { children: ReactNode }) {
     return (
-      <ThemeProvider theme={theme}>
-        {CallerWrapper ? <CallerWrapper>{children}</CallerWrapper> : children}
-      </ThemeProvider>
+      <CacheProvider value={styleCache()}>
+        <ThemeProvider theme={theme}>
+          {CallerWrapper ? <CallerWrapper>{children}</CallerWrapper> : children}
+        </ThemeProvider>
+      </CacheProvider>
     );
   };
 }

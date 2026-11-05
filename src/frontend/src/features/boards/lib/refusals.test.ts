@@ -2,7 +2,13 @@ import { describe, expect, it } from 'vitest';
 import { ApiError } from '../../../shared/api/httpClient';
 import { backlogSkeletonColumns } from '../components/backlogColumns';
 import { catalogText, problem } from '../testFixtures';
-import { PARENT_SAVE_FAILED_TEXT, parentRefusal } from './refusals';
+import {
+  PARENT_SAVE_FAILED_TEXT,
+  STATE_FAILED_TEXT,
+  isAccessRefusal,
+  parentRefusal,
+  stateRefusalNotice,
+} from './refusals';
 
 // feat-001 spec § Page «Бэклоги» and § Notices on «Бэклоги»: where a refused
 // parent write shows.
@@ -73,17 +79,55 @@ describe('parentRefusal', () => {
   });
 });
 
+describe('isAccessRefusal (mod-016 design § 2.4)', () => {
+  it('is the scoped check’s 403 by its code alone', () => {
+    expect(isAccessRefusal(refusal('organizations.access.forbidden'))).toBe(true);
+  });
+
+  it.each([
+    ['another refusal', refusal('workitems.link.cycle')],
+    ['an answer without a code', new ApiError(403, { status: 403, title: 'Недостаточно прав' })],
+    ['a failure without an answer', new Error('Failed to fetch')],
+    ['nothing', undefined],
+  ])('is not %s', (_case, error) => {
+    expect(isAccessRefusal(error)).toBe(false);
+  });
+});
+
 describe('the skeleton’s headers (feat-027 BR-T-1)', () => {
-  it('are the table’s own, the hierarchy header blank, with no «ID», «Родитель», «Исполнитель», «Приоритет» or «Действия»', () => {
+  it('are the table’s own (feat-040 D-1: «Проект» after «Команда»), the hierarchy header blank, with no «ID», «Родитель», «Исполнитель», «Приоритет» or «Действия»', () => {
     expect(backlogSkeletonColumns()).toEqual([
       '',
       'Порядок',
       'Тип',
       'Заголовок',
       'Статус',
+      'Команда',
+      'Проект',
       'Трудоёмкость',
       'Бизнес-ценность',
       'Вид ценности',
     ]);
+  });
+});
+
+// feat-032 US-2 Scenario: A refused write puts the row back / No answer puts the row back.
+describe('stateRefusalNotice', () => {
+  it('shows the server’s text for an answer with a code', () => {
+    expect(stateRefusalNotice(refusal('workitems.workitem.state_not_allowed'))).toBe(
+      catalogText('workitems.workitem.state_not_allowed'),
+    );
+  });
+
+  it('shows «Не удалось сохранить статус. Попробуйте ещё раз.» for no answer or one without a code', () => {
+    expect(STATE_FAILED_TEXT).toBe('Не удалось сохранить статус. Попробуйте ещё раз.');
+    expect(stateRefusalNotice(new TypeError('Failed to fetch'))).toBe(STATE_FAILED_TEXT);
+    expect(stateRefusalNotice(new ApiError(500, { status: 500, detail: 'x' }))).toBe(
+      STATE_FAILED_TEXT,
+    );
+  });
+
+  it('shows nothing for a not-found of the address: the page is replaced by its frame', () => {
+    expect(stateRefusalNotice(refusal('organizations.team.not_found'))).toBeNull();
   });
 });

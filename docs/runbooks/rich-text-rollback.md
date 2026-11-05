@@ -1,4 +1,4 @@
-# Runbook: rolling back rich-text descriptions (feat-018, ADR-0027)
+# Runbook: rolling back rich-text descriptions (feat-018, ADR-0037)
 
 When it applies: the release that makes the work item Описание rich text
 (`descriptionFormat`, migration `AddWorkItemDescriptionFormat`) has been

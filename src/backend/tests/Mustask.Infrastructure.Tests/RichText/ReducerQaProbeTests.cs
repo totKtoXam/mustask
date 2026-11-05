@@ -9,7 +9,7 @@ using static Mustask.Infrastructure.Tests.RichText.RichTextTestSupport;
 namespace Mustask.Infrastructure.Tests.RichText;
 
 /// <summary>
-/// feat-018 backend QA: adversarial probes written from the spec (US-2, US-4, US-7, ADR-0027) and not from the
+/// feat-018 backend QA: adversarial probes written from the spec (US-2, US-4, US-7, ADR-0037) and not from the
 /// developer's tests. Everything here asserts a spec rule; the timing probes in the second half also write what they
 /// measured to the test output, which is the evidence qa.md quotes.
 /// </summary>

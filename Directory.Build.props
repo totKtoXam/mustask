@@ -9,6 +9,15 @@
   </PropertyGroup>
 
   <!--
+    Coverage run (tech-046): scripts/verify.sh passes MustaskCoverageDir, and
+    every test project writes its Cobertura report into its own folder, so the
+    gate can tell the integration tests' coverage from the unit tests'.
+  -->
+  <PropertyGroup Condition="'$(MustaskCoverageDir)' != ''">
+    <VSTestResultsDirectory>$(MustaskCoverageDir)/$(MSBuildProjectName)</VSTestResultsDirectory>
+  </PropertyGroup>
+
+  <!--
     Git-хуки включаются на первой же сборке, чтобы их не приходилось ставить
     руками и чтобы они работали у тех, кто не запускает npm. Скрипты лежат в
     .githooks/ — обычный sh, без зависимостей; см. docs/conventions/git.md.

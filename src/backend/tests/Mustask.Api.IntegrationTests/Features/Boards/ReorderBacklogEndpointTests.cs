@@ -9,8 +9,8 @@ using Microsoft.Extensions.DependencyInjection;
 namespace Mustask.Api.IntegrationTests.Features.Boards;
 
 /// <summary>
-/// <c>POST /api/organizations/{organizationId}/projects/{projectId}/teams/{teamId}/backlogs/{level}/reorder</c>
-/// (mod-006 api-contract § 3.2): US-2 — one item to the top, to the bottom or
+/// <c>POST /api/organizations/{organizationId}/teams/{teamId}/backlogs/{level}/reorder</c>
+/// (mod-006 api-contract § 3.2, moved to the team's address by feat-040 § 3.2): US-2 — one item to the top, to the bottom or
 /// directly after another; reorders of one backlog one at a time, last write
 /// wins with no token (BR-M4-25); a move next to an item that has left refused
 /// (BR-M4-26).
@@ -179,10 +179,11 @@ public sealed class ReorderBacklogEndpointTests(MustaskApiFactory factory)
         Assert.Equal(Ids(us9, us3, us11), await BoardsTestData.RowsAsync(factory, world, world.PlatformId));
     }
 
-    // BR-M4-24: a reorder places every item where it stands and drops the places of items that left; the place of an item
-    // that left is kept until then (US-7 "comes back before anything was ordered").
+    // BR-M4-24: a reorder places every item where it stands. mod-017 (ADR-0028 rule 5, BR-OT-6): the place of an item that left
+    // goes at the moment its team changes, not at the next reorder, so the reorder finds only the items that are here.
+    // Renamed (D-16): Reorder_PlacesEveryItem_DropsThePlacesOfItemsThatLeft -> Reorder_PlacesEveryItem_ThePlaceOfAnItemThatLeftWentWithTheChange.
     [Fact]
-    public async Task Reorder_PlacesEveryItem_DropsThePlacesOfItemsThatLeft()
+    public async Task Reorder_PlacesEveryItem_ThePlaceOfAnItemThatLeftWentWithTheChange()
     {
         var (world, us3, bug5, us9, us11) = await BacklogAsync();
         await BoardsTestData.MoveAsync(factory, world, world.PlatformId, BoardsTestData.Top(us9));
@@ -191,7 +192,7 @@ public sealed class ReorderBacklogEndpointTests(MustaskApiFactory factory)
             (await PlacesAsync(world)).OrderBy(place => place.Position).Select(place => (place.ItemId, place.Position)));
 
         await BoardsTestData.MoveToAreaAsync(factory, world, bug5, world.RootAreaId);
-        Assert.Contains(await PlacesAsync(world), place => place.ItemId == bug5.Id);
+        Assert.DoesNotContain(await PlacesAsync(world), place => place.ItemId == bug5.Id);
 
         await BoardsTestData.MoveAsync(factory, world, world.PlatformId, BoardsTestData.Bottom(us3));
 
@@ -285,8 +286,7 @@ public sealed class ReorderBacklogEndpointTests(MustaskApiFactory factory)
     // US-1's not-found outline, for the reorder: the address answers before the body.
     [Theory]
     [InlineData("team-deleted", "organizations.team.not_found")]
-    [InlineData("team-of-another-project", "organizations.team.not_found")]
-    [InlineData("project-deactivated", "organizations.project.not_found")]
+    [InlineData("team-of-another-organization", "organizations.team.not_found")]
     [InlineData("level-tasks", "boards.level.not_found")]
     public async Task Reorder_ContextNotFound_AnswersItsLevelsCode(string part, string code)
     {
@@ -310,7 +310,7 @@ public sealed class ReorderBacklogEndpointTests(MustaskApiFactory factory)
 
         using var gate = factory.CommitGates.Open();
         var deletion = OrganizationsApi.SendAsync(
-            factory, HttpMethod.Delete, BoardsTestData.Team(world, analytics), token: OrganizationsTokens.SignedIn(), gate: gate);
+            factory, HttpMethod.Delete, TeamTestData.Team(world.OrganizationId, analytics), token: OrganizationsTokens.SignedIn(), gate: gate);
         await Task.WhenAny(gate.Reached, deletion);
         Assert.False(deletion.IsCompleted, "The deletion finished before reaching its commit gate.");
 

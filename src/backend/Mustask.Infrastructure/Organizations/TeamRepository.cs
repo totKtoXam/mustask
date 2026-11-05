@@ -6,44 +6,56 @@ namespace Mustask.Infrastructure.Organizations;
 
 /// <inheritdoc cref="OrganizationRepository"/>
 /// <remarks>
-/// The three lock modes are three fixed statements, not one with a mode spliced
-/// in: interpolation is for values only (backend.md, "Raw SQL").
+/// The lock modes are fixed statements, not one with a mode spliced in: interpolation is for values only (backend.md, "Raw SQL").
+/// Every statement carries the organization (feat-028 BR-OL-1), so a team of another organization is locked by nobody and loads
+/// as <c>null</c>.
 /// </remarks>
 internal sealed class TeamRepository(MustaskDbContext context) : ITeamRepository
 {
-    public async Task<Team?> LockForUpdateAsync(Guid projectId, Guid teamId, CancellationToken cancellationToken)
+    public async Task<Team?> LockForNoKeyUpdateAsync(Guid organizationId, Guid teamId, CancellationToken cancellationToken)
     {
         await context.Database.ExecuteSqlInterpolatedAsync(
-            $"SELECT 1 FROM teams WHERE id = {teamId} AND project_id = {projectId} FOR UPDATE",
+            $"SELECT 1 FROM teams WHERE id = {teamId} AND organization_id = {organizationId} FOR NO KEY UPDATE",
             cancellationToken);
 
-        return await LoadAsync(projectId, teamId, cancellationToken);
+        return await LoadAsync(organizationId, teamId, cancellationToken);
     }
 
-    public async Task<Team?> LockForNoKeyUpdateAsync(Guid projectId, Guid teamId, CancellationToken cancellationToken)
+    public async Task<Team?> LockForShareAsync(Guid organizationId, Guid teamId, CancellationToken cancellationToken)
     {
         await context.Database.ExecuteSqlInterpolatedAsync(
-            $"SELECT 1 FROM teams WHERE id = {teamId} AND project_id = {projectId} FOR NO KEY UPDATE",
+            $"SELECT 1 FROM teams WHERE id = {teamId} AND organization_id = {organizationId} FOR SHARE",
             cancellationToken);
 
-        return await LoadAsync(projectId, teamId, cancellationToken);
+        return await LoadAsync(organizationId, teamId, cancellationToken);
     }
 
-    public async Task<Team?> LockForShareAsync(Guid projectId, Guid teamId, CancellationToken cancellationToken)
+    public async Task<IReadOnlyList<Team>> LockManyForShareAsync(
+        Guid organizationId, IReadOnlyCollection<Guid> teamIds, CancellationToken cancellationToken)
     {
+        if (teamIds.Count == 0)
+        {
+            return [];
+        }
+
+        var ids = teamIds.Distinct().ToArray();
+
+        // ORDER BY before the locks: the rows are locked in ascending id order, one fixed order for every caller.
         await context.Database.ExecuteSqlInterpolatedAsync(
-            $"SELECT 1 FROM teams WHERE id = {teamId} AND project_id = {projectId} FOR SHARE",
+            $"SELECT 1 FROM teams WHERE organization_id = {organizationId} AND id = ANY({ids}) ORDER BY id FOR SHARE",
             cancellationToken);
 
-        return await LoadAsync(projectId, teamId, cancellationToken);
+        // A new statement under READ COMMITTED: the teams as the previous lock holder left them.
+        var teams = await context.Teams
+            .Where(team => team.OrganizationId == organizationId && ids.Contains(team.Id))
+            .ToListAsync(cancellationToken);
+
+        return teams.OrderBy(team => team.Id).ToList();
     }
 
-    public Task<Team> GetFirstTeamAsync(Guid projectId, CancellationToken cancellationToken) =>
-        context.Teams.SingleAsync(team => team.ProjectId == projectId && team.IsFirstTeam, cancellationToken);
-
-    public Task<bool> IsActiveNameTakenAsync(Guid projectId, string normalizedName, Guid? exceptId, CancellationToken cancellationToken) =>
+    public Task<bool> IsActiveNameTakenAsync(Guid organizationId, string normalizedName, Guid? exceptId, CancellationToken cancellationToken) =>
         context.Teams.AnyAsync(
-            team => team.ProjectId == projectId
+            team => team.OrganizationId == organizationId
                 && team.Status == TeamStatus.Active
                 && team.NormalizedName == normalizedName
                 && team.Id != exceptId,
@@ -56,21 +68,10 @@ internal sealed class TeamRepository(MustaskDbContext context) : ITeamRepository
             .Select(team => team.Name)
             .FirstOrDefaultAsync(cancellationToken);
 
-    // The composite key keeps every area a team owns in the team's project (qa.md D-1), so naming the project changes no
-    // row and lets ix_areas_project_id_owner_team_id, the key's index, find them.
-    public Task ReassignExplicitAreasAsync(Guid fromTeamId, Guid toTeamId, CancellationToken cancellationToken) =>
-        context.Database.ExecuteSqlInterpolatedAsync(
-            $"UPDATE areas SET owner_team_id = {toTeamId}, default_of_team_id = NULL WHERE project_id = (SELECT project_id FROM teams WHERE id = {fromTeamId}) AND owner_team_id = {fromTeamId}",
-            cancellationToken);
-
-    public void Add(NewTeam team)
-    {
-        context.Teams.Add(team.Team);
-        context.Areas.Add(team.Area);
-    }
+    public void Add(Team team) => context.Teams.Add(team);
 
     public Task SaveAsync(CancellationToken cancellationToken) => OrganizationsSaveChanges.SaveAsync(context, cancellationToken);
 
-    private Task<Team?> LoadAsync(Guid projectId, Guid teamId, CancellationToken cancellationToken) =>
-        context.Teams.SingleOrDefaultAsync(team => team.Id == teamId && team.ProjectId == projectId, cancellationToken);
+    private Task<Team?> LoadAsync(Guid organizationId, Guid teamId, CancellationToken cancellationToken) =>
+        context.Teams.SingleOrDefaultAsync(team => team.Id == teamId && team.OrganizationId == organizationId, cancellationToken);
 }

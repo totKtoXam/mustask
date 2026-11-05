@@ -16,7 +16,7 @@ namespace Mustask.Application.Features.Organizations.DeactivateOrganization;
 /// <remarks>
 /// <para>
 /// <b>The order of answers</b> (plan-backend § 5.3): the address is the only
-/// level, and the only rule. The organization-context filter has answered for
+/// level, and the only rule. The scoped check has answered for
 /// a malformed, unknown or already deactivated organization before the handler
 /// runs; the handler asks again where it writes the organization itself,
 /// because the filter's read is not under the lock: a second deactivation that

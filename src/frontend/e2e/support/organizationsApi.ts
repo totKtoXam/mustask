@@ -36,6 +36,11 @@ export interface TeamDto {
   name: string;
   isFirstTeam: boolean;
   defaultArea: { id: string; path: string };
+  /**
+   * The caller is in this team (mod-016 api-contract § 3.3). Only the list read
+   * (`teams`) carries it; the single-team read and the writes do not.
+   */
+  isMember?: boolean;
 }
 
 export interface AreaNodeDto {
@@ -153,6 +158,20 @@ export function addTeam(
   return call(request, 'POST', `${projectPath(organizationId, projectId)}/teams`, { name });
 }
 
+/** mod-002 § 3.6: a team deleted; its memberships end with it (mod-016 api-contract § 3.2). */
+export function deleteTeam(
+  request: APIRequestContext,
+  organizationId: string,
+  projectId: string,
+  teamId: string,
+): Promise<void> {
+  return call(
+    request,
+    'DELETE',
+    `${projectPath(organizationId, projectId)}/teams/${encodeURIComponent(teamId)}`,
+  );
+}
+
 export function areaTree(
   request: APIRequestContext,
   organizationId: string,
@@ -189,9 +208,13 @@ export async function createContext(
 }
 
 /**
- * Deactivates every active organization and returns their ids, so that a
- * spec can see the shell with no organization context — «Настройки» opening
- * «Языки» — and restore them after (`restoreOrganizations`).
+ * Deactivates every active organization the signed-in user belongs to and
+ * returns their ids, so that a spec can see the shell with no organization
+ * context — «Настройки» opening «Языки» — and restore them after
+ * (`restoreOrganizations`). Since mod-016 the list holds only the caller's own
+ * organizations (D-3), and the fixture user administers every one it created, so
+ * other users' organizations on the stand neither need deactivating nor
+ * appear: the shell has no organization context for the fixture all the same.
  */
 export async function deactivateAllOrganizations(request: APIRequestContext): Promise<string[]> {
   const active = await activeOrganizations(request);

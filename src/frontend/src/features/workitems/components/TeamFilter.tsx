@@ -1,0 +1,57 @@
+import Box from '@mui/material/Box';
+import { useTeams } from '../../organizations';
+import { InlineMultiSelectField } from '../../../shared/ui';
+import { filterOptions, teamTexts } from '../lib/teams';
+import { filterTexts } from '../lib/workItemFilter';
+
+/**
+ * «Команда» of the filter (mod-017 US-5, BR-OT-8; design § 5.2): the kit’s
+ * `InlineMultiSelectField` over the project’s teams by name, then «Без команды» — whose value is
+ * the contract’s `none` — with no counts. The same field on the project’s list and on the
+ * project’s backlog and board; the page keeps the chosen values (`string[]`) and sends them as
+ * `teamId` (api-contract § 3). Any chosen value matches.
+ *
+ * The teams are read when the field is drawn and the field works meanwhile: its list says
+ * «Загрузка…», or, when the read has failed, «Не удалось загрузить команды. Попробуйте ещё
+ * раз.», and opening it again reads again. A chosen team that was deleted meanwhile stays in
+ * the filter and selects nothing when it is a further value (the first value that is not `none` is
+ * the shell's team selector, and a gone one answers «Команда не найдена» — feat-043, ADR-0032 § 1);
+ * the field names only the teams it knows. While the address holds a value and no team of it is
+ * named, the field reads «Фильтр задан» in place of «Все команды» (feat-003 D-4).
+ */
+export function TeamFilter({
+  organizationId,
+  projectId,
+  value,
+  onChange,
+}: {
+  organizationId: string;
+  projectId: string;
+  /** The chosen team ids and `none`; empty is «Все команды». */
+  value: readonly string[];
+  onChange: (values: string[]) => void;
+}) {
+  const teams = useTeams(organizationId, projectId);
+  const failed = teams.isError && !teams.isFetching;
+
+  return (
+    <Box sx={(theme) => ({ width: theme.spacing(30), maxWidth: '100%' })}>
+      <InlineMultiSelectField<string>
+        label={teamTexts.label}
+        frame="always"
+        emptyText={value.length > 0 ? filterTexts.set : teamTexts.allTeams}
+        value={value}
+        options={teams.isSuccess ? filterOptions(teams.data) : []}
+        loading={!teams.isSuccess && !failed}
+        loadingText={teamTexts.loading}
+        noOptionsText={failed ? teamTexts.failed : teamTexts.noMatch}
+        onOpen={() => {
+          if (teams.isError) {
+            void teams.refetch();
+          }
+        }}
+        onChange={onChange}
+      />
+    </Box>
+  );
+}

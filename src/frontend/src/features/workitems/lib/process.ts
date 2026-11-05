@@ -1,12 +1,5 @@
-import type {
-  CategoryCode,
-  ProcessDefinitionResponse,
-  StateDefinition,
-  WorkItemType,
-} from '../../process';
-
-/** «Удалена»'s category: only mod-005's Delete reaches it, so no control offers it (BR-M3-21). */
-const REMOVED: CategoryCode = 'Removed';
+import type { ProcessDefinitionResponse, StateDefinition, WorkItemType } from '../../process';
+import { REMOVED_CATEGORY } from './deletion';
 
 /** The type of the organization's process with this id, or none. */
 export function typeById(types: readonly WorkItemType[], typeId: string): WorkItemType | undefined {
@@ -15,10 +8,12 @@ export function typeById(types: readonly WorkItemType[], typeId: string): WorkIt
 
 /**
  * The states «Статус» offers (spec § Pickers; api-contract § 3): the type's
- * own, in the seeded order the process read gives, without its `Removed` one.
+ * own, in the seeded order the process read gives, without its `Removed` one —
+ * only Delete reaches «Удалена» (BR-M3-21, mod-005 BR-DR-1), and the restore
+ * dialog offers the same list (design § 5).
  */
 export function editableStates(type: WorkItemType): StateDefinition[] {
-  return type.states.filter((state) => state.category.code !== REMOVED);
+  return type.states.filter((state) => state.category.code !== REMOVED_CATEGORY);
 }
 
 /**
@@ -41,6 +36,11 @@ export interface CreatableType {
   /** The appearance token the theme draws. */
   appearance: string;
   initialStateName: string;
+  /**
+   * Its level has a backlog (mod-017 design § 4): the creation dialog says where the item
+   * will stand. A «Задача» has none before feat-023, so neither line reads for it.
+   */
+  onBacklog: boolean;
 }
 
 /**
@@ -73,12 +73,19 @@ export function parentHelperText(types: readonly Pick<WorkItemType, 'name'>[]): 
     : null;
 }
 
-/** The process's types as the dialog offers them, in the order the read gives them. */
-export function creatableTypes(types: readonly WorkItemType[]): CreatableType[] {
+/**
+ * The process's types as the dialog offers them, in the order the read gives them. A type is on a
+ * backlog unless its level is the task level (`kind: 'task'`); without the levels every type is.
+ */
+export function creatableTypes(
+  types: readonly WorkItemType[],
+  levels: ProcessDefinitionResponse['backlogLevels'] = [],
+): CreatableType[] {
   return types.map((type) => ({
     id: type.id,
     name: type.name,
     appearance: type.appearance,
     initialStateName: initialState(type)?.name ?? '',
+    onBacklog: levels.find((level) => level.id === type.backlogLevel.id)?.kind !== 'task',
   }));
 }

@@ -79,7 +79,7 @@ public sealed class WorkItemFormFieldsEndpointTests(MustaskApiFactory factory)
     [Theory]
     [InlineData("EPIC", "priority=2; risk=null; storyPoints=null; effort=null; businessValue=null; timeCriticality=null; startDate=null; targetDate=null; severity=null; activity=null; originalEstimate=null; remainingWork=null; completedWork=null; valueArea=\"Business\"; acceptanceCriteria=null; reproSteps=null; systemInfo=null")]
     [InlineData("FEAT", "priority=2; risk=null; storyPoints=null; effort=null; businessValue=null; timeCriticality=null; startDate=null; targetDate=null; severity=null; activity=null; originalEstimate=null; remainingWork=null; completedWork=null; valueArea=\"Business\"; acceptanceCriteria=null; reproSteps=null; systemInfo=null")]
-    [InlineData("US", "priority=2; risk=null; storyPoints=null; effort=null; businessValue=null; timeCriticality=null; startDate=null; targetDate=null; severity=null; activity=null; originalEstimate=null; remainingWork=null; completedWork=null; valueArea=\"Business\"; acceptanceCriteria=\"\"; reproSteps=null; systemInfo=null")]
+    [InlineData("US", "priority=2; risk=null; storyPoints=null; effort=null; businessValue=null; timeCriticality=null; startDate=null; targetDate=null; severity=null; activity=null; originalEstimate=null; remainingWork=null; completedWork=null; valueArea=\"Business\"; acceptanceCriteria=[]; reproSteps=null; systemInfo=null")]
     [InlineData("TASK", "priority=2; risk=null; storyPoints=null; effort=null; businessValue=null; timeCriticality=null; startDate=null; targetDate=null; severity=null; activity=null; originalEstimate=null; remainingWork=null; completedWork=null; valueArea=null; acceptanceCriteria=null; reproSteps=null; systemInfo=null")]
     [InlineData("BUG", "priority=2; risk=null; storyPoints=null; effort=null; businessValue=null; timeCriticality=null; startDate=null; targetDate=null; severity=3; activity=null; originalEstimate=null; remainingWork=null; completedWork=null; valueArea=null; acceptanceCriteria=null; reproSteps=\"\"; systemInfo=\"\"")]
     public async Task Create_EachType_AnswersItsDefaults_AndTheReadKeepsThem(string typeKey, string expected)
@@ -184,7 +184,7 @@ public sealed class WorkItemFormFieldsEndpointTests(MustaskApiFactory factory)
         var body = new Dictionary<string, object?>
         {
             ["title"] = "Иное",
-            [field] = field is "acceptanceCriteria" or "reproSteps" or "systemInfo" ? "Текст" : new { value = (object?)null },
+            [field] = field is "acceptanceCriteria" ? (object)Array.Empty<object>() : (field is "reproSteps" or "systemInfo" ? "Текст" : new { value = (object?)null }),
         };
 
         var answer = await WorkItemsTestData.SaveAsync(factory, world, item, body);
@@ -469,15 +469,25 @@ public sealed class WorkItemFormFieldsEndpointTests(MustaskApiFactory factory)
         Assert.Equal(saved.GetProperty("changedAt").GetDateTimeOffset(), row.GetProperty("changedAt").GetDateTimeOffset());
     }
 
-    // US-4 · "The text is plain" (BR-M3-36): markup and the line break kept as entered.
+    // US-4 · "The text is plain" (BR-M3-36): markup and the line break kept as entered in structured scenarios.
     [Fact]
     public async Task Save_AcceptanceCriteria_IsKeptAsEntered()
     {
         var (world, story) = await ItemAsync("US");
 
-        var saved = await SavedAsync(world, story, new { acceptanceCriteria = "<b>важно</b>\nшаг 2" });
+        var criteria = new[]
+        {
+            new { given = "<b>важно</b>", when = "шаг 2\nстрока", then = "результат" },
+        };
+        var saved = await SavedAsync(world, story, new { acceptanceCriteria = criteria });
 
-        Assert.Equal("<b>важно</b>\nшаг 2", saved.GetProperty("acceptanceCriteria").GetString());
+        var returnedCriteria = saved.GetProperty("acceptanceCriteria");
+        Assert.Equal(JsonValueKind.Array, returnedCriteria.ValueKind);
+        Assert.Equal(1, returnedCriteria.GetArrayLength());
+        var first = returnedCriteria[0];
+        Assert.Equal("<b>важно</b>", first.GetProperty("given").GetString());
+        Assert.Equal("шаг 2\nстрока", first.GetProperty("when").GetString());
+        Assert.Equal("результат", first.GetProperty("then").GetString());
     }
 
     // US-4 · "The length limit holds on the server" (BR-M3-36): 100 001 characters refused on either bug text, the item
@@ -505,10 +515,14 @@ public sealed class WorkItemFormFieldsEndpointTests(MustaskApiFactory factory)
     {
         var (world, story) = await ItemAsync("US");
 
-        await SavedAsync(world, story, new { storyPoints = new { value = 5 }, risk = new { value = 2 }, acceptanceCriteria = "Вход без пароля" });
+        var criteria = new[]
+        {
+            new { given = "Вход", when = "без пароля", then = "успех" },
+        };
+        await SavedAsync(world, story, new { storyPoints = new { value = 5 }, risk = new { value = 2 }, acceptanceCriteria = criteria });
 
         Assert.Equal(
-            "storyPoints=5; risk=2; acceptanceCriteria=\"Вход без пароля\"",
+            "storyPoints=5; risk=2; acceptanceCriteria=[{\"given\":\"Вход\",\"when\":\"без пароля\",\"then\":\"успех\"}]",
             Raw(await WorkItemsTestData.ReadAsync(factory, world, story), "storyPoints", "risk", "acceptanceCriteria"));
     }
 
@@ -575,7 +589,7 @@ public sealed class WorkItemFormFieldsEndpointTests(MustaskApiFactory factory)
             priority = new { value = 2 },
             risk = new { value = (int?)null },
             valueArea = new { value = "Business" },
-            acceptanceCriteria = "",
+            acceptanceCriteria = Array.Empty<object>(),
         });
 
         Assert.Equal(before.GetProperty("changedAt").GetDateTimeOffset(), same.GetProperty("changedAt").GetDateTimeOffset());
@@ -600,5 +614,56 @@ public sealed class WorkItemFormFieldsEndpointTests(MustaskApiFactory factory)
             "storyPoints=null; activity=null; reproSteps=\"\"",
             Raw(emptied, "storyPoints", "activity", "reproSteps"));
         Assert.True(emptied.GetProperty("changedAt").GetDateTimeOffset() > untouched.GetProperty("changedAt").GetDateTimeOffset());
+    }
+
+    // --- Structured Acceptance Criteria Lifecycle & Rejection (R1, R4) ---------------------------------------------
+
+    [Fact]
+    public async Task Save_StructuredAcceptanceCriteria_CanAddUpdateAndClear()
+    {
+        var (world, story) = await ItemAsync("US");
+
+        // 1. Initially empty array
+        var initial = await WorkItemsTestData.ReadAsync(factory, world, story);
+        Assert.Equal(JsonValueKind.Array, initial.GetProperty("acceptanceCriteria").ValueKind);
+        Assert.Equal(0, initial.GetProperty("acceptanceCriteria").GetArrayLength());
+
+        // 2. Add two scenarios
+        var scenarios = new[]
+        {
+            new { given = "User is logged in", when = "navigates to settings", then = "profile is shown" },
+            new { given = "User is guest", when = "navigates to settings", then = "redirected to login" },
+        };
+        var saved = await SavedAsync(world, story, new { acceptanceCriteria = scenarios });
+        var savedCriteria = saved.GetProperty("acceptanceCriteria");
+        Assert.Equal(2, savedCriteria.GetArrayLength());
+        Assert.Equal("User is logged in", savedCriteria[0].GetProperty("given").GetString());
+        Assert.Equal("navigates to settings", savedCriteria[0].GetProperty("when").GetString());
+        Assert.Equal("profile is shown", savedCriteria[0].GetProperty("then").GetString());
+        Assert.Equal("User is guest", savedCriteria[1].GetProperty("given").GetString());
+
+        // 3. Read back via GET confirms persistence
+        var readBack = await WorkItemsTestData.ReadAsync(factory, world, story);
+        var readCriteria = readBack.GetProperty("acceptanceCriteria");
+        Assert.Equal(2, readCriteria.GetArrayLength());
+        Assert.Equal("User is logged in", readCriteria[0].GetProperty("given").GetString());
+
+        // 4. Clear scenarios by sending empty array
+        var cleared = await SavedAsync(world, story, new { acceptanceCriteria = Array.Empty<object>() });
+        Assert.Equal(0, cleared.GetProperty("acceptanceCriteria").GetArrayLength());
+    }
+
+    [Fact]
+    public async Task Save_AcceptanceCriteriaOnTaskOrBug_ReturnsFieldNotOnType()
+    {
+        var (world, task) = await ItemAsync("TASK");
+
+        var scenarios = new[]
+        {
+            new { given = "Given", when = "When", then = "Then" },
+        };
+        var answer = await WorkItemsTestData.SaveAsync(factory, world, task, new { acceptanceCriteria = scenarios });
+
+        AssertReasons(answer, ("acceptanceCriteria", NotOnType, NotOnTypeText));
     }
 }

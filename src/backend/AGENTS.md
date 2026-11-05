@@ -11,16 +11,34 @@ run from there, not from this directory.
 - `dotnet build Mustask.sln` — build (nullable + warnings-as-errors).
 - `dotnet test Mustask.sln` — all tests; `Mustask.Api.IntegrationTests` and the
   `RequiresDocker` tests of `Mustask.Infrastructure.Tests` bring up PostgreSQL
-  through Testcontainers — Docker must be running.
+  through Testcontainers — Docker must be running. Each of the two starts one
+  container per run and gives every fixture a database of its own on it
+  (`tests/Shared/SharedPostgres.cs`, tech-047). Their classes run in
+  parallel: `Mustask.Api.IntegrationTests` splits `MustaskApiCollection` into
+  shards (`ApiTestCollectionFactory`; half the cores, at most eight, so two
+  on a 4-core runner; `MUSTASK_API_TEST_SHARDS` overrides the count, and 1
+  still runs the serial classes apart, after the shard). A new class that
+  captures the console, sets an environment variable, asserts on log entries
+  of a host it builds, builds a host straight from
+  `WebApplicationFactory<Program>`, shares a static flag with another class
+  or holds a timing budget goes into `ApiTestCollectionFactory.SerialClasses`
+  (a `*VolumeTests` name goes there by itself) — in
+  `Mustask.Infrastructure.Tests`, a class that touches
+  `ConnectionStrings__mustask` names `ProcessEnvironmentCollection`.
 - `dotnet run --project src/backend/Mustask.AppHost` — local startup through
   .NET Aspire: brings up `Mustask.Api`, a PostgreSQL container (or uses an
   external PostgreSQL — see "External database" below), the frontend
   (Vite dev server, `AddViteApp`, `VITE_API_BASE_URL` is passed through from
-  the `api` endpoint) and Keycloak with the `mustask` realm (ADR-0018; the
-  access model is groups → roles → permissions, and permissions arrive in
-  the token as `resource_access.mustask-api.roles`), and opens the Aspire
+  the `api` endpoint) and Keycloak with the stand's realm (`Keycloak:Realm`, default
+  `mustask`; ADR-0018, ADR-0033; the
+  instance-level access model is four client roles of `mustask-api` — `user`,
+  `organization-creator`, `dictionaries-admin`, `system-admin` — that the API turns
+  into permission codes through a table in code, arriving in
+  the token as `resource_access.mustask-api.roles`; rights inside an
+  organization come from the membership, ADR-0027 — see "The access model"
+  below), and opens the Aspire
   dashboard with links, logs and traces. `Mustask.Api` is a resource server
-  of realm `mustask` (ADR-0018): it checks a Bearer access token's
+  of the stand's realm (ADR-0018): it checks a Bearer access token's
   signature, `iss` and `aud` against the realm's JWKS, configured by
   `Keycloak:Authority`/`Keycloak:Audience`; there is no login/password loop
   of our own, and accounts are created by `scripts/keycloak-seed.sh`, not
@@ -30,13 +48,15 @@ run from there, not from this directory.
   in its own encrypted cookie (`mustask.session`), and hands the browser only
   a short-lived access token — the panel itself never talks to Keycloak.
   Everything listens on `0.0.0.0` and is reachable from the local network.
-  The realm, its roles, groups and login theme arrive by import from
+  The realm, its four client roles and the login theme arrive by import from
   `deploy/keycloak/` when Keycloak's store is created (see "Keycloak on the
   stand" below); after that first start the Keycloak users are created by
   `bash scripts/keycloak-seed.sh` (see the script's header for its
   variables). AppHost also provisions the E2E
   stand-only client `mustask-e2e` and writes its secret to
-  `.e2e-stand/keycloak-e2e-client.json` (ADR-0023). A separate docker compose
+  `.e2e-stand/keycloak-e2e-client.json` (ADR-0023), gives its fixture user the client
+  roles `user` and `system-admin`, and adds `user` to the stand realm's default role so
+  every account made on the stand can sign in (ADR-0033). A separate docker compose
   is not needed (see
   `docs/adr/0001-use-net-aspire-for-local-orchestration.md`). On a fresh
   clone, three secrets are required before the first start — the PostgreSQL
@@ -70,12 +90,11 @@ run from there, not from this directory.
   its own volume); to scope the mode to one checkout, export
   `ConnectionStrings__mustask` in the terminal that starts that checkout's
   AppHost instead of setting the secret.
-- Keycloak on the stand (mod-014, ADR-0025): AppHost **builds** the Keycloak
-  image from `deploy/keycloak/Dockerfile` — the image of `Keycloak:Image`/
-  `Keycloak:Tag` plus the provider `mustask-user-projection`, whose Java
-  sources (`deploy/keycloak/providers/user-projection`) are compiled and
-  unit-tested inside that build; the first build on a machine, or after a
-  Keycloak tag change, needs the network. Keycloak's store **persists** in a
+- Keycloak on the stand (mod-014, ADR-0025 § 7; tech-025, ADR-0034): AppHost
+  **builds** the Keycloak image from `deploy/keycloak/Dockerfile` — the image of
+  `Keycloak:Image`/`Keycloak:Tag` and nothing of ours inside it (the event-listener
+  provider is gone: the company realm takes no JAR); the first build on a machine, or
+  after a Keycloak tag change, needs the network. Keycloak's store **persists** in a
   named volume paired with the stand's database (container mode: one pair per
   checkout; external mode: one store per external database), so users and
   their ids survive restarts; the `Keycloak store:` line at startup names it.
@@ -89,17 +108,22 @@ run from there, not from this directory.
   `scripts/stand-reset.ps1`): it wipes exactly this stand's pair — in
   external mode it drops and recreates only the database the connection
   string names — and prints the next steps (migrations, seed); its header has
-  the details. The provider pushes user changes to `Mustask.Api`'s
-  `/api/user-directory/feed` signed with a secret AppHost generates per run
-  (no fourth user secret). It reaches the api at
-  `http://host.docker.internal:{Ports:Api}` — the api's own port on the Docker
-  host, mapped with `--add-host …:host-gateway` so a Linux engine resolves it
-  too — not through Aspire's container tunnel, which loses the api for good
-  after a `keycloak` resource restart followed by an api restart. `Keycloak:UserProjection:ReconcilePeriodMinutes`
-  shortens the reconciliation period for a QA run. `scripts/verify.sh` checks
-  a provider change in its `provider` bucket — Docker required: `docker build
-  --target provider deploy/keycloak`, then the .NET tests tagged
-  `KeycloakProvider` with `MUSTASK_KEYCLOAK_PROVIDER_TESTS=1`.
+  the details. A store made from an older realm import is cleared by the same reset (see
+  "A stand made from an older realm import" below).
+  **The user projection is filled by the sign-in** (ADR-0034): the session callback,
+  and a renewal whose claims changed, upsert the person from the id token's `sub`,
+  `preferred_username`, `given_name`, `family_name` and `email`
+  (`Features/UserDirectory/RecordSignIn`); there is no push endpoint, no secret and no
+  reconciliation. **Member search reads that projection, so only a person who has
+  signed in to MUSTASK once can be found and added to an organization**; a user
+  deactivated or deleted in Keycloak stays in it as of their last sign-in. The panel
+  client needs the `profile` and `email` scopes. `scripts/verify.sh` checks a change of
+  `deploy/keycloak/Dockerfile` or of a realm import in its `keycloak` bucket — Docker
+  required: the .NET tests tagged `KeycloakLive` with `MUSTASK_KEYCLOAK_LIVE_TESTS=1`, `LiveRealmImportTests` among them. A realm-import
+  edit (`deploy/keycloak/realms/*`) is checked in both buckets: by the contract
+  tests, and by `LiveRealmImportTests`, where a real Keycloak imports the
+  repository's real file (an import Keycloak rejects only shows when it is
+  started).
 - The stand's ports come from configuration: the defaults are in
   `appsettings.json` of the `Mustask.AppHost` project (the `Ports` section), and
   are overridden by the environment variables `Ports__Api`, `Ports__Frontend`,
@@ -120,11 +144,45 @@ run from there, not from this directory.
   environment in both directions). The base address of a running
   `Mustask.Api` — from the Aspire dashboard or from the Information line in
   the log at startup.
+- The access model (mod-016, ADR-0027; tech-024, ADR-0033) in three lines.
+  **Instance rights come from the token's client roles**: `resource_access.
+  mustask-api.roles` carries up to four names — `user` (signing in and the
+  dictionaries' read; **without it there is no session and no right**),
+  `organization-creator`, `dictionaries-admin` and `system-admin` (every instance
+  code) — and `Mustask.Api` turns them into `perm` claims through the one table
+  `Mustask.Domain.Identity.InstanceRoles`; unknown names are ignored and raw codes
+  in the token grant nothing. The realm holds no realm roles, groups or default
+  roles of ours (the company-wide realm allows only clients and client roles);
+  a user gets the roles directly. The panel mirrors the table in
+  `src/frontend/src/shared/api/tokenClaims.ts` — change both together.
+  **Rights inside an organization come from the user's membership in it**
+  (`admin`, `member` or `viewer`), read from the database on every request —
+  nothing about them is in the token — so a role change applies on the next
+  request. **Every route with `{organizationId}` declares an organization code**
+  (`.RequiresOrganizationPermission(PermissionCatalog.X)`); the inventory test
+  fails `scripts/verify.sh` for one that does not, and a non-member of the
+  organization of the address gets 404 «Организация не найдена», never a 403.
+- The realm's name is configuration: the stand reads `Keycloak:Realm` (default
+  `mustask`; environment `Keycloak__Realm`), and passes it to the realm import
+  (`${MUSTASK_REALM:mustask}`, mounted as `<realm>-realm.json`), the health and drift checks, the provisioning and
+  `Keycloak__Authority`; `scripts/keycloak-seed.sh` takes `KEYCLOAK_REALM`. A name
+  other than `mustask` needs a store made with it (stand reset).
 - An organization on the stand: sign in to the panel as the administrator
-  (group «Администраторы») or as a member of «Создатели организаций», and
+  (client roles `user` and `system-admin`, given by `scripts/keycloak-seed.sh`)
+  or as a user with `user` and `organization-creator`, and
   create one there (`POST /api/organizations`, which needs the right
   `organizations.organization.create`); its process is seeded in the same
-  step. There is no seeded demonstration organization. A stand whose Keycloak
-  was created before that group existed picks the realm import up only after
-  a stand reset — `bash scripts/stand-reset.sh`, see "Keycloak on the stand"
-  above; until then its drift check keeps the stand unhealthy (mod-002 D-j).
+  step, and the creator becomes **its administrator** in the same
+  transaction. Everyone else is added on the organization's «Участники» page
+  by an administrator and sees nothing of it before that — the seeded `member`
+  user (`scripts/keycloak-seed.sh`, `MEMBER_PASSWORD`) holds the role `user`
+  only and sees no organization until it is added. There is no seeded
+  demonstration organization.
+- **A stand made from an older realm import** (before `tech-024`, ADR-0033: realm
+  roles `instance-admin`/`dictionaries-admin`/`organization-creator`, groups,
+  permission codes as client roles) stays unhealthy: the drift check names every
+  difference and the remedy is the stand reset, `bash scripts/stand-reset.sh`
+  (above). The reset wipes that stand's database and Keycloak store as a pair, so
+  back up first if the data matters; the live-realm command that converted a store
+  in place is retired. Then apply the migrations, start the AppHost and run
+  `bash scripts/keycloak-seed.sh`.

@@ -6,7 +6,8 @@ namespace Mustask.Api.IntegrationTests.Features.WorkItems;
 /// Items put straight into the table, for the tests that need more of them than the endpoints could create in
 /// reasonable time or a shape no write makes any more (feat-027 D-9: a chain at the depth bound, built one call per
 /// link, would be 64 round trips per test). The project's number counter is moved past every number used, so the next
-/// creation through the endpoint takes the next number.
+/// creation through the endpoint takes the next number. mod-017: each takes the owning team the items belong to
+/// (none by default) — a team's views hold what the team owns.
 /// </summary>
 internal static class BulkItemsTestData
 {
@@ -22,16 +23,18 @@ internal static class BulkItemsTestData
         int length,
         int firstNumber = 1,
         Guid? beneath = null,
-        string typeKey = "TASK")
+        string typeKey = "TASK",
+        Guid? owningTeamId = null)
     {
         var type = world.Types[typeKey];
         var ids = Enumerable.Range(0, length).Select(_ => Guid.CreateVersion7()).ToArray();
 
         await WorkItemsTestData.ExecuteAsync(factory, $"""
-            INSERT INTO work_items (id, project_id, number, type_id, state_id, area_id, title, description, creation_request_id, created_at, created_by, changed_at, parent_id)
+            INSERT INTO work_items (id, project_id, number, type_id, state_id, area_id, title, description, creation_request_id, created_at, created_by, changed_at, parent_id, owning_team_id)
             SELECT link.id, {world.ProjectId}, CAST({firstNumber} + link.ord - 1 AS integer), {type.Id}, {type.StateId("Новая")}, {areaId},
                    'Звено ' || link.ord, '', gen_random_uuid(), now(), 'chain-test', now(),
-                   CASE WHEN link.ord = 1 THEN CAST({beneath} AS uuid) ELSE (CAST({ids} AS uuid[]))[link.ord - 1] END
+                   CASE WHEN link.ord = 1 THEN CAST({beneath} AS uuid) ELSE (CAST({ids} AS uuid[]))[link.ord - 1] END,
+                   CAST({owningTeamId} AS uuid)
             FROM unnest(CAST({ids} AS uuid[])) WITH ORDINALITY AS link(id, ord)
             """);
         await MoveCounterPastAsync(factory, world, firstNumber + length - 1);
@@ -51,14 +54,16 @@ internal static class BulkItemsTestData
         IReadOnlyList<string> assignees,
         int firstNumber,
         Guid? beneath = null,
-        string typeKey = "TASK")
+        string typeKey = "TASK",
+        Guid? owningTeamId = null)
     {
         var type = world.Types[typeKey];
 
         await WorkItemsTestData.ExecuteAsync(factory, $"""
-            INSERT INTO work_items (id, project_id, number, type_id, state_id, area_id, title, description, creation_request_id, created_at, created_by, changed_at, parent_id, assignee_id)
+            INSERT INTO work_items (id, project_id, number, type_id, state_id, area_id, title, description, creation_request_id, created_at, created_by, changed_at, parent_id, assignee_id, owning_team_id)
             SELECT gen_random_uuid(), {world.ProjectId}, CAST({firstNumber} + assigned.ord - 1 AS integer), {type.Id}, {type.StateId("Новая")}, {areaId},
-                   'Исполнитель ' || assigned.ord, '', gen_random_uuid(), now(), 'assignee-test', now(), CAST({beneath} AS uuid), assigned.assignee
+                   'Исполнитель ' || assigned.ord, '', gen_random_uuid(), now(), 'assignee-test', now(), CAST({beneath} AS uuid), assigned.assignee,
+                   CAST({owningTeamId} AS uuid)
             FROM unnest(CAST({assignees.ToArray()} AS text[])) WITH ORDINALITY AS assigned(assignee, ord)
             """);
         await MoveCounterPastAsync(factory, world, firstNumber + assignees.Count - 1);

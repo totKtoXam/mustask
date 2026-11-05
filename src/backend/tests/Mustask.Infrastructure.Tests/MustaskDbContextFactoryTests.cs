@@ -6,6 +6,7 @@ namespace Mustask.Infrastructure.Tests;
 // `dotnet ef migrations add`/`database update` build MustaskDbContext without a
 // running Mustask.AppHost. No Docker needed here — building DbContextOptions
 // does not open a connection.
+[Collection(ProcessEnvironmentCollection.Name)]
 public sealed class MustaskDbContextFactoryTests
 {
     private const string ConnectionStringEnvVar = "ConnectionStrings__mustask";

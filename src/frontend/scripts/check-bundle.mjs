@@ -1,4 +1,4 @@
-// The bundle check of feat-018 (ADR-0027 decision 10, plan-frontend § 10.2).
+// The bundle check of feat-018 (ADR-0037 decision 10, plan-frontend § 10.2).
 //
 //   npm run build && npm run bundle:check
 //
@@ -9,7 +9,7 @@
 //   - the entry chunk grew over its ceiling since the recorded baseline, or
 //   - the editor chunk or the emoji chunk is over its gzipped ceiling.
 //
-// The ceilings are the human's to confirm or change (ADR-0027 decision 10);
+// The ceilings are the human's to confirm or change (ADR-0037 decision 10);
 // this script only holds the build to them.
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';

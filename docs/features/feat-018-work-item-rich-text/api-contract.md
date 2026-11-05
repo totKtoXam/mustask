@@ -165,7 +165,7 @@ legacy text to html is the displaying client's job (BR-RT-9, D-3).
   the browser's `innerHTML` produces, which is what keeps the editor's
   normalised output equal to the server's byte for byte (BR-RT-5).
 - The closed class vocabularies are `contracts/rich-text/vocabularies.json`
-  (ADR-0027 decision 6); the server writes a token from its own table, never
+  (ADR-0037 decision 6); the server writes a token from its own table, never
   from the input.
 
 ## 4. Error codes
@@ -226,7 +226,7 @@ edited by this stage.
 | mod-003 § 2.4 | add `descriptionFormat` to the body table; the 400 line lists the two new reasons under `errors.description`; "a value equal to the stored one changes nothing" is read as equality of (value, format) (§ 1.2 here). |
 | mod-003 § 4 | the two new codes (table above). |
 | `docs/features/feat-022-work-item-form-fields/spec.md` BR-M3-36 | reworded "as BR-M3-19 has it for a plain-format description"; its three texts stay plain; its decomposition note extending feat-018 to those fields is superseded (spec.md of feat-018, § Decomposition). |
-| feat-022 `api-contract.md` | no change to its shape: its texts stay plain strings with no format marker. A note that the marker is per field (ADR-0027, "What later features inherit") and not added here. |
+| feat-022 `api-contract.md` | no change to its shape: its texts stay plain strings with no format marker. A note that the marker is per field (ADR-0037, "What later features inherit") and not added here. |
 | `docs/features/doc-002-*` BR-M3-4 | the stored subset is widened by underline, strikethrough, highlight, text colour and font size (closed class palettes) and the code-block language class; shared by every BR-M3-4 field. |
 | feat-002 | a note that comment rich text is owned by the type-fields line. |
 
@@ -245,4 +245,4 @@ src/backend/tests/Mustask.Contracts.Tests` (never edited by hand).
   field (spec § Out of scope): the panel is the only client.
 - **New client, old server:** not a supported pair (one deployment); a server
   without this release would ignore `descriptionFormat` and store the html as
-  plain, which is the rollback story of ADR-0027 and the plan's § Rollback.
+  plain, which is the rollback story of ADR-0037 and the plan's § Rollback.

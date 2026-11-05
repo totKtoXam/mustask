@@ -22,14 +22,21 @@ public sealed class OrganizationsOpenApiTests(MustaskApiFactory factory)
         "GET /api/organizations",
         "GET /api/organizations/deactivated",
         "POST /api/organizations",
+        // feat-033 api-contract § 1: the four instance-scoped rescue routes. Two carry {organizationId} but are not in
+        // OrganizationAddressedRoutes (they are the instance exceptions of the access inventory).
+        "GET /api/organizations/rescue",
+        "GET /api/organizations/rescue/appointee-candidates",
+        "GET /api/organizations/rescue/{organizationId}/appointments",
+        "POST /api/organizations/rescue/{organizationId}/appointments",
         // The addressed routes of other modules — mod-001's process read, mod-003's work items, mod-006's backlogs and
-        // boards — are not this module's.
+        // boards — are not this module's. The rest of the list is mod-002's and, last, mod-016's access and memberships
+        // (api-contract § 1–§ 2).
         .. OrganizationAddressedRoutes.All
             .Where(route => !route.Template.EndsWith("/process", StringComparison.Ordinal)
                 && !route.Template.Contains("/workitems", StringComparison.Ordinal)
                 && !route.Template.Contains("/backlogs/", StringComparison.Ordinal)
                 && !route.Template.Contains("/boards/", StringComparison.Ordinal))
-            .Select(route => $"{route.Method} {route.Template}"),
+            .Select(route => route.Key),
     ];
 
     [Fact]
@@ -42,7 +49,9 @@ public sealed class OrganizationsOpenApiTests(MustaskApiFactory factory)
             .Select(operation => $"{operation.Method} {operation.Path}")
             .Order(StringComparer.Ordinal);
 
-        Assert.Equal(26, ContractOperations.Length);
+        // feat-028 api-contract § 4: eight project-nested team routes out and sixteen organization-level ones in, 36 -> 44 of this module;
+        // at gate-3 the creation form's member search (§ 2.3a) makes 45. mod-018 (typed tree) adds ten net (11 organization-area routes, the project subtree read and 3 team-end routes in, 5 project-nested tree routes out): 55; TC-28 adds the read-only team-links read: 56; feat-033 adds the organization appointment record (O1) and the four rescue routes: 63.
+        Assert.Equal(63, ContractOperations.Length);
         Assert.Equal(ContractOperations.Order(StringComparer.Ordinal), ofTheModule);
     }
 
@@ -60,16 +69,24 @@ public sealed class OrganizationsOpenApiTests(MustaskApiFactory factory)
         Assert.Equal(["POST /api/organizations/{organizationId}/projects"], withKey);
     }
 
-    // US-1 · "No screen grants the right": nothing under /api/organizations names a right, a role or a group.
+    // US-1 · "No screen grants the right": nothing under /api/organizations names a right, a role or a group. mod-016 adds exactly one
+    // route that says "role": the change of an organization MEMBER's role (api-contract § 1.5) — an organization role of ADR-0027, a
+    // column of our own membership table, not a Keycloak role, right or group; nothing here writes the realm (ADR-0023).
+    private const string MembershipRoleRoute = "/api/organizations/{organizationId}/members/{userId}/role";
+
     [Fact]
-    public async Task OpenApiDocument_NoOrganizationOperationWritesRightsRolesOrGroups()
+    public async Task OpenApiDocument_NoOrganizationOperationWritesRightsRolesOrGroups_ExceptTheMemberRoleOfTheOrganization()
     {
         var operations = await OperationsAsync();
 
         Assert.DoesNotContain(
             operations,
             operation => operation.Path.StartsWith("/api/organizations", StringComparison.Ordinal)
+                && operation.Path != MembershipRoleRoute
+                // feat-048: the aggregate views' GET `.../groups` is the grouped count of a view (api-contract section 2.1), not an identity group.
+                && !(operation.Method == "GET" && Tagged(operation.Operation, "Aggregate views"))
                 && new[] { "role", "group", "permission", "right" }.Any(word => operation.Path.Contains(word, StringComparison.OrdinalIgnoreCase)));
+        Assert.Single(operations, operation => operation.Path == MembershipRoleRoute);
     }
 
     private async Task<List<(string Path, string Method, JsonElement Operation)>> OperationsAsync() => (await DocumentAsync()).Operations;

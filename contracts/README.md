@@ -89,7 +89,7 @@ together with the text fix, in the same commit.
 
 Not an error catalog, and kept here for the same reason: it is read by the
 server and the panel alike (feat-018,
-[ADR-0027](../docs/adr/0027-rich-text-as-sanitized-html-with-tiptap.md),
+[ADR-0037](../docs/adr/0037-rich-text-as-sanitized-html-with-tiptap.md),
 decision 6).
 
 - `rich-text/vocabularies.json` — the closed class vocabularies (text colour,
@@ -99,7 +99,7 @@ decision 6).
   after matching the input exactly; the panel imports the same file. No token
   literal appears in server code (a test scans for it). An entry added,
   renamed or removed is a contract change: it needs its theme mapping and copy
-  on the panel and an ADR-0027 amendment.
+  on the panel and an ADR-0037 amendment.
 - `rich-text/fixtures/` — the cases both suites run: `canonical.json` (input,
   canonical, editor output), `visible-count.json` (html, count by code
   point), `hostile-corpus.json` (payloads and what must not survive),

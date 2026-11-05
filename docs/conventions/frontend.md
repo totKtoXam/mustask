@@ -13,7 +13,7 @@ src/
       pages/         # pages wired into the router
       index.ts       # the slice's ONLY public entry point
   shared/            # reusable code WITHOUT business logic:
-    ui/              # wrappers over MUI (PageHeader, ConfirmDialog…)
+    ui/              # the UI kit: wrappers over MUI (PageHeader, ConfirmDialog…), see ui-kit.md
     api/             # http client, error handling, auth interceptor
     lib/             # utilities, formatters (dates, IIN/BIN etc.)
     config/          # constants, env
@@ -44,7 +44,7 @@ feature (`src/frontend/src/features/dictionaries`) is the reference
 registry, form and dialog in code.
 
 The one exception to that stack is the rich-text editor of a work item's
-«Описание» ([ADR-0027](../adr/0027-rich-text-as-sanitized-html-with-tiptap.md)):
+«Описание» ([ADR-0037](../adr/0037-rich-text-as-sanitized-html-with-tiptap.md)):
 TipTap on ProseMirror, `lowlight` and a bundled emoji data set, only as
 `shared/ui/RichTextEditor` — one lazy chunk, never reachable from the entry
 chunk (`npm run bundle:check` holds the build to `bundle-budget.json`), with
@@ -53,7 +53,7 @@ to the page: no `dangerouslySetInnerHTML`, `innerHTML`, `outerHTML` or
 `insertAdjacentHTML` in product code (ESLint and `src/test/noRawHtml.test.ts`).
 
 - **Shell.** Every signed-in page renders inside `app/AppLayout`: the top
-  bar (product mark, context switcher, page trail, user menu), the main
+  bar (product mark, the four selectors, page trail, user menu), the main
   navigation and, on settings pages, the settings navigation. A page never
   draws its own frame. The line that builds a page registers its entry in
   `app/navigation/model.ts` (label, scope, permission code, landing address,
@@ -93,7 +93,12 @@ to the page: no `dangerouslySetInnerHTML`, `innerHTML`, `outerHTML` or
 - **Permissions.** Pages and navigation decide through one check —
   `useAuth().can(code)` for instance codes, `useAccessCheck()`
   (`shared/lib/access`) for a scoped code — and keep no copy of its
-  answers.
+  answers. An organization's codes are never in the token: the panel reads
+  them from the access endpoint, and every page of an organization sits
+  under `OrganizationGate` with an `OrganizationPage` wrapper that names the
+  read code the page needs (mod-016, ADR-0027). Below it `useAccessCheck()`
+  answers for the organization in the address, so a page passes no
+  organization.
 - **Work item type look.** A type's icon and colour come from its stored
   appearance token through `theme.workTracking.typeAppearance(token)`, a
   state's colour from its category code through `categoryColour(code)`;
@@ -108,6 +113,25 @@ to the page: no `dangerouslySetInnerHTML`, `innerHTML`, `outerHTML` or
 - **Dates:** formatted with `dayjs` in `shared/lib/format.ts`.
 - **Widths:** supported down to 640 CSS px, with the overlay navigation
   below 1024 px (ADR-0024).
+
+## UI kit
+
+Every screen is built from the panel's UI kit — `shared/ui`, the look that
+feat-027 matched to the reference screen — described in
+[ui-kit.md](ui-kit.md) and shown alive, in every state, on the panel's
+«Витрина компонентов» page (`/ui-kit`, for administrators; the table family from
+tech-016). A part the kit
+lacks is added to the kit first, with its tests, its showcase entry and its guide
+block, and only then used; a feature never re-implements a kit part (a page head
+included: a heading element of its own, or `useDocumentTitle` / `usePageChrome`
+instead of `usePageHead`), imports a MUI part the kit wraps, or styles MUI's
+insides (`.Mui…`). `src/test/kitGuard.test.ts` enforces it, with an allow-list of
+today's violations — an exact count per file and rule, cut from the scan of one
+commit — that only shrinks; `src/test/colourLiterals.test.ts` keeps colour in the
+theme, inside shorthands too. Where a kit component and the older paragraphs of
+"MUI" above disagree (secondary commands as text buttons, the list of shared
+patterns), the kit wins: those paragraphs describe the legacy look of the
+screens that have not moved yet.
 
 ## Data and state
 

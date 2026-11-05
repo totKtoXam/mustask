@@ -27,7 +27,7 @@ public sealed class GetWorkItemsEndpointTests(MustaskApiFactory factory)
         var world = await WorkItemsTestData.CreateWorldAsync(factory);
         var platform = await OrganizationsTestData.AddAreaAsync(factory, world.ProjectId, world.RootAreaId, "Платформа");
         var api = await OrganizationsTestData.AddAreaAsync(factory, world.ProjectId, platform.Id, "API");
-        var anna = await WorkItemsTestData.AddUserAsync(factory, "Анна", "Смирнова", "anna.smirnova@example.com");
+        var anna = await WorkItemsTestData.AddMemberAsync(factory, world, "Анна", "Смирнова", "anna.smirnova@example.com");
         foreach (var type in new[] { "EPIC", "FEAT", "US" })
         {
             await WorkItemsTestData.CreateItemAsync(factory, world, type, $"Элемент {type}");
@@ -57,10 +57,19 @@ public sealed class GetWorkItemsEndpointTests(MustaskApiFactory factory)
             row.GetProperty("assignee").GetProperty("id").GetString(),
             row.GetProperty("assignee").GetProperty("displayName").GetString(),
             row.GetProperty("assignee").GetProperty("email").GetString()));
+
+        // mod-016 BR-M1-26 (api-contract § 3.3): the assignee is a member of the item's organization.
+        Assert.True(row.GetProperty("assignee").GetProperty("isMember").GetBoolean());
+
+        // feat-003 OQ-2 A (api-contract § 1.1): the row's assignee carries the directory's active flag beside the membership's.
+        Assert.True(row.GetProperty("assignee").GetProperty("isActive").GetBoolean());
+        Assert.Equal(
+            ["displayName", "email", "id", "isActive", "isMember"],
+            row.GetProperty("assignee").EnumerateObject().Select(property => property.Name).Order(StringComparer.Ordinal));
         Assert.Equal(("Активна", "InProgress"), (
             row.GetProperty("state").GetProperty("name").GetString(),
             row.GetProperty("state").GetProperty("category").GetProperty("code").GetString()));
-        Assert.Equal((api.Id, "Платформа / API"), (
+        Assert.Equal((api.Id, "Мастаск / Платформа / API"), (
             row.GetProperty("area").GetProperty("id").GetGuid(),
             row.GetProperty("area").GetProperty("path").GetString()));
         Assert.Equal(saved.Body.GetProperty("changedAt").GetDateTimeOffset(), row.GetProperty("changedAt").GetDateTimeOffset());
@@ -152,7 +161,7 @@ public sealed class GetWorkItemsEndpointTests(MustaskApiFactory factory)
     }
 
     // US-2 · "A list whose context is not found": a deactivated project, another organization's project, a malformed or
-    // unknown project id answer «Проект не найден» (the organization's own answers are OrganizationContextFilterTests').
+    // unknown project id answer «Проект не найден» (the organization's own answers are ScopedAccessTests').
     [Fact]
     public async Task List_ProjectDeactivatedForeignMalformedOrUnknown_Returns404ProjectNotFound()
     {
@@ -181,7 +190,7 @@ public sealed class GetWorkItemsEndpointTests(MustaskApiFactory factory)
     public async Task List_AssigneeUnknownToTheDirectory_HasIdAndNoName()
     {
         var world = await WorkItemsTestData.CreateWorldAsync(factory);
-        var user = await WorkItemsTestData.AddUserAsync(factory, "Временный", "Пользователь");
+        var user = await WorkItemsTestData.AddMemberAsync(factory, world, "Временный", "Пользователь");
         var bug = await WorkItemsTestData.CreateItemAsync(factory, world, "BUG", "Баг");
         await WorkItemsTestData.SaveAsync(factory, world, bug, new { assignee = new { userId = user } });
         await WorkItemsTestData.ExecuteAsync(factory, $"DELETE FROM directory_users WHERE id = {user}");
@@ -191,6 +200,12 @@ public sealed class GetWorkItemsEndpointTests(MustaskApiFactory factory)
         Assert.Equal(user, row.GetProperty("assignee").GetProperty("id").GetString());
         Assert.Equal(JsonValueKind.Null, row.GetProperty("assignee").GetProperty("displayName").ValueKind);
         Assert.Equal(JsonValueKind.Null, row.GetProperty("assignee").GetProperty("email").ValueKind);
+
+        // mod-016: the flag reads the membership alone — a member the projection does not know is still a member.
+        Assert.True(row.GetProperty("assignee").GetProperty("isMember").GetBoolean());
+
+        // feat-003 OQ-2 A: an id the directory does not know is not active (the panel adds «(неактивен)» to a named user only).
+        Assert.False(row.GetProperty("assignee").GetProperty("isActive").GetBoolean());
     }
 
     // US-2 · "A large project stays usable" (NFR Volumes): with 5 000 items the first page and a later one each answer

@@ -5,8 +5,10 @@ import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { AuthContext, type AuthContextValue } from '../features/auth/AuthContext';
 import { emptyDataset, ids, type Dataset } from '../features/organizations/testFixtures';
+import { navigationKeys } from '../features/organizations/api/queryKeys';
 import { serveOrganizations } from '../features/organizations/testApi';
 import { authValue, LANGUAGES_READ, LocationProbe } from '../test/renderShell';
+import { readRemembered, selectionStorageKey } from './navigation/selection';
 import { AppRoutes } from './routes';
 
 const CREATE = 'organizations.organization.create';
@@ -16,6 +18,10 @@ function renderApp(path: string, auth: AuthContextValue = authValue([LANGUAGES_R
   const queryClient = new QueryClient({
     defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
   });
+  return { ...renderAppIn(queryClient, path, auth), queryClient };
+}
+
+function renderAppIn(queryClient: QueryClient, path: string, auth: AuthContextValue) {
   return render(
     <QueryClientProvider client={queryClient}>
       <AuthContext.Provider value={{ ...auth, subject: 'user-1' }}>
@@ -28,26 +34,26 @@ function renderApp(path: string, auth: AuthContextValue = authValue([LANGUAGES_R
   );
 }
 
-function switcher() {
+function selectorGroup() {
   return screen.getByRole('group', { name: 'Контекст работы' });
 }
 
+/** The names of the four selectors, left to right, as their buttons read them. */
 async function levels(): Promise<string[]> {
-  await waitFor(() =>
-    expect(within(switcher()).queryByRole('status', { name: 'Загрузка контекста' })).toBeNull(),
-  );
-  return within(switcher())
-    .getAllByRole('button')
+  return within(selectorGroup())
+    .getAllByRole('combobox')
     .map((button) => button.getAttribute('aria-label') ?? '');
 }
 
 async function expectLevels(expected: string[]) {
-  await waitFor(async () => expect(await levels()).toEqual(expected));
+  await waitFor(async () => expect((await levels()).join(' / ')).toEqual(expected.join(' / ')));
 }
 
-async function choose(level: RegExp, entry: string) {
-  await userEvent.click(within(switcher()).getByRole('button', { name: level }));
-  await userEvent.click(await screen.findByRole('menuitemradio', { name: entry }));
+const ALFA_ALL = ['Организация: Альфа', 'Департамент: все', 'Команда: все', 'Проект: все'];
+
+async function choose(selector: RegExp, entry: string | RegExp) {
+  await userEvent.click(within(selectorGroup()).getByRole('combobox', { name: selector }));
+  await userEvent.click(await screen.findByRole('option', { name: entry }));
 }
 
 function location() {
@@ -62,38 +68,33 @@ function serve(data?: Dataset) {
   return serveOrganizations(data);
 }
 
-describe('mod-002 US-8 Scenario: The switcher lists active organizations, projects and teams', () => {
-  it('shows the first entries, the levels in the order received, «Все организации» last, nothing deactivated', async () => {
+describe('mod-002 US-8 Scenario: The selectors list active organizations', () => {
+  it('shows the organization chosen, «все» in the rest, the organizations in the order received and «Все организации» last, nothing deactivated', async () => {
     serve();
-    renderApp('/home');
+    renderApp(`/organizations/${ids.alfa}/overview`);
 
-    await expectLevels(['Организация: Альфа', 'Проект: Аналитика', 'Команда: Аналитика']);
-    await userEvent.click(within(switcher()).getByRole('button', { name: 'Организация: Альфа' }));
-    const menu = await screen.findByRole('menu');
-    expect(
-      within(menu)
-        .getAllByRole('menuitemradio')
-        .map((item) => item.textContent),
-    ).toEqual(['Альфа', 'Бета']);
-    const items = within(menu).getAllByRole('menuitem');
-    expect(items.at(-1)).toHaveTextContent('Все организации');
-    expect(items.at(-1)).toHaveAttribute('href', '/organizations');
+    await expectLevels(ALFA_ALL);
+    await userEvent.click(
+      within(selectorGroup()).getByRole('combobox', { name: 'Организация: Альфа' }),
+    );
+    const options = (await screen.findAllByRole('option')).map((item) => item.textContent);
+    expect(options).toEqual(['Альфа', 'Бета', 'Все организации']);
   });
 });
 
 describe('mod-002 US-8 Scenario: «Все организации» opens the list', () => {
-  it('opens the active tab and leaves the selection as it was', async () => {
+  it('opens the active tab; no entry is current there', async () => {
     serve();
-    renderApp('/home');
-    await expectLevels(['Организация: Альфа', 'Проект: Аналитика', 'Команда: Аналитика']);
+    renderApp(`/organizations/${ids.alfa}/overview`);
+    await expectLevels(ALFA_ALL);
 
-    await userEvent.click(within(switcher()).getByRole('button', { name: 'Организация: Альфа' }));
-    await userEvent.click(await screen.findByRole('menuitem', { name: 'Все организации' }));
+    await userEvent.click(
+      within(selectorGroup()).getByRole('combobox', { name: 'Организация: Альфа' }),
+    );
+    await userEvent.click(await screen.findByRole('option', { name: 'Все организации' }));
 
     expect(await screen.findByRole('table', { name: 'Активные организации' })).toBeInTheDocument();
     expect(location()).toBe('/organizations');
-    await expectLevels(['Организация: Альфа', 'Проект: Аналитика', 'Команда: Аналитика']);
-    // The list is reached only through the switcher: no entry is current there.
     expect(settingsNavigation()).not.toBeInTheDocument();
     expect(
       screen.getByRole('navigation', { name: 'Основное меню' }).querySelectorAll('[aria-current]'),
@@ -102,25 +103,28 @@ describe('mod-002 US-8 Scenario: «Все организации» opens the lis
 });
 
 describe('mod-002 US-8 Scenario: «Нет организаций» leads to the list', () => {
-  it('links to the list with no project or team level, where «Организаций пока нет» shows', async () => {
+  it('links to the list with no selector, where «Вы пока не состоите ни в одной организации» shows', async () => {
     serve(emptyDataset());
     renderApp('/home');
 
     const link = await screen.findByRole('link', { name: 'Нет организаций' });
-    expect(within(switcher()).queryByText('Нет проектов')).not.toBeInTheDocument();
+    expect(screen.queryByRole('group', { name: 'Контекст работы' })).not.toBeInTheDocument();
     await userEvent.click(link);
 
     expect(
-      await screen.findByRole('heading', { level: 2, name: 'Организаций пока нет' }),
+      await screen.findByRole('heading', {
+        level: 2,
+        name: 'Вы пока не состоите ни в одной организации',
+      }),
     ).toBeInTheDocument();
   });
 });
 
 describe('mod-002 US-8 Scenario: Settings through the shell’s navigation', () => {
-  it('«Меню настроек» holds «Организация» → «Общие», «Проекты», «Процесс» and «Проект» → «Общие», «Команды», «Области»; «Настройки» opens the organization’s «Общие»', async () => {
+  it('«Меню настроек» holds «Организация» → «Общие», «Процесс» and «Справочники» → «Языки»; «Настройки» opens the organization’s «Общие»', async () => {
     serve();
-    renderApp('/home');
-    await expectLevels(['Организация: Альфа', 'Проект: Аналитика', 'Команда: Аналитика']);
+    renderApp(`/organizations/${ids.alfa}/overview`);
+    await expectLevels(ALFA_ALL);
 
     const settings = within(screen.getByRole('navigation', { name: 'Основное меню' })).getByRole(
       'link',
@@ -131,13 +135,13 @@ describe('mod-002 US-8 Scenario: Settings through the shell’s navigation', () 
 
     expect(await screen.findByText('Альфа', { selector: 'dd *' })).toBeInTheDocument();
     const navigation = settingsNavigation()!;
-    const links = within(navigation)
-      .getAllByRole('link')
-      .map((link) => link.textContent);
-    expect(links).toEqual(['Общие', 'Проекты', 'Процесс', 'Общие', 'Команды', 'Области', 'Языки']);
+    expect(
+      within(navigation)
+        .getAllByRole('link')
+        .map((link) => link.textContent),
+    ).toEqual(['Общие', 'Процесс', 'Языки']);
     expect(within(navigation).getByText('Организация')).toBeInTheDocument();
-    expect(within(navigation).getByText('Проект')).toBeInTheDocument();
-    expect(within(navigation).getAllByRole('link', { name: 'Общие' })[0]).toHaveAttribute(
+    expect(within(navigation).getByRole('link', { name: 'Общие' })).toHaveAttribute(
       'aria-current',
       'page',
     );
@@ -145,70 +149,191 @@ describe('mod-002 US-8 Scenario: Settings through the shell’s navigation', () 
       'Настройки/Организация',
     );
   });
+
+  it('adds one «Параметры» group for the project chosen', async () => {
+    serve();
+    renderApp(`/organizations/${ids.alfa}/projects/${ids.prm}/settings`);
+
+    await screen.findByRole('combobox', { name: 'Проект: Пример проекта' });
+    await waitFor(() => expect(settingsNavigation()).toBeInTheDocument());
+    const navigation = settingsNavigation()!;
+    expect(within(navigation).getByText('Проект')).toBeInTheDocument();
+    expect(within(navigation).getByRole('link', { name: 'Параметры' })).toHaveAttribute(
+      'aria-current',
+      'page',
+    );
+  });
 });
 
-describe('mod-002 US-8 Scenario: A project switch on a project-level page', () => {
-  it('on «Области» of «Пример проекта», «Аналитика» opens the «Области» of «Аналитика»', async () => {
+describe('mod-002 US-8 Scenario: A project choice on a project-level page', () => {
+  it('on «Команды» of «Пример проекта», «Аналитика» opens the «Команды» of «Аналитика»', async () => {
     serve();
-    renderApp(`/organizations/${ids.alfa}/projects/${ids.prm}/settings/areas`);
-    await expectLevels(['Организация: Альфа', 'Проект: Пример проекта', 'Команда: Пример проекта']);
+    renderApp(`/organizations/${ids.alfa}/projects/${ids.prm}/teams`);
+    await screen.findByRole('combobox', { name: 'Проект: Пример проекта' });
 
-    await choose(/^Проект:/, 'Аналитика');
+    await choose(/^Проект:/, /^Аналитика/);
 
     await waitFor(() =>
-      expect(location()).toBe(`/organizations/${ids.alfa}/projects/${ids.anl}/settings/areas`),
+      expect(location()).toBe(`/organizations/${ids.alfa}/projects/${ids.anl}/teams`),
     );
-    await expectLevels(['Организация: Альфа', 'Проект: Аналитика', 'Команда: Аналитика']);
+    await screen.findByRole('combobox', { name: 'Проект: Аналитика' });
   });
 
-  it('«Бета» opens its first project’s «Общие», and an organization without projects opens «Главная»', async () => {
-    const api = serve();
-    api.data.organizations.push({
-      id: 'a0000000-0000-4000-8000-0000000000c1',
-      name: 'Ведро',
-      active: true,
-    });
-    renderApp(`/organizations/${ids.alfa}/projects/${ids.prm}/settings/general`);
-    await expectLevels(['Организация: Альфа', 'Проект: Пример проекта', 'Команда: Пример проекта']);
+  it('an organization choice opens that organization’s «Обзор»', async () => {
+    serve();
+    renderApp(`/organizations/${ids.alfa}/projects/${ids.prm}/general`);
+    await screen.findByRole('combobox', { name: 'Проект: Пример проекта' });
 
     await choose(/^Организация:/, 'Бета');
-    await waitFor(() =>
-      expect(location()).toBe(`/organizations/${ids.beta}/projects/${ids.rep}/settings/general`),
-    );
 
-    await choose(/^Организация:/, 'Ведро');
-    await waitFor(() => expect(location()).toBe('/home'));
+    await waitFor(() => expect(location()).toBe(`/organizations/${ids.beta}/overview`));
+    await expectLevels(['Организация: Бета', 'Департамент: все', 'Команда: все', 'Проект: все']);
   });
 });
 
-describe('mod-002 US-8 Scenario: A page addressing one team lands on its entry’s page', () => {
-  it('from a team’s page, a project choice opens «Команды» of the new project', async () => {
+// feat-028 BR-OL-12: a team's page is the organization's, beneath «Команды»; feat-043 puts it at
+// the team's own prefix and the team selector shows it.
+describe('feat-028 Scenario: A page addressing one team', () => {
+  it('shows the team in its selector, and an organization choice opens that organization’s «Обзор»', async () => {
     serve();
-    renderApp(`/organizations/${ids.alfa}/projects/${ids.prm}/settings/teams/${ids.platformTeam}`);
+    renderApp(`/organizations/${ids.alfa}/teams/${ids.platformTeam}/overview`);
     await screen.findByRole('heading', { level: 1, name: 'Команда: Платформа' });
-    await expectLevels(['Организация: Альфа', 'Проект: Пример проекта', 'Команда: Пример проекта']);
+    await screen.findByRole('combobox', { name: 'Команда: Платформа' });
 
-    await choose(/^Проект:/, 'Аналитика');
+    await choose(/^Организация:/, 'Бета');
 
-    await waitFor(() =>
-      expect(location()).toBe(`/organizations/${ids.alfa}/projects/${ids.anl}/settings/teams`),
-    );
+    await waitFor(() => expect(location()).toBe(`/organizations/${ids.beta}/overview`));
   });
 });
 
-describe('mod-002 US-8 Scenario: On an organization-level page the lower levels do not move it', () => {
-  it('project and team choices keep «Общие»; an organization choice opens the new «Общие»', async () => {
+describe('mod-002 US-8 Scenario: On an organization-level page the object choices open their menus', () => {
+  it('an organization choice opens the new organization’s «Обзор»', async () => {
     serve();
-    const general = `/organizations/${ids.alfa}/settings/general`;
-    renderApp(general);
-    await expectLevels(['Организация: Альфа', 'Проект: Аналитика', 'Команда: Аналитика']);
-
-    await choose(/^Проект:/, 'Пример проекта');
-    await choose(/^Команда:/, 'Платформа');
-    expect(location()).toBe(general);
+    renderApp(`/organizations/${ids.alfa}/settings/general`);
+    await expectLevels(ALFA_ALL);
 
     await choose(/^Организация:/, 'Бета');
-    await waitFor(() => expect(location()).toBe(`/organizations/${ids.beta}/settings/general`));
+
+    await waitFor(() => expect(location()).toBe(`/organizations/${ids.beta}/overview`));
+  });
+});
+
+// feat-043 D-3, BR-NV-10, US-8: choosing an organization writes nothing and opens that
+// organization's remembered selection, as a row of the organizations list does.
+describe('feat-043 D-3: choosing an organization keeps what each organization remembers', () => {
+  const PRM_ONLY = [
+    'Организация: Альфа',
+    'Департамент: все',
+    'Команда: все',
+    'Проект: Пример проекта',
+  ];
+
+  it('leaves for «Бета» and comes back to the project it left, also after a reload on «Участники»', async () => {
+    serve();
+    const first = renderApp(`/organizations/${ids.alfa}/overview`);
+    await expectLevels(ALFA_ALL);
+    await choose(/^Проект:/, /^Пример проекта/);
+    await expectLevels(PRM_ONLY);
+
+    await choose(/^Организация:/, 'Бета');
+    await waitFor(() => expect(location()).toBe(`/organizations/${ids.beta}/overview`));
+    await expectLevels(['Организация: Бета', 'Департамент: все', 'Команда: все', 'Проект: все']);
+    // The choice wrote nothing for «Бета», and «Альфа» keeps what it had.
+    expect(window.localStorage.getItem(selectionStorageKey('user-1', ids.beta))).toBeNull();
+    expect(readRemembered(window.localStorage, 'user-1', ids.alfa)).toMatchObject({
+      project: ids.prm,
+    });
+
+    await choose(/^Организация:/, 'Альфа');
+    await waitFor(() => expect(location()).toBe(`/organizations/${ids.alfa}/overview`));
+    await expectLevels(PRM_ONLY);
+
+    first.unmount();
+    renderApp(`/organizations/${ids.alfa}/members`);
+    await expectLevels(PRM_ONLY);
+  });
+});
+
+// feat-043 C-1, D-4: another user unlinks MARS from the project while Ann has both chosen. The
+// shell resets the project with the notice and moves the page; no frame of «Команда не найдена»
+// is drawn on the way.
+describe('feat-043 D-4: a link change under the real source', () => {
+  it('resets the project, says so and moves the page to the team, with no not-found frame', async () => {
+    const api = serve();
+    const { queryClient } = renderApp(
+      `/organizations/${ids.alfa}/projects/${ids.prm}/teams?teamId=${ids.platformTeam}`,
+    );
+    await expectLevels([
+      'Организация: Альфа',
+      'Департамент: все',
+      'Команда: Платформа',
+      'Проект: Пример проекта',
+    ]);
+    const drawn: string[] = [];
+    const watch = new MutationObserver(() => {
+      if (document.body.textContent?.includes('Команда не найдена'))
+        drawn.push('Команда не найдена');
+    });
+    watch.observe(document.body, { childList: true, subtree: true, characterData: true });
+
+    api.data.links = api.data.links.filter(
+      (link) => !(link.projectId === ids.prm && link.teamId === ids.platformTeam),
+    );
+    await queryClient.invalidateQueries({ queryKey: navigationKeys.selectorOffers(ids.alfa) });
+
+    expect(await screen.findByText('Выбор сброшен: проект Пример проекта.')).toBeInTheDocument();
+    await waitFor(() =>
+      expect(location()).toBe(`/organizations/${ids.alfa}/teams/${ids.platformTeam}/overview`),
+    );
+    await expectLevels([
+      'Организация: Альфа',
+      'Департамент: все',
+      'Команда: Платформа',
+      'Проект: все',
+    ]);
+    watch.disconnect();
+    expect(drawn).toEqual([]);
+  });
+});
+
+// D-4: the page that unlinks says nothing of its own when the shell resets what is chosen, and
+// does when the pair still fits.
+describe('feat-043 D-4: the notice of an unlink that resets the selection', () => {
+  async function unlinkDepartment(path: string, name: string) {
+    renderApp(path);
+    const table = await screen.findByRole('table', { name: 'Департаменты команды' });
+    await userEvent.click(within(table).getByRole('button', { name: `Ещё действия: ${name}` }));
+    await userEvent.click(await screen.findByRole('menuitem', { name: 'Отключить от команды' }));
+    const confirm = await screen.findByRole('dialog', {
+      name: 'Отключение департамента от команды',
+    });
+    await userEvent.click(within(confirm).getByRole('button', { name: 'Отключить' }));
+  }
+
+  it('leaves the shell’s «Выбор сброшен» alone when the chosen department and team no longer fit', async () => {
+    const api = serve();
+    (api.data.areaTeams ??= []).push({ areaId: ids.reportsArea, targetId: ids.platformTeam });
+    await unlinkDepartment(
+      `/organizations/${ids.alfa}/teams/${ids.platformTeam}/overview?departmentId=${ids.reportsArea}`,
+      'Отчёты',
+    );
+
+    expect(await screen.findByText('Выбор сброшен: команда Платформа.')).toBeInTheDocument();
+    expect(screen.queryByText('Департамент отключён от команды.')).not.toBeInTheDocument();
+    await waitFor(() =>
+      expect(location()).toBe(`/organizations/${ids.alfa}/areas/${ids.reportsArea}/overview`),
+    );
+  });
+
+  it('keeps its own notice when a project placed in the department still joins them', async () => {
+    serve();
+    await unlinkDepartment(
+      `/organizations/${ids.alfa}/teams/${ids.platformTeam}/overview?departmentId=${ids.platformArea}`,
+      'Платформа',
+    );
+
+    expect(await screen.findByText('Департамент отключён от команды.')).toBeInTheDocument();
+    expect(screen.queryByText(/Выбор сброшен/)).not.toBeInTheDocument();
   });
 });
 
@@ -226,89 +351,64 @@ describe('mod-002 US-8 Scenario: Own changes without a reload', () => {
     expect(await screen.findByText('Организация «Дельта» создана.')).toBeInTheDocument();
     await waitFor(() =>
       expect(
-        within(switcher()).getByRole('button', { name: /^Организация:/ }),
+        within(selectorGroup()).getByRole('combobox', { name: /^Организация:/ }),
       ).toHaveAccessibleName('Организация: Дельта'),
     );
-    await waitFor(() => expect(within(switcher()).getByText('Нет проектов')).toBeInTheDocument());
   });
 
-  it('an added team joins the team level; chosen, then deleted, it falls back with the switcher’s notice only', async () => {
-    serve();
-    renderApp(`/organizations/${ids.alfa}/projects/${ids.prm}/settings/teams`);
-    await screen.findByRole('table', { name: 'Команды' });
-    await expectLevels(['Организация: Альфа', 'Проект: Пример проекта', 'Команда: Пример проекта']);
-
-    await userEvent.click(screen.getByRole('button', { name: 'Добавить команду' }));
-    const add = await screen.findByRole('dialog', { name: 'Новая команда' });
-    await userEvent.type(within(add).getByRole('textbox', { name: 'Название' }), 'Ядро');
-    await userEvent.click(within(add).getByRole('button', { name: 'Добавить' }));
-    await screen.findByText('Команда «Ядро» добавлена.');
-
-    await choose(/^Команда:/, 'Ядро');
-    await expectLevels(['Организация: Альфа', 'Проект: Пример проекта', 'Команда: Ядро']);
-
-    await userEvent.click(screen.getByRole('button', { name: 'Действия: Ядро' }));
-    await userEvent.click(await screen.findByRole('menuitem', { name: 'Удалить команду' }));
-    const remove = await screen.findByRole('dialog', { name: 'Удаление команды' });
-    await userEvent.click(within(remove).getByRole('button', { name: 'Удалить команду' }));
-
-    expect(
-      await screen.findByText(
-        'Ранее выбранный контекст недоступен. Выбрано: Альфа / Пример проекта / Пример проекта.',
-      ),
-    ).toBeInTheDocument();
-    expect(screen.queryByText('Команда «Ядро» удалена.')).not.toBeInTheDocument();
-    await expectLevels(['Организация: Альфа', 'Проект: Пример проекта', 'Команда: Пример проекта']);
-  });
-
-  it('deactivating «Альфа» from its «Общие»: the deactivated list opens, the switcher on «Бета», the notice the fallback’s only', async () => {
+  it('deactivating «Альфа» from its «Общие»: the deactivated list opens and the selector falls to «Бета»', async () => {
     serve();
     renderApp(`/organizations/${ids.alfa}/settings/general`);
-    await expectLevels(['Организация: Альфа', 'Проект: Аналитика', 'Команда: Аналитика']);
+    await expectLevels(ALFA_ALL);
 
     await userEvent.click(await screen.findByRole('button', { name: 'Деактивировать' }));
     const dialog = await screen.findByRole('dialog', { name: 'Деактивировать организацию?' });
     await userEvent.click(within(dialog).getByRole('button', { name: 'Деактивировать' }));
 
-    expect(
-      await screen.findByText(
-        'Ранее выбранный контекст недоступен. Выбрано: Бета / Отчётность / Отчётность.',
-      ),
-    ).toBeInTheDocument();
     await waitFor(() => expect(location()).toBe('/organizations/deactivated'));
-    await expectLevels(['Организация: Бета', 'Проект: Отчётность', 'Команда: Отчётность']);
-    expect(screen.queryByText('Организация «Альфа» деактивирована.')).not.toBeInTheDocument();
+    await expectLevels(['Организация: Бета', 'Департамент: все', 'Команда: все', 'Проект: все']);
   });
 });
 
 describe('mod-002 design § 12: the navigation around each not-found frame', () => {
-  it('«Команда не найдена» keeps «Меню настроек» with «Команды» current and shows no trail', async () => {
+  it('«Команда не найдена» keeps the shell and shows no trail', async () => {
     const api = serve();
     api.data.teams.find((team) => team.id === ids.platformTeam)!.deleted = true;
-    renderApp(`/organizations/${ids.alfa}/projects/${ids.prm}/settings/teams/${ids.platformTeam}`);
+    renderApp(`/organizations/${ids.alfa}/teams/${ids.platformTeam}/overview`);
 
     expect(
       await screen.findByRole('heading', { level: 1, name: 'Команда не найдена' }),
     ).toBeInTheDocument();
-    await waitFor(() => expect(settingsNavigation()).toBeInTheDocument());
-    expect(within(settingsNavigation()!).getByRole('link', { name: 'Команды' })).toHaveAttribute(
-      'aria-current',
-      'true',
-    );
+    expect(screen.getByRole('navigation', { name: 'Основное меню' })).toBeInTheDocument();
     expect(screen.queryByRole('navigation', { name: 'Путь к странице' })).not.toBeInTheDocument();
   });
 
-  it('«Организация не найдена» shows no «Меню настроек», no entry current and keeps the switcher', async () => {
+  it('«Организация не найдена» shows no «Меню настроек», no entry current and keeps the selectors', async () => {
     serve();
     renderApp(`/organizations/${ids.gamma}/settings/general`);
 
     expect(
       await screen.findByRole('heading', { level: 1, name: 'Организация не найдена' }),
     ).toBeInTheDocument();
-    await expectLevels(['Организация: Альфа', 'Проект: Аналитика', 'Команда: Аналитика']);
     expect(settingsNavigation()).not.toBeInTheDocument();
     for (const navigation of screen.getAllByRole('navigation')) {
       expect(navigation.querySelectorAll('[aria-current]')).toHaveLength(0);
     }
+    expect(screen.getByRole('group', { name: 'Контекст работы' })).toBeInTheDocument();
+  });
+});
+
+describe('feat-043 D-12: «Открыть проект» is a row link', () => {
+  it('moves focus to the project page’s heading, as every row link does (design § 9)', async () => {
+    serve();
+    renderApp(`/organizations/${ids.alfa}/areas/${ids.prmRoot}/overview`);
+    await screen.findByRole('heading', { level: 1, name: 'Структура: Пример проекта' });
+
+    await userEvent.click(await screen.findByRole('link', { name: 'Открыть проект' }));
+
+    await waitFor(() => expect(location()).toContain(`/projects/${ids.prm}/`));
+    const heading = screen.getByRole('heading', { level: 1 });
+    await waitFor(() => expect(heading).toHaveFocus());
+    expect(location()).toContain(`/projects/${ids.prm}/`);
   });
 });

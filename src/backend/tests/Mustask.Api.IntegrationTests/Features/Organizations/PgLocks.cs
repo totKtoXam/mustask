@@ -5,8 +5,9 @@ namespace Mustask.Api.IntegrationTests.Features.Organizations;
 /// <summary>
 /// Waits on the database's own view of its sessions, so a race test never
 /// sleeps for a guessed time (mod-002 plan-backend § 8.3; mod-001's race test
-/// does the same). The integration collection runs sequentially, so a blocked
-/// session of the test database belongs to the running test.
+/// does the same). The classes of a shard run one after another on its own
+/// database, and the wait reads only that database, so a blocked session
+/// belongs to the running test.
 /// </summary>
 public static class PgLocks
 {
@@ -43,5 +44,33 @@ public static class PgLocks
         }
 
         throw new TimeoutException($"No session of the database was blocked on a lock within {Deadline.TotalSeconds} seconds.");
+    }
+
+    /// <summary>
+    /// Returns once at least <paramref name="sessions"/> sessions of the database wait on a lock together — the moment a test that
+    /// holds a lock itself needs, with two requests each blocked on something (a lock-order cycle is built from two waits).
+    /// </summary>
+    public static async Task WaitUntilBlockedAsync(string connectionString, int sessions)
+    {
+        await using var connection = new NpgsqlConnection(connectionString);
+        await connection.OpenAsync();
+
+        var deadline = DateTime.UtcNow + Deadline;
+
+        while (DateTime.UtcNow < deadline)
+        {
+            await using var command = connection.CreateCommand();
+            command.CommandText =
+                "SELECT count(*) FROM pg_stat_activity WHERE datname = current_database() AND pid <> pg_backend_pid() AND wait_event_type = 'Lock'";
+
+            if ((long)(await command.ExecuteScalarAsync())! >= sessions)
+            {
+                return;
+            }
+
+            await Task.Delay(25);
+        }
+
+        throw new TimeoutException($"Fewer than {sessions} sessions of the database were blocked on a lock within {Deadline.TotalSeconds} seconds.");
     }
 }

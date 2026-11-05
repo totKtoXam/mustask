@@ -1,75 +1,80 @@
 using Mustask.Domain.Organizations;
-using Mustask.Shared.Exceptions;
 using static Mustask.Domain.Tests.Organizations.OrganizationsDomainTestData;
 
 namespace Mustask.Domain.Tests.Organizations;
 
 public sealed class TeamTests
 {
-    // US-4 · "A second team comes with its own area": a child of the root named after it, owned by it and its default.
+    // feat-028 US-1 · "created with a name only" (BR-OL-2): a team belongs to the organization, has a name and a status, and no
+    // description, project, area or first-team role.
     [Fact]
-    public void CreateWithArea_AddsARootChildOwnedAndDefault()
+    public void Create_IsAnActiveTeamOfTheOrganization_WithNoDescription()
     {
-        var project = AProject();
+        var organizationId = Guid.CreateVersion7();
 
-        var created = Team.CreateWithArea(project.Project.Id, Name(" Платформа "), project.Root);
+        var created = Team.Create(organizationId, Name(" Платформа "));
 
-        Assert.Equal("Платформа", created.Team.Name);
-        Assert.False(created.Team.IsFirstTeam);
-        Assert.True(created.Team.IsActive);
-        Assert.Equal(project.Root.Id, created.Area.ParentId);
-        Assert.Equal("Платформа", created.Area.Name);
-        Assert.Equal(created.Team.Id, created.Area.OwnerTeamId);
-        Assert.Equal(created.Team.Id, created.Area.DefaultOfTeamId);
+        Assert.Equal(organizationId, created.OrganizationId);
+        Assert.Equal("Платформа", created.Name);
+        Assert.Equal("ПЛАТФОРМА", created.NormalizedName);
+        Assert.Null(created.Description);
+        Assert.True(created.IsActive);
+    }
+
+    // US-1 · "created with its optional parts": the description is kept as typed.
+    [Fact]
+    public void Create_WithADescription_KeepsItAsTyped()
+    {
+        Assert.True(EntityDescription.TryCreate("  Платформа и инструменты\n", out var description));
+
+        var created = Team.Create(Guid.CreateVersion7(), Name("MARS"), description);
+
+        Assert.Equal("  Платформа и инструменты\n", created.Description);
     }
 
     [Fact]
-    public void CreateWithArea_UnderAChildOrAnotherProjectsRoot_IsADefect()
+    public void Create_WithoutAnOrganization_IsADefect()
     {
-        var project = AProject();
-        var other = AProject("Другой", "OTH");
-        var child = Area.CreateChild(project.Root, Name("Отчёты"), ownerTeam: null);
-
-        Assert.Throws<ArgumentException>(() => Team.CreateWithArea(project.Project.Id, Name("Т"), child));
-        Assert.Throws<ArgumentException>(() => Team.CreateWithArea(project.Project.Id, Name("Т"), other.Root));
+        Assert.Throws<ArgumentException>(() => Team.Create(Guid.Empty, Name("MARS")));
     }
 
-    // US-4 · "A team is renamed": only the team's own name changes.
+    // US-1 · "rename and description": only the team's own name changes.
     [Fact]
-    public void Rename_ChangesTheTeamOnly()
+    public void Rename_ChangesTheNameOnly()
     {
-        var project = AProject();
-        var second = ASecondTeam(project);
+        var team = Team.Create(Guid.CreateVersion7(), Name("Платформа"));
 
-        second.Team.Rename(Name("Ядро"));
+        team.Rename(Name("Ядро"));
 
-        Assert.Equal("Ядро", second.Team.Name);
-        Assert.Equal("ЯДРО", second.Team.NormalizedName);
-        Assert.Equal("Платформа", second.Area.Name);
+        Assert.Equal("Ядро", team.Name);
+        Assert.Equal("ЯДРО", team.NormalizedName);
+        Assert.Null(team.Description);
     }
 
-    // US-7 · "A team is deleted": the status is terminal.
+    // US-1 · "rename and description": a description is set and cleared, never trimmed.
     [Fact]
-    public void Delete_SecondTeam_IsDeleted()
+    public void Describe_SetsAndClears()
     {
-        var second = ASecondTeam(AProject());
+        var team = Team.Create(Guid.CreateVersion7(), Name("Платформа"));
+        Assert.True(EntityDescription.TryCreate(" текст ", out var description));
 
-        second.Team.Delete();
+        team.Describe(description);
+        Assert.Equal(" текст ", team.Description);
 
-        Assert.Equal(TeamStatus.Deleted, second.Team.Status);
-        Assert.False(second.Team.IsActive);
-        Assert.Throws<InvalidOperationException>(second.Team.Delete);
+        team.Describe(null);
+        Assert.Null(team.Description);
     }
 
-    // US-7 · "The first team cannot be deleted" (BR-M1-18).
+    // US-5 · "a project's last team can be deleted" (BR-OL-10): the status is terminal and there is no guard.
     [Fact]
-    public void Delete_FirstTeam_IsRefused()
+    public void Delete_IsTerminal_AndHasNoGuard()
     {
-        var project = AProject();
+        var team = Team.Create(Guid.CreateVersion7(), Name("Платформа"));
 
-        var refusal = Assert.Throws<ConflictException>(project.FirstTeam.Delete);
+        team.Delete();
 
-        Assert.Equal(OrganizationErrorCodes.TeamFirstTeamCannotBeDeleted, refusal.Code);
-        Assert.True(project.FirstTeam.IsActive);
+        Assert.Equal(TeamStatus.Deleted, team.Status);
+        Assert.False(team.IsActive);
+        Assert.Throws<InvalidOperationException>(team.Delete);
     }
 }

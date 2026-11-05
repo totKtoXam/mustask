@@ -1,3 +1,4 @@
+import { matchPath } from 'react-router-dom';
 import type { AccessCheck } from '../../shared/lib/access';
 import type { WorkContextSelection } from '../../shared/lib/workContext';
 import type { TrailSegment } from '../../shared/ui/pageChrome';
@@ -14,6 +15,15 @@ import type {
 export interface NavigationContext {
   isReal: boolean;
   selection: WorkContextSelection;
+  /**
+   * The switch resolver's question about an organization whose codes are not
+   * read yet (mod-016 design § 2.5, DC-8): the code of a non-instance entry is
+   * not asked — every entry's code is a read code all three roles hold — and
+   * the entry's page existing and the context being real still decide. The
+   * shell's own navigation never sets it: unread codes hide the entries
+   * (design § 6.1).
+   */
+  skipServedCodes?: boolean;
 }
 
 export interface VisibleSettingsSection {
@@ -39,7 +49,8 @@ function scopeSelected(scope: NavigationScope, selection: WorkContextSelection):
     case 'project':
       return Boolean(selection.organizationId && selection.projectId);
     case 'team':
-      return Boolean(selection.organizationId && selection.projectId && selection.teamId);
+      // The team level is the organization's, whatever its projects (feat-040 BR-TS-10).
+      return Boolean(selection.organizationId && selection.teamId);
   }
 }
 
@@ -47,14 +58,24 @@ function scopeSelected(scope: NavigationScope, selection: WorkContextSelection):
  * An entry is shown only when its page is registered, the shared check
  * passes for its code, and — for an organization-, project- or team-scoped
  * entry — the context it needs is real (BR-7, BR-8, D-18). The placeholder
- * source is never real, so every scoped entry stays hidden in this build.
+ * source is never real, so a scoped entry stays hidden in a build without a
+ * real context.
+ *
+ * The check is asked about the selection's organization (mod-016 design
+ * § 2.6): the codes of an organization are served per organization, and an
+ * organization whose codes are unread, failed or answered 404 answers "no".
  */
 export function isEntryVisible(
   entry: NavigationEntry,
   access: AccessCheck,
   context: NavigationContext,
 ): boolean {
-  if (entry.permission !== undefined && !access(entry.permission, entry.scope)) {
+  const skipCode = context.skipServedCodes === true && entry.scope !== 'instance';
+  if (
+    entry.permission !== undefined &&
+    !skipCode &&
+    !access(entry.permission, entry.scope, context.selection.organizationId)
+  ) {
     return false;
   }
   if (entry.scope === 'instance') {
@@ -92,50 +113,58 @@ export function visibleModel(
 export type EntryMarker = 'page' | 'true' | null;
 
 /**
- * The address as the router serves it: trailing slashes name the same page
- * (`/home/` is `/home`), not a page beneath it.
+ * Matched as the router matches (bug-003, tech-009 F4): the case and the percent-encoding of the
+ * address are the router's own, and a trailing slash names the same page.
  */
-function pagePath(pathname: string): string {
-  return pathname.replace(/\/+$/, '') || '/';
+/** The path as `<Routes>` reads it: percent-encoding decoded, an undecodable one left as it is. */
+function decodedPath(pathname: string): string {
+  try {
+    return decodeURI(pathname);
+  } catch {
+    return pathname;
+  }
+}
+
+function matches(pattern: string, pathname: string): boolean {
+  return matchPath({ path: pattern, end: true }, decodedPath(pathname)) !== null;
 }
 
 /**
  * `currentPage` is the address of the page on screen, or `null` while a
  * not-found frame answers the address: no page is current then, so no entry
- * is marked (BR-13). An entry's sibling views (mod-006's level tabs) are its
- * page as the landing is.
+ * is marked (BR-13). An entry's `pages` are its page, whatever the ids in the address; the
+ * menu is built from the address, so the ids agree.
  */
 export function entryMarker(
   currentPage: string | null,
   entry: NavigationEntry,
   selection: WorkContextSelection,
 ): EntryMarker {
-  const landing = entry.landing(selection);
-  if (!landing || currentPage === null) {
+  if (currentPage === null || entry.landing(selection) === null) {
     return null;
   }
-  const path = pagePath(currentPage);
-  const pages = [landing, ...(entry.views?.(selection) ?? [])];
-  if (pages.includes(path)) {
+  if (entry.pages.some((pattern) => matches(pattern, currentPage))) {
     return 'page';
   }
-  return pages.some((page) => path.startsWith(`${page}/`)) ? 'true' : null;
+  return entry.beneath?.some((pattern) => matches(pattern, currentPage)) ? 'true' : null;
 }
 
 /**
- * Whether the page on screen is a settings page: the landing of a registered
- * settings entry or a page beneath it (BR-19). An address no page serves
- * (`null`, see `entryMarker`) is not one, whatever it starts with. The
- * settings navigation is shown on it only while at least one settings entry
- * is visible.
+ * Whether the page on screen is a settings page: the landing of an entry the
+ * user sees, or a page beneath it (BR-19; mod-016 design § 6.1). An address no
+ * page serves (`null`, see `entryMarker`) is not one, whatever it starts with,
+ * and neither is a page that no *visible* entry matches — an organization's
+ * settings page while its codes are unread: it shows no settings navigation,
+ * no marker and no trail until the read answers. The settings navigation is
+ * shown on it only while at least one settings entry is visible.
  */
 export function isSettingsPage(
   currentPage: string | null,
-  model: NavigationModel,
+  visible: VisibleNavigation,
   selection: WorkContextSelection,
 ): boolean {
-  return model.settings.some((section) =>
-    section.entries.some((entry) => entryMarker(currentPage, entry, selection) !== null),
+  return visible.settings.some(({ entries }) =>
+    entries.some((entry) => entryMarker(currentPage, entry, selection) !== null),
   );
 }
 

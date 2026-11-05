@@ -2,11 +2,8 @@ import { randomUUID } from 'node:crypto';
 import { expect, test, type Locator, type Page } from '@playwright/test';
 import { signIn } from '../support/auth';
 import { env, nodeUrl } from '../support/env';
-import {
-  createEphemeralUserWithoutGroup,
-  deleteEphemeralUser,
-  userExistsById,
-} from '../support/keycloakAdmin';
+import { createEphemeralUserWithoutGroup, deleteEphemeralUsers } from '../support/keycloakAdmin';
+import { addEphemeralMember } from '../support/membersApi';
 import {
   createOrganization,
   deactivateOrganization,
@@ -30,8 +27,17 @@ import {
  * state and its retry against the real backend. Nothing on the session flow
  * is touched (`src/test/e2eSessionGuard.test.ts`).
  *
- * 20.4 signs in a throwaway user in no group (it holds no code at all), the
- * way spec 16 signs in its reader, and deletes it in `finally`.
+ * 20.4 (rewritten for mod-016 D-3: an organization is visible only to its
+ * members) signs in two throwaway users the way spec 16 signs in its reader —
+ * one added to the organization as «Читатель», one in no group and not added —
+ * and deletes both in `finally`.
+ *
+ * Scenarios, mapped to stories: 20.1 (mod-001 US-2 "A seeded process is shown
+ * in full"), 20.2 (US-2 "An identifier with no process is not found"), 20.3
+ * (US-2 "A failed read is not taken for a missing organization"), 20.4
+ * (mod-001 US-2 "Every member sees the same definition"; mod-016 US-2 "A
+ * non-member gets «Организация не найдена» at every depth", US-4), 20.5 (US-2
+ * "A visitor who is not signed in sees nothing"), 20.6 (design § Layout).
  */
 
 /** The organization `beforeAll` creates, whose process the spec reads. */
@@ -214,26 +220,41 @@ test.describe('20. the read-only process definition (mod-001)', () => {
     await expect(page.getByRole('heading', { level: 1, name: 'Процесс' })).toBeFocused();
   });
 
-  test('20.4 a user holding no code sees the same definition as the fixture user (US-2 "Every signed-in user sees the same definition")', async ({
+  test('20.4 a reader sees the same definition as the fixture user; a user who is no member meets «Организация не найдена» (US-2 "Every member sees the same definition"; mod-016 US-2, US-4)', async ({
     page,
     browser,
   }) => {
+    test.setTimeout(180_000);
     await openProcess(page);
     const fixtureView = await main(page).innerText();
 
     const { keycloakUrl, realm } = env();
-    const user = await createEphemeralUserWithoutGroup(keycloakUrl, realm);
-    const context = await browser.newContext({ viewport: { width: 1440, height: 900 } });
+    // A reader: added by the fixture user (the organization's administrator,
+    // who created it) as «Читатель» — the role that holds the read codes only.
+    const reader = await addEphemeralMember(page.request, organizationId, 'Читатель', 'viewer');
+    // A stranger: a user in no group, never added to this organization.
+    const stranger = await createEphemeralUserWithoutGroup(keycloakUrl, realm);
+    const readerContext = await browser.newContext({ viewport: { width: 1440, height: 900 } });
+    const strangerContext = await browser.newContext({ viewport: { width: 1440, height: 900 } });
     try {
-      const userPage = await context.newPage();
-      await openProcess(userPage, { username: user.username });
-      await expect(userPage.getByText('Доступ ограничен')).toHaveCount(0);
+      const readerPage = await readerContext.newPage();
+      await openProcess(readerPage, { username: reader.username });
+      await expect(readerPage.getByText('Доступ ограничен')).toHaveCount(0);
+      expect(await main(readerPage).innerText()).toBe(fixtureView);
 
-      expect(await main(userPage).innerText()).toBe(fixtureView);
+      // D-3: an organization is visible only to its members — the same frame as
+      // for an organization that never existed (spec 20.2).
+      const strangerPage = await strangerContext.newPage();
+      await signIn(strangerPage, { returnPath: processAddress(), username: stranger.username });
+      await expect(
+        strangerPage.getByRole('heading', { level: 1, name: 'Организация не найдена' }),
+      ).toBeVisible();
+      await expect(strangerPage.getByRole('heading', { name: 'Процесс' })).toHaveCount(0);
+      await expect(strangerPage.getByRole('table')).toHaveCount(0);
     } finally {
-      await context.close();
-      await deleteEphemeralUser(keycloakUrl, realm, user.id);
-      expect(await userExistsById(keycloakUrl, realm, user.id)).toBe(false);
+      await readerContext.close();
+      await strangerContext.close();
+      await deleteEphemeralUsers(keycloakUrl, realm, [reader, stranger]);
     }
   });
 

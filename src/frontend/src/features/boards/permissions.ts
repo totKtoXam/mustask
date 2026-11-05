@@ -1,8 +1,9 @@
-// The slice's codes (api-contract § 0.1, BR-M4-27). All are
-// organization-scoped and in no token yet: the two navigation entries declare
-// the read, the shell's interim clause satisfies it for any signed-in user
-// (mod-015 BR-8), and no page checks a code until mod-016 — the reorder's code
-// is registered by the backend and only named here.
+// The slice's codes (api-contract § 0.1, BR-M4-27; mod-016 api-contract
+// § 0.2). All are organization-scoped and in no token: the panel reads them
+// from `GET …/access` and a page asks them through `useAccessCheck()`, bound
+// to the organization in its address by the organization gate (ADR-0027). The
+// two navigation entries declare the read; the reorder's code is held by an
+// administrator and a member, not by a reader.
 export const boardsPermissions = {
   /** Both reads and both entries: mod-003's read code. */
   workItemRead: 'workitems.workitem.read',

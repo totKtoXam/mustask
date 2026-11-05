@@ -1,6 +1,10 @@
 using Mustask.Application.Abstractions.WorkItems;
 using Mustask.Domain.Organizations;
 using Mustask.Domain.WorkItems;
+using Mustask.Infrastructure.Dictionaries;
+using Mustask.Infrastructure.Organizations;
+using Mustask.Shared.Errors;
+using Mustask.Shared.Exceptions;
 using Microsoft.EntityFrameworkCore;
 
 namespace Mustask.Infrastructure.WorkItems;
@@ -38,22 +42,29 @@ internal sealed class WorkItemRepository(MustaskDbContext context) : IWorkItemRe
             .SingleAsync(cancellationToken);
     }
 
-    public async Task<Guid?> LockTeamDefaultAreaAsync(Guid projectId, Guid teamId, CancellationToken cancellationToken)
-    {
-        await context.Database.ExecuteSqlInterpolatedAsync(
-            $"SELECT 1 FROM teams WHERE id = {teamId} AND project_id = {projectId} FOR SHARE",
-            cancellationToken);
+    public Task<bool> LockTeamLinkAsync(Guid organizationId, Guid projectId, Guid teamId, CancellationToken cancellationToken) =>
+        // The link is named with the organization of the address, so a team or a project of another organization locks nothing
+        // (ADR-0028 § 4) and answers false, exactly as an id that never existed does. Only the link row is locked (step 3 of rule
+        // 8); a deletion also holds the team row, which a binder of the link does not need. The statement returns the row it locked,
+        // and that answer — not a second read — is what the handler judges "linked" by (feat-028 review-security S-1).
+        ProjectTeamLocks.ShareAsync(context, organizationId, projectId, teamId, cancellationToken);
 
-        // A new statement under READ COMMITTED: a team deleted, or a default moved, by the lock's previous holder reads so.
-        return await context.Teams
-            .AsNoTracking()
-            .Where(team => team.Id == teamId && team.ProjectId == projectId && team.Status == TeamStatus.Active)
-            .Select(team => context.Areas.Where(area => area.DefaultOfTeamId == team.Id).Select(area => (Guid?)area.Id).FirstOrDefault())
-            .FirstOrDefaultAsync(cancellationToken);
+    public async Task<Guid?> LockProjectLinksAsync(Guid organizationId, Guid projectId, CancellationToken cancellationToken)
+    {
+        // Every link of the project FOR SHARE, in one statement ordered by team id — the order an unlink (the pair, by team id)
+        // and a deletion (the team's links, by project id) take them in, so a creation never waits for a link while holding another
+        // out of order (plan-backend D-4, § 7.4). Shares do not wait for each other or for a binder's share. The statement returns
+        // the teams whose links it holds.
+        var held = await ProjectTeamLocks.ShareAllOfProjectAsync(context, organizationId, projectId, cancellationToken);
+
+        // A new statement under READ COMMITTED, but over the held links alone: the default as the unlinks and deletions that committed
+        // before the lock left it, never a team whose link committed after the lock and is held by nobody (review-code CR-4). Every
+        // team that can come out of it is a team no unlink or deletion can remove before this creation commits.
+        return await DefaultTeams.ResolveAsync(context, projectId, held, cancellationToken);
     }
 
     public Task<Guid?> FindCreatedByRequestAsync(Guid projectId, Guid requestId, CancellationToken cancellationToken) =>
-        context.WorkItems
+        WorkItemSets.InAnyState(context)
             .AsNoTracking()
             .Where(item => item.ProjectId == projectId && item.CreationRequestId == requestId)
             .Select(item => (Guid?)item.Id)
@@ -65,30 +76,29 @@ internal sealed class WorkItemRepository(MustaskDbContext context) : IWorkItemRe
             $"SELECT 1 FROM work_items WHERE project_id = {projectId} AND number = {number} FOR UPDATE",
             cancellationToken);
 
-        return await context.WorkItems.SingleOrDefaultAsync(item => item.ProjectId == projectId && item.Number == number, cancellationToken);
+        // Any state: Delete, Restore and Purge lock a deleted item, and a save reads it to refuse it (ADR-0030 rule 3).
+        return await WorkItemSets.InAnyState(context).SingleOrDefaultAsync(item => item.ProjectId == projectId && item.Number == number, cancellationToken);
     }
 
     public async Task<bool> LockAreaAsync(Guid projectId, Guid areaId, CancellationToken cancellationToken)
     {
-        await context.Database.ExecuteSqlInterpolatedAsync(
-            $"SELECT 1 FROM areas WHERE id = {areaId} AND project_id = {projectId} FOR SHARE",
-            cancellationToken);
+        // The area is one of the project's own (its node or a sub-area, BR-AW-11). Presence is the lock statement's own answer
+        // (ADR-0028 rule 8, A-9's corollary): a read after it would judge another snapshot.
+        var held = await context.Database
+            .SqlQuery<Guid>(
+                $"""
+                 SELECT id AS "Value" FROM areas WHERE id = {areaId} AND project_id = {projectId} FOR SHARE
+                 """)
+            .ToListAsync(cancellationToken);
 
-        // A new statement under READ COMMITTED: an area deleted by the lock's previous holder is gone.
-        return await context.Areas.AnyAsync(area => area.Id == areaId && area.ProjectId == projectId, cancellationToken);
+        return held.Count > 0;
     }
 
-    public async Task LockHierarchyAsync(Guid projectId, CancellationToken cancellationToken)
-    {
-        // A concurrent first parent write of the project waits here on the other's uncommitted key, then does nothing.
-        await context.Database.ExecuteSqlInterpolatedAsync(
-            $"INSERT INTO work_item_hierarchy_locks (project_id) VALUES ({projectId}) ON CONFLICT (project_id) DO NOTHING",
-            cancellationToken);
-
-        await context.Database.ExecuteSqlInterpolatedAsync(
-            $"SELECT 1 FROM work_item_hierarchy_locks WHERE project_id = {projectId} FOR UPDATE",
-            cancellationToken);
-    }
+    // The one statement pair every taker of the hierarchy lock shares (WorkItemHierarchyLocks): a concurrent first parent write of the
+    // project waits at the insert on the other's uncommitted key, then does nothing. A team's unlink and deletion take it too, through
+    // IWorkItemTeamOwnership, for the projects they reach (mod-005 QD-1).
+    public Task LockHierarchyAsync(Guid projectId, CancellationToken cancellationToken) =>
+        WorkItemHierarchyLocks.AcquireAsync(context, [projectId], cancellationToken);
 
     public async Task<ParentWrite?> LockParentWriteAsync(WorkItem child, Guid? newParentId, Guid? seenParentId, CancellationToken cancellationToken)
     {
@@ -131,8 +141,7 @@ internal sealed class WorkItemRepository(MustaskDbContext context) : IWorkItemRe
     /// columns, not those of a SQL source EF composes over.
     /// </summary>
     public async Task<IReadOnlyCollection<HierarchyLink>> AncestryAsync(Guid projectId, Guid workItemId, CancellationToken cancellationToken) =>
-        await context.WorkItems
-            .FromSqlInterpolated($"""
+        await WorkItemSets.InAnyStateFromSql(context, $"""
                 WITH RECURSIVE ancestry (id, project_id, parent_id, type_id, number) AS (
                     SELECT item.id, item.project_id, item.parent_id, item.type_id, item.number
                     FROM work_items AS item
@@ -149,9 +158,53 @@ internal sealed class WorkItemRepository(MustaskDbContext context) : IWorkItemRe
             .Select(item => new HierarchyLink(item.Id, item.ParentId, item.TypeId, item.Number))
             .ToListAsync(cancellationToken);
 
-    public void Add(WorkItem item) => context.WorkItems.Add(item);
+    public async Task<IReadOnlyList<Guid>?> LockForPurgeAsync(Guid projectId, Guid workItemId, CancellationToken cancellationToken)
+    {
+        // The item and its direct children by id, in ONE statement: ORDER BY is applied before the locks are taken, so every
+        // caller that locks several items takes them in ascending id (ADR-0028 rule 8) and a purge and a team's deletion or unlink
+        // never deadlock. FOR NO KEY UPDATE is a parent write's link-end mode: a reorder's FOR KEY SHARE is never waited on.
+        var ids = await context.Database
+            .SqlQuery<Guid>(
+                $"""
+                 SELECT id AS "Value"
+                 FROM work_items
+                 WHERE project_id = {projectId} AND (id = {workItemId} OR parent_id = {workItemId})
+                 ORDER BY id
+                 FOR NO KEY UPDATE
+                 """)
+            .ToListAsync(cancellationToken);
 
-    public Task SaveAsync(CancellationToken cancellationToken) => context.SaveChangesAsync(cancellationToken);
+        return ids.Contains(workItemId) ? ids.Where(id => id != workItemId).ToList() : null;
+    }
+
+    public Task<WorkItem?> FindLockedAsync(Guid projectId, Guid workItemId, CancellationToken cancellationToken) =>
+        WorkItemSets.InAnyState(context).SingleOrDefaultAsync(item => item.Id == workItemId && item.ProjectId == projectId, cancellationToken);
+
+    public Task ReleaseChildrenAsync(Guid projectId, Guid workItemId, DateTimeOffset now, CancellationToken cancellationToken) =>
+        // One set-based statement for any number of children, in the caller's transaction. It writes a reference and "changed_at"
+        // alone — never the state or a mark of a deletion, which only the aggregate writes (WorkItemAccessRules).
+        context.Database.ExecuteSqlInterpolatedAsync(
+            $"UPDATE work_items SET parent_id = NULL, changed_at = {now} WHERE project_id = {projectId} AND parent_id = {workItemId}",
+            cancellationToken);
+
+    // The context's set is named in WorkItemSets alone (the text rule of WorkItemAccessRules): a write goes through the context.
+    public void Add(WorkItem item) => context.Add(item);
+
+    public void Remove(WorkItem item) => context.Remove(item);
+
+    public async Task SaveAsync(CancellationToken cancellationToken)
+    {
+        try
+        {
+            await context.SaveChangesAsync(cancellationToken);
+        }
+        catch (DbUpdateException exception) when (PostgresConflictDetection.IsForeignKeyViolationOnConstraint(exception, WorkItemsConstraints.OwningTeamKey))
+        {
+            // ADR-0028 § 4, plan-backend D-15: the owner key refused a team that is not there. The locks above make this
+            // unreachable; if a race ever reaches it, it answers as the team's absence does, never as a 500.
+            throw new NotFoundException(OrganizationErrorCodes.TeamNotFound, ErrorParams.None, exception);
+        }
+    }
 
     /// <summary>
     /// A link end of a parent write: the project's item with that id, locked
@@ -165,7 +218,7 @@ internal sealed class WorkItemRepository(MustaskDbContext context) : IWorkItemRe
             $"SELECT 1 FROM work_items WHERE id = {workItemId} AND project_id = {projectId} FOR NO KEY UPDATE",
             cancellationToken);
 
-        return await context.WorkItems.SingleOrDefaultAsync(item => item.Id == workItemId && item.ProjectId == projectId, cancellationToken);
+        return await WorkItemSets.InAnyState(context).SingleOrDefaultAsync(item => item.Id == workItemId && item.ProjectId == projectId, cancellationToken);
     }
 
     /// <summary>

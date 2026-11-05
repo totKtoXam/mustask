@@ -1,33 +1,192 @@
 namespace Mustask.Domain.Identity;
 
 /// <summary>
-/// Каталог кодов прав, фиксированный в коде: источник истины, изменяется
-/// только релизом. Состав ролей клиента <c>mustask-api</c> в realm-импорте
-/// Keycloak сверяется с этим каталогом контрактными тестами.
+/// One code of the catalog: its name, where it comes from and a human-readable
+/// description (diagnostics, logs).
+/// </summary>
+public sealed record PermissionDefinition(string Code, PermissionScope Scope, string Description);
+
+/// <summary>
+/// The one catalog of permission codes, fixed in code: the source of truth,
+/// changed only by a release (ADR-0027, status.md D-8). Every code carries its
+/// <see cref="PermissionScope"/>. <see cref="PermissionScope.Instance"/> codes
+/// are held through the four client roles of <c>mustask-api</c> (<see cref="InstanceRoles"/>); a test fails for one
+/// no role reaches; <see cref="PermissionScope.Organization"/>
+/// codes never reach the realm or the token — an organization membership's role
+/// bundle (<see cref="OrganizationRoleBundles"/>) is their only source. A code is
+/// added here together with its scope and its bundles, in the change that first
+/// checks it.
 /// </summary>
 public static class PermissionCatalog
 {
-    /// <summary>Чтение справочника языков (выдаётся каждой панельной роли).</summary>
+    // ----- Instance codes (the token) -----
+
+    /// <summary>Reading the languages dictionary (every user holding the client role <c>user</c>).</summary>
     public const string DictionariesLanguagesRead = "dictionaries.languages.read";
 
-    /// <summary>Изменение справочника языков (создание, редактирование, назначение по умолчанию).</summary>
+    /// <summary>Changing the languages dictionary (create, edit, set the default).</summary>
     public const string DictionariesLanguagesWrite = "dictionaries.languages.write";
 
     /// <summary>
     /// Creating an organization (mod-002 BR-M1-2, D-i). Instance-level: it is
-    /// held in the token, not granted by a membership, so it belongs here and
-    /// not in <see cref="OrganizationPermissionCatalog"/>.
+    /// held in the token, not granted by a membership.
     /// </summary>
     public const string OrganizationsOrganizationCreate = "organizations.organization.create";
 
-    /// <summary>Человекочитаемые описания кодов (диагностика, логи).</summary>
-    public static readonly IReadOnlyDictionary<string, string> Descriptions = new Dictionary<string, string>
-    {
-        [DictionariesLanguagesRead] = "Просмотр справочника языков",
-        [DictionariesLanguagesWrite] = "Изменение справочника языков",
-        [OrganizationsOrganizationCreate] = "Создание организаций",
-    };
+    /// <summary>
+    /// Appointing an administrator in any organization and reading its appointment record (feat-033, ADR-0035 § 2).
+    /// Instance-level: held through <c>system-admin</c> only; it reads no organization content (ADR-0029 § 9).
+    /// </summary>
+    public const string OrganizationsOrganizationRescue = "organizations.organization.rescue";
 
-    /// <summary>Все коды каталога — источник истины для realm-импорта.</summary>
-    public static IReadOnlyCollection<string> AllCodes { get; } = Descriptions.Keys.ToList();
+    // ----- Organization codes (the membership) -----
+
+    /// <summary>Reading an organization and its served access.</summary>
+    public const string OrganizationsOrganizationRead = "organizations.organization.read";
+
+    /// <summary>Renaming an organization.</summary>
+    public const string OrganizationsOrganizationWrite = "organizations.organization.write";
+
+    /// <summary>Deactivating and restoring an organization, and its deactivated list (BR-M1-35).</summary>
+    public const string OrganizationsOrganizationDeactivate = "organizations.organization.deactivate";
+
+    /// <summary>Reading an organization's members.</summary>
+    public const string OrganizationsMembershipRead = "organizations.membership.read";
+
+    /// <summary>Adding a member, changing a role, removing a member, and the member candidate search.</summary>
+    public const string OrganizationsMembershipWrite = "organizations.membership.write";
+
+    /// <summary>Reading an organization's projects.</summary>
+    public const string OrganizationsProjectRead = "organizations.project.read";
+
+    /// <summary>Creating, renaming and describing a project, and naming its default team.</summary>
+    public const string OrganizationsProjectWrite = "organizations.project.write";
+
+    /// <summary>The project's end of a link between a project and a team, and of an unlink (feat-028 BR-OL-5).</summary>
+    public const string OrganizationsProjectLink = "organizations.project.link";
+
+    /// <summary>Deactivating and restoring a project, and the deactivated list (BR-M1-35).</summary>
+    public const string OrganizationsProjectDeactivate = "organizations.project.deactivate";
+
+    /// <summary>Reading teams and their members.</summary>
+    public const string OrganizationsTeamRead = "organizations.team.read";
+
+    /// <summary>A team's name, description and members, and the team candidate search (feat-028 narrowed it: it no longer creates or deletes).</summary>
+    public const string OrganizationsTeamWrite = "organizations.team.write";
+
+    /// <summary>Creating a team (feat-028 BR-OL-5).</summary>
+    public const string OrganizationsTeamCreate = "organizations.team.create";
+
+    /// <summary>Deleting a team and reading what a deletion would reassign (feat-028 BR-OL-5).</summary>
+    public const string OrganizationsTeamDelete = "organizations.team.delete";
+
+    /// <summary>The team's end of a link between a project and a team, and of an unlink (feat-028 BR-OL-5).</summary>
+    public const string OrganizationsTeamLink = "organizations.team.link";
+
+    /// <summary>Reading the organization's area tree, an area's page and its links (mod-018, ADR-0029 § 4: scope O).</summary>
+    public const string OrganizationsAreaRead = "organizations.area.read";
+
+    /// <summary>
+    /// Renaming, describing, moving and deleting an area, and creating a child area (mod-018: scope A). Checked on the organization
+    /// role alone until <c>mod-019-scoped-access</c>.
+    /// </summary>
+    public const string OrganizationsAreaWrite = "organizations.area.write";
+
+    /// <summary>Creating a top-level area, and moving an area to or from the top level (mod-018: scope O).</summary>
+    public const string OrganizationsAreaCreate = "organizations.area.create";
+
+    /// <summary>The area's end of a link with a project or a team, and of creating an area with links (mod-018: scope A).</summary>
+    public const string OrganizationsAreaLink = "organizations.area.link";
+
+    /// <summary>Reading an organization's process definition (mod-001 BR-M2-10).</summary>
+    public const string ProcessDefinitionRead = "process.definition.read";
+
+    /// <summary>Reading a project's work items: the list and one item (mod-003 BR-M3-27).</summary>
+    public const string WorkItemsWorkItemRead = "workitems.workitem.read";
+
+    /// <summary>Creating and saving work items, and the assignee candidates a save needs (mod-003 BR-M3-27).</summary>
+    public const string WorkItemsWorkItemWrite = "workitems.workitem.write";
+
+    /// <summary>Reordering a team's backlog (mod-006 BR-M4-27).</summary>
+    public const string BoardsBacklogReorder = "boards.backlog.reorder";
+
+    /// <summary>Setting, replacing and clearing a work item's parent (feat-001 BR-H-18).</summary>
+    public const string WorkItemsLinkWrite = "workitems.link.write";
+
+    /// <summary>
+    /// Deleting a work item into «Удалена» and restoring it (mod-005 BR-DR-17, ADR-0030 rule 9). Checked on the organization
+    /// role alone until mod-019; belonging to a team grants nothing.
+    /// </summary>
+    public const string WorkItemsWorkItemDelete = "workitems.workitem.delete";
+
+    /// <summary>
+    /// Removing a deleted work item for good (mod-005 BR-DR-12, BR-DR-17, ADR-0030 rule 9; doc-010 D-13): the organization
+    /// administrator's alone. No scoped role holds it, so mod-019 has nothing to scope there.
+    /// </summary>
+    public const string WorkItemsWorkItemPurge = "workitems.workitem.purge";
+
+    /// <summary>Every code of the catalog, in a stable order: instance codes first, then organization codes.</summary>
+    public static IReadOnlyList<PermissionDefinition> All { get; } =
+    [
+        new(DictionariesLanguagesRead, PermissionScope.Instance, "Просмотр справочника языков"),
+        new(DictionariesLanguagesWrite, PermissionScope.Instance, "Изменение справочника языков"),
+        new(OrganizationsOrganizationCreate, PermissionScope.Instance, "Создание организаций"),
+        new(OrganizationsOrganizationRescue, PermissionScope.Instance, "Назначение администратора в любую организацию"),
+        new(OrganizationsOrganizationRead, PermissionScope.Organization, "Просмотр организации"),
+        new(OrganizationsOrganizationWrite, PermissionScope.Organization, "Переименование организации"),
+        new(OrganizationsOrganizationDeactivate, PermissionScope.Organization, "Деактивация и восстановление организации"),
+        new(OrganizationsMembershipRead, PermissionScope.Organization, "Просмотр участников организации"),
+        new(OrganizationsMembershipWrite, PermissionScope.Organization, "Добавление, смена роли и удаление участников организации"),
+        new(OrganizationsProjectRead, PermissionScope.Organization, "Просмотр проектов организации"),
+        new(OrganizationsProjectWrite, PermissionScope.Organization, "Создание, переименование и описание проектов, команда по умолчанию"),
+        new(OrganizationsProjectLink, PermissionScope.Organization, "Связи проекта с командами"),
+        new(OrganizationsProjectDeactivate, PermissionScope.Organization, "Деактивация и восстановление проектов"),
+        new(OrganizationsTeamRead, PermissionScope.Organization, "Просмотр команд и их участников"),
+        new(OrganizationsTeamWrite, PermissionScope.Organization, "Название, описание и участники команды"),
+        new(OrganizationsTeamCreate, PermissionScope.Organization, "Создание команд"),
+        new(OrganizationsTeamDelete, PermissionScope.Organization, "Удаление команд"),
+        new(OrganizationsTeamLink, PermissionScope.Organization, "Связи команды с проектами"),
+        new(OrganizationsAreaRead, PermissionScope.Organization, "Просмотр областей организации"),
+        new(OrganizationsAreaWrite, PermissionScope.Organization, "Изменение, перемещение и удаление областей, дочерние области"),
+        new(OrganizationsAreaCreate, PermissionScope.Organization, "Создание областей верхнего уровня"),
+        new(OrganizationsAreaLink, PermissionScope.Organization, "Связи департаментов с командами"),
+        new(ProcessDefinitionRead, PermissionScope.Organization, "Просмотр определения процесса организации"),
+        new(WorkItemsWorkItemRead, PermissionScope.Organization, "Просмотр рабочих элементов проекта"),
+        new(WorkItemsWorkItemWrite, PermissionScope.Organization, "Создание и изменение рабочих элементов проекта"),
+        new(WorkItemsLinkWrite, PermissionScope.Organization, "Изменение связей рабочих элементов проекта"),
+        new(WorkItemsWorkItemDelete, PermissionScope.Organization, "Удаление и восстановление рабочих элементов проекта"),
+        new(WorkItemsWorkItemPurge, PermissionScope.Organization, "Окончательное удаление рабочих элементов проекта"),
+        new(BoardsBacklogReorder, PermissionScope.Organization, "Изменение порядка бэклога команды"),
+    ];
+
+    /// <summary>The descriptions by code (diagnostics, logs).</summary>
+    public static IReadOnlyDictionary<string, string> Descriptions { get; } =
+        All.ToDictionary(definition => definition.Code, definition => definition.Description, StringComparer.Ordinal);
+
+    /// <summary>All codes, instance and organization. The realm import holds <see cref="InstanceCodes"/> only.</summary>
+    public static IReadOnlyCollection<string> AllCodes { get; } = All.Select(definition => definition.Code).ToList();
+
+    /// <summary>The codes the token's client roles give (<see cref="InstanceRoles"/>, ADR-0033).</summary>
+    public static IReadOnlyCollection<string> InstanceCodes { get; } = CodesOf(PermissionScope.Instance);
+
+    /// <summary>The codes a membership's role bundle grants; never in the realm import or the token (ADR-0027).</summary>
+    public static IReadOnlyCollection<string> OrganizationCodes { get; } = CodesOf(PermissionScope.Organization);
+
+    /// <summary>The scope of a code of the catalog.</summary>
+    /// <exception cref="ArgumentException">The code is not in the catalog.</exception>
+    public static PermissionScope ScopeOf(string code)
+    {
+        foreach (var definition in All)
+        {
+            if (string.Equals(definition.Code, code, StringComparison.Ordinal))
+            {
+                return definition.Scope;
+            }
+        }
+
+        throw new ArgumentException($"'{code}' is not a code of the permission catalog.", nameof(code));
+    }
+
+    private static List<string> CodesOf(PermissionScope scope) =>
+        All.Where(definition => definition.Scope == scope).Select(definition => definition.Code).ToList();
 }

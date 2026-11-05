@@ -16,6 +16,10 @@ namespace Mustask.Application.Features.WorkItems.SaveWorkItem;
 /// refused with or without a <paramref name="Description"/>.
 /// </param>
 /// <param name="Fields">feat-022's fields as sent, each <c>null</c> when it was not; <c>null</c> when none was.</param>
+/// <param name="Team">
+/// mod-017 (api-contract § 0.2): <c>null</c>: not sent, the stored team stays whoever changed it (BR-M3-25); otherwise the
+/// team to set, or <c>null</c> inside it for «Без команды».
+/// </param>
 public sealed record SaveWorkItemCommand(
     string? OrganizationId,
     string? ProjectId,
@@ -27,6 +31,7 @@ public sealed record SaveWorkItemCommand(
     string? AreaId = null,
     ParentChange? Parent = null,
     WorkItemFieldsEdit? Fields = null,
+    TeamChange? Team = null,
     string? DescriptionFormat = null);
 
 /// <summary>The sent assignee: a user id, or <c>null</c> to clear it (BR-M3-22).</summary>

@@ -193,5 +193,28 @@ switches the stand). Afterwards the database is empty:
   (step 2 of "External database") before starting the stand. Every checkout
   that worked on that database lost its stand data with it.
 
-Then seed the Keycloak users (`bash scripts/keycloak-seed.sh`); the first
-reconciliation of the user projection loads them into the new database.
+Then seed the Keycloak users (`bash scripts/keycloak-seed.sh`). The user
+projection is empty in the new database and is filled by sign-in (tech-025,
+ADR-0034): each seeded user appears in the member search after they have signed in
+to the panel once.
+
+## A stand with data that moves to organization access (mod-016) — no reset
+
+The migration `AddOrganizationAccess` is not only schema: it **seeds** the
+memberships. In the same migration, each existing organization — active or
+deactivated — gets exactly one member, an `admin`: the creator the organization
+already records (whatever the user projection says of them), added by
+themselves at the organization's creation time; and a project's creator joins
+the project's first team when they are then a member of its organization.
+Nobody else is seeded: everyone else gets «Организация не найдена» until an
+administrator adds them on «Участники». `Down` drops the two membership tables
+(the organizations, projects and teams stay).
+
+A stand whose Keycloak store was made from an older realm import (before
+`tech-024`, ADR-0033: realm roles, groups, permission codes as client roles)
+stays unhealthy: the drift check names every difference and the remedy, which is
+the stand reset, `bash scripts/stand-reset.sh` (`src/backend/AGENTS.md`, "Keycloak
+on the stand"). The reset wipes that stand's database and Keycloak store together,
+so back up first if you want the data; the live-realm command that once converted
+such a store in place is retired. After the reset: apply the migrations as above,
+start the stand, and run `bash scripts/keycloak-seed.sh` to add the people.

@@ -88,18 +88,20 @@ public sealed class KeycloakTokenEndpointResponder
     public const string DefaultSubject = "session-test-subject";
 
     /// <summary>Builds a real id token — <see cref="KeycloakTestRealm.CreateToken"/> with the panel's client id, no resource_access.</summary>
-    public static string BuildIdToken(string sid, string? nonce, string sub = DefaultSubject) =>
+    public static string BuildIdToken(
+        string sid, string? nonce, string sub = DefaultSubject, Action<KeycloakTestRealm.TokenOptions>? profile = null) =>
         KeycloakTestRealm.CreateToken(configure: t =>
         {
             t.Audience = SessionOidcOptions.ClientId;
-            t.Permissions = null;
+            t.Roles = null;
             t.Sid = sid;
             t.Nonce = nonce;
             t.Subject = sub;
+            profile?.Invoke(t);
         });
 
     public static string DefaultOkBody() => BuildBody(
-        accessToken: KeycloakTestRealm.CreateToken(),
+        accessToken: KeycloakTestRealm.CreateToken(["dictionaries.languages.read"]),
         idToken: BuildIdToken(sid: Guid.CreateVersion7().ToString(), nonce: null),
         refreshToken: "test-refresh-token",
         expiresIn: 300,

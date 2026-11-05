@@ -129,7 +129,7 @@ is gone.
 
 | Field | Meaning |
 |---|---|
-| `type` | the item's type, never changed (BR-M3-1): its id, key, Russian name and appearance token (`epic`, `feature`, `story`, `task`, `bug`), as mod-001's process read gives them |
+| `type` | the item's type, never changed (BR-M3-1): its id, key, Russian name and appearance token (`epic`, `feature`, `story`, `task`, `bug`), as mod-001's process read gives them. *Superseded in part by feat-032 (2026-10-12): the set of appearance tokens is six, `testcase` joins the five (see feat-032's api-contract § 4 and spec BR-C-11).* |
 | `state` | the current state: its id, Russian name and category, as mod-001's process read gives them (`category.code` is never shown; `category.label` is) |
 | `assignee` | `null` for «Не назначен»; otherwise `{ "id", "displayName", "email" }` — `displayName` and `email` are both `null` when the user directory does not know the id, which the panel reads «Неизвестный пользователь»; `email` is `""` for a known user without one. No mark for an inactive assignee (D-2) |
 | `area` | the item's area with its current path (mod-002 DC-9: «Платформа / API», the root by its own name) |

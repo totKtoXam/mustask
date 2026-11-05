@@ -6,23 +6,23 @@ namespace Mustask.Application.Features.Organizations.GetOrganization;
 
 /// <summary>
 /// <c>GET /api/organizations/{organizationId}</c> (US-2 "organization settings",
-/// US-1 "every signed-in user sees every organization"): the one active
-/// organization, as stored.
+/// US-1 "every signed-in user sees every organization" — since mod-016 every
+/// member does, the scoped check deciding): the one active organization, as stored.
 /// </summary>
 /// <remarks>
 /// <para>
 /// <b>The order of answers</b> (plan-backend § 5.3, api-contract § 0.4): the
 /// address is the only thing a read carries, so the organization level is the
-/// whole answer. The organization-context filter has already refused an id that
+/// whole answer. The scoped check has already refused an id that
 /// is malformed, unknown or deactivated; the handler asks the same question
 /// again through the read model's one intent, <c>FindActiveAsync</c>, so that
-/// it never serves an organization the filter would not (ADR-0026 rule 4: an
+/// it never serves an organization the check would not (ADR-0026 rule 4: an
 /// unreachable object answers its level's not-found code, never "deactivated").
 /// </para>
 /// <para>
-/// <b>No lock, no transaction</b>: plan-backend § 8.2 lists locks for writes only. The
-/// interim guard (BR-M1-19) lets any signed-in user through, so no right is
-/// read here.
+/// <b>No lock, no transaction</b>: plan-backend § 8.2 lists locks for writes only.
+/// The route's code, <c>organizations.organization.read</c>, was held by the
+/// scoped check before the handler runs (mod-016), so no right is read here.
 /// </para>
 /// </remarks>
 public sealed class GetOrganizationHandler(IOrganizationReadModel organizations)

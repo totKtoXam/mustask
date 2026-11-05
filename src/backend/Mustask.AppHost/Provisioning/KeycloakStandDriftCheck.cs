@@ -7,7 +7,7 @@ namespace Mustask.AppHost.Provisioning;
 
 /// <summary>
 /// The stand's start drift check (mod-014 D-10 (a); ADR-0025 § 7): compares
-/// the live realm <c>mustask</c> of a persistent Keycloak store with the realm
+/// the stand's live realm (<c>Keycloak:Realm</c>, default <c>mustask</c>) of a persistent Keycloak store with the realm
 /// import, through the admin REST surface — allowed here because
 /// <c>Mustask.AppHost</c> is stand-only code that is never deployed, the
 /// placement ADR-0023 established. Every finding names what differs and the
@@ -17,9 +17,7 @@ namespace Mustask.AppHost.Provisioning;
 /// Compared: realm roles both ways (Keycloak's built-ins aside) with their
 /// composites; the roles of every client the import declares, both ways
 /// (undeclared clients — Keycloak's own and ADR-0023's <c>mustask-e2e</c> —
-/// are not compared); the provider's enablement; declared groups one way —
-/// each must exist with exactly its declared role mappings, groups only in
-/// the live realm are ignored; and the values a store takes only when it is
+/// are not compared); and the values a store takes only when it is
 /// created: the administrator password, the <c>mustask-panel</c> secret, and
 /// the client URLs filled from the stand's ports.
 /// </remarks>
@@ -31,7 +29,7 @@ public static class KeycloakStandDriftCheck
         "offline_access", "uma_authorization",
     };
 
-    private const string Reset = "reset the stand: " + UserProjectionIdentifiers.ResetCommand;
+    private const string Reset = "reset the stand: " + KeycloakStandIdentifiers.ResetCommand;
 
     public static async Task<IReadOnlyList<string>> RunAsync(
         HttpClient http,
@@ -63,7 +61,6 @@ public static class KeycloakStandDriftCheck
             return findings;
         }
 
-        CompareListener(expected, realm, findings);
 
         var clients = await GetAsync<JsonArray>(http, token, realmPath + "/clients", cancellationToken) ?? [];
         var clientIdsByInternalId = clients
@@ -72,23 +69,8 @@ public static class KeycloakStandDriftCheck
 
         await CompareRealmRolesAsync(http, token, realmPath, expected, clientIdsByInternalId, findings, cancellationToken);
         await CompareClientsAsync(http, token, realmPath, options, clients, findings, cancellationToken);
-        await CompareGroupsAsync(http, token, realmPath, expected, findings, cancellationToken);
 
         return findings;
-    }
-
-    private static void CompareListener(KeycloakRealmImport expected, JsonObject realm, List<string> findings)
-    {
-        var declared = expected.EventsListeners.Contains(UserProjectionIdentifiers.ProviderId, StringComparer.Ordinal);
-        var live = (realm["eventsListeners"] as JsonArray ?? [])
-            .Any(item => (string?)item == UserProjectionIdentifiers.ProviderId);
-
-        if (declared != live)
-        {
-            findings.Add(
-                $"The event listener `{UserProjectionIdentifiers.ProviderId}` is {(live ? "enabled" : "not enabled")} in the live realm "
-                + $"but the realm import {(declared ? "enables" : "does not enable")} it; {Reset}.");
-        }
     }
 
     private static async Task CompareRealmRolesAsync(
@@ -222,53 +204,6 @@ public static class KeycloakStandDriftCheck
                         $"Client `{declared.ClientId}`'s secret in the store differs from Parameters:keycloak-panel-client-secret "
                         + $"(the store took it when it was created): restore the old value of the parameter, or {Reset}.");
                 }
-            }
-        }
-    }
-
-    private static async Task CompareGroupsAsync(
-        HttpClient http,
-        string token,
-        string realmPath,
-        KeycloakRealmImport expected,
-        List<string> findings,
-        CancellationToken cancellationToken)
-    {
-        foreach (var declared in expected.Groups)
-        {
-            var escapedPath = string.Join('/', declared.Path.Split('/', StringSplitOptions.RemoveEmptyEntries).Select(Uri.EscapeDataString));
-            var group = await GetAsync<JsonObject>(http, token, realmPath + "/group-by-path/" + escapedPath, cancellationToken);
-
-            if (group is null)
-            {
-                findings.Add($"Group `{declared.Path}` is in the realm import but not in the live realm; {Reset}.");
-                continue;
-            }
-
-            var mappings = await GetAsync<JsonObject>(
-                http, token, realmPath + "/groups/" + Uri.EscapeDataString((string)group["id"]!) + "/role-mappings", cancellationToken) ?? [];
-
-            var realmRoles = (mappings["realmMappings"] as JsonArray ?? [])
-                .OfType<JsonObject>()
-                .Select(role => (string)role["name"]!)
-                .ToHashSet(StringComparer.Ordinal);
-
-            var clientRoles = new Dictionary<string, IReadOnlySet<string>>(StringComparer.Ordinal);
-
-            if (mappings["clientMappings"] is JsonObject byClient)
-            {
-                foreach (var (clientId, mapping) in byClient)
-                {
-                    clientRoles[clientId] = (mapping?["mappings"] as JsonArray ?? [])
-                        .OfType<JsonObject>()
-                        .Select(role => (string)role["name"]!)
-                        .ToHashSet(StringComparer.Ordinal);
-                }
-            }
-
-            if (!realmRoles.SetEquals(declared.RealmRoles) || !SameByClient(clientRoles, declared.ClientRoles))
-            {
-                findings.Add($"Group `{declared.Path}` has other role mappings in the live realm than in the realm import; {Reset}.");
             }
         }
     }

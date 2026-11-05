@@ -3,6 +3,7 @@ using System.Text.Json;
 using Mustask.Api.IntegrationTests.Features.Organizations;
 using Mustask.Api.IntegrationTests.Features.UserDirectory;
 using Mustask.Application.Abstractions.Process;
+using Mustask.Domain.Identity;
 using Mustask.Domain.Process;
 using Mustask.Infrastructure;
 using Microsoft.EntityFrameworkCore;
@@ -108,7 +109,26 @@ internal static class WorkItemsTestData
     public static async Task<string> AddUserAsync(MustaskApiFactory factory, string firstName, string lastName, string? email = null, bool active = true)
     {
         var id = UserDirectoryTestData.NewId();
-        await UserDirectoryTestData.SeedAsync(factory, [UserDirectoryTestData.Push(id, firstName, lastName, email, enabled: active)]);
+        await UserDirectoryTestData.SeedAsync(factory, [UserDirectoryTestData.Person(id, firstName, lastName, email, enabled: active)]);
+
+        return id;
+    }
+
+    /// <summary>
+    /// A user of the directory under a fresh id who is also a member of the world's organization (mod-016 BR-M1-26: only an
+    /// active member can be made an assignee), in any role; active unless the test says otherwise.
+    /// </summary>
+    public static async Task<string> AddMemberAsync(
+        MustaskApiFactory factory,
+        WorkItemsWorld world,
+        string firstName,
+        string lastName,
+        string? email = null,
+        bool active = true,
+        OrganizationRole role = OrganizationRole.Member)
+    {
+        var id = await AddUserAsync(factory, firstName, lastName, email, active);
+        await MembershipTestData.AddMemberAsync(factory, world.OrganizationId, id, role);
 
         return id;
     }

@@ -1,33 +1,49 @@
 // Test data of this slice: the stories' dataset (US-1 «Data»: «Мастаск» with
-// its first team «Мастаск», the team «Платформа» owning «Платформа», «Платформа
-// / API» and «Отчёты» with no owner of their own), the API's URLs as MSW
+// the teams «Мастаск», «Платформа» and «Аналитика»), the API's URLs as MSW
 // patterns, and problem bodies with the catalogs' own Russian texts. mod-003's
 // fixtures supply the organizations, projects, areas, users, the seeded
-// process and the item builder; this file adds the teams, the area owners and
-// the backlog places. `testApi.ts` serves it per api-contract.
+// process and the item builder; this file adds the teams and the backlog
+// places. Since mod-017 an item has an owning team of its own (BR-OT-1): the
+// builder below gives an item the team the stories' data names for its area
+// unless a test sets `teamId`. `testApi.ts` serves it per api-contract.
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
   API,
+  ORGANIZATION_URL,
   PROJECT_URL,
   emptyDataset,
+  process,
   ids as workItemIds,
-  item,
+  item as baseItem,
   processType,
   stateId,
   type Dataset,
+  type TeamRecord,
   type WorkItemOverrides,
   type WorkItemRecord,
 } from '../workitems/testFixtures';
 
-export { item, stateId };
+export { stateId };
+export type { TeamRecord };
 
-/** The routes as MSW path patterns (api-contract § 3, § 5). */
-export const TEAM_URL = `${PROJECT_URL}/teams/:teamId`;
+/**
+ * The routes as MSW path patterns (api-contract § 3, § 5). Since feat-040 (api-contract § 3) a team's
+ * views are under the team alone, with no project in the address.
+ */
+export const TEAM_URL = `${ORGANIZATION_URL}/teams/:teamId`;
 export const BACKLOG_URL = `${TEAM_URL}/backlogs/:level`;
 export const REORDER_URL = `${BACKLOG_URL}/reorder`;
 export const BOARD_URL = `${TEAM_URL}/boards/:level`;
+/** feat-039 api-contract § 3, § 5: the project's own, under the project and no team. */
+export const PROJECT_BACKLOG_URL = `${PROJECT_URL}/backlogs/:level`;
+export const PROJECT_REORDER_URL = `${PROJECT_BACKLOG_URL}/reorder`;
+export const PROJECT_BOARD_URL = `${PROJECT_URL}/boards/:level`;
+/** feat-028 § 2.2: a team's linked active projects, which the creation dialog's «Проект» offers. */
+export const TEAM_PROJECTS_URL = `${TEAM_URL}/projects`;
+/** mod-002 § 2.1: the organization's active projects with their keys, which a card opened by address reads. */
+export const ORG_PROJECTS_URL = `${ORGANIZATION_URL}/projects`;
 export { API };
 
 /** Stable ids: mod-003's, and this slice's teams. */
@@ -41,16 +57,6 @@ export const ids = {
   boris: 'u0000000-boris-petrov',
 } as const;
 
-export interface TeamRecord {
-  id: string;
-  projectId: string;
-  name: string;
-  defaultAreaId: string;
-  /** Owns the project's root; never deleted. */
-  first: boolean;
-  active: boolean;
-}
-
 /** One item's one place (BR-M4-24): on one team's backlog of one level. */
 export interface PlaceRecord {
   itemId: string;
@@ -59,11 +65,17 @@ export interface PlaceRecord {
   position: number;
 }
 
+/** One item's one place on its project's backlog of one level (feat-039 api-contract § 6). */
+export interface ProjectPlaceRecord {
+  itemId: string;
+  level: string;
+  position: number;
+}
+
 export interface BoardsDataset extends Dataset {
-  teams: TeamRecord[];
-  /** An area's explicit owning team; an area absent here inherits its parent's. */
-  owners: Record<string, string>;
   places: PlaceRecord[];
+  /** The project's own order, apart from every team's (feat-039 BR-PB-4). */
+  projectPlaces: ProjectPlaceRecord[];
 }
 
 /**
@@ -90,41 +102,13 @@ export function boardsDataset(): BoardsDataset {
   return {
     ...data,
     teams: [
-      {
-        id: ids.mskTeam,
-        projectId: ids.msk,
-        name: 'Мастаск',
-        defaultAreaId: ids.mskRoot,
-        first: true,
-        active: true,
-      },
-      {
-        id: ids.platformTeam,
-        projectId: ids.msk,
-        name: 'Платформа',
-        defaultAreaId: ids.platform,
-        first: false,
-        active: true,
-      },
-      {
-        id: ids.analyticsTeam,
-        projectId: ids.msk,
-        name: 'Аналитика',
-        defaultAreaId: ids.analyticsArea,
-        first: false,
-        active: true,
-      },
-      {
-        id: ids.opsTeam,
-        projectId: ids.ops,
-        name: 'Операции',
-        defaultAreaId: ids.opsRoot,
-        first: true,
-        active: true,
-      },
+      { id: ids.mskTeam, projectId: ids.msk, name: 'Мастаск', active: true },
+      { id: ids.platformTeam, projectId: ids.msk, name: 'Платформа', active: true },
+      { id: ids.analyticsTeam, projectId: ids.msk, name: 'Аналитика', active: true },
+      { id: ids.opsTeam, projectId: ids.ops, name: 'Операции', active: true },
     ],
-    owners: { [ids.platform]: ids.platformTeam, [ids.analyticsArea]: ids.analyticsTeam },
     places: [],
+    projectPlaces: [],
   };
 }
 
@@ -159,6 +143,86 @@ export function addStoryOnlyReviewState(): { stateId: string; restore(): void } 
   };
 }
 
+/**
+ * feat-032 BR-C-11: the fixture process that has a test-case type, which the seeded one does not
+ * until feat-031 is in main. «Тест-кейс» (`TC`, appearance `testcase`) joins «Задачи» with
+ * the states «Новая», «Готов» and «Закрыта», and «Удалена» as every type has it. Like
+ * `addStoryOnlyReviewState`, the fixture is shared by the file's tests: `restore()` takes the
+ * type away again, and every test that calls this must call it.
+ */
+export function addTestcaseType(): { typeId: string; restore(): void } {
+  const typeId = '10000000-0000-4000-8000-0000000000b1';
+  const tasks = process.backlogLevels.find((candidate) => candidate.name === 'Задачи');
+  if (!tasks) {
+    throw new Error('No «Задачи» level in the process fixture.');
+  }
+  const state = (
+    offset: number,
+    name: string,
+    code: string,
+    label: string,
+    isInitial: boolean,
+  ) => ({
+    id: `10000000-0000-4000-8000-0000000000b${offset + 2}`,
+    name,
+    order: offset,
+    isInitial,
+    category: { code, label },
+  });
+  process.workItemTypes.push({
+    id: typeId,
+    key: 'TC',
+    name: 'Тест-кейс',
+    appearance: 'testcase',
+    backlogLevel: { id: tasks.id, name: tasks.name },
+    states: [
+      state(1, 'Новая', 'Proposed', 'Новые', true),
+      state(2, 'Готов', 'InProgress', 'В работе', false),
+      state(3, 'Закрыта', 'Completed', 'Завершённые', false),
+      state(4, 'Удалена', 'Removed', 'Удалённые', false),
+    ],
+  } as unknown as (typeof process.workItemTypes)[number]);
+  return {
+    typeId,
+    restore: () => {
+      const at = process.workItemTypes.findIndex((candidate) => candidate.id === typeId);
+      if (at >= 0) {
+        process.workItemTypes.splice(at, 1);
+      }
+    },
+  };
+}
+
+/**
+ * The team the stories' data names for an area, which an item built here is owned by unless a test
+ * sets `teamId`: «Платформа» for its area and «API», «Аналитика» for its own, «Мастаск» for the root
+ * and «Отчёты», «Операции» for its project (the arrangement mod-006 read off the area owners).
+ */
+const TEAM_OF_AREA: Readonly<Record<string, string>> = {
+  [ids.mskRoot]: ids.mskTeam,
+  [ids.reports]: ids.mskTeam,
+  [ids.platform]: ids.platformTeam,
+  [ids.api]: ids.platformTeam,
+  [ids.analyticsArea]: ids.analyticsTeam,
+  [ids.opsRoot]: ids.opsTeam,
+  [ids.warehouse]: ids.opsTeam,
+};
+
+/** An item record with the dataset's defaults, owned by the team its area was named for (see above). */
+export function item(
+  projectId: string,
+  number: number,
+  typeKey: string,
+  title: string,
+  overrides: WorkItemOverrides = {},
+): WorkItemRecord {
+  const record = baseItem(projectId, number, typeKey, title, overrides);
+  if (overrides.teamId === undefined) {
+    record.teamId = TEAM_OF_AREA[record.areaId] ?? null;
+  }
+  return record;
+}
+
 /** A «Мастаск» item in «Платформа» (the team's own area), «Новая» unless overridden. */
 export function platformItem(
   number: number,
@@ -182,6 +246,51 @@ export function storiesDataset(
     const [key = 'US', number = '0'] = entry.split('-');
     data.items.push(platformItem(Number(number), key, `Элемент ${entry}`));
   }
+  return data;
+}
+
+/**
+ * feat-039 US-1's «Data» in «Мастаск»: three stories on three teams' surfaces — MSK-US-2 «Вход по
+ * паролю» in the root area, which the first team «Мастаск» owns, MSK-US-3 «Выход» in «Платформа»'s,
+ * MSK-US-9 «Отчёт» in «Аналитика»'s — and OPS-US-1 «Приход товара» in the project «Операции», which
+ * no «Мастаск» view holds. All «Новая», nothing reordered, so the project's order is by number.
+ */
+export function projectDataset(): BoardsDataset {
+  const data = boardsDataset();
+  data.items.push(
+    item(ids.msk, 2, 'US', 'Вход по паролю', { areaId: ids.mskRoot }),
+    platformItem(3, 'US', 'Выход'),
+    item(ids.msk, 9, 'US', 'Отчёт', { areaId: ids.analyticsArea }),
+    item(ids.ops, 1, 'US', 'Приход товара'),
+  );
+  return data;
+}
+
+/** A creation time `minute` past 09:00 on 2026-10-05: the team order's first key (feat-040 BR-TS-6). */
+export function createdAt(minute: number): string {
+  return new Date(Date.UTC(2026, 9, 5, 9, minute)).toISOString();
+}
+
+/**
+ * feat-040 US-1's «Data»: the team «Платформа» works on two projects, «Мастаск» (`MSK`) and
+ * «Операции» (`OPS`), and owns MSK-US-3 «Выход», OPS-US-1 «Приход товара» and OPS-US-2 «Отгрузка»,
+ * created in that order; the team «Аналитика» owns MSK-US-9 «Отчёт», the team «Операции» OPS-US-3
+ * «Инвентаризация» (in «Операции» alone), and OPS-US-4 «Ничья» has no team — none of them is on
+ * «Платформа»'s views. Nothing is reordered, so the team order is creation time, project key, number.
+ */
+export function acrossProjectsDataset(): BoardsDataset {
+  const data = boardsDataset();
+  const platform = data.teams.find((team) => team.id === ids.platformTeam);
+  if (!platform) throw new Error('No team «Платформа».');
+  platform.moreProjectIds = [ids.ops];
+  data.items.push(
+    platformItem(3, 'US', 'Выход', { createdAt: createdAt(1) }),
+    item(ids.ops, 1, 'US', 'Приход товара', { teamId: ids.platformTeam, createdAt: createdAt(2) }),
+    item(ids.ops, 2, 'US', 'Отгрузка', { teamId: ids.platformTeam, createdAt: createdAt(3) }),
+    item(ids.msk, 9, 'US', 'Отчёт', { areaId: ids.analyticsArea, createdAt: createdAt(4) }),
+    item(ids.ops, 3, 'US', 'Инвентаризация', { teamId: ids.opsTeam, createdAt: createdAt(5) }),
+    item(ids.ops, 4, 'US', 'Ничья', { teamId: null, createdAt: createdAt(6) }),
+  );
   return data;
 }
 
@@ -255,6 +364,74 @@ export function fullTreeDataset(): BoardsDataset {
     item(ids.msk, 7, 'TASK', 'Настроить SMTP', { areaId: ids.mskRoot, parentId: us2.id }),
   );
   return data;
+}
+
+/**
+ * feat-032 US-1's «Data»: «Платформа»'s «Истории» board with MSK-US-2 «Повторная отправка
+ * письма» in «Активна», assigned to «Анна Смирнова», under MSK-FEAT-11 «Вход по ссылке»
+ * («Фичи»), which also has MSK-BUG-1 «Активна» (US-1 numbers it 4, which MSK-TASK-4 holds: a number is the project's, and so MSK-FEAT-6 is MSK-FEAT-11 here, MSK-TASK-6 holding 6); MSK-US-9 «Новая» with nobody assigned and no
+ * children. MSK-US-2's children: the tasks MSK-TASK-3 «be» («Закрыта», Анна), MSK-TASK-4 «fe»
+ * («Новая», nobody), MSK-TASK-6 «qa» («Активна», Борис) and MSK-TASK-7 «release» (seeded
+ * directly into «Удалена», Борис); the bugs MSK-BUG-5 «Неверный счётчик» («Закрыта», Борис)
+ * and MSK-BUG-8 «Дубль» («Разрешена», Анна) — each also a card of its own on the board.
+ */
+export function checklistDataset(): BoardsDataset {
+  const data = boardsDataset();
+  const feat6 = platformItem(11, 'FEAT', 'Вход по ссылке');
+  const us2 = platformItem(2, 'US', 'Повторная отправка письма', {
+    stateId: stateId('US', 'Активна'),
+    assigneeId: ids.anna,
+    parentId: feat6.id,
+  });
+  const child = (
+    number: number,
+    typeKey: string,
+    title: string,
+    state: string,
+    assigneeId: string | null,
+  ) =>
+    platformItem(number, typeKey, title, {
+      parentId: us2.id,
+      stateId: stateId(typeKey, state),
+      assigneeId,
+    });
+  data.items.push(
+    feat6,
+    us2,
+    platformItem(9, 'US', 'Выход из системы'),
+    platformItem(1, 'BUG', 'Ссылка истекает раньше срока', {
+      parentId: feat6.id,
+      stateId: stateId('BUG', 'Активна'),
+    }),
+    child(3, 'TASK', 'be', 'Закрыта', ids.anna),
+    child(4, 'TASK', 'fe', 'Новая', null),
+    child(6, 'TASK', 'qa', 'Активна', ids.boris),
+    child(7, 'TASK', 'release', 'Удалена', ids.boris),
+    child(5, 'BUG', 'Неверный счётчик', 'Закрыта', ids.boris),
+    child(8, 'BUG', 'Дубль', 'Разрешена', ids.anna),
+  );
+  return data;
+}
+
+/**
+ * Adds US-1's fixture test cases to `checklistDataset()`: MSK-TC-10 «Письмо приходит»
+ * («Готов», Анна) and MSK-TC-12 «Письмо не дублируется» («Закрыта», Анна), children of MSK-US-2.
+ * Call `addTestcaseType()` first.
+ */
+export function addTestCases(data: BoardsDataset): void {
+  const us2 = mskRecord(data, 2);
+  for (const [number, title, state] of [
+    [10, 'Письмо приходит', 'Готов'],
+    [12, 'Письмо не дублируется', 'Закрыта'],
+  ] as const) {
+    data.items.push(
+      platformItem(number, 'TC', title, {
+        parentId: us2.id,
+        stateId: stateId('TC', state),
+        assigneeId: ids.anna,
+      }),
+    );
+  }
 }
 
 /** The record of «Мастаск»'s item `number` in `data`. */

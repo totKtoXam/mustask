@@ -112,7 +112,9 @@ describe('httpClient', () => {
         return tokenResponse(fakeAccessToken());
       }),
     );
-    server.use(http.get(`${api}/api/dictionaries/languages`, () => new HttpResponse(null, { status: 401 })));
+    server.use(
+      http.get(`${api}/api/dictionaries/languages`, () => new HttpResponse(null, { status: 401 })),
+    );
 
     const error = await apiFetch('/api/dictionaries/languages').catch((caught: unknown) => caught);
 
@@ -131,7 +133,9 @@ describe('httpClient', () => {
         HttpResponse.json({ errorCode: 'session.expired' }, { status: 401 }),
       ),
     );
-    server.use(http.get(`${api}/api/dictionaries/languages`, () => new HttpResponse(null, { status: 401 })));
+    server.use(
+      http.get(`${api}/api/dictionaries/languages`, () => new HttpResponse(null, { status: 401 })),
+    );
     const onSessionError = vi.fn();
     setSessionErrorHandler(onSessionError);
 
@@ -153,7 +157,9 @@ describe('httpClient', () => {
       http.post(`${api}/api/session/token`, () => tokenResponse(fakeAccessToken()), { once: true }),
       http.post(`${api}/api/session/token`, () => new HttpResponse(null, { status: 503 })),
     );
-    server.use(http.get(`${api}/api/dictionaries/languages`, () => new HttpResponse(null, { status: 401 })));
+    server.use(
+      http.get(`${api}/api/dictionaries/languages`, () => new HttpResponse(null, { status: 401 })),
+    );
     const onSessionError = vi.fn();
     setSessionErrorHandler(onSessionError);
 
@@ -221,11 +227,93 @@ describe('httpClient', () => {
         return tokenResponse(fakeAccessToken());
       }),
     );
-    server.use(http.get(`${api}/api/dictionaries/languages`, () => new HttpResponse(null, { status: 503 })));
+    server.use(
+      http.get(`${api}/api/dictionaries/languages`, () => new HttpResponse(null, { status: 503 })),
+    );
 
     await apiFetch('/api/dictionaries/languages').catch(() => undefined);
 
     // Только первичный запрос за токеном — ни одного продления сверх него.
     expect(tokenCalls).toBe(1);
+  });
+
+  describe('ApiError.retryAfterMs (feat-048)', () => {
+    it('reads Retry-After seconds of a 429 as milliseconds, and ignores a date form', async () => {
+      server.use(http.post(`${api}/api/session/token`, () => tokenResponse(fakeAccessToken())));
+      server.use(
+        http.get(
+          `${api}/api/busy`,
+          () =>
+            HttpResponse.json(
+              { status: 429, errorCode: 'http.too_many_requests' },
+              { status: 429, headers: { 'Retry-After': '2' } },
+            ),
+          { once: true },
+        ),
+        http.get(
+          `${api}/api/busy`,
+          () =>
+            HttpResponse.json(
+              { status: 429 },
+              { status: 429, headers: { 'Retry-After': 'Wed, 21 Oct 2026 07:28:00 GMT' } },
+            ),
+          { once: true },
+        ),
+      );
+
+      const first = (await apiFetch('/api/busy').catch((caught: unknown) => caught)) as ApiError;
+      const second = (await apiFetch('/api/busy').catch((caught: unknown) => caught)) as ApiError;
+
+      expect(first.status).toBe(429);
+      expect(first.retryAfterMs).toBe(2000);
+      expect(second.retryAfterMs).toBeUndefined();
+    });
+  });
+
+  describe('ApiError.path (mod-016 plan P-4)', () => {
+    it('carries the request path, query included, for a non-OK answer', async () => {
+      server.use(http.post(`${api}/api/session/token`, () => tokenResponse(fakeAccessToken())));
+      server.use(
+        http.get(`${api}/api/organizations/:id/members`, () =>
+          HttpResponse.json(
+            { status: 403, errorCode: 'organizations.access.forbidden' },
+            { status: 403 },
+          ),
+        ),
+      );
+
+      const error = await apiFetch('/api/organizations/abc/members?text=a').catch(
+        (caught: unknown) => caught,
+      );
+
+      expect((error as ApiError).status).toBe(403);
+      expect((error as ApiError).path).toBe('/api/organizations/abc/members?text=a');
+    });
+
+    it('is absent on the 401 of a lost session and on an error built by hand', async () => {
+      server.use(
+        http.post(`${api}/api/session/token`, () => tokenResponse(fakeAccessToken()), {
+          once: true,
+        }),
+        http.post(`${api}/api/session/token`, () =>
+          HttpResponse.json({ errorCode: 'session.expired' }, { status: 401 }),
+        ),
+      );
+      server.use(
+        http.get(
+          `${api}/api/organizations/abc/access`,
+          () => new HttpResponse(null, { status: 401 }),
+        ),
+      );
+      setSessionErrorHandler(vi.fn());
+
+      const error = await apiFetch('/api/organizations/abc/access').catch(
+        (caught: unknown) => caught,
+      );
+
+      expect((error as ApiError).status).toBe(401);
+      expect((error as ApiError).path).toBeUndefined();
+      expect(new ApiError(404, null).path).toBeUndefined();
+    });
   });
 });

@@ -3,9 +3,12 @@ using Mustask.Application.Abstractions.Process;
 using Mustask.Application.Abstractions.RichText;
 using Mustask.Application.Abstractions.UserDirectory;
 using Mustask.Application.Abstractions.WorkItems;
+using Mustask.Application.Features.Boards;
 using Mustask.Application.Features.Organizations;
 using Mustask.Application.Features.WorkItems.SaveWorkItem;
 using Mustask.Application.Tests.TestDoubles;
+using Mustask.Application.Tests.TestDoubles.Organizations;
+using Mustask.Domain.Identity;
 using Mustask.Domain.Organizations;
 using Mustask.Domain.Process;
 using Mustask.Domain.WorkItems;
@@ -210,8 +213,11 @@ public sealed class SaveWorkItemDescriptionHandlerTests
                 new FakeStructure(project),
                 new FakeProcesses(test.type),
                 new FakeDirectory(),
+                new FakeMemberReadModel(new InMemoryOrganizations(), new FakeDirectory()),
                 Repository,
                 new FakeReadModel(test.item, test.type, project),
+                new FakeTeamPlaces(),
+                new FakeOrganizationAccess(OrganizationRole.Admin),
                 new FakeClock(),
                 UnitOfWork,
                 Reducer);
@@ -272,14 +278,33 @@ public sealed class SaveWorkItemDescriptionHandlerTests
     {
         public Task<OrganizationInfo?> FindOrganizationAsync(Guid organizationId, CancellationToken cancellationToken) => throw new NotSupportedException();
 
-        public Task<ProjectInfo?> FindProjectAsync(Guid projectId, CancellationToken cancellationToken) =>
-            Task.FromResult<ProjectInfo?>(projectId == project.Id ? project : null);
+        public Task<ProjectInfo?> FindProjectAsync(Guid organizationId, Guid projectId, CancellationToken cancellationToken) =>
+            Task.FromResult<ProjectInfo?>(organizationId == project.OrganizationId && projectId == project.Id ? project : null);
 
-        public Task<TeamInfo?> FindTeamAsync(Guid teamId, CancellationToken cancellationToken) => throw new NotSupportedException();
+        public Task<TeamInfo?> FindTeamAsync(Guid organizationId, Guid teamId, CancellationToken cancellationToken) => throw new NotSupportedException();
 
-        public Task<IReadOnlyList<TeamInfo>> ListActiveTeamsAsync(Guid projectId, CancellationToken cancellationToken) => throw new NotSupportedException();
+        public Task<ProjectTeamInfo?> FindProjectTeamAsync(Guid organizationId, Guid projectId, Guid teamId, CancellationToken cancellationToken) =>
+            throw new NotSupportedException();
 
-        public Task<AreaOwnerInfo?> FindAreaOwnerAsync(Guid areaId, CancellationToken cancellationToken) => throw new NotSupportedException();
+        public Task<IReadOnlyList<TeamInfo>> ListLinkedTeamsAsync(Guid organizationId, Guid projectId, CancellationToken cancellationToken) =>
+            throw new NotSupportedException();
+
+        public Task<IReadOnlyList<LinkedProjectInfo>> ListLinkedProjectsAsync(Guid organizationId, Guid teamId, CancellationToken cancellationToken) =>
+            throw new NotSupportedException();
+
+        public Task<AreaInfo?> FindAreaAsync(Guid organizationId, Guid areaId, CancellationToken cancellationToken) => throw new NotSupportedException();
+
+        public Task<IReadOnlyList<AreaInfo>> ListAreasOfTeamAsync(Guid organizationId, Guid teamId, CancellationToken cancellationToken) =>
+            throw new NotSupportedException();
+    }
+
+    private sealed class FakeTeamPlaces : ITeamBacklogPlaces
+    {
+        public Task DropForItemAsync(Guid workItemId, CancellationToken cancellationToken) => Task.CompletedTask;
+
+        public Task DropForTeamAsync(Guid teamId, CancellationToken cancellationToken) => throw new NotSupportedException();
+
+        public Task DropForTeamInProjectAsync(Guid teamId, Guid projectId, CancellationToken cancellationToken) => throw new NotSupportedException();
     }
 
     private sealed class FakeProcesses(WorkItemTypeStates type) : IProcessDefinitionReadModel
@@ -317,7 +342,22 @@ public sealed class SaveWorkItemDescriptionHandlerTests
             return Task.CompletedTask;
         }
 
-        public Task<Guid?> LockTeamDefaultAreaAsync(Guid projectId, Guid teamId, CancellationToken cancellationToken) => throw new NotSupportedException();
+        public Task<bool> LockTeamLinkAsync(Guid organizationId, Guid projectId, Guid teamId, CancellationToken cancellationToken) =>
+            throw new NotSupportedException();
+
+        public Task<Guid?> LockProjectLinksAsync(Guid organizationId, Guid projectId, CancellationToken cancellationToken) =>
+            throw new NotSupportedException();
+
+        public Task<IReadOnlyList<Guid>?> LockForPurgeAsync(Guid projectId, Guid workItemId, CancellationToken cancellationToken) =>
+            throw new NotSupportedException();
+
+        public Task<WorkItem?> FindLockedAsync(Guid projectId, Guid workItemId, CancellationToken cancellationToken) =>
+            throw new NotSupportedException();
+
+        public Task ReleaseChildrenAsync(Guid projectId, Guid workItemId, DateTimeOffset now, CancellationToken cancellationToken) =>
+            throw new NotSupportedException();
+
+        public void Remove(WorkItem item) => throw new NotSupportedException();
 
         public Task LockNumberSequenceAsync(Guid projectId, CancellationToken cancellationToken) => throw new NotSupportedException();
 
@@ -358,6 +398,7 @@ public sealed class SaveWorkItemDescriptionHandlerTests
                 state,
                 null,
                 new WorkItemAreaView(item.AreaId, "Проект"),
+                null,
                 item.CreatedBy,
                 item.CreatedAt,
                 item.ChangedAt,
@@ -382,6 +423,8 @@ public sealed class SaveWorkItemDescriptionHandlerTests
                 AcceptanceCriteria = null,
                 ReproSteps = null,
                 SystemInfo = null,
+                Deletion = null,
+                Project = new WorkItemProjectView(project.Id, "Проект"),
             });
         }
 
@@ -394,7 +437,11 @@ public sealed class SaveWorkItemDescriptionHandlerTests
         public Task<ParentCandidates> FindParentCandidatesAsync(ParentCandidateSearch search, CancellationToken cancellationToken) =>
             throw new NotSupportedException();
 
-        public Task<WorkItemPage> GetPageAsync(Guid projectId, int page, int pageSize, CancellationToken cancellationToken) =>
+        public Task<WorkItemPage> GetPageAsync(Guid projectId, int page, int pageSize, WorkItemFilter filter, CancellationToken cancellationToken) =>
+            throw new NotSupportedException();
+
+        public Task<IReadOnlyList<AssigneeFilterOptionView>> GetAssigneeOptionsAsync(
+            Guid projectId, IReadOnlyCollection<string> stateNames, CancellationToken cancellationToken) =>
             throw new NotSupportedException();
     }
 }

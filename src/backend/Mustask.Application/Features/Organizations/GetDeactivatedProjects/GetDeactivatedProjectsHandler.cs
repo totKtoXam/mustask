@@ -12,7 +12,7 @@ namespace Mustask.Application.Features.Organizations.GetDeactivatedProjects;
 /// <remarks>
 /// <para>
 /// <b>The order of answers</b> (plan-backend § 5.3): the address is the only
-/// thing a read has to answer for. The organization-context filter has answered
+/// thing a read has to answer for. The scoped check has answered
 /// for it already; the handler re-checks it, because the filter is the boundary
 /// and not the only check (§ 7.3), and an organization that is malformed,
 /// unknown or not active is <see cref="OrganizationErrorCodes.OrganizationNotFound"/>,

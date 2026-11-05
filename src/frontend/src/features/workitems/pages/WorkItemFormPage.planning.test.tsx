@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { fireEvent, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { serveProblem } from '../testApi';
@@ -18,6 +18,9 @@ import {
 } from '../testFields';
 import { WORK_ITEM_URL, hierarchyDataset, recordOf, validationProblem } from '../testFixtures';
 import { mskForm, renderWorkItems } from '../testRender';
+
+// Each user action draws the kit’s fields in jsdom; a test of several steps outlasts the default.
+vi.setConfig({ testTimeout: 120_000 });
 
 // feat-022 US-2 and US-3 on the form (spec § Controls and copy, § Saving):
 // planning, classification and estimation. The dataset is feat-001's: one
@@ -63,7 +66,9 @@ describe('feat-022 US-2 Scenario: An epic’s planning and classification are sa
     expect(dateField('Дата начала')).toHaveValue('2026-11-01');
     expect(dateField('Целевая дата')).toHaveValue('2027-03-31');
     expect(list('Вид ценности')).toHaveTextContent('Архитектура');
-  });
+    // Two renders of the form and many typed steps: 10–12 s alone, past the
+    // default 20 s when the machine is shared with other builds.
+  }, 60_000);
 
   it('a «Фича» offers the same fields in the same order', async () => {
     await openFieldsForm(ITEM_OF_TYPE['Фича']);

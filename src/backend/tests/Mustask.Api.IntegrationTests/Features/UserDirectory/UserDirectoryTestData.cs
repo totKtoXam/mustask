@@ -7,48 +7,75 @@ using Microsoft.Extensions.DependencyInjection;
 namespace Mustask.Api.IntegrationTests.Features.UserDirectory;
 
 /// <summary>
-/// The user projection's test data. Every test class of
-/// <see cref="MustaskApiCollection"/> runs sequentially on one database, so a
+/// The user projection's test data. The test classes of a
+/// shard of <see cref="MustaskApiCollection"/> run one after another on one database, so a
 /// test that reads the projection starts from <see cref="ResetAsync"/>: an
 /// empty projection, whatever ran before it.
 /// </summary>
 internal static class UserDirectoryTestData
 {
-    /// <summary>A moment comfortably in the past and well above zero, in microseconds.</summary>
-    public const long BaseMoment = 1_700_000_000_000_000;
-
     public static async Task ResetAsync(MustaskApiFactory factory)
     {
         await using var scope = factory.Services.CreateAsyncScope();
         var context = scope.ServiceProvider.GetRequiredService<MustaskDbContext>();
 
         await context.Database.ExecuteSqlRawAsync(
-            "TRUNCATE directory_snapshot_pages, directory_snapshots, directory_users");
+            "TRUNCATE directory_users");
     }
 
-    /// <summary>A push as the provider would send it, for <see cref="SeedAsync"/> or the push routes.</summary>
-    public static UserPush Push(
+    /// <summary>
+    /// A person to put into the projection. Signing in makes a person present and enabled; the legacy states of the retired
+    /// push channel (ADR-0025: disabled, deleted) are seeded on top of that, because rows written then are still read.
+    /// </summary>
+    public sealed record SeedUser(
+        string Id,
+        string? FirstName,
+        string? LastName,
+        string? Email,
+        bool Enabled,
+        string Username,
+        bool Deleted);
+
+    public static SeedUser Person(
         string id,
         string? firstName,
         string? lastName,
         string? email,
         bool enabled = true,
         string? username = null,
-        long moment = BaseMoment,
         bool deleted = false) =>
-        new(id, moment, username ?? $"user.{id}", firstName, lastName, email, enabled, deleted);
+        new(id, firstName, lastName, email, enabled, username ?? $"user.{id}", deleted);
 
-    /// <summary>Puts users into the projection directly — the read model's tests do not depend on the push routes.</summary>
-    public static async Task SeedAsync(MustaskApiFactory factory, IEnumerable<UserPush> pushes)
+    /// <summary>Puts people into the projection directly — the read model's tests do not depend on a sign-in.</summary>
+    public static async Task SeedAsync(MustaskApiFactory factory, IEnumerable<SeedUser> people)
     {
         await using var scope = factory.Services.CreateAsyncScope();
         var context = scope.ServiceProvider.GetRequiredService<MustaskDbContext>();
 
-        var now = DateTimeOffset.UtcNow;
-        var result = ProjectionBatch.Apply(pushes.ToList(), new Dictionary<string, ProjectedUser>(), now, snapshotId: null);
-
-        context.DirectoryUsers.AddRange(result.Added);
+        AddTo(context, people);
         await context.SaveChangesAsync();
+    }
+
+    /// <summary>The same rows, for a test that holds a context of its own.</summary>
+    public static void AddTo(MustaskDbContext context, IEnumerable<SeedUser> people)
+    {
+        var now = DateTimeOffset.UtcNow;
+
+        foreach (var person in people)
+        {
+            var user = ProjectedUser.SignIn(new SignInProfile(person.Id, person.Username, person.FirstName, person.LastName, person.Email), now);
+            context.DirectoryUsers.Add(user);
+
+            if (person.Enabled && !person.Deleted)
+            {
+                continue;
+            }
+
+            var entry = context.Entry(user);
+            entry.Property(u => u.Enabled).CurrentValue = person.Enabled && !person.Deleted;
+            entry.Property(u => u.Lifecycle).CurrentValue = person.Deleted ? ProjectedUserLifecycle.Deleted : ProjectedUserLifecycle.Present;
+            entry.Property(u => u.IsActive).CurrentValue = false;
+        }
     }
 
     public static async Task<T> ReadAsync<T>(MustaskApiFactory factory, Func<IUserDirectory, Task<T>> read)
@@ -79,14 +106,6 @@ internal static class UserDirectoryTestData
         var context = scope.ServiceProvider.GetRequiredService<MustaskDbContext>();
 
         return await context.DirectoryUsers.CountAsync();
-    }
-
-    public static async Task<int> SnapshotCountAsync(MustaskApiFactory factory)
-    {
-        await using var scope = factory.Services.CreateAsyncScope();
-        var context = scope.ServiceProvider.GetRequiredService<MustaskDbContext>();
-
-        return await context.DirectorySnapshots.CountAsync();
     }
 
     public static string NewId() => Guid.NewGuid().ToString();

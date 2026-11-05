@@ -1,17 +1,18 @@
 using System.Net;
 using System.Text.Json;
+using Mustask.Domain.Identity;
 using Mustask.Domain.Organizations;
 
 namespace Mustask.Api.IntegrationTests.Features.Organizations;
 
 /// <summary>
 /// <c>GET /api/organizations/{organizationId}/projects/{projectId}/teams</c>
-/// (api-contract § 3.1) through the real host and a real PostgreSQL (plan-backend
+/// (feat-028 api-contract § 1.3, § 2.4: the project's LINKED teams; mod-017 § 1.3) through the real host and a real PostgreSQL (plan-backend
 /// § 14.3, lane L-15). Every test builds its own organization
 /// (<see cref="OrganizationsTestData"/>): the database is shared and never
-/// emptied. The requests carry a token with no right at all, because every
-/// endpoint but the creation of an organization is open to any signed-in user
-/// until mod-016 (BR-M1-19).
+/// emptied. The requests carry a token with no right at all: the read needs
+/// <c>organizations.team.read</c>, which comes from the caller's membership
+/// (mod-016 ADR-0027), and the caller is the organization's creator, an administrator.
 /// </summary>
 [Trait("Category", "Integration")]
 [Trait("Category", "RequiresDocker")]
@@ -27,12 +28,12 @@ public sealed class GetTeamsEndpointTests(MustaskApiFactory factory)
 
     private Task<Answer> GetAsync(Guid organizationId, Guid projectId) => GetAsync(organizationId, projectId.ToString());
 
-    // US-4 · "The project's teams": every active team is listed with its default area; US-8 · "The switcher lists the active
-    // organizations, projects and teams" and "The default team is the project's first team": «Пример проекта» first, then
-    // the rest in display order (Russian, ignoring case, «Ё» with «Е»), although «Платформа» sorts before «Пример проекта».
-    // The teams are created out of order, so neither the order of creation nor the order of ids explains the answer.
+    // mod-017 US-4 · "The project's teams": every active team is listed by name — Russian collation, letter case not deciding,
+    // «Ё» with «Е» — and no team is first (BR-OT-11), although the team the project came with sorts last here; the one the
+    // settings name carries «named» (BR-OT-4). The teams are created out of order, so neither the order of creation nor the order
+    // of ids explains the answer. Replaces Get_ActiveTeams_FirstTeamFirstThenDisplayOrder_WithDefaultAreaPaths (D-16).
     [Fact]
-    public async Task Get_ActiveTeams_FirstTeamFirstThenDisplayOrder_WithDefaultAreaPaths()
+    public async Task Get_ActiveTeams_ByName_NoTeamFirst_NamedTeamMarked()
     {
         var organization = await OrganizationsTestData.CreateOrganizationAsync(factory);
         var project = await OrganizationsTestData.CreateProjectAsync(factory, organization.Id);
@@ -47,9 +48,7 @@ public sealed class GetTeamsEndpointTests(MustaskApiFactory factory)
         var elsewhere = await OrganizationsTestData.CreateProjectAsync(factory, organization.Id, "Аналитика", "ANL");
         await OrganizationsTestData.AddTeamAsync(factory, elsewhere.Project.Id, "Ядро");
 
-        // US-4 · «Платформа» chooses «Платформа / API», an area it owns explicitly, as its default area.
-        var api = await OrganizationsTestData.AddAreaAsync(factory, projectId, platform.Area.Id, "API", platform.Team.Id);
-        await OrganizationsTestData.SetTeamDefaultAreaAsync(factory, projectId, platform.Team.Id, api.Id);
+        await OrganizationsTestData.SetDefaultTeamAsync(factory, organization.Id, projectId, platform.Id);
 
         var answer = await GetAsync(organization.Id, projectId);
 
@@ -58,54 +57,206 @@ public sealed class GetTeamsEndpointTests(MustaskApiFactory factory)
         Assert.Equal(JsonValueKind.Array, answer.Body.ValueKind);
         Assert.All(answer.Body.EnumerateArray(), item =>
         {
-            Assert.Equal(["defaultArea", "id", "isFirstTeam", "name", "projectId"], PropertyNames(item));
-            Assert.Equal(["id", "path"], PropertyNames(item.GetProperty("defaultArea")));
+            // mod-016 api-contract § 3.3: each team says whether the caller is in it. feat-028 § 1.3: the shape is ProjectTeam, with
+            // no «projectId» (a team is the organization's) — «defaultMark» and «isMember» are the project's view of the team.
+            Assert.Equal(["defaultMark", "id", "isMember", "name"], PropertyNames(item));
         });
         Assert.Equal(
             [
-                new ListedTeam(project.FirstTeam.Id, projectId, "Пример проекта", true, project.Root.Id, "Пример проекта"),
-                new ListedTeam(alpha.Team.Id, projectId, "альфа", false, alpha.Area.Id, "альфа"),
-                new ListedTeam(beta.Team.Id, projectId, "Бета", false, beta.Area.Id, "Бета"),
-                new ListedTeam(fir.Team.Id, projectId, "Ёлка", false, fir.Area.Id, "Ёлка"),
-                new ListedTeam(spruce.Team.Id, projectId, "Ель", false, spruce.Area.Id, "Ель"),
-                new ListedTeam(platform.Team.Id, projectId, "Платформа", false, api.Id, "Платформа / API"),
+                new ListedTeam(alpha.Id, "альфа", null),
+                new ListedTeam(beta.Id, "Бета", null),
+                new ListedTeam(fir.Id, "Ёлка", null),
+                new ListedTeam(spruce.Id, "Ель", null),
+                new ListedTeam(platform.Id, "Платформа", "named"),
+                new ListedTeam(project.Team.Id, "Пример проекта", null),
             ],
             Read(answer.Body));
     }
 
-    // US-3 · "A project is created ready to use": its first team, named after it, owns the root and has it as its default
-    // area, whose path is the root's own name (DC-9). A new project lists that team alone.
+    // mod-017 BR-OT-4 · "no team is named": with several teams none carries a mark; the mark is the only difference between
+    // the reads before and after the setting is cleared.
     [Fact]
-    public async Task Get_NewProject_ListsTheFirstTeamAlone_DefaultAreaIsTheRoot()
+    public async Task Get_DefaultMark_NamedOnlyTeamNone()
     {
         var organization = await OrganizationsTestData.CreateOrganizationAsync(factory);
-        var project = await OrganizationsTestData.CreateProjectAsync(factory, organization.Id, "Аналитика", "ANL");
+        var project = await OrganizationsTestData.CreateProjectAsync(factory, organization.Id);
+        var projectId = project.Project.Id;
+
+        var only = Read((await GetAsync(organization.Id, projectId)).Body);
+        var platform = await OrganizationsTestData.AddTeamAsync(factory, projectId, "Платформа");
+        var several = Read((await GetAsync(organization.Id, projectId)).Body);
+        await OrganizationsTestData.SetDefaultTeamAsync(factory, organization.Id, projectId, project.Team.Id);
+        var named = Read((await GetAsync(organization.Id, projectId)).Body);
+        await OrganizationsTestData.SetDefaultTeamAsync(factory, organization.Id, projectId, null);
+        await OrganizationsTestData.DeleteTeamAsync(factory, projectId, project.Team.Id);
+        var onlyAgain = Read((await GetAsync(organization.Id, projectId)).Body);
+
+        Assert.Equal([("Пример проекта", "onlyTeam")], only.Select(team => (team.Name, team.DefaultMark)));
+        Assert.Equal([("Платформа", (string?)null), ("Пример проекта", null)], several.Select(team => (team.Name, team.DefaultMark)));
+        Assert.Equal([("Платформа", (string?)null), ("Пример проекта", "named")], named.Select(team => (team.Name, team.DefaultMark)));
+        Assert.Equal([(platform.Id, "onlyTeam")], onlyAgain.Select(team => (team.Id, team.DefaultMark)));
+    }
+
+    private async Task<Dictionary<string, bool>> IsMemberByNameAsync(Guid organizationId, Guid projectId, string subject)
+    {
+        var answer = await OrganizationsApi.SendAsync(
+            factory,
+            HttpMethod.Get,
+            $"/api/organizations/{organizationId}/projects/{projectId}/teams",
+            token: OrganizationsTokens.SignedIn(subject));
+
+        Assert.Equal(HttpStatusCode.OK, answer.Status);
+
+        return answer.Body.EnumerateArray().ToDictionary(team => team.GetProperty("name").GetString()!, team => team.GetProperty("isMember").GetBoolean());
+    }
+
+    // feat-028 US-2 · "a project without a team works" (the state of every project right after the upgrade): an empty list, not a
+    // not-found.
+    [Fact]
+    public async Task Get_ProjectWithNoTeam_ReturnsEmpty()
+    {
+        var organization = await OrganizationsTestData.CreateOrganizationAsync(factory);
+        var project = await OrganizationsTestData.CreateBareProjectAsync(factory, organization.Id);
 
         var answer = await GetAsync(organization.Id, project.Project.Id);
 
         Assert.Equal(HttpStatusCode.OK, answer.Status);
-        Assert.Equal(
-            [new ListedTeam(project.FirstTeam.Id, project.Project.Id, "Аналитика", true, project.Root.Id, "Аналитика")],
-            Read(answer.Body));
+        Assert.Equal(JsonValueKind.Array, answer.Body.ValueKind);
+        Assert.Empty(answer.Body.EnumerateArray());
     }
 
-    // US-8 · "The switcher lists ... «Пример проекта» first, then «Платформа», and not the deleted team" (BR-M1-18): the
-    // deletion hands the team's explicit areas to the first team, and the others' default areas are untouched.
+    // feat-028 US-3 · "only linked teams are offered": a team of the organization that is linked to no project of this one, and a team
+    // linked only to another project, are not listed; after a link it is; after an unlink it is not.
+    [Fact]
+    public async Task Get_OnlyLinkedActiveTeams_ByName()
+    {
+        var organization = await OrganizationsTestData.CreateOrganizationAsync(factory);
+        var project = await OrganizationsTestData.CreateBareProjectAsync(factory, organization.Id);
+        var other = await OrganizationsTestData.CreateBareProjectAsync(factory, organization.Id, "Другой", "OTH");
+        var linked = await OrganizationsTestData.AddTeamAsync(factory, project.Project.Id, "Связанная");
+        var elsewhere = await OrganizationsTestData.AddTeamAsync(factory, other.Project.Id, "Чужого проекта");
+        var unlinked = await OrganizationsTestData.AddUnlinkedTeamAsync(factory, organization.Id, "Ничья");
+
+        var before = Read((await GetAsync(organization.Id, project.Project.Id)).Body);
+        await OrganizationsTestData.LinkAsync(factory, project.Project.Id, unlinked.Id);
+        var afterLink = Read((await GetAsync(organization.Id, project.Project.Id)).Body);
+
+        Assert.Equal([linked.Id], before.Select(team => team.Id));
+        Assert.Equal(new[] { linked.Id, unlinked.Id }.Order(), afterLink.Select(team => team.Id).Order());
+        Assert.DoesNotContain(elsewhere.Id, afterLink.Select(team => team.Id));
+    }
+
+    // feat-028 US-3 · "the mark follows the links" (BR-OL-7): the only linked team is «onlyTeam» although the organization has other
+    // teams; a second link ends the inference; naming a team marks it «named»; unlinking the other restores «onlyTeam».
+    [Fact]
+    public async Task Get_DefaultMark_FollowsTheLinks_NamedOnlyTeamNone()
+    {
+        var organization = await OrganizationsTestData.CreateOrganizationAsync(factory);
+        var project = await OrganizationsTestData.CreateBareProjectAsync(factory, organization.Id);
+        await OrganizationsTestData.AddUnlinkedTeamAsync(factory, organization.Id, "Ничья");
+        var first = await OrganizationsTestData.AddTeamAsync(factory, project.Project.Id, "Первая");
+
+        var only = Read((await GetAsync(organization.Id, project.Project.Id)).Body);
+        var second = await OrganizationsTestData.AddTeamAsync(factory, project.Project.Id, "Вторая");
+        var several = Read((await GetAsync(organization.Id, project.Project.Id)).Body);
+        await OrganizationsTestData.SetDefaultTeamAsync(factory, organization.Id, project.Project.Id, second.Id);
+        var named = Read((await GetAsync(organization.Id, project.Project.Id)).Body);
+
+        Assert.Equal([(first.Id, "onlyTeam")], only.Select(team => (team.Id, team.DefaultMark)));
+        Assert.All(several, team => Assert.Null(team.DefaultMark));
+        Assert.Equal([("Вторая", "named"), ("Первая", (string?)null)], named.OrderByDescending(team => team.DefaultMark).Select(team => (team.Name, team.DefaultMark)));
+    }
+
+    // feat-028 US-8 · the member flag: a viewer reads the list as any role with team.read does.
+    [Theory]
+    [InlineData(OrganizationRole.Member)]
+    [InlineData(OrganizationRole.Viewer)]
+    public async Task Get_MemberAndViewer_Read(OrganizationRole role)
+    {
+        var structure = await OrganizationsTestData.CreateStructureAsync(factory);
+        var caller = await MembershipTestData.NewMemberAsync(factory, structure.OrganizationId, role);
+
+        var answer = await OrganizationsApi.SendAsync(
+            factory, HttpMethod.Get, OrganizationsApi.Teams(structure.OrganizationId, structure.ProjectId), token: caller.Token);
+
+        Assert.Equal(HttpStatusCode.OK, answer.Status);
+        Assert.Equal(2, answer.Body.GetArrayLength());
+    }
+
+    // mod-016 US-7 · "Choosing a project selects the user's own team" (BR-M1-27, D-5): each team says whether the CALLER is in it;
+    // another user's membership does not count; "in no team of the project" marks none. The panel picks the first marked team.
+    [Fact]
+    public async Task Get_EachTeamSaysWhetherTheCallerIsInIt_OthersMembershipsDoNotCount_NoTeamMarksNone()
+    {
+        var organization = await OrganizationsTestData.CreateOrganizationAsync(factory);
+        var project = await OrganizationsTestData.CreateProjectAsync(factory, organization.Id);
+        var projectId = project.Project.Id;
+        var platform = await OrganizationsTestData.AddTeamAsync(factory, projectId, "Платформа");
+        var analytics = await OrganizationsTestData.AddTeamAsync(factory, projectId, "Аналитика");
+        var me = MembershipTestData.NewUserId();
+        var you = MembershipTestData.NewUserId();
+        var alone = MembershipTestData.NewUserId();
+        foreach (var user in new[] { me, you, alone })
+        {
+            await MembershipTestData.AddMemberAsync(factory, organization.Id, user);
+        }
+
+        await MembershipTestData.AddTeamMemberAsync(factory, organization.Id, platform.Id, me);
+        await MembershipTestData.AddTeamMemberAsync(factory, organization.Id, analytics.Id, me);
+        await MembershipTestData.AddTeamMemberAsync(factory, organization.Id, project.Team.Id, you);
+
+        var mine = await IsMemberByNameAsync(organization.Id, projectId, me);
+        var yours = await IsMemberByNameAsync(organization.Id, projectId, you);
+        var none = await IsMemberByNameAsync(organization.Id, projectId, alone);
+
+        Assert.Equal(new Dictionary<string, bool> { ["Пример проекта"] = false, ["Аналитика"] = true, ["Платформа"] = true }, mine);
+        Assert.Equal(new Dictionary<string, bool> { ["Пример проекта"] = true, ["Аналитика"] = false, ["Платформа"] = false }, yours);
+        Assert.All(none.Values, flag => Assert.False(flag));
+    }
+
+    // mod-016 BR-M1-27 · "a change to them counts from the next time that list is read": the flag follows the add and the removal of
+    // a team membership, and the removal of the organization membership (which ends every team membership, BR-M1-36).
+    [Fact]
+    public async Task Get_TheFlagFollowsTheNextReadAfterAnAddARemovalAndALeavingOfTheOrganization()
+    {
+        var organization = await OrganizationsTestData.CreateOrganizationAsync(factory);
+        var project = await OrganizationsTestData.CreateProjectAsync(factory, organization.Id);
+        var platform = await OrganizationsTestData.AddTeamAsync(factory, project.Project.Id, "Платформа");
+        var me = MembershipTestData.NewUserId();
+        await MembershipTestData.AddMemberAsync(factory, organization.Id, me);
+
+        var before = await IsMemberByNameAsync(organization.Id, project.Project.Id, me);
+        await MembershipTestData.AddTeamMemberAsync(factory, organization.Id, platform.Id, me);
+        var added = await IsMemberByNameAsync(organization.Id, project.Project.Id, me);
+        await MembershipTestData.RemoveMemberAsync(factory, organization.Id, me);
+        await MembershipTestData.AddMemberAsync(factory, organization.Id, me);
+        var afterLeaving = await IsMemberByNameAsync(organization.Id, project.Project.Id, me);
+
+        Assert.False(before["Платформа"]);
+        Assert.True(added["Платформа"]);
+        Assert.False(afterLeaving["Платформа"]);
+    }
+
+    // feat-028 BR-OL-2 · "A project is created with no team": nothing about a new project names a team, so there is no "its one team,
+    // named after it" to list. Retires Get_NewProject_ListsItsOnlyTeamAlone_MarkedOnlyTeam (mod-002 BR-M1-9; doc-012 P-1). The mark of a
+    // project's only linked team is pinned by Get_DefaultMark_NamedOnlyTeamNone and Get_DefaultMark_FollowsTheLinks_NamedOnlyTeamNone;
+    // that a new project has no team at all, by CreateProjectEndpointTests.
+
+    // US-8 · "The switcher lists ... «Платформа» and «Пример проекта», and not the deleted team" (BR-M1-18).
     [Fact]
     public async Task Get_DeletedTeamLeftOut()
     {
         var structure = await OrganizationsTestData.CreateStructureAsync(factory);
         var core = await OrganizationsTestData.AddTeamAsync(factory, structure.ProjectId, "Ядро");
-        await OrganizationsTestData.AddAreaAsync(factory, structure.ProjectId, core.Area.Id, "Хранилище", core.Team.Id);
-        await OrganizationsTestData.DeleteTeamAsync(factory, structure.ProjectId, core.Team.Id);
+        await OrganizationsTestData.DeleteTeamAsync(factory, structure.ProjectId, core.Id);
 
         var answer = await GetAsync(structure.OrganizationId, structure.ProjectId);
 
         Assert.Equal(HttpStatusCode.OK, answer.Status);
         Assert.Equal(
             [
-                new ListedTeam(structure.FirstTeamId, structure.ProjectId, "Пример проекта", true, structure.RootId, "Пример проекта"),
-                new ListedTeam(structure.Platform.Team.Id, structure.ProjectId, "Платформа", false, structure.Platform.Area.Id, "Платформа"),
+                new ListedTeam(structure.Platform.Id, "Платформа", null),
+                new ListedTeam(structure.ProjectTeamId, "Пример проекта", null),
             ],
             Read(answer.Body));
     }
@@ -161,10 +312,11 @@ public sealed class GetTeamsEndpointTests(MustaskApiFactory factory)
         Assert.Equal("organizations.project.not_found", answer.ErrorCode);
     }
 
-    // NFR Volumes (QA pass 1, A-18): "tens of teams per project" return within 2 s, each with its default area. Thirty
-    // teams beside the first two; one warm-up request first, so the bound measures the read, not the first call's JIT.
+    // NFR Volumes (QA pass 1, A-18): "tens of teams per project" return within 2 s, each with its default mark. Thirty teams
+    // beside the first two; one warm-up request first, so the bound measures the read, not the first call's JIT. Replaces
+    // Get_ThirtyTwoTeams_ReturnsWithinTwoSeconds_FirstTeamFirst (D-16, BR-OT-11).
     [Fact]
-    public async Task Get_ThirtyTwoTeams_ReturnsWithinTwoSeconds_FirstTeamFirst()
+    public async Task Get_ThirtyTwoTeams_ReturnsWithinTwoSeconds_ByName()
     {
         var structure = await OrganizationsTestData.CreateStructureAsync(factory);
 
@@ -184,24 +336,23 @@ public sealed class GetTeamsEndpointTests(MustaskApiFactory factory)
 
         var teams = Read(answer.Body);
         Assert.Equal(32, teams.Count);
-        Assert.Equal(structure.FirstTeamId, teams[0].Id);
-        Assert.All(teams.Skip(1), team => Assert.Equal(team.Name, team.DefaultAreaPath));
+        Assert.Equal(
+            Enumerable.Range(0, 30).Select(index => $"Команда {index:D2}").Append("Платформа").Append("Пример проекта"),
+            teams.Select(team => team.Name));
+        Assert.All(teams, team => Assert.Null(team.DefaultMark));
     }
 
     private static IReadOnlyList<ListedTeam> Read(JsonElement body) =>
         body.EnumerateArray()
             .Select(item => new ListedTeam(
                 item.GetProperty("id").GetGuid(),
-                item.GetProperty("projectId").GetGuid(),
                 item.GetProperty("name").GetString()!,
-                item.GetProperty("isFirstTeam").GetBoolean(),
-                item.GetProperty("defaultArea").GetProperty("id").GetGuid(),
-                item.GetProperty("defaultArea").GetProperty("path").GetString()!))
+                item.GetProperty("defaultMark").GetString()))
             .ToList();
 
     private static IEnumerable<string> PropertyNames(JsonElement element) =>
         element.EnumerateObject().Select(property => property.Name).Order(StringComparer.Ordinal);
 
     /// <summary>One element of the list, flattened for comparison.</summary>
-    private sealed record ListedTeam(Guid Id, Guid ProjectId, string Name, bool IsFirstTeam, Guid DefaultAreaId, string DefaultAreaPath);
+    private sealed record ListedTeam(Guid Id, string Name, string? DefaultMark);
 }

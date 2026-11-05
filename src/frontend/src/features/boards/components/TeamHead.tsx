@@ -1,5 +1,6 @@
 import { useEffect, useId, useRef, useState, type KeyboardEvent, type MouseEvent } from 'react';
 import { Link as RouterLink, useLocation, useNavigate } from 'react-router-dom';
+import Box from '@mui/material/Box';
 import IconButton from '@mui/material/IconButton';
 import Menu from '@mui/material/Menu';
 import MenuItem from '@mui/material/MenuItem';
@@ -8,12 +9,16 @@ import ArrowCircleLeftOutlinedIcon from '@mui/icons-material/ArrowCircleLeftOutl
 import ArrowCircleRightOutlinedIcon from '@mui/icons-material/ArrowCircleRightOutlined';
 import ViewWeekOutlinedIcon from '@mui/icons-material/ViewWeekOutlined';
 import { useWorkContext } from '../../../shared/lib/workContext';
+import { teamFilterSearch } from '../../workitems';
+import { BacklogIcon, Tag, ThinChevronDownIcon } from '../../../shared/ui';
 import { PageHeader, type Command } from '../../../shared/ui/PageHeader';
+import { projectFilterSearch } from '../hooks/useViewFilter';
 import type { BoardLevelCode } from '../lib/levels';
-import { backlogPath, boardPath } from '../paths';
-import { BacklogIcon } from './BacklogIcon';
+import { narrowedTag } from '../lib/narrowed';
+import { scopeProjectId, scopeTeamId, type BoardScope } from '../lib/scope';
+import { backlogPath, boardPath, projectBacklogPath, projectBoardPath } from '../paths';
+import { useGroupingSlot } from './groupingSlot';
 import { LevelMenu } from './LevelMenu';
-import { ThinChevronDownIcon } from './ThinIcons';
 
 /** The two pages that wear the head (feat-027 BR-T-16). */
 export type TeamPage = 'backlog' | 'board';
@@ -38,7 +43,8 @@ const PAGES = {
 } as const satisfies Record<TeamPage, { name: string; tab: string; toOther: string }>;
 
 const CHANGE_TEAM_LABEL = 'Сменить команду';
-const PROJECT_TEAMS_LABEL = 'Команды проекта';
+/** feat-040 design § 3.2: the menu lists the organization's teams, no longer the project's. */
+const TEAMS_LABEL = 'Команды';
 const VIEWS_LABEL = 'Вид страницы';
 
 /**
@@ -57,70 +63,100 @@ function isTeamChosen(state: unknown): boolean {
   );
 }
 
-/** The team's address of the same page at the same level. */
+/** The address of the same page under a scope — a team's or the project's — at a level. */
 function pagePath(
   page: TeamPage,
   organizationId: string,
-  projectId: string,
-  teamId: string,
+  scope: BoardScope,
   level: BoardLevelCode,
 ): string {
+  if (scope.kind === 'project') {
+    return page === 'backlog'
+      ? projectBacklogPath(organizationId, scope.projectId, level)
+      : projectBoardPath(organizationId, scope.projectId, level);
+  }
   return page === 'backlog'
-    ? backlogPath(organizationId, projectId, teamId, level)
-    : boardPath(organizationId, projectId, teamId, level);
+    ? backlogPath(organizationId, scope.teamId, level)
+    : boardPath(organizationId, scope.teamId, level);
 }
 
 /**
  * The head of «Бэклоги» and «Канбан» (feat-027 BR-T-16, design § 3): the team's
- * name as the `h1` with a drop-down to another team of the project, one tab
- * under it — «Бэклог» / «Канбан» — with the level drop-down at its right end,
- * and at the top right the other page's grey button, on «Бэклоги» after the
- * primary «Новый рабочий элемент». It is `PageHeader`'s team variant.
+ * name as the `h1` with a drop-down to another team, one tab under it — «Бэклог» /
+ * «Канбан» — with the level drop-down at its right end, and at the top right the
+ * other page's grey button, on «Бэклоги» after the primary «Новый рабочий элемент».
+ * It is `PageHeader`'s team variant.
  *
- * The team's name is the page's own read once it is there, else the shell's
- * list of the project's teams for the address's `teamId`, else the page's own
- * name, so the `h1` is never empty. The drop-down is built from that list —
- * no request of its own — and is there whenever it is read, a project with one
- * team included; while it loads or has failed there is no button.
+ * feat-040 (BR-TS-11): a team's page is at the team's address, so the drop-down lists the
+ * organization's teams — the team selector's offers, in their order — with this one selected,
+ * and no longer «Весь проект». The project's own pages (feat-039) have the same head with the
+ * project's name as the `h1` and **no drop-down button**, so no menu puts a team under a project;
+ * their tab, level drop-down and grey button lead to the project's addresses.
+ *
+ * The name is the page's own read once it is there, else the shell's list for the address's team
+ * (a project page: the shell's name for the project), else the page's own name, so the `h1` is
+ * never empty. The drop-down is built from the shell's list — no request of its own — and is there
+ * whenever the organization's teams are read; while they load or have failed there is no button.
+ *
+ * The project filter of a team's views (BR-TS-8) is kept by the level menu, the tab and the grey
+ * command; the team filter of the project's (mod-020) by the level menu and the tab. A team chosen
+ * in the drop-down starts unfiltered.
  */
 export function TeamHead({
   page,
   organizationId,
-  projectId,
-  teamId,
+  scope,
   level,
-  teamName,
+  name,
   primaryAction,
+  narrowedBy,
 }: {
   page: TeamPage;
   organizationId: string;
-  projectId: string;
-  teamId: string;
+  scope: BoardScope;
   level: BoardLevelCode;
-  /** The team's name from the page's own read, once there is one. */
-  teamName: string | undefined;
+  /** The team's name, or the project's on a project page, from the page's own read, once there is one. */
+  name: string | undefined;
   /** «Новый рабочий элемент», once the read gives the level's types; none on «Канбан». */
   primaryAction?: Command;
+  /** The team filter narrowing a project's backlog: the title line carries the «сужено» tag (US-4). */
+  narrowedBy?: readonly string[];
 }) {
   const own = PAGES[page];
+  const teamId = scopeTeamId(scope);
+  const projectId = scopeProjectId(scope);
   const context = useWorkContext();
-  const project = context.organizations
-    .find((organization) => organization.id === organizationId)
-    ?.projects.find((candidate) => candidate.id === projectId);
-  const known = project?.teams.find((candidate) => candidate.id === teamId);
+  // A link to the same view carries its filter: another level and the page's own tab, on both kinds
+  // of view; on a team's also the grey command to the other page, since the project filter is the
+  // view's of that team (BR-TS-8). The other kinds of link — another team, a selector — start
+  // unfiltered. The project's grey command carries no filter: mod-020 starts the other page unfiltered.
+  const { search } = useLocation();
+  const filterSearch =
+    scope.kind === 'project' ? teamFilterSearch(search) : projectFilterSearch(search);
+  const otherPageSearch = scope.kind === 'team' ? filterSearch : '';
+  const organization = context.organizations.find((candidate) => candidate.id === organizationId);
+  const known =
+    teamId !== null
+      ? organization?.teams.find((candidate) => candidate.id === teamId)
+      : organization?.projects.find((candidate) => candidate.id === projectId);
   const teamsReady =
     context.status === 'ready' &&
-    context.levelStatus?.project !== 'loading' &&
-    context.levelStatus?.project !== 'failed' &&
     context.levelStatus?.team !== 'loading' &&
     context.levelStatus?.team !== 'failed';
-  const teams = teamsReady && project ? project.teams : [];
+  const teams = teamsReady && organization ? organization.teams : [];
 
+  const groupingSwitch = useGroupingSlot();
   const otherPage = page === 'backlog' ? 'board' : 'backlog';
+  const levelMenu = (
+    <LevelMenu
+      level={level}
+      pathOf={(next) => `${pagePath(page, organizationId, scope, next)}${filterSearch}`}
+    />
+  );
   return (
     <PageHeader
       variant="team"
-      title={teamName ?? known?.name ?? own.name}
+      title={name ?? known?.name ?? own.name}
       documentTitle={own.name}
       titleIcon={
         page === 'backlog' ? (
@@ -130,12 +166,14 @@ export function TeamHead({
         )
       }
       titleControl={
-        teams.length > 0 ? (
+        teamId !== null && teams.length > 0 ? (
           <TeamMenu
             teams={teams}
             currentId={teamId}
-            pathOf={(id) => pagePath(page, organizationId, projectId, id, level)}
+            pathOf={(id) => pagePath(page, organizationId, { kind: 'team', teamId: id }, level)}
           />
+        ) : narrowedBy && narrowedBy.length > 0 ? (
+          <Tag label={narrowedTag(narrowedBy, organization?.teams ?? [])} />
         ) : undefined
       }
       primaryAction={primaryAction}
@@ -144,17 +182,26 @@ export function TeamHead({
           label: own.toOther,
           icon:
             page === 'backlog' ? <ArrowCircleRightOutlinedIcon /> : <ArrowCircleLeftOutlinedIcon />,
-          to: pagePath(otherPage, organizationId, projectId, teamId, level),
+          to: `${pagePath(otherPage, organizationId, scope, level)}${otherPageSearch}`,
           tone: 'neutral',
         },
       ]}
-      views={[{ label: own.tab, to: pagePath(page, organizationId, projectId, teamId, level) }]}
+      views={[
+        {
+          label: own.tab,
+          to: `${pagePath(page, organizationId, scope, level)}${filterSearch}`,
+        },
+      ]}
       viewsLabel={VIEWS_LABEL}
       viewsEnd={
-        <LevelMenu
-          level={level}
-          pathOf={(next) => pagePath(page, organizationId, projectId, teamId, next)}
-        />
+        groupingSwitch ? (
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
+            {groupingSwitch}
+            {levelMenu}
+          </Box>
+        ) : (
+          levelMenu
+        )
       }
     />
   );
@@ -162,9 +209,9 @@ export function TeamHead({
 
 /**
  * «Сменить команду» (feat-027 design § 3.3): the chevron after the team's name
- * and its menu of the project's teams, the current one selected and
+ * and its menu «Команды» of the organization's teams, the current one selected and
  * `aria-current="page"`; each is a link to the same page of that team at the
- * same level. Keyboard per mod-015 § 12.4.
+ * same level (feat-040 design § 3.2). Keyboard per mod-015 § 12.4.
  */
 function TeamMenu({
   teams,
@@ -172,6 +219,7 @@ function TeamMenu({
   pathOf,
 }: {
   teams: readonly { id: string; name: string }[];
+  /** The team whose page this is. */
   currentId: string;
   pathOf(teamId: string): string;
 }) {
@@ -221,8 +269,8 @@ function TeamMenu({
             }
           }}
           sx={(theme) => ({
-            width: theme.layout.backlogTable.chevronSlot,
-            height: theme.layout.backlogTable.chevronSlot,
+            width: theme.layout.iconAction.chevron.box,
+            height: theme.layout.iconAction.chevron.box,
             p: 0,
             // The glyph's ink starts about 6 px inside its 24 px box (the 2 px
             // the 20 px glyph is inset and the path's own 4.5 units), which with
@@ -230,7 +278,7 @@ function TeamMenu({
             // name; the reference's is 12 (V-6).
             ml: -0.5,
             color: 'text.primary',
-            '& .MuiSvgIcon-root': { fontSize: theme.layout.backlogTable.chevronGlyph },
+            '& .MuiSvgIcon-root': { fontSize: theme.layout.iconAction.chevron.glyph },
           })}
         >
           <ThinChevronDownIcon />
@@ -242,18 +290,18 @@ function TeamMenu({
         open={open}
         onClose={() => setAnchor(null)}
         variant="selectedMenu"
-        slotProps={{ list: { 'aria-label': PROJECT_TEAMS_LABEL } }}
+        slotProps={{ list: { 'aria-label': TEAMS_LABEL } }}
       >
         {teams.map((team) => {
-          const current = team.id === currentId;
+          const selected = team.id === currentId;
           return (
             <MenuItem
               key={team.id}
               component={RouterLink}
               to={pathOf(team.id)}
               state={TEAM_CHOSEN_STATE}
-              selected={current}
-              aria-current={current ? 'page' : undefined}
+              selected={selected}
+              aria-current={selected ? 'page' : undefined}
               onClick={() => setAnchor(null)}
             >
               {team.name}

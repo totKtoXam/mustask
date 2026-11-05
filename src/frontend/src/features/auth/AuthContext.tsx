@@ -37,7 +37,13 @@ export interface AuthContextValue {
    * per user (mod-002 design § 3.4). Optional, so a stub session may omit it.
    */
   subject?: string;
-  /** Есть ли у пользователя право (коды из PermissionCatalog). */
+  /**
+   * Есть ли у пользователя право — только инстанс-коды из токена
+   * (`resource_access.mustask-api.roles`, ADR-0018). Коды организации в
+   * токене не лежат (ADR-0027): они выводятся сервером из членства и
+   * читаются через `GET /api/organizations/{id}/access`; их спрашивают у
+   * `useAccessCheck()`, который сам вызывает `can` для инстанс-кодов.
+   */
   can: (permission: string) => boolean;
   signIn: (returnTo?: string) => void;
   signOut: () => void;

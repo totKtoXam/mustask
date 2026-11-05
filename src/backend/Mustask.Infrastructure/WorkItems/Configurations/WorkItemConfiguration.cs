@@ -1,7 +1,9 @@
+using System.Text.Json;
 using Mustask.Domain.Organizations;
 using Mustask.Domain.Process;
 using Mustask.Domain.WorkItems;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.ChangeTracking;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 
 namespace Mustask.Infrastructure.WorkItems.Configurations;
@@ -19,7 +21,8 @@ namespace Mustask.Infrastructure.WorkItems.Configurations;
 /// item has one at most (BR-H-1), and its key is composite too,
 /// <c>(project_id, parent_id)</c> onto the item's own alternate key
 /// <c>(project_id, id)</c>: the database refuses a parent of another project, and
-/// a check refuses the item as its own parent.
+/// a check refuses the item as its own parent. mod-017 adds the owning team: a column, with a composite key onto the
+/// project's teams (<c>(project_id, owning_team_id)</c>) in the same way.
 /// </summary>
 internal sealed class WorkItemConfiguration : IEntityTypeConfiguration<WorkItem>
 {
@@ -48,6 +51,12 @@ internal sealed class WorkItemConfiguration : IEntityTypeConfiguration<WorkItem>
         builder.Property(item => item.CreatedBy).HasMaxLength(WorkItemLimits.UserIdMaxLength).IsRequired();
         builder.Property(item => item.ChangedAt).IsRequired();
 
+        // mod-005 (ADR-0030 rule 1): the marks of a deletion — three nullable columns, all-or-none by the check below. Only
+        // Delete and Restore write them (private setters). The deleter is a user id with no key, as the creator is.
+        builder.Property(item => item.DeletedFromStateId);
+        builder.Property(item => item.DeletedBy).HasMaxLength(WorkItemLimits.UserIdMaxLength);
+        builder.Property(item => item.DeletedAt);
+
         // feat-022: the fields per type. Priority defaults to 2 in the database too, so a row written outside the domain
         // (the migration's existing rows, a bulk insert) takes BR-M3-37's value; the others are null where the type lacks
         // them, and the domain decides which a type has. Numbers keep two decimals in at most four integer digits.
@@ -61,15 +70,44 @@ internal sealed class WorkItemConfiguration : IEntityTypeConfiguration<WorkItem>
         builder.Property(item => item.Activity).HasConversion<string>().HasMaxLength(WorkItemsConstraints.ListKeyMaxLength);
         builder.Property(item => item.ValueArea).HasConversion<string>().HasMaxLength(WorkItemsConstraints.ListKeyMaxLength);
 
+        var jsonOptions = new JsonSerializerOptions(JsonSerializerDefaults.Web)
+        {
+            Encoder = System.Text.Encodings.Web.JavaScriptEncoder.Create(System.Text.Unicode.UnicodeRanges.All),
+        };
+        var criteriaComparer = new ValueComparer<IReadOnlyList<AcceptanceCriterion>?>(
+            (c1, c2) => (c1 == null && c2 == null) || (c1 != null && c2 != null && c1.SequenceEqual(c2)),
+            c => c == null ? 0 : c.Aggregate(0, (hash, item) => HashCode.Combine(hash, item.GetHashCode())),
+            c => c == null ? null : c.ToList());
+
+        builder.Property(item => item.AcceptanceCriteria)
+            .HasConversion(
+                v => v == null ? null : JsonSerializer.Serialize(v, jsonOptions),
+                v => v == null ? null : (string.IsNullOrWhiteSpace(v) || v == "[]"
+                    ? new List<AcceptanceCriterion>()
+                    : (v.StartsWith('[')
+                        ? (JsonSerializer.Deserialize<List<AcceptanceCriterion>>(v, jsonOptions) ?? new List<AcceptanceCriterion>())
+                        : new List<AcceptanceCriterion> { new(string.Empty, string.Empty, v) })))
+            .Metadata.SetValueComparer(criteriaComparer);
+
         builder.HasOne<Project>()
             .WithMany()
             .HasForeignKey(item => item.ProjectId)
             .OnDelete(DeleteBehavior.Restrict);
 
-        builder.HasOne<Area>()
+        // The key (project_id, area_id) onto areas (project_id, id) is created by the migration (fk_work_items_areas_project_id_area_id):
+        // an area's project_id is nullable (a department has none), which an EF alternate key cannot be, so the model leaves the key to
+        // SQL. The database still refuses an area of another project (BR-AW-11).
+
+        // mod-017 (BR-OT-1), feat-028 (BR-OL-6): the owning team is a team linked to the item's own project. The key is
+        // composite, (project_id, owning_team_id) onto the link's primary key (project_id, team_id), so the database refuses a
+        // team that is not linked to the project; Restrict, so a link that owns an item is never removed from under it (an
+        // unlink and a deletion reassign the items first, ADR-0028 rule 7). A null team leaves the key unchecked
+        // (MATCH SIMPLE): «Без команды».
+        builder.HasOne<ProjectTeam>()
             .WithMany()
-            .HasForeignKey(item => new { item.ProjectId, item.AreaId })
-            .HasPrincipalKey(area => new { area.ProjectId, area.Id })
+            .HasForeignKey(item => new { item.ProjectId, item.OwningTeamId })
+            .HasPrincipalKey(link => new { link.ProjectId, link.TeamId })
+            .HasConstraintName(WorkItemsConstraints.OwningTeamKey)
             .OnDelete(DeleteBehavior.Restrict);
 
         builder.HasOne<WorkItemType>()
@@ -82,7 +120,15 @@ internal sealed class WorkItemConfiguration : IEntityTypeConfiguration<WorkItem>
             .HasForeignKey(item => item.StateId)
             .OnDelete(DeleteBehavior.Restrict);
 
-        // feat-001: Restrict, so a parent is never removed from under its children (BR-H-8; nothing purges in this cut).
+        // mod-005: a second key to the same principal as StateId. Restrict: a state an item remembers cannot be removed from
+        // under it — the database's half of doc-001 BR-14 (b). A null mark leaves the key unchecked.
+        builder.HasOne<StateDefinition>()
+            .WithMany()
+            .HasForeignKey(item => item.DeletedFromStateId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        // feat-001: Restrict, so a parent is never removed from under its children (BR-H-8). mod-005's purge clears the
+        // children's link first, in the same transaction (ADR-0030 rule 5), so a forgotten clear fails the delete loudly.
         builder.HasOne<WorkItem>()
             .WithMany()
             .HasForeignKey(item => new { item.ProjectId, item.ParentId })
@@ -99,11 +145,36 @@ internal sealed class WorkItemConfiguration : IEntityTypeConfiguration<WorkItem>
         builder.HasIndex(item => new { item.ProjectId, item.TypeId, item.AreaId }, WorkItemsConstraints.ProjectTypeArea);
         // feat-001: the parent's key, and the form's children read (BR-H-7).
         builder.HasIndex(item => new { item.ProjectId, item.ParentId }, WorkItemsConstraints.ProjectParent);
+        // mod-017: a team's views are an equality on the project, the team and a short list of types, so every (team, type)
+        // pair is one range of this index; it also serves the owner key above, so EF adds no second index for it.
+        builder.HasIndex(item => new { item.ProjectId, item.OwningTeamId, item.TypeId }, WorkItemsConstraints.ProjectOwningTeamType);
+        // feat-040 (ADR-0028 rule 13): a team's views across its projects are an equality on the team and a short list of types, so
+        // every (team, type) pair is one range of this index; the project-led one above cannot serve them without a skip scan.
+        builder.HasIndex(item => new { item.OwningTeamId, item.TypeId, item.ChangedAt, item.Number }, WorkItemsConstraints.OwningTeamType)
+            .IsDescending(false, false, true, true);
+        // feat-048 (ADR-0036, plan-backend D-5): the aggregate views page by change time, newest first, per (project, type), per (team, type)
+        // above, for the group of no team, and for an assignee; the 1 000 000-item test of BR-AV-11 proves them.
+        builder.HasIndex(item => new { item.ProjectId, item.TypeId, item.ChangedAt, item.Number }, WorkItemsConstraints.ProjectTypeChangedAt)
+            .IsDescending(false, false, true, true);
+        builder.HasIndex(item => new { item.ProjectId, item.TypeId, item.ChangedAt, item.Number }, WorkItemsConstraints.NoTeamChangedAt)
+            .IsDescending(false, false, true, true)
+            .HasFilter("owning_team_id IS NULL");
+        builder.HasIndex(item => new { item.AssigneeId, item.ChangedAt }, WorkItemsConstraints.AssigneeChangedAt)
+            .IsDescending(false, true)
+            .HasFilter("assignee_id IS NOT NULL");
+        // mod-017 (ADR-0028 rule 5): the target of the team place's key (work_item_id, team_id) -> (id, owning_team_id),
+        // which the second migration adds in SQL: EF cannot declare an alternate key over a nullable column.
+        builder.HasIndex(item => new { item.Id, item.OwningTeamId }, WorkItemsConstraints.IdOwningTeam).IsUnique();
+        // mod-005 (plan-backend D-P6): a partial index over the few deleted rows, declared so EF adds no conventional full
+        // index for the new key.
+        builder.HasIndex(item => item.DeletedFromStateId, WorkItemsConstraints.DeletedFromStateIndex)
+            .HasFilter("deleted_from_state_id IS NOT NULL");
 
         builder.ToTable(table =>
         {
             table.HasCheckConstraint(WorkItemsConstraints.NumberPositive, "number >= 1");
             table.HasCheckConstraint(WorkItemsConstraints.ParentNotSelf, "parent_id IS NULL OR parent_id <> id");
+            table.HasCheckConstraint(WorkItemsConstraints.DeletionMarksCheck, WorkItemsConstraints.DeletionMarksSql);
             table.HasCheckConstraint("ck_work_items_title_length", WorkItemsConstraints.TitleLengthCheck);
             table.HasCheckConstraint("ck_work_items_description_length", WorkItemsConstraints.DescriptionLengthCheck);
             table.HasCheckConstraint(WorkItemsConstraints.PlainDescriptionLengthName, WorkItemsConstraints.PlainDescriptionLengthCheck);

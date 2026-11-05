@@ -1,11 +1,27 @@
 using Mustask.Application.Features.Boards.GetBacklog;
 using Mustask.Application.Features.Boards.GetBoard;
+using Mustask.Application.Features.Boards.GetProjectBacklog;
+using Mustask.Application.Features.Boards.GetProjectBoard;
 using Mustask.Application.Features.Boards.ReorderBacklog;
+using Mustask.Application.Features.Boards.ReorderProjectBacklog;
 using Mustask.Application.Features.Dictionaries.CreateLanguage;
 using Mustask.Application.Features.Dictionaries.GetLanguages;
 using Mustask.Application.Features.Dictionaries.SetDefaultLanguage;
 using Mustask.Application.Features.Dictionaries.UpdateLanguage;
+using Mustask.Application.Features.Organizations.AddMember;
 using Mustask.Application.Features.Organizations.AddTeam;
+using Mustask.Application.Features.Organizations.AddTeamMember;
+using Mustask.Application.Features.Organizations.ChangeMemberRole;
+using Mustask.Application.Features.Organizations.GetArea;
+using Mustask.Application.Features.Organizations.SetAreaDescription;
+using Mustask.Application.Features.Organizations.GetAreaDeletion;
+using Mustask.Application.Features.Organizations.GetAreaTeams;
+using Mustask.Application.Features.Organizations.LinkTeamsToArea;
+using Mustask.Application.Features.Organizations.UnlinkTeamFromArea;
+using Mustask.Application.Features.Organizations.GetProjectAreas;
+using Mustask.Application.Features.Organizations.GetTeamAreas;
+using Mustask.Application.Features.Organizations.LinkAreasToTeam;
+using Mustask.Application.Features.Organizations.UnlinkAreaFromTeam;
 using Mustask.Application.Features.Organizations.CreateArea;
 using Mustask.Application.Features.Organizations.CreateOrganization;
 using Mustask.Application.Features.Organizations.CreateProject;
@@ -16,33 +32,57 @@ using Mustask.Application.Features.Organizations.DeleteTeam;
 using Mustask.Application.Features.Organizations.GetAreaTree;
 using Mustask.Application.Features.Organizations.GetDeactivatedOrganizations;
 using Mustask.Application.Features.Organizations.GetDeactivatedProjects;
+using Mustask.Application.Features.Organizations.GetMembers;
+using Mustask.Application.Features.Organizations.AppointAdministrator;
+using Mustask.Application.Features.Organizations.GetAppointments;
+using Mustask.Application.Features.Organizations.GetRescueAppointments;
+using Mustask.Application.Features.Organizations.GetRescueOrganizations;
+using Mustask.Application.Features.Organizations.SearchAppointeeCandidates;
 using Mustask.Application.Features.Organizations.GetOrganization;
+using Mustask.Application.Features.Organizations.GetOrganizationTeams;
+using Mustask.Application.Features.Organizations.GetOverview;
+using Mustask.Application.Features.Organizations.GetSelectorOffers;
+using Mustask.Application.Features.Organizations.GetOrganizationAccess;
 using Mustask.Application.Features.Organizations.GetOrganizations;
 using Mustask.Application.Features.Organizations.GetProject;
 using Mustask.Application.Features.Organizations.GetProjects;
 using Mustask.Application.Features.Organizations.GetTeam;
+using Mustask.Application.Features.Organizations.GetTeamDeletionCounts;
+using Mustask.Application.Features.Organizations.GetTeamMembers;
+using Mustask.Application.Features.Organizations.GetTeamOwnedItemCount;
+using Mustask.Application.Features.Organizations.GetTeamProjects;
+using Mustask.Application.Features.Organizations.GetProjectTeamLinks;
 using Mustask.Application.Features.Organizations.GetTeams;
 using Mustask.Application.Features.Organizations.MoveArea;
+using Mustask.Application.Features.Organizations.RemoveMember;
+using Mustask.Application.Features.Organizations.LinkProjectsToTeam;
+using Mustask.Application.Features.Organizations.LinkTeamsToProject;
+using Mustask.Application.Features.Organizations.RemoveTeamMember;
 using Mustask.Application.Features.Organizations.RenameArea;
 using Mustask.Application.Features.Organizations.RenameOrganization;
 using Mustask.Application.Features.Organizations.RenameProject;
 using Mustask.Application.Features.Organizations.RenameTeam;
 using Mustask.Application.Features.Organizations.RestoreOrganization;
 using Mustask.Application.Features.Organizations.RestoreProject;
-using Mustask.Application.Features.Organizations.SetAreaOwner;
-using Mustask.Application.Features.Organizations.SetTeamDefaultArea;
+using Mustask.Application.Features.Organizations.SearchMemberCandidates;
+using Mustask.Application.Features.Organizations.SearchTeamMemberCandidates;
+using Mustask.Application.Features.Organizations.SetDefaultTeam;
+using Mustask.Application.Features.Organizations.SetProjectDescription;
+using Mustask.Application.Features.Organizations.SetTeamDescription;
+using Mustask.Application.Features.Organizations.UnlinkTeam;
 using Mustask.Application.Features.Process;
 using Mustask.Application.Features.Process.GetProcessDefinition;
 using Mustask.Application.Features.Process.SeedProcess;
-using Mustask.Application.Features.UserDirectory.ApplySnapshotPage;
-using Mustask.Application.Features.UserDirectory.ApplyUserChanges;
-using Mustask.Application.Features.UserDirectory.BeginSnapshot;
-using Mustask.Application.Features.UserDirectory.CompleteSnapshot;
+using Mustask.Application.Features.UserDirectory.RecordSignIn;
 using Mustask.Application.Features.WorkItems.CreateWorkItem;
+using Mustask.Application.Features.WorkItems.DeleteWorkItem;
 using Mustask.Application.Features.WorkItems.GetAssigneeCandidates;
+using Mustask.Application.Features.WorkItems.GetAssigneeOptions;
 using Mustask.Application.Features.WorkItems.GetParentCandidates;
 using Mustask.Application.Features.WorkItems.GetWorkItem;
 using Mustask.Application.Features.WorkItems.GetWorkItems;
+using Mustask.Application.Features.WorkItems.PurgeWorkItem;
+using Mustask.Application.Features.WorkItems.RestoreWorkItem;
 using Mustask.Application.Features.WorkItems.SaveWorkItem;
 using Mustask.Application.Features.WorkItems.SetWorkItemParent;
 using Microsoft.Extensions.DependencyInjection;
@@ -68,11 +108,8 @@ public static class DependencyInjection
         // (IProcessSeed is the interface other modules depend on, not the slice).
         services.AddScoped<IProcessSeed, SeedProcessHandler>();
         services.AddScoped<GetProcessDefinitionHandler>();
-        // One handler per route of UserDirectoryEndpoints.cs (mod-014).
-        services.AddScoped<ApplyUserChangesHandler>();
-        services.AddScoped<BeginSnapshotHandler>();
-        services.AddScoped<ApplySnapshotPageHandler>();
-        services.AddScoped<CompleteSnapshotHandler>();
+        // The sign-in upsert of the user projection (tech-025); called by the session endpoints, no route of its own.
+        services.AddScoped<RecordSignInHandler>();
 
         // Organizations (mod-002): one handler per route of OrganizationEndpoints.cs.
         services.AddScoped<GetOrganizationsHandler>();
@@ -90,17 +127,56 @@ public static class DependencyInjection
         services.AddScoped<DeactivateProjectHandler>();
         services.AddScoped<RestoreProjectHandler>();
         services.AddScoped<GetTeamsHandler>();
+        services.AddScoped<GetProjectTeamLinksHandler>();
         services.AddScoped<GetTeamHandler>();
         services.AddScoped<AddTeamHandler>();
         services.AddScoped<RenameTeamHandler>();
-        services.AddScoped<SetTeamDefaultAreaHandler>();
+        services.AddScoped<SetDefaultTeamHandler>();
+        services.AddScoped<GetTeamOwnedItemCountHandler>();
         services.AddScoped<DeleteTeamHandler>();
+        services.AddScoped<GetOrganizationTeamsHandler>();
+        services.AddScoped<GetTeamProjectsHandler>();
+        services.AddScoped<GetTeamDeletionCountsHandler>();
+        services.AddScoped<SetTeamDescriptionHandler>();
+        services.AddScoped<SetProjectDescriptionHandler>();
+        services.AddScoped<LinkTeamsToProjectHandler>();
+        services.AddScoped<LinkProjectsToTeamHandler>();
+        services.AddScoped<UnlinkTeamHandler>();
         services.AddScoped<GetAreaTreeHandler>();
+        services.AddScoped<GetOverviewHandler>();
+        services.AddScoped<GetSelectorOffersHandler>();
         services.AddScoped<CreateAreaHandler>();
         services.AddScoped<RenameAreaHandler>();
         services.AddScoped<MoveAreaHandler>();
-        services.AddScoped<SetAreaOwnerHandler>();
         services.AddScoped<DeleteAreaHandler>();
+        services.AddScoped<GetAreaHandler>();
+        services.AddScoped<SetAreaDescriptionHandler>();
+        services.AddScoped<GetAreaDeletionHandler>();
+        services.AddScoped<GetAreaTeamsHandler>();
+        services.AddScoped<LinkTeamsToAreaHandler>();
+        services.AddScoped<UnlinkTeamFromAreaHandler>();
+        services.AddScoped<GetProjectAreasHandler>();
+        services.AddScoped<GetTeamAreasHandler>();
+        services.AddScoped<LinkAreasToTeamHandler>();
+        services.AddScoped<UnlinkAreaFromTeamHandler>();
+
+        // Organization access (mod-016): one handler per route of MembershipEndpoints.cs.
+        services.AddScoped<GetOrganizationAccessHandler>();
+        services.AddScoped<GetMembersHandler>();
+        services.AddScoped<AppointAdministratorHandler>();
+        services.AddScoped<GetRescueOrganizationsHandler>();
+        services.AddScoped<SearchAppointeeCandidatesHandler>();
+        services.AddScoped<GetRescueAppointmentsHandler>();
+        services.AddScoped<GetAppointmentsHandler>();
+        services.AddScoped<SearchMemberCandidatesHandler>();
+        services.AddScoped<AddMemberHandler>();
+        services.AddScoped<ChangeMemberRoleHandler>();
+        services.AddScoped<RemoveMemberHandler>();
+        services.AddScoped<GetTeamMembersHandler>();
+        services.AddScoped<SearchTeamMemberCandidatesHandler>();
+        services.AddScoped<SearchNewTeamMemberCandidatesHandler>();
+        services.AddScoped<AddTeamMemberHandler>();
+        services.AddScoped<RemoveTeamMemberHandler>();
 
         // Work items (mod-003): one handler per route of WorkItemEndpoints.cs.
         services.AddScoped<GetWorkItemsHandler>();
@@ -108,15 +184,37 @@ public static class DependencyInjection
         services.AddScoped<GetWorkItemHandler>();
         services.AddScoped<SaveWorkItemHandler>();
         services.AddScoped<GetAssigneeCandidatesHandler>();
+        services.AddScoped<GetAssigneeOptionsHandler>();
 
         // Work item links (feat-001): the parent write and the «Родитель» picker, routes of WorkItemEndpoints.cs too.
         services.AddScoped<SetWorkItemParentHandler>();
         services.AddScoped<GetParentCandidatesHandler>();
 
+        // Delete and restore a work item (mod-005): routes of WorkItemEndpoints.cs too.
+        services.AddScoped<DeleteWorkItemHandler>();
+        services.AddScoped<RestoreWorkItemHandler>();
+
+        // The purge (mod-005 US-6): its handler collects the IWorkItemPurgeStep of every line that keeps data of its own
+        // (ADR-0030 rule 7); none is registered in this line, so the collection is empty.
+        services.AddScoped<PurgeWorkItemHandler>();
+
         // Boards and backlogs (mod-006): one handler per route of BoardEndpoints.cs.
         services.AddScoped<GetBacklogHandler>();
         services.AddScoped<ReorderBacklogHandler>();
         services.AddScoped<GetBoardHandler>();
+
+        // The project's own backlog, reorder and board (feat-039): the other three routes of BoardEndpoints.cs.
+        services.AddScoped<GetProjectBacklogHandler>();
+        services.AddScoped<ReorderProjectBacklogHandler>();
+        services.AddScoped<GetProjectBoardHandler>();
+
+        // The aggregate views (feat-048): the grouped counts, the group and cell pages, the organization-wide list.
+        services.AddScoped<Mustask.Application.Features.Boards.GetViewGroups.GetViewGroupsHandler>();
+        services.AddScoped<Mustask.Application.Features.Boards.GetBacklogGroupRows.GetBacklogGroupRowsHandler>();
+        services.AddScoped<Mustask.Application.Features.Boards.GetBoardCells.GetBoardCellsHandler>();
+        services.AddScoped<Mustask.Application.Features.Boards.GetWorkItemGroupRows.GetWorkItemGroupRowsHandler>();
+        services.AddScoped<Mustask.Application.Features.WorkItems.GetOrganizationWorkItems.GetOrganizationWorkItemsHandler>();
+        services.AddScoped<Mustask.Application.Features.WorkItems.GetOrganizationAssigneeOptions.GetOrganizationAssigneeOptionsHandler>();
 
         return services;
     }

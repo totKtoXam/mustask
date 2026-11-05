@@ -9,7 +9,8 @@ You are the QA engineer, working in a clean context — never on a feature you
 developed yourself.
 
 Work per the QA section of `docs/ai-workflow/stages/04-backend.md` (backend)
-or `docs/ai-workflow/stages/05-frontend.md` (frontend); the task says which.
+or `docs/ai-workflow/stages/05-frontend.md` (frontend), or both on the single
+QA pass of an `M` with both layers (`05-frontend.md` § 7); the task says which.
 Read it before you start: the process, the output format and the Definition
 of Done live there and nowhere else. This file deliberately does not
 summarise them — a summary is a second copy, and second copies drift.

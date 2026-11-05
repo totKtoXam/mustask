@@ -6,16 +6,77 @@
 # Directory.Packages.props edit does — that's a dependency graph for the
 # whole solution, not "just a config".
 #
-#   scripts/verify.sh          run the checks
-#   scripts/verify.sh --list   only show the classification
+#   scripts/verify.sh                    run the checks
+#   scripts/verify.sh --list             only show the classification
+#   VERIFY_FULL=1 scripts/verify.sh      the whole frontend suite
+#   VERIFY_TESTS=0 scripts/verify.sh     every check but the test runs
 #
-# Comparison base is main, overridden by the BASE variable.
+# Comparison base (tech-044): the BASE variable if set, else origin/main when
+# that ref exists, else main. A worktree's local `main` is the hub's and is
+# rarely fast-forwarded, so against it the diff is everything merged since: the
+# checks run (or the push waits) for code the task never touched. origin/main
+# moves with every `git fetch`; the run prints the base it used. CI sets BASE
+# itself: origin/main on a PR, the commit main pointed at before the push on a
+# push to main (.github/workflows/ci.yml).
 # An unknown path is treated as code: missing a breakage costs more than an
 # extra build.
+#
+# A test step passes on its exit code AND on what the run printed (tech-044):
+# an aborted run ("The active test run was aborted", "Test host process
+# crashed", a Vitest run that ends without its summary) fails the step even if
+# the exit code got lost on the way. See run_tests below.
+#
+# Frontend tests (tech-028): by default Vitest runs only the tests that reach
+# a file changed since the merge-base with $BASE (`vitest run --changed`), and
+# the whole suite when there is no merge-base. A change to the test harness,
+# the theme or the kit (forceRerunTriggers in vite.config.ts) runs everything
+# by itself. Tests that read sources off disk (the kit guard, the colour scan,
+# the e2e guards, the error-code readers) are found by grep and always run next
+# to the affected ones: no import ever reaches them. VERIFY_FULL=1 forces the
+# whole suite; scripts/finish-task.sh and the CI workflow (.github/workflows/
+# ci.yml, the required check on main) set it, so a merge is always gated by a
+# full run. .githooks/pre-push runs with VERIFY_TESTS=0 and only passes
+# VERIFY_FULL through (tech-041, tech-055): `VERIFY_FULL=1 git push` for a full
+# one. A full run holds a lock in the shared git directory
+# (<git-common-dir>/vitest-full.lock): one full run at a time across all
+# worktrees, the rest wait. A lock older than 60 minutes or held by a dead
+# process is taken over. Affected-only runs take no lock.
+#
+# Green stamp (tech-030): a green VERIFY_FULL=1 run on a clean tree (and the
+# tree still the same when the checks end), with no check skipped, writes
+# <git-common-dir>/verify-stamps/<tree>-<merge-base>. The next VERIFY_FULL=1
+# run of the same tree and merge-base — the same code, a clean working tree —
+# returns green at once, so QA, review, finish-task.sh and a `VERIFY_FULL=1 git
+# push` do not repeat a suite that already passed. It is a statement about the
+# code on this machine: the stamp lives in the git directory every worktree
+# shares, but node_modules, ignored local files and Docker are each worktree's
+# own, so after changing the environment run with VERIFY_FORCE=1. A run that
+# goes on (forced, or a miss) deletes the old stamp first: a red or partial run
+# never leaves a green one behind.
+#
+# No test runs (tech-055): VERIFY_TESTS=0 keeps every check but the test runs —
+# the builds, lint, prose, agent instructions, shell, CI YAML. The backend and
+# frontend suites and the KeycloakLive tests are left to CI, which runs them
+# all on the PR. .githooks/pre-push sets it: a push used to rerun the tests of
+# the whole branch diff, up to hours on a full-stack branch, and failed on
+# timing-sensitive tests under load. VERIFY_FULL=1 wins over it.
 
 set -eu
 
-BASE=${BASE:-main}
+# An explicit BASE wins (an empty one counts as unset).
+if [ -z "${BASE:-}" ]; then
+    if git rev-parse --verify -q origin/main >/dev/null 2>&1; then
+        BASE=origin/main
+    else
+        BASE=main
+    fi
+fi
+VERIFY_FULL=${VERIFY_FULL:-0}
+VERIFY_TESTS=${VERIFY_TESTS:-1}
+[ "$VERIFY_FULL" = 1 ] && VERIFY_TESTS=1
+# The fast tier (npm run test:fast, tech-029) is a development aid: whatever
+# the caller exported, a verification never runs with it.
+unset VITEST_FAST
 LIST_ONLY=0
 [ "${1:-}" = "--list" ] && LIST_ONLY=1
 
@@ -43,18 +104,181 @@ find_python() {
     return 1
 }
 
-PYTHON_COMMAND=$(find_python || true)
+# VERIFY_PYTHON overrides the search (an empty value means "no python"): the
+# stamp cases need a run that skips a check.
+if [ "${VERIFY_PYTHON+set}" = set ]; then
+    PYTHON_COMMAND=$VERIFY_PYTHON
+else
+    PYTHON_COMMAND=$(find_python || true)
+fi
 
 failed=""
 passed=""
 
 note() { printf "%s\n" "$1"; }
+# A check that could not run (no Docker, no python, ...): the run may still be
+# green, but it must not leave a stamp that says the tree was fully verified.
+unchecked=0
+skipped() { unchecked=1; note "$1"; }
 fail() { failed="$failed  - $1
 "; printf "  FAIL: %s\n" "$1" >&2; }
+# A temp path native tools understand: on Git for Windows, dotnet and node get
+# C:/... instead of the MSYS /tmp/... (tech-046's coverage folders).
+native_path() { if command -v cygpath >/dev/null 2>&1; then cygpath -m "$1"; else printf "%s" "$1"; fi; }
 pass() { passed="$passed  - $1
 "; printf "  ok: %s\n" "$1"; }
 
+# --- A test run's verdict (tech-044) --------------------------------------------------
+# run_tests KIND COMMAND [ARG...]   (KIND: dotnet | vitest)
+# Streams the output as it comes and returns 0 only if the command exited 0 AND
+# the output shows a run that reached its end. A run that aborts must not pass:
+#   dotnet  "The active test run was aborted" / "Test host process crashed" /
+#           "Test Run Aborted" in the output, whatever the exit code says. The
+#           CLI and VSTest print in the host's language (Russian on the
+#           maintainer's machine), where those English words would never
+#           match, so the run is made English: DOTNET_CLI_UI_LANGUAGE and
+#           VSLANG are set for the command only.
+#   vitest  no "Test Files ... passed|failed|skipped" summary and no "No test
+#           files found" (--passWithNoTests): the runner died mid-run. Vitest
+#           colours its output even into a pipe, hence the loose pattern.
+# The exit code travels through a file: `cmd | tee` would report tee's. A
+# function called from `if` runs without errexit, so the codes are explicit.
+run_tests() {
+    rt_kind=$1
+    shift
+    rt_log=$(mktemp)
+    rt_code_file=$(mktemp)
+    {
+        if [ "$rt_kind" = dotnet ]; then
+            DOTNET_CLI_UI_LANGUAGE=en
+            VSLANG=1033
+            export DOTNET_CLI_UI_LANGUAGE VSLANG
+        fi
+        rt_code=0
+        "$@" || rt_code=$?
+        printf '%s\n' "$rt_code" > "$rt_code_file"
+    } 2>&1 | tee "$rt_log"
+    rt_code=$(head -n 1 "$rt_code_file" 2>/dev/null | tr -d '\r\n')
+    rt_ok=0
+    if [ -z "$rt_code" ]; then
+        printf "  test run: no exit code was recorded, counting it as failed\n" >&2
+        rt_ok=1
+    elif [ "$rt_code" != 0 ]; then
+        rt_ok=1
+    else
+        case "$rt_kind" in
+            dotnet)
+                if grep -Eq "The active test run was aborted|Test host process crashed|Test Run Aborted" "$rt_log"; then
+                    printf "  test run: aborted (the output says so, exit code %s), counting it as failed\n" "$rt_code" >&2
+                    rt_ok=1
+                fi
+                ;;
+            vitest)
+                if ! grep -Eq "Test Files.*[0-9]+ (passed|failed|skipped)|No test files found" "$rt_log"; then
+                    printf "  test run: no Vitest summary (exit code %s), the run did not finish, counting it as failed\n" "$rt_code" >&2
+                    rt_ok=1
+                fi
+                ;;
+        esac
+    fi
+    rm -f "$rt_log" "$rt_code_file"
+    return "$rt_ok"
+}
+
 merge_base=$(git merge-base HEAD "$BASE" 2>/dev/null || echo "")
+if [ -n "$merge_base" ]; then
+    note "Comparing with $BASE (merge-base $(printf '%.9s' "$merge_base"))"
+else
+    note "Comparing with $BASE (no merge-base: only uncommitted and untracked files count)"
+fi
+
+# --- One full Vitest run at a time ---------------------------------------------------
+# Several agents in several worktrees each running the whole jsdom suite
+# starve each other of cores and turn timeouts into false failures. The lock is
+# a directory (mkdir is atomic) in the git directory all worktrees share, with
+# owner.txt: pid, worktree, start time (epoch seconds). Waiting is unbounded
+# on purpose, but a lock never outlives its owner or an hour.
+vitest_lock_dir=""
+vitest_lock_held=0
+vitest_lock_max_age=3600
+
+vitest_lock_field() { sed -n "s/^$1: //p" "$vitest_lock_dir/owner.txt" 2>/dev/null | head -n 1; }
+
+vitest_lock_release() {
+    [ "$vitest_lock_held" = 1 ] || return 0
+    vitest_lock_held=0
+    # Only our own: after a takeover the directory belongs to someone else.
+    [ "$(vitest_lock_field pid)" = "$$" ] && rm -rf "$vitest_lock_dir"
+    return 0
+}
+
+vitest_lock_acquire() {
+    common=$(git rev-parse --path-format=absolute --git-common-dir 2>/dev/null || true)
+    if [ -z "$common" ]; then
+        note "  no git directory — the full run goes without a lock"
+        return 0
+    fi
+    vitest_lock_dir="$common/vitest-full.lock"
+    trap vitest_lock_release EXIT
+    trap 'exit 130' INT TERM
+    waited=0
+    unreadable=0
+    while :; do
+        if mkdir "$vitest_lock_dir" 2>/dev/null; then
+            {
+                printf "pid: %s\n" "$$"
+                printf "worktree: %s\n" "$(git rev-parse --show-toplevel)"
+                printf "started: %s\n" "$(date +%s)"
+            } > "$vitest_lock_dir/owner.txt"
+            vitest_lock_held=1
+            return 0
+        fi
+        owner_pid=$(vitest_lock_field pid)
+        owner_started=$(vitest_lock_field started)
+        stale=""
+        if [ -z "$owner_pid" ] || [ -z "$owner_started" ]; then
+            # Between the owner's mkdir and its owner.txt, or a broken lock:
+            # give the first a moment, then treat it as the second.
+            unreadable=$((unreadable + 1))
+            [ "$unreadable" -gt 10 ] && stale="no owner.txt"
+        else
+            unreadable=0
+            now=$(date +%s)
+            if [ $((now - owner_started)) -gt "$vitest_lock_max_age" ]; then
+                stale="held for over 60 minutes by pid $owner_pid"
+            elif ! kill -0 "$owner_pid" 2>/dev/null; then
+                stale="owner pid $owner_pid is dead"
+            fi
+        fi
+        if [ -n "$stale" ]; then
+            # rename is atomic: of several waiters that all judged the lock
+            # stale only one gets the directory, and it checks below whose
+            # it was. A `kill -0` blind spot remains: a pid written by a
+            # different runtime (WSL bash) looks dead — the 60 minutes still
+            # bound it.
+            grave="$vitest_lock_dir.stale.$$"
+            if mv "$vitest_lock_dir" "$grave" 2>/dev/null; then
+                # We may have renamed a lock another waiter took in between:
+                # check whom the renamed directory belonged to, and put a
+                # live one back (best effort — a third mkdir may have won).
+                grave_pid=$(sed -n "s/^pid: //p" "$grave/owner.txt" 2>/dev/null | head -n 1)
+                if [ "$grave_pid" = "$owner_pid" ] || [ -z "$owner_pid" ]; then
+                    note "  stale full-run lock removed ($stale)"
+                    rm -rf "$grave"
+                elif ! mv "$grave" "$vitest_lock_dir" 2>/dev/null; then
+                    rm -rf "$grave"
+                fi
+            fi
+            unreadable=0
+            continue
+        fi
+        if [ $((waited % 30)) -eq 0 ]; then
+            note "  waiting for another full run: pid $owner_pid in $(vitest_lock_field worktree)"
+        fi
+        sleep 2
+        waited=$((waited + 2))
+    done
+}
 
 changed=$(
     {
@@ -76,9 +300,9 @@ fi
 # ci       CI workflow
 # dotnet   code and everything that participates in the backend build
 # frontend frontend code and configuration
-# provider the Keycloak provider and the image that carries it (ADR-0025):
-#          built and unit-tested in Docker, then the .NET tests tagged
-#          KeycloakProvider — Docker is required, not optional
+# keycloak the Keycloak image and its realm import: the .NET tests tagged
+#          KeycloakLive start a real Keycloak (tech-025 retired the provider
+#          that used to be built here) — Docker is required, not optional
 classify() {
     case "$1" in
         .githooks/*|scripts/*|*.sh)                  echo shell ;;
@@ -91,14 +315,17 @@ classify() {
         src/*/AGENTS.md|src/*/CLAUDE.md)             echo agents ;;
         src/frontend/*)                              echo frontend ;;
         contracts/errors/*)                          echo dotnet ;;
-        # The Keycloak provider (mod-014, ADR-0025 § 1): Java built and
-        # tested only inside the image build — before the other
-        # deploy/keycloak patterns.
-        deploy/keycloak/providers/*|deploy/keycloak/Dockerfile|deploy/keycloak/.dockerignore)
-                                                     echo provider ;;
+        # The Keycloak image: only a real build and start shows whether it
+        # works — before the other deploy/keycloak patterns.
+        deploy/keycloak/Dockerfile|deploy/keycloak/.dockerignore)
+                                                     echo "dotnet keycloak" ;;
         # Keycloak realm-import — a contract artifact: checked by
-        # KeycloakRealmRolesTests from Mustask.Contracts.Tests.
-        deploy/keycloak/realms/*)                    echo dotnet ;;
+        # KeycloakRealmRolesTests from Mustask.Contracts.Tests (dotnet) — and
+        # imported by a real Keycloak, which no file test can promise (mod-016
+        # D-16 OP-10: an import Keycloak rejects only shows when it is
+        # started): the keycloak bucket runs the live tests tagged
+        # KeycloakLive, LiveRealmImportTests among them. Two buckets.
+        deploy/keycloak/realms/*)                    echo "dotnet keycloak" ;;
         # Login themes: KeycloakRealmRolesTests checks that the theme exists
         # and that the files listed in its `styles` exist. It can't check how
         # the page looks — after a Keycloak version bump it still needs a
@@ -119,29 +346,32 @@ need_shell=0
 need_ci=0
 need_dotnet=0
 need_frontend=0
-need_provider=0
+need_keycloak=0
 
 note "Changed files:"
 for file in $changed; do
-    bucket=$(classify "$file")
-    printf "  %-9s %s\n" "$bucket" "$file"
-    case "$bucket" in
-        prose)    need_prose=1 ;;
-        agents)
-            need_prose=1
-            need_agents=1
-            case "$file" in .codex/hooks/*.ps1) need_shell=1 ;; esac
-            ;;
-        shell)    need_shell=1 ;;
-        ci)       need_ci=1 ;;
-        dotnet)   need_dotnet=1 ;;
-        frontend) need_frontend=1 ;;
-        provider) need_provider=1 ;;
-    esac
+    buckets=$(classify "$file")
+    printf "  %-9s %s\n" "$buckets" "$file"
+    # A file may belong to more than one bucket (a realm import: dotnet and keycloak).
+    for bucket in $buckets; do
+        case "$bucket" in
+            prose)    need_prose=1 ;;
+            agents)
+                need_prose=1
+                need_agents=1
+                case "$file" in .codex/hooks/*.ps1) need_shell=1 ;; esac
+                ;;
+            shell)    need_shell=1 ;;
+            ci)       need_ci=1 ;;
+            dotnet)   need_dotnet=1 ;;
+            frontend) need_frontend=1 ;;
+            keycloak) need_keycloak=1 ;;
+        esac
+    done
 done
 
 note ""
-if [ "$need_prose$need_agents$need_shell$need_ci$need_dotnet$need_frontend$need_provider" = "0000000" ]; then
+if [ "$need_prose$need_agents$need_shell$need_ci$need_dotnet$need_frontend$need_keycloak" = "0000000" ]; then
     note "No checks needed: the changes affect nothing."
     [ "$LIST_ONLY" = 1 ] && exit 0
     note ""
@@ -150,6 +380,44 @@ if [ "$need_prose$need_agents$need_shell$need_ci$need_dotnet$need_frontend$need_
 fi
 
 [ "$LIST_ONLY" = 1 ] && exit 0
+
+# --- The green stamp (tech-030) ---------------------------------------------------
+# A green VERIFY_FULL=1 run on a clean tree leaves a stamp keyed by the tree
+# hash and the merge-base (the second decides which buckets ran). The same
+# code, tested once: finish-task.sh and a pre-push with VERIFY_FULL=1 find it
+# and do not repeat the run. VERIFY_FORCE=1 ignores it. Never written from a
+# dirty tree or from a run that skipped a check.
+# Is the working tree exactly HEAD? By the exit code of `git status`, not by its
+# silence (a failing `git status` prints nothing), and without files flagged
+# assume-unchanged / skip-worktree, which `git status` hides.
+tree_is_clean() {
+    porcelain=$(git status --porcelain 2>/dev/null) || return 1
+    [ -z "$porcelain" ] || return 1
+    hidden=$(git ls-files -v 2>/dev/null | grep -E '^[hS] ' || true)
+    [ -z "$hidden" ]
+}
+
+stamp_file=""
+stamp_tree=""
+stamp_commit=""
+common_dir=$(git rev-parse --path-format=absolute --git-common-dir 2>/dev/null || true)
+if [ "$VERIFY_FULL" = 1 ] && [ -n "$common_dir" ] && tree_is_clean; then
+    stamp_tree=$(git rev-parse "HEAD^{tree}" 2>/dev/null || true)
+    stamp_commit=$(git rev-parse HEAD 2>/dev/null || true)
+    if [ -n "$stamp_tree" ]; then
+        stamp_file="$common_dir/verify-stamps/$stamp_tree-$(printf '%.12s' "${merge_base:-none}")"
+        if [ "${VERIFY_FORCE:-0}" != 1 ] && [ -f "$stamp_file" ]; then
+            note "Already verified green: this tree and merge-base passed a full run on this machine (VERIFY_FORCE=1 to repeat)."
+            sed 's/^/  /' "$stamp_file"
+            note ""
+            note "RESULT: green"
+            exit 0
+        fi
+        # A run that goes on is a new verdict: the old stamp must not outlive a
+        # red or partial one (`VERIFY_FORCE=1` that fails, a check that skips).
+        rm -f "$stamp_file"
+    fi
+fi
 
 # --- Prose ----------------------------------------------------------------------
 if [ "$need_prose" = 1 ]; then
@@ -302,7 +570,7 @@ if [ "$need_agents" = 1 ]; then
             pass "JSON in AI configuration is valid"
         fi
     else
-        note "  NOT CHECKED: no python, AI configuration JSON needs a manual check"
+        skipped "  NOT CHECKED: no python, AI configuration JSON needs a manual check"
     fi
 
     if [ -n "$PYTHON_COMMAND" ]; then
@@ -312,7 +580,7 @@ if [ "$need_agents" = 1 ]; then
             fail "Claude Code/Codex AI workflow compatibility"
         fi
     else
-        note "  NOT CHECKED: no python, AI workflow adapters not checked"
+        skipped "  NOT CHECKED: no python, AI workflow adapters not checked"
     fi
 
     touches_hooks=0
@@ -335,7 +603,7 @@ if [ "$need_agents" = 1 ]; then
                 fail "offline table .claude/hooks/tests/run_adapter_cases.py"
             fi
         else
-            note "  NOT CHECKED: no python, hook offline tables not run"
+            skipped "  NOT CHECKED: no python, hook offline tables not run"
         fi
 
         codex_ps_command=""
@@ -351,7 +619,7 @@ if [ "$need_agents" = 1 ]; then
                 fail "Codex Windows hook: Bash to PowerShell adapter"
             fi
         else
-            note "  NOT CHECKED: no PowerShell, Windows hook adapter not run"
+            skipped "  NOT CHECKED: no PowerShell, Windows hook adapter not run"
         fi
     fi
 fi
@@ -363,22 +631,51 @@ if [ "$need_shell" = 1 ]; then
         [ -f "$file" ] || continue
         case "$file" in
             .githooks/*|*.sh)
-                sh -n "$file" 2>/dev/null || bad="$bad $file(syntax)"
-                [ -x "$file" ] || bad="$bad $file(not executable)"
+                # The syntax is read by the interpreter the shebang names (tech-039).
+                # `sh -n` on a bash script fails where sh is dash (the Linux CI)
+                # and passes where sh is bash (Git Bash), so a bash-only script
+                # was green here and red in CI.
+                case "$(head -n 1 "$file" | tr -d '\r')" in
+                    '#!/usr/bin/env bash'*|'#!/bin/bash'*|'#!/usr/bin/bash'*)
+                        if command -v bash >/dev/null 2>&1; then
+                            bash -n "$file" 2>/dev/null || bad="$bad $file(syntax)"
+                        else
+                            skipped "  NOT CHECKED: no bash, $file syntax not checked"
+                        fi
+                        ;;
+                    *) sh -n "$file" 2>/dev/null || bad="$bad $file(syntax)" ;;
+                esac
+                # The executable bit is the mode git holds, which is what the
+                # Linux CI checkout and every clone get (tech-039). `[ -x ]`
+                # reads the working tree, and on Windows it answers yes for any
+                # *.sh or shebang file whatever the index says: a script
+                # committed as 100644 passed here and failed in CI. A file that
+                # is not in the index yet has only the working tree to ask.
+                mode=$(git ls-files -s -- "$file" 2>/dev/null | head -n 1 | cut -d' ' -f1)
+                if [ -n "$mode" ]; then
+                    [ "$mode" = 100755 ] || bad="$bad $file(mode $mode, not executable: git update-index --chmod=+x)"
+                else
+                    [ -x "$file" ] || bad="$bad $file(not executable)"
+                fi
                 ;;
             *.py)
                 if [ -n "$PYTHON_COMMAND" ]; then
                     "$PYTHON_COMMAND" -c "import ast, pathlib, sys; ast.parse(pathlib.Path(sys.argv[1]).read_text(encoding='utf-8'))" "$file" 2>/dev/null \
                         || bad="$bad $file(syntax)"
+                else
+                    skipped "  NOT CHECKED: no python, $file syntax not checked"
                 fi
                 ;;
             *.ps1)
+                ps_found=0
                 for ps_command in pwsh powershell.exe; do
                     command -v "$ps_command" >/dev/null 2>&1 || continue
+                    ps_found=1
                     "$ps_command" -NoProfile -Command \
                         '& { param([string]$Path) $tokens=$null; $errors=$null; [System.Management.Automation.Language.Parser]::ParseFile($Path, [ref]$tokens, [ref]$errors) | Out-Null; if ($errors.Count) { $errors | ForEach-Object { [Console]::Error.WriteLine($_.Message) }; exit 1 } }' \
                         "$file" || bad="$bad $file($ps_command syntax)"
                 done
+                [ "$ps_found" = 1 ] || skipped "  NOT CHECKED: no PowerShell, $file syntax not checked"
                 ;;
         esac
     done
@@ -400,7 +697,7 @@ if [ "$need_shell" = 1 ]; then
         MINGW*|MSYS*|CYGWIN*) ;;
         *)
             if [ "$touches_wrappers" = 1 ]; then
-                note "  NOT CHECKED: not Windows, invoke-sh.ps1 cases not run"
+                skipped "  NOT CHECKED: not Windows, invoke-sh.ps1 cases not run"
             fi
             touches_wrappers=0
             ;;
@@ -419,7 +716,7 @@ if [ "$need_shell" = 1 ]; then
                 fail "PowerShell wrappers: invoke-sh.ps1 cases"
             fi
         else
-            note "  NOT CHECKED: no PowerShell, invoke-sh.ps1 cases not run"
+            skipped "  NOT CHECKED: no PowerShell, invoke-sh.ps1 cases not run"
         fi
     fi
 
@@ -433,6 +730,66 @@ if [ "$need_shell" = 1 ]; then
             pass "handoff.sh: short-id resolution cases"
         else
             fail "handoff.sh: short-id resolution cases"
+        fi
+    fi
+
+    # Queue numbering: which numbers are taken, so what queue.sh add and
+    # new-task.sh hot may issue (tech-034).
+    touches_numbering=0
+    for file in $changed; do
+        case "$file" in
+            scripts/backlog.sh|scripts/queue.sh|scripts/new-task.sh|scripts/tests/queue-numbering-cases.sh)
+                touches_numbering=1 ;;
+        esac
+    done
+    if [ "$touches_numbering" = 1 ]; then
+        if sh scripts/tests/queue-numbering-cases.sh; then
+            pass "queue numbering: taken-number cases"
+        else
+            fail "queue numbering: taken-number cases"
+        fi
+    fi
+
+    # queue.sh lands the queue through a PR, not on the local main (tech-049).
+    touches_queue=0
+    for file in $changed; do
+        case "$file" in scripts/queue.sh|scripts/tests/queue-cases.sh) touches_queue=1 ;; esac
+    done
+    if [ "$touches_queue" = 1 ]; then
+        if sh scripts/tests/queue-cases.sh; then
+            pass "queue.sh: PR landing cases"
+        else
+            fail "queue.sh: PR landing cases"
+        fi
+    fi
+
+    # The comparison base and an aborted test run (tech-044): the cases run a
+    # nested verify.sh in a throwaway repository with stubs for dotnet, docker
+    # and npm.
+    touches_base=0
+    for file in $changed; do
+        case "$file" in scripts/verify.sh|scripts/tests/verify-base-and-abort-cases.sh) touches_base=1 ;; esac
+    done
+    if [ "$touches_base" = 1 ]; then
+        if sh scripts/tests/verify-base-and-abort-cases.sh; then
+            pass "verify.sh: comparison base and aborted test run cases"
+        else
+            fail "verify.sh: comparison base and aborted test run cases"
+        fi
+    fi
+
+    # The green stamp of this very script (tech-030): the cases run a nested
+    # verify.sh in a throwaway repository, so they are cheap and never touch the
+    # real stamps.
+    touches_stamp=0
+    for file in $changed; do
+        case "$file" in scripts/verify.sh|scripts/tests/verify-stamp-cases.sh) touches_stamp=1 ;; esac
+    done
+    if [ "$touches_stamp" = 1 ]; then
+        if sh scripts/tests/verify-stamp-cases.sh; then
+            pass "verify.sh: green stamp cases"
+        else
+            fail "verify.sh: green stamp cases"
         fi
     fi
 fi
@@ -453,7 +810,7 @@ if [ "$need_ci" = 1 ]; then
             pass "CI workflow: YAML is valid"
         fi
     else
-        note "  NOT CHECKED: no python with PyYAML, CI workflow needs a manual check"
+        skipped "  NOT CHECKED: no python with PyYAML, CI workflow needs a manual check"
     fi
 fi
 
@@ -463,14 +820,27 @@ if [ "$need_dotnet" = 1 ]; then
         fail "dotnet not found, backend build not checked"
     elif dotnet build Mustask.sln --nologo -v q; then
         pass "backend build"
-        if docker info >/dev/null 2>&1; then
-            if dotnet test Mustask.sln --no-build --nologo -v q; then
+        if [ "$VERIFY_TESTS" = 0 ]; then
+            note "  backend tests: not run (VERIFY_TESTS=0), CI runs them"
+        elif docker info >/dev/null 2>&1; then
+            # Coverage is collected only here, where every test project runs:
+            # without Docker the floors would read a partial run (tech-046).
+            backend_cov=$(native_path "$(mktemp -d)")
+            if run_tests dotnet dotnet test Mustask.sln --no-build --nologo -v q \
+                --collect "XPlat Code Coverage" --settings src/backend/coverage.runsettings \
+                -p:MustaskCoverageDir="$backend_cov"; then
                 pass "backend tests, including integration"
+                if node scripts/coverage-gate.mjs backend "$backend_cov"; then
+                    pass "backend coverage floors"
+                else
+                    fail "backend coverage below a floor (scripts/coverage-floors.json)"
+                fi
             else
                 fail "backend tests"
             fi
+            rm -rf "$backend_cov"
         else
-            note "  Docker not running: skipping integration tests, running the rest"
+            skipped "  Docker not running: skipping integration tests, running the rest"
             for project in src/backend/tests/*/; do
                 case "$project" in *IntegrationTests/) continue ;; esac
                 [ -d "$project" ] || continue
@@ -478,53 +848,45 @@ if [ "$need_dotnet" = 1 ]; then
                 # The RequiresDocker trait also shows up outside
                 # *IntegrationTests (e.g. MigrationsTests in
                 # Mustask.Infrastructure.Tests).
-                if dotnet test "$project" --no-build --nologo -v q --filter "Category!=RequiresDocker"; then
+                if run_tests dotnet dotnet test "$project" --no-build --nologo -v q --filter "Category!=RequiresDocker"; then
                     pass "tests ${project%/}"
                 else
                     fail "tests ${project%/}"
                 fi
             done
-            note "  NOT CHECKED: integration tests, Docker required"
+            skipped "  NOT CHECKED: integration tests, Docker required"
         fi
     else
         fail "backend build"
     fi
 fi
 
-# --- Keycloak provider -----------------------------------------------------------
-# ADR-0025 § 1: a provider change verified by nothing is what the NFR forbids,
-# so without Docker this bucket fails instead of printing "not checked".
-if [ "$need_provider" = 1 ]; then
+# --- Keycloak -------------------------------------------------------------------
+# The live realm tests start the stand's image with the repository's realm import (the image
+# is built by the test itself). A realm or image change verified by nothing real is what they
+# exist to prevent, so without Docker this bucket fails instead of printing "not checked".
+if [ "$need_keycloak" = 1 ] && [ "$VERIFY_TESTS" = 0 ]; then
+    note "  KeycloakLive tests: not run (VERIFY_TESTS=0), CI runs them"
+elif [ "$need_keycloak" = 1 ]; then
     if ! docker info >/dev/null 2>&1; then
-        fail "Docker is required to verify the Keycloak provider (deploy/keycloak/providers, ADR-0025)"
+        fail "Docker is required to verify the Keycloak image and realm import (deploy/keycloak)"
     else
-        provider_log=$(mktemp)
-        if DOCKER_BUILDKIT=1 docker build --progress=plain --target provider deploy/keycloak >"$provider_log" 2>&1; then
-            grep -E "Tests run: [0-9]+, Failures" "$provider_log" | tail -n 1 | sed "s/^/    /"
-            pass "Keycloak provider: compile, unit tests, read-only guard (docker build --target provider)"
-        else
-            tail -n 60 "$provider_log" | sed "s/^/    /" >&2
-            fail "Keycloak provider: docker build --target provider"
-        fi
-        rm -f "$provider_log"
-
-        provider_built=1
+        keycloak_built=1
         if [ "$need_dotnet" != 1 ]; then
             if ! command -v dotnet >/dev/null 2>&1 || ! dotnet build Mustask.sln --nologo -v q; then
-                fail "backend build (for the KeycloakProvider tests)"
-                provider_built=0
+                fail "backend build (for the KeycloakLive tests)"
+                keycloak_built=0
             fi
         fi
-        if [ "$provider_built" = 1 ]; then
-            provider_tests_ok=1
-            for project in src/backend/tests/Mustask.Contracts.Tests src/backend/tests/Mustask.Api.IntegrationTests; do
-                MUSTASK_KEYCLOAK_PROVIDER_TESTS=1 dotnet test "$project" --no-build --nologo -v q \
-                    --filter "Category=KeycloakProvider" || provider_tests_ok=0
+        if [ "$keycloak_built" = 1 ]; then
+            keycloak_tests_ok=1
+            for project in src/backend/tests/Mustask.Api.IntegrationTests; do
+                run_tests dotnet env MUSTASK_KEYCLOAK_LIVE_TESTS=1 dotnet test "$project" --no-build --nologo -v q --filter "Category=KeycloakLive" || keycloak_tests_ok=0
             done
-            if [ "$provider_tests_ok" = 1 ]; then
-                pass ".NET tests tagged KeycloakProvider (shared signature vectors, image, live provider)"
+            if [ "$keycloak_tests_ok" = 1 ]; then
+                pass ".NET tests tagged KeycloakLive (the real Keycloak with the repository's realm import)"
             else
-                fail ".NET tests tagged KeycloakProvider"
+                fail ".NET tests tagged KeycloakLive"
             fi
         fi
     fi
@@ -551,10 +913,54 @@ if [ "$need_frontend" = 1 ]; then
         else
             fail "build $app"
         fi
-        if (cd "$app" && npm test --if-present -- --run); then
-            pass "tests $app"
+        # Every Vitest run goes through run_tests: its summary is part of the verdict.
+        frontend_tests() { (cd "$app" && npm test --if-present -- --run "$@"); }
+        if [ "$VERIFY_TESTS" = 0 ]; then
+            note "  tests $app: not run (VERIFY_TESTS=0), CI runs them"
+        elif [ "$VERIFY_FULL" = 1 ] || [ -z "$merge_base" ]; then
+            if [ "$VERIFY_FULL" = 1 ]; then
+                note "  tests $app: the whole suite (VERIFY_FULL=1)"
+            else
+                note "  tests $app: the whole suite (no merge-base with $BASE)"
+            fi
+            # The whole suite is the only run whose coverage means anything,
+            # so the floor is checked here and nowhere else (tech-046).
+            frontend_cov=$(native_path "$(mktemp -d)")
+            vitest_lock_acquire
+            if run_tests vitest frontend_tests --coverage --coverage.reportsDirectory="$frontend_cov"; then
+                vitest_lock_release
+                pass "tests $app"
+                if node scripts/coverage-gate.mjs frontend "$frontend_cov/coverage-summary.json"; then
+                    pass "frontend coverage floor"
+                else
+                    fail "frontend coverage below its floor (scripts/coverage-floors.json)"
+                fi
+            else
+                vitest_lock_release
+                fail "tests $app"
+            fi
+            rm -rf "$frontend_cov"
         else
-            fail "tests $app"
+            # --passWithNoTests: a change that no test reaches is not a failure.
+            note "  tests $app: only those reaching changes since $(printf '%.9s' "$merge_base") (VERIFY_FULL=1 for the whole suite)"
+            if run_tests vitest frontend_tests --changed "$merge_base" --passWithNoTests; then
+                pass "tests $app (affected)"
+            else
+                fail "tests $app (affected)"
+            fi
+            # `--changed` follows imports, and these tests read sources, the
+            # error-code contracts or other tests off disk instead: no
+            # change would ever "reach" them, so they always run (the kit
+            # guard, the colour scan, the e2e guards, the contract readers).
+            guards=$(cd "$app" && grep -rlE "node:fs|from 'fs'|readFileSync|readdirSync" src --include='*.test.ts' --include='*.test.tsx' 2>/dev/null | sort || true)
+            if [ -n "$guards" ]; then
+                # shellcheck disable=SC2086 -- file names have no spaces
+                if run_tests vitest frontend_tests $guards; then
+                    pass "tests $app (source-reading guards, always run)"
+                else
+                    fail "tests $app (source-reading guards)"
+                fi
+            fi
         fi
     done
 fi
@@ -564,6 +970,25 @@ if [ -n "$failed" ]; then
     note "RESULT: failed"
     printf "%s" "$failed"
     exit 1
+fi
+
+if [ -n "$stamp_file" ] && [ "$unchecked" = 0 ]; then
+    # The run lasted minutes: stamp only if the tree is still the one that was
+    # tested — same commit, same tree, still clean.
+    if [ "$(git rev-parse HEAD 2>/dev/null)" = "$stamp_commit" ] &&
+       [ "$(git rev-parse 'HEAD^{tree}' 2>/dev/null)" = "$stamp_tree" ] && tree_is_clean; then
+        mkdir -p "$(dirname "$stamp_file")" 2>/dev/null &&
+        {
+            printf "verified: %s\n" "$(date '+%Y-%m-%d %H:%M:%S')"
+            printf "branch:   %s\n" "$(git rev-parse --abbrev-ref HEAD 2>/dev/null)"
+            printf "commit:   %s\n" "$stamp_commit"
+            printf "base:     %s\n" "${merge_base:-none}"
+        } > "$stamp_file" 2>/dev/null || true
+    else
+        note "  no green stamp: the tree changed while the checks ran"
+    fi
+    # Stamps for trees nobody asks about any more.
+    find "$(dirname "$stamp_file")" -type f -mtime +30 -exec rm -f {} + 2>/dev/null || true
 fi
 
 note "RESULT: green"

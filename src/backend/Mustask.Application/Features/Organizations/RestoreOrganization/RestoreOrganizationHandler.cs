@@ -8,14 +8,14 @@ namespace Mustask.Application.Features.Organizations.RestoreOrganization;
 /// <summary>
 /// <c>POST /api/organizations/{organizationId}/restore</c> (US-2 "The organization is
 /// restored exactly as it was"). It is the one request a deactivated organization
-/// accepts, so the organization-context filter lets a deactivated organization
+/// accepts, so the scoped check lets a deactivated organization
 /// through on this route only (plan-backend § 7.3).
 /// </summary>
 /// <remarks>
 /// <para>
 /// <b>What it writes.</b> One row: the organization's own status (ADR-0026 rule 2).
 /// Nothing beneath is read or changed, so a project that was deactivated on its
-/// own before the organization stays deactivated, and the teams, the default areas
+/// own before the organization stays deactivated, and the teams, the default-team setting
 /// and the area trees come back through reachability alone, as they were
 /// (BR-M1-20). Restoring an active organization changes nothing and answers the
 /// same (api-contract § 1.7).

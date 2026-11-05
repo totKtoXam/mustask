@@ -61,7 +61,7 @@ describe('LanguageFormPage — доступ', () => {
   });
 
   it('с languages.write форма создания рендерится', async () => {
-    server.use(tokenHandler([dictionariesPermissions.languagesWrite]));
+    server.use(tokenHandler([dictionariesPermissions.languagesRead, dictionariesPermissions.languagesWrite]));
     renderForm('/dictionaries/languages/new');
 
     expect(await screen.findByText('Добавить язык')).toBeInTheDocument();
@@ -74,7 +74,7 @@ describe('LanguageFormPage — создание', () => {
   it('успешное создание переходит на форму редактирования только что созданного языка', async () => {
     const user = userEvent.setup();
     server.use(
-      tokenHandler([dictionariesPermissions.languagesWrite]),
+      tokenHandler([dictionariesPermissions.languagesRead, dictionariesPermissions.languagesWrite]),
       http.post(`${api}/api/dictionaries/languages`, async ({ request }) => {
         const body = (await request.json()) as { code: string; endonym?: string; sortOrder?: number };
         return HttpResponse.json(
@@ -122,7 +122,7 @@ describe('LanguageFormPage — создание', () => {
   it('дублирующийся код отклоняется на поле «Код», без перехода на другой экран', async () => {
     const user = userEvent.setup();
     server.use(
-      tokenHandler([dictionariesPermissions.languagesWrite]),
+      tokenHandler([dictionariesPermissions.languagesRead, dictionariesPermissions.languagesWrite]),
       http.post(`${api}/api/dictionaries/languages`, () =>
         HttpResponse.json(
           { errorCode: 'dictionaries.languages.already_exists', detail: 'Язык с кодом «ru» уже существует.' },
@@ -144,7 +144,7 @@ describe('LanguageFormPage — создание', () => {
     const user = userEvent.setup();
     let postCalled = false;
     server.use(
-      tokenHandler([dictionariesPermissions.languagesWrite]),
+      tokenHandler([dictionariesPermissions.languagesRead, dictionariesPermissions.languagesWrite]),
       http.post(`${api}/api/dictionaries/languages`, () => {
         postCalled = true;
         return HttpResponse.json({}, { status: 201 });
@@ -168,7 +168,7 @@ describe('LanguageFormPage — создание', () => {
 describe('LanguageFormPage — редактирование', () => {
   it('во время начальной загрузки показывает скелетон формы', async () => {
     server.use(
-      tokenHandler([dictionariesPermissions.languagesWrite]),
+      tokenHandler([dictionariesPermissions.languagesRead, dictionariesPermissions.languagesWrite]),
       http.get(`${api}/api/dictionaries/languages`, async () => {
         await new Promise((resolve) => setTimeout(resolve, 50));
         return HttpResponse.json({ count: 1, data: [ru] });
@@ -188,7 +188,7 @@ describe('LanguageFormPage — редактирование', () => {
     // success and the retry button never appeared.
     let failing = true;
     server.use(
-      tokenHandler([dictionariesPermissions.languagesWrite]),
+      tokenHandler([dictionariesPermissions.languagesRead, dictionariesPermissions.languagesWrite]),
       http.get(`${api}/api/dictionaries/languages`, () =>
         failing
           ? HttpResponse.json({ errorCode: 'dictionaries.unexpected' }, { status: 500 })
@@ -206,7 +206,7 @@ describe('LanguageFormPage — редактирование', () => {
   });
 
   it('загружает язык и показывает эндоним/порядок/активность/дату изменения', async () => {
-    server.use(tokenHandler([dictionariesPermissions.languagesWrite]), http.get(`${api}/api/dictionaries/languages`, () => HttpResponse.json({ count: 1, data: [ru] })));
+    server.use(tokenHandler([dictionariesPermissions.languagesRead, dictionariesPermissions.languagesWrite]), http.get(`${api}/api/dictionaries/languages`, () => HttpResponse.json({ count: 1, data: [ru] })));
 
     renderForm('/dictionaries/languages/ru');
 
@@ -220,7 +220,7 @@ describe('LanguageFormPage — редактирование', () => {
   it('успешное сохранение обновляет черновик из ответа сервера', async () => {
     const user = userEvent.setup();
     server.use(
-      tokenHandler([dictionariesPermissions.languagesWrite]),
+      tokenHandler([dictionariesPermissions.languagesRead, dictionariesPermissions.languagesWrite]),
       http.get(`${api}/api/dictionaries/languages`, () => HttpResponse.json({ count: 1, data: [ru] })),
       http.put(`${api}/api/dictionaries/languages/ru`, async ({ request }) => {
         const body = (await request.json()) as { endonym: string; sortOrder: number; isActive: boolean };
@@ -242,7 +242,7 @@ describe('LanguageFormPage — редактирование', () => {
     const user = userEvent.setup();
     const inactive = { ...ru, isActive: false, endonym: '' };
     server.use(
-      tokenHandler([dictionariesPermissions.languagesWrite]),
+      tokenHandler([dictionariesPermissions.languagesRead, dictionariesPermissions.languagesWrite]),
       http.get(`${api}/api/dictionaries/languages`, () => HttpResponse.json({ count: 1, data: [inactive] })),
       http.put(`${api}/api/dictionaries/languages/ru`, () =>
         HttpResponse.json(
@@ -276,7 +276,7 @@ describe('LanguageFormPage — редактирование', () => {
   it('деактивация языка по умолчанию: Alert сверху с добавленной подсказкой, переключатель возвращается на «включено»', async () => {
     const user = userEvent.setup();
     server.use(
-      tokenHandler([dictionariesPermissions.languagesWrite]),
+      tokenHandler([dictionariesPermissions.languagesRead, dictionariesPermissions.languagesWrite]),
       http.get(`${api}/api/dictionaries/languages`, () => HttpResponse.json({ count: 1, data: [ru] })),
       http.put(`${api}/api/dictionaries/languages/ru`, () =>
         HttpResponse.json(
@@ -306,7 +306,7 @@ describe('LanguageFormPage — редактирование', () => {
     const user = userEvent.setup();
     let getCalls = 0;
     server.use(
-      tokenHandler([dictionariesPermissions.languagesWrite]),
+      tokenHandler([dictionariesPermissions.languagesRead, dictionariesPermissions.languagesWrite]),
       http.get(`${api}/api/dictionaries/languages`, () => {
         getCalls += 1;
         if (getCalls === 1) {
@@ -347,7 +347,7 @@ describe('LanguageFormPage — редактирование', () => {
     let secondBody: { endonym: string; sortOrder: number; isActive: boolean } | null = null;
     let secondIfMatch: string | null = null;
     server.use(
-      tokenHandler([dictionariesPermissions.languagesWrite]),
+      tokenHandler([dictionariesPermissions.languagesRead, dictionariesPermissions.languagesWrite]),
       http.get(`${api}/api/dictionaries/languages`, () => HttpResponse.json({ count: 1, data: [ru] })),
       http.put(`${api}/api/dictionaries/languages/ru`, async ({ request }) => {
         putCalls += 1;

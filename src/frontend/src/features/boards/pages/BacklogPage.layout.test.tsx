@@ -1,6 +1,5 @@
 import { afterEach, describe, expect, it } from 'vitest';
-import { act, screen, waitFor, within } from '@testing-library/react';
-import userEvent from '@testing-library/user-event';
+import { act, waitFor, within } from '@testing-library/react';
 import { focusManager } from '@tanstack/react-query';
 import { theme } from '../../../app/theme';
 import { CATEGORY_MARKER_CLASS } from '../../../shared/ui/WorkTrackingMarks';
@@ -43,6 +42,8 @@ const HEADERS = [
   'Тип',
   'Заголовок',
   'Статус',
+  'Команда',
+  'Проект',
   'Трудоёмкость',
   'Бизнес-ценность',
   'Вид ценности',
@@ -56,7 +57,7 @@ function headerNames(table: HTMLElement): string[] {
 }
 
 describe('US-1 Scenario: The columns stand in the reference screen’s order', () => {
-  it('reads «Иерархия», «Порядок», «Тип», «Заголовок», «Статус», «Трудоёмкость», «Бизнес-ценность», «Вид ценности» — and no ID, «Родитель», «Исполнитель», «Приоритет», «Действия» or handle column', async () => {
+  it('reads «Иерархия», «Порядок», «Тип», «Заголовок», «Статус», «Команда», «Проект», «Трудоёмкость», «Бизнес-ценность», «Вид ценности» — and no ID, «Родитель», «Исполнитель», «Приоритет», «Действия» or handle column', async () => {
     serveBoards(fullTreeDataset());
     renderBoards(backlogAddress('epics'));
 
@@ -66,7 +67,7 @@ describe('US-1 Scenario: The columns stand in the reference screen’s order', (
     for (const gone of ['ID', 'Родитель', 'Исполнитель', 'Приоритет', 'Действия', 'Перемещение']) {
       expect(within(table).queryByRole('columnheader', { name: gone })).toBeNull();
     }
-    expect(within(table).getAllByRole('columnheader')).toHaveLength(8);
+    expect(within(table).getAllByRole('columnheader')).toHaveLength(10);
   });
 
   it('«Фичи» and «Истории» have the same headers', async () => {
@@ -95,7 +96,7 @@ describe('US-1 Scenario: The columns stand in the reference screen’s order', (
     }
   });
 
-  it('draws the header separators after «Тип», «Заголовок», «Статус», «Трудоёмкость» and «Бизнес-ценность» only', async () => {
+  it('draws the header separators after «Тип», «Заголовок», «Статус», «Команда», «Проект», «Трудоёмкость» and «Бизнес-ценность» only', async () => {
     serveBoards(fullTreeDataset());
     renderBoards(backlogAddress('epics'));
     const table = await findBacklogTable();
@@ -104,18 +105,37 @@ describe('US-1 Scenario: The columns stand in the reference screen’s order', (
       .getAllByRole('columnheader')
       .filter((header) => header.classList.contains('BacklogHead-separated'))
       .map((header) => header.textContent);
-    expect(separated).toEqual(['Тип', 'Заголовок', 'Статус', 'Трудоёмкость', 'Бизнес-ценность']);
+    expect(separated).toEqual([
+      'Тип',
+      'Заголовок',
+      'Статус',
+      'Команда',
+      'Проект',
+      'Трудоёмкость',
+      'Бизнес-ценность',
+    ]);
   });
 
-  it('fixes the widths of the seven columns and lets «Заголовок» take the rest, the table never narrower than 1 060 px', async () => {
+  it('fixes the widths of the nine columns and lets «Заголовок» take the rest, the table never narrower than 1 300 px (feat-040 design § 5.1)', async () => {
     serveBoards(fullTreeDataset());
     renderBoards(backlogAddress('epics'));
     const table = await findBacklogTable();
 
     const widths = Array.from(table.querySelectorAll('col')).map((col) => col.style.width);
-    expect(widths).toEqual(['72px', '68px', '184px', '', '104px', '64px', '64px', '104px']);
+    expect(widths).toEqual([
+      '72px',
+      '68px',
+      '184px',
+      '',
+      '104px',
+      '120px',
+      '120px',
+      '64px',
+      '64px',
+      '104px',
+    ]);
     expect(getComputedStyle(table).tableLayout).toBe('fixed');
-    expect(getComputedStyle(table).minWidth).toBe('1060px');
+    expect(getComputedStyle(table).minWidth).toBe('1300px');
   });
 });
 
@@ -173,8 +193,8 @@ describe('US-1 Scenario: The title cell carries the chevron, the icon and the pl
     expect(cellText(row, CELL.state)).toBe('Новая');
     expect(cellOf(row, CELL.state).querySelector(`.${CATEGORY_MARKER_CLASS}`)).not.toBeNull();
 
-    await userEvent.click(link);
-    expect(screen.getByTestId('location')).toHaveTextContent(mskForm('MSK-EPIC-1'));
+    // A plain click opens the card as a dialog (BacklogPage.card.test.tsx); the address stays
+    // the item's own page, for a new tab (feat-029 BR-C-1).
   });
 
   it('describes a nested row’s depth for assistive technology: «<ID>. Уровень вложенности: <n>.»', async () => {
@@ -429,7 +449,7 @@ describe('US-1 Scenario: A narrow window scrolls the table, not the page', () =>
 
     const card = table.parentElement as HTMLElement;
     expect(getComputedStyle(card).overflowX).not.toBe('visible');
-    expect(getComputedStyle(table).minWidth).toBe('1060px');
+    expect(getComputedStyle(table).minWidth).toBe('1300px');
     expect(getComputedStyle(card).maxHeight).toContain('204px');
   });
 

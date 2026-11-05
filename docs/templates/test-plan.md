@@ -3,7 +3,8 @@
 <!-- Template for stages 5 and 7. One qa.md file per feature: the "Backend"
      section is filled in by stage 5 QA, the "Frontend" section by stage 7
      QA, each following the structure below (matrix → scenarios → runs →
-     defects → verdict).
+     defects → verdict). On an M with both layers one QA pass after
+     stage 6 fills both sections (stages/05-frontend.md, § 7).
      The test plan is written BEFORE reading the implementation code. -->
 
 ## Backend | Frontend  <!-- one section per side -->

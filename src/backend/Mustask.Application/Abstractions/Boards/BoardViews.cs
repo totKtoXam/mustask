@@ -5,8 +5,22 @@ using Mustask.Domain.Process;
 
 namespace Mustask.Application.Abstractions.Boards;
 
-/// <summary>The team of a backlog or a board, with its default area as it stands (api-contract § 2.1).</summary>
-public sealed record BoardTeamView(Guid Id, string Name, WorkItemAreaView DefaultArea);
+/// <summary>The team of a backlog or a board (mod-017 api-contract § 1.4): a team has no default area now (BR-OT-10).</summary>
+public sealed record BoardTeamView(Guid Id, string Name);
+
+/// <summary>The project of a project backlog or board, as it stands now (feat-039 api-contract § 2.1).</summary>
+public sealed record BoardProjectView(Guid Id, string Name);
+
+/// <summary>A board column: its key, header and category, what a drop writes per type, and its cards in the view's order, each with its checklist (feat-032).</summary>
+public sealed record BoardColumnView(
+    string Key,
+    string Header,
+    WorkItemStateCategoryView Category,
+    IReadOnlyList<BoardColumnTargetView> Targets,
+    IReadOnlyList<BoardCardView> Items);
+
+/// <summary>The state a drop of a card of <see cref="TypeId"/> writes; <c>null</c>: no drop target (BR-M4-18).</summary>
+public sealed record BoardColumnTargetView(Guid TypeId, Guid? StateId);
 
 /// <summary>The level of a backlog or a board and its types in display order (api-contract § 2.2).</summary>
 public sealed record BoardLevelView(string Code, string Name, IReadOnlyList<BoardTypeView> Types)
@@ -36,7 +50,11 @@ public sealed record BoardLevelView(string Code, string Name, IReadOnlyList<Boar
 /// <summary>A type of the level: mod-003's type fields and the state a new item of it takes (BR-M3-20).</summary>
 public sealed record BoardTypeView(Guid Id, string Key, string Name, string Appearance, WorkItemStateView InitialState);
 
-/// <summary>A backlog row and a board card (api-contract § 2.3): mod-003's fields, «Порядок» and feat-022's «Приоритет».</summary>
+/// <summary>
+/// A backlog row and a board card (api-contract § 2.3): mod-003's fields, «Порядок», feat-022's «Приоритет», mod-017
+/// (api-contract § 1.5), the owning team by its current name or <c>null</c> for «Без команды», and feat-040 (BR-TS-3), the
+/// item's project by its current name — on every view, a team's and a project's alike.
+/// </summary>
 public sealed record BacklogItemView(
     int Order,
     Guid Id,
@@ -46,23 +64,61 @@ public sealed record BacklogItemView(
     string Title,
     WorkItemAssigneeView? Assignee,
     WorkItemStateView State,
-    int Priority)
+    int Priority,
+    WorkItemTeamView? Team,
+    WorkItemProjectView Project)
 {
     /// <summary><paramref name="rows"/> in the backlog's order (<see cref="StackRank.Order"/>), numbered from 1.</summary>
     public static IReadOnlyList<BacklogItemView> InOrder(IReadOnlyList<BacklogItemRow> rows)
     {
         var byId = rows.ToDictionary(row => row.Id);
 
-        return StackRank.Order(rows.Select(row => new StackRankEntry(row.Id, row.Number, row.Place)))
+        return StackRank.Order(rows.Select(row => new StackRankEntry(row.Id, row.Number, row.Place, row.CreatedAt, row.ProjectKey)))
             .Select((id, index) =>
             {
                 var row = byId[id];
 
-                return new BacklogItemView(index + 1, row.Id, row.Identifier, row.Number, row.Type, row.Title, row.Assignee, row.State, row.Priority);
+                return new BacklogItemView(
+                    index + 1, row.Id, row.Identifier, row.Number, row.Type, row.Title, row.Assignee, row.State, row.Priority, row.Team, row.Project);
             })
             .ToList();
     }
 }
+
+/// <summary>
+/// A board card (feat-032 api-contract § 2.1): a <see cref="BacklogItemView"/>'s fields and the
+/// <see cref="Checklist"/> of children. The backlog's rows do not carry it.
+/// </summary>
+public sealed record BoardCardView(
+    int Order,
+    Guid Id,
+    string Identifier,
+    int Number,
+    WorkItemTypeView Type,
+    string Title,
+    WorkItemAssigneeView? Assignee,
+    WorkItemStateView State,
+    int Priority,
+    WorkItemTeamView? Team,
+    WorkItemProjectView Project,
+    IReadOnlyList<ChecklistChildView> Checklist)
+{
+    /// <summary><paramref name="item"/> with its checklist from <paramref name="checklists"/>, by the item's id; none: an empty list.</summary>
+    public static BoardCardView Of(BacklogItemView item, IReadOnlyDictionary<Guid, IReadOnlyList<ChecklistChildView>> checklists) =>
+        new(
+            item.Order, item.Id, item.Identifier, item.Number, item.Type, item.Title, item.Assignee, item.State, item.Priority, item.Team,
+            item.Project, checklists.TryGetValue(item.Id, out var children) ? children : []);
+}
+
+/// <summary>One entry of a card's checklist (feat-032 api-contract § 2.2): a task, a bug or a test case beneath the card's item.</summary>
+public sealed record ChecklistChildView(
+    Guid Id,
+    string Identifier,
+    int Number,
+    WorkItemTypeView Type,
+    string Title,
+    WorkItemAssigneeView? Assignee,
+    WorkItemStateView State);
 
 /// <summary>
 /// A top-level row of a team's backlog page (feat-027 api-contract § 2.1): mod-006's
@@ -80,6 +136,8 @@ public sealed record BacklogRowView(
     WorkItemAssigneeView? Assignee,
     WorkItemStateView State,
     int Priority,
+    WorkItemTeamView? Team,
+    WorkItemProjectView Project,
     decimal? Effort,
     int? BusinessValue,
     string? ValueArea,
@@ -100,13 +158,15 @@ public sealed record BacklogRowView(
         var byId = rows.ToDictionary(row => row.Id);
         var parents = new ParentCells(byId, liveParentsOutside);
 
-        return BacklogTree.Nest(levelRank, rows.Select(row => new BacklogTreeEntry(row.Id, row.Number, row.Place, row.ParentId, row.LevelRank)).ToList())
+        return BacklogTree.Nest(
+                levelRank,
+                rows.Select(row => new BacklogTreeEntry(row.Id, row.Number, row.Place, row.ParentId, row.LevelRank, row.CreatedAt, row.ProjectKey)).ToList())
             .Select((node, index) =>
             {
                 var row = byId[node.ItemId];
 
                 return new BacklogRowView(
-                    index + 1, row.Id, row.Identifier, row.Number, row.Type, row.Title, row.Assignee, row.State, row.Priority,
+                    index + 1, row.Id, row.Identifier, row.Number, row.Type, row.Title, row.Assignee, row.State, row.Priority, row.Team, row.Project,
                     row.Effort, row.BusinessValue, row.ValueArea, parents.Of(row), BacklogChildView.Of(node.Children, byId, parents));
             })
             .ToList();
@@ -123,6 +183,8 @@ public sealed record BacklogChildView(
     WorkItemAssigneeView? Assignee,
     WorkItemStateView State,
     int Priority,
+    WorkItemTeamView? Team,
+    WorkItemProjectView Project,
     decimal? Effort,
     int? BusinessValue,
     string? ValueArea,
@@ -151,7 +213,7 @@ public sealed record BacklogChildView(
                 var children = new List<BacklogChildView>(node.Children.Count);
 
                 level.Into.Add(new BacklogChildView(
-                    row.Id, row.Identifier, row.Number, row.Type, row.Title, row.Assignee, row.State, row.Priority,
+                    row.Id, row.Identifier, row.Number, row.Type, row.Title, row.Assignee, row.State, row.Priority, row.Team, row.Project,
                     row.Effort, row.BusinessValue, row.ValueArea, parents.Of(row), children));
 
                 if (node.Children.Count > 0)

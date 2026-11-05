@@ -77,21 +77,24 @@ describe('QA A9: initials of names the outline does not list', () => {
   });
 });
 
-describe('QA A10: choosing the entry that is already current', () => {
-  it('resets the levels below it to their first entries, as BR-11 words every choice', async () => {
+describe('QA A10: choosing the organization that is already current', () => {
+  it('opens its «Обзор» with «все» in the rest, as ADR-0032 § 5 words every organization choice', async () => {
     const user = userEvent.setup();
-    renderShell({ auth: authValue(reader) });
+    renderShell({
+      auth: authValue(reader),
+      contextSource: {
+        status: 'ready',
+        organizations: [{ id: 'org-1', name: 'Пример организации 1', projects: [], teams: [] }],
+        selection: { organizationId: 'org-1', projectId: 'prj-1', teamId: 'team-1' },
+        isReal: true,
+      },
+    });
     const levels = () => within(screen.getByRole('group', { name: 'Контекст работы' }));
 
-    await user.click(levels().getByRole('button', { name: 'Проект: Пример проекта 1' }));
-    await user.click(screen.getByRole('menuitemradio', { name: 'Пример проекта 2' }));
-    expect(levels().getByRole('button', { name: 'Команда: Пример команды 3' })).toBeInTheDocument();
+    await user.click(levels().getByRole('combobox', { name: 'Организация: Пример организации 1' }));
+    await user.click(await screen.findByRole('option', { name: 'Пример организации 1' }));
 
-    await user.click(levels().getByRole('button', { name: 'Организация: Пример организации 1' }));
-    await user.click(screen.getByRole('menuitemradio', { name: 'Пример организации 1' }));
-
-    expect(levels().getByRole('button', { name: 'Проект: Пример проекта 1' })).toBeInTheDocument();
-    expect(levels().getByRole('button', { name: 'Команда: Пример команды 1' })).toBeInTheDocument();
+    expect(screen.getByTestId('location')).toHaveTextContent('/organizations/org-1/overview');
   });
 });
 

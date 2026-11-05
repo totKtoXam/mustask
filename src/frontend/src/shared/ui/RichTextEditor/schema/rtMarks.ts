@@ -9,7 +9,7 @@ import {
 } from '../../../lib/richText';
 
 /**
- * The three palette marks (ADR-0027 decision 4): in-house, because the shipped
+ * The three palette marks (ADR-0037 decision 4): in-house, because the shipped
  * highlight, text-style and colour extensions write an inline `style`. Each
  * holds the token's *name* (`red`, `lg`), reads its element by the exact class
  * token (`firstToken`) and writes the class from the vocabulary table only —

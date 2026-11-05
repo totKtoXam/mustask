@@ -16,7 +16,17 @@ import {
 } from '../testFixtures';
 import { MSK_LIST, OPS_LIST, mskForm, projectContext, renderWorkItems } from '../testRender';
 
-const COLUMNS = ['ID', 'Тип', 'Заголовок', 'Исполнитель', 'Статус', 'Область', 'Изменён'];
+// mod-017 BR-OT-9: «Команда» stands before «Область», eight columns.
+const COLUMNS = [
+  'ID',
+  'Тип',
+  'Заголовок',
+  'Исполнитель',
+  'Статус',
+  'Команда',
+  'Область',
+  'Изменён',
+];
 
 async function table() {
   return screen.findByRole('table', { name: 'Рабочие элементы' });
@@ -33,7 +43,7 @@ function cellsOf(row: HTMLElement): string[] {
 }
 
 describe('mod-003 US-2 Scenario: A row shows the item’s columns', () => {
-  it('reads the identifier, the type with its icon, the title link, the assignee, the state with its dot, the area and the time', async () => {
+  it('reads the identifier, the type with its icon, the title link, the assignee, the state with its dot, the team, the area and the time', async () => {
     serveWorkItems();
     renderWorkItems(MSK_LIST);
 
@@ -51,6 +61,7 @@ describe('mod-003 US-2 Scenario: A row shows the item’s columns', () => {
       'Падение при входе',
       'АСАнна Смирнова',
       'Активна',
+      'Без команды',
       'Платформа / API',
       SAVED_AT_TEXT,
     ]);
@@ -197,7 +208,7 @@ describe('mod-003 US-2 Scenario: A failed read can be retried', () => {
 });
 
 describe('mod-003 spec § Page «Рабочие элементы», State Loading', () => {
-  it('shows the skeleton under the seven real headers inside «Загрузка данных»', async () => {
+  it('shows the skeleton under the eight real headers inside «Загрузка данных»', async () => {
     serveWorkItems();
     let release: () => void = () => {};
     const held = new Promise<void>((resolve) => {
@@ -300,5 +311,134 @@ describe('mod-003 spec § Page «Рабочие элементы»: the primary 
       await screen.findByRole('button', { name: 'Новый рабочий элемент' }),
     ).toBeInTheDocument();
     expect(screen.queryByRole('alert')).toBeNull();
+  });
+});
+
+// mod-017 US-5, design § 5: the column «Команда» and the filter of the list.
+
+/** «Мастаск» with three items: one of MARS, one of VENUS, one of none. */
+function teamsDataset() {
+  const data = emptyDataset();
+  data.items.push(
+    item(ids.msk, 1, 'TASK', 'Марсианская', {
+      teamId: ids.marsTeam,
+      changedAt: new Date(2026, 9, 3, 9, 0).toISOString(),
+    }),
+    item(ids.msk, 2, 'TASK', 'Венерианская', {
+      teamId: ids.venusTeam,
+      changedAt: new Date(2026, 9, 2, 9, 0).toISOString(),
+    }),
+    item(ids.msk, 3, 'TASK', 'Ничья', { changedAt: new Date(2026, 9, 1, 9, 0).toISOString() }),
+  );
+  return data;
+}
+
+function band() {
+  return screen.getByRole('group', { name: 'Фильтры' });
+}
+
+async function titles() {
+  return rowsOf(await table()).map((row) => cellsOf(row)[2]);
+}
+
+describe('mod-017 US-5 Scenario: the team column', () => {
+  it('names the team, or «Без команды» in the secondary colour, before «Область»', async () => {
+    serveWorkItems(teamsDataset());
+    renderWorkItems(MSK_LIST);
+
+    const rows = rowsOf(await table());
+
+    expect(rows.map((row) => cellsOf(row)[5])).toEqual(['MARS', 'VENUS', 'Без команды']);
+    const none = within(rows[2]!).getByText('Без команды');
+    expect(getComputedStyle(none).color).not.toBe(getComputedStyle(rows[0]!).color);
+  });
+});
+
+/** The router's search, which the shell's location probe keeps. */
+function addressSearch(): string {
+  return screen.getByTestId('location').getAttribute('data-search') ?? '';
+}
+
+describe('feat-048 BR-NV-12 Scenario: the «Без команды» control on the list', () => {
+  it('stands in the band «Фильтры» as an unchecked «Без команды» and no team multi-select', async () => {
+    serveWorkItems(teamsDataset());
+    renderWorkItems(MSK_LIST);
+    await table();
+
+    expect(within(band()).getByRole('checkbox', { name: 'Без команды' })).not.toBeChecked();
+    expect(within(band()).queryByRole('combobox', { name: 'Команда' })).toBeNull();
+    expect(within(band()).queryByRole('button', { name: 'Очистить фильтры' })).toBeNull();
+  });
+
+  it('narrows to the items of no team, the request carries teamId=none, and unchecking brings the list back', async () => {
+    const api = serveWorkItems(teamsDataset());
+    renderWorkItems(MSK_LIST);
+    await table();
+
+    await userEvent.click(within(band()).getByRole('checkbox', { name: 'Без команды' }));
+
+    await waitFor(async () => expect(await titles()).toEqual(['Ничья']));
+    expect(api.reads('/workitems?').at(-1)?.path).toContain('teamId=none');
+    await userEvent.click(within(band()).getByRole('checkbox', { name: 'Без команды' }));
+    await waitFor(async () => expect(await titles()).toHaveLength(3));
+  });
+
+  it('is exclusive with the team selector: a chosen team is replaced and the reset is said', async () => {
+    serveWorkItems(teamsDataset());
+    renderWorkItems(`${MSK_LIST}?teamId=${ids.marsTeam}`);
+    await waitFor(async () => expect(await titles()).toEqual(['Марсианская']));
+
+    await userEvent.click(within(band()).getByRole('checkbox', { name: 'Без команды' }));
+
+    await waitFor(() => expect(addressSearch()).toBe('?teamId=none'));
+    expect(await screen.findByText(/^Выбор сброшен: команда/)).toBeInTheDocument();
+    await waitFor(async () => expect(await titles()).toEqual(['Ничья']));
+  });
+
+  it('opens already checked from a link that carries teamId=none, and «Очистить фильтры» takes it out', async () => {
+    serveWorkItems(teamsDataset());
+    renderWorkItems(`${MSK_LIST}?teamId=none`);
+    await waitFor(async () => expect(await titles()).toEqual(['Ничья']));
+
+    expect(within(band()).getByRole('checkbox', { name: 'Без команды' })).toBeChecked();
+    await userEvent.click(within(band()).getByRole('button', { name: 'Очистить фильтры' }));
+    await waitFor(() => expect(addressSearch()).toBe(''));
+    expect(within(band()).getByRole('checkbox', { name: 'Без команды' })).not.toBeChecked();
+  });
+
+  it('a team of the address narrows by that team alone (the selector value), and a blank teamId is no filter', async () => {
+    serveWorkItems(teamsDataset());
+    renderWorkItems(`${MSK_LIST}?teamId=`);
+    expect(await titles()).toHaveLength(3);
+    expect(within(band()).queryByRole('button', { name: 'Очистить фильтры' })).toBeNull();
+  });
+
+  it('a reader filters too', async () => {
+    serveWorkItems(teamsDataset());
+    renderWorkItems(MSK_LIST, { role: 'viewer' });
+    await table();
+
+    await userEvent.click(within(band()).getByRole('checkbox', { name: 'Без команды' }));
+
+    await waitFor(async () => expect(await titles()).toEqual(['Ничья']));
+  });
+
+  it('a creation the filter hides is noticed as such (design § 6.5)', async () => {
+    serveWorkItems(teamsDataset());
+    renderWorkItems(`${MSK_LIST}?teamId=${ids.marsTeam}`);
+    await waitFor(async () => expect(await titles()).toEqual(['Марсианская']));
+
+    await userEvent.click(await screen.findByRole('button', { name: 'Новый рабочий элемент' }));
+    await userEvent.click(await screen.findByRole('menuitem', { name: 'Задача' }));
+    const dialog = await screen.findByRole('dialog', { name: 'Новый рабочий элемент' });
+    await within(dialog).findByRole('combobox', { name: 'Команда' });
+    await userEvent.type(within(dialog).getByRole('textbox', { name: 'Заголовок' }), 'Новая');
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Создать' }));
+
+    expect(
+      await screen.findByText(
+        'Рабочий элемент MSK-TASK-4 создан. Он не подходит под текущий фильтр.',
+      ),
+    ).toBeInTheDocument();
   });
 });

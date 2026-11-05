@@ -5,6 +5,7 @@ using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Authentication.OpenIdConnect;
 using Microsoft.AspNetCore.WebUtilities;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.IdentityModel.Protocols;
 using Microsoft.IdentityModel.Protocols.OpenIdConnect;
 
@@ -69,6 +70,14 @@ public static class SessionAuthenticationSetup
     /// </summary>
     internal const string SessionKeyItemsKey = "tech119.session_key";
 
+    /// <summary>
+    /// <see cref="AuthenticationProperties.Items"/> key holding the fingerprint of the claims last recorded in the user
+    /// projection (tech-025, ADR-0034; <see cref="ISessionSignInRecorder"/>). Written at sign-in by
+    /// <c>OnTokenValidated</c>, carried through the ticket's rebuild by <c>OnTicketReceived</c>, and compared and
+    /// rewritten by every renewal, so a renewal with the same claims does not touch the database. About 32 characters.
+    /// </summary>
+    internal const string ProfileFingerprintItemsKey = "tech025.profile";
+
     public static IServiceCollection AddMustaskSessionAuthentication(
         this IServiceCollection services, KeycloakOptions keycloak, SessionOidcOptions sessionOptions)
     {
@@ -84,6 +93,8 @@ public static class SessionAuthenticationSetup
         // are both already singletons (Program.cs) — no second discovery
         // point.
         services.AddSingleton<RenewedIdTokenValidator>();
+        // tech-025 (ADR-0034): ISessionSignInRecorder is bound to the user directory in Program.cs (this folder names
+        // nothing of Domain or Application, ADR-0022 Decision 6).
 
         services.AddAuthentication()
             .AddCookie(SessionSchemes.Session, options =>
@@ -157,7 +168,7 @@ public static class SessionAuthenticationSetup
 
                     options.Events = new OpenIdConnectEvents
                     {
-                        OnTokenValidated = OnTokenValidated,
+                        OnTokenValidated = context => OnTokenValidated(context, keycloak.Audience, sessionOptions),
                         OnTicketReceived = context => OnTicketReceived(context, cache, sessionOptions, clock),
                         OnRemoteFailure = context => OnRemoteFailure(context, sessionOptions),
                     };
@@ -166,16 +177,44 @@ public static class SessionAuthenticationSetup
         return services;
     }
 
-    private static Task OnTokenValidated(TokenValidatedContext context)
+    private static async Task OnTokenValidated(TokenValidatedContext context, string audience, SessionOidcOptions sessionOptions)
     {
+        // tech-024 (ADR-0033): no `user` client role, no session. The exchange is refused before a ticket exists, so neither a
+        // cookie nor a cached access token is created; the redirect carries authError=no_access.
+        if (!SessionAccessGate.HoldsUserRole(context.TokenEndpointResponse?.AccessToken, audience))
+        {
+            context.HandleResponse();
+            RedirectToPanel(context.HttpContext, sessionOptions, context.Properties?.RedirectUri, "no_access");
+
+            return;
+        }
+
+        // tech-025 (ADR-0034): the person enters MUSTASK's user directory here, from the claims of the id token. A person the
+        // directory does not know and cannot be recorded fails the sign-in on the existing generic path (a known person's
+        // failed refresh is logged and does not stop the session). Before the cookie and the cached token exist.
+        var projection = context.HttpContext.RequestServices.GetRequiredService<ISessionSignInRecorder>();
+        var recording = await projection.RecordAsync(
+            context.TokenEndpointResponse?.IdToken, knownFingerprint: null, context.HttpContext.RequestAborted);
+
+        if (recording.Result == SignInRecordResult.FailedUnknownUser)
+        {
+            context.HandleResponse();
+            RedirectToPanel(context.HttpContext, sessionOptions, context.Properties?.RedirectUri, SignInFailedCode);
+
+            return;
+        }
+
+        if (recording.Fingerprint is not null && context.Properties is not null)
+        {
+            context.Properties.Items[ProfileFingerprintItemsKey] = recording.Fingerprint;
+        }
+
         var refreshExpiresIn = context.TokenEndpointResponse?.GetParameter("refresh_expires_in");
 
         if (!string.IsNullOrEmpty(refreshExpiresIn) && context.Properties is not null)
         {
             context.Properties.Items[RefreshExpiresInItemsKey] = refreshExpiresIn;
         }
-
-        return Task.CompletedTask;
     }
 
     /// <summary>
@@ -226,6 +265,7 @@ public static class SessionAuthenticationSetup
         }
 
         var hasRefreshExpiresIn = properties.Items.TryGetValue(RefreshExpiresInItemsKey, out var refreshExpiresInRaw);
+        var hasProfileFingerprint = properties.Items.TryGetValue(ProfileFingerprintItemsKey, out var profileFingerprint);
 
         // A real Keycloak ticket measured live carried
         // three cookie chunks (~5.9 KB) even with the access token already
@@ -246,6 +286,11 @@ public static class SessionAuthenticationSetup
         if (sid is null)
         {
             properties.Items[SessionKeyItemsKey] = sessionKey;
+        }
+
+        if (hasProfileFingerprint && profileFingerprint is not null)
+        {
+            properties.Items[ProfileFingerprintItemsKey] = profileFingerprint;
         }
 
         // ADR-0022 Decision 1: the access token is stripped from the ticket —
@@ -311,29 +356,32 @@ public static class SessionAuthenticationSetup
     }
 
     /// <summary>
-    /// The closed, three-value <c>authError</c> vocabulary. Not a
+    /// The closed, four-value <c>authError</c> vocabulary (<c>no_access</c>, redirected by <see cref="OnTokenValidated"/> itself: the token lacks the `user` role). Not a
     /// catalog error code — this is a query parameter on a browser redirect,
     /// which has no body to carry a <c>errorCode</c> in.
     /// </summary>
     private static Task OnRemoteFailure(RemoteFailureContext context, SessionOidcOptions sessionOptions)
     {
         context.HandleResponse();
+        RedirectToPanel(context.HttpContext, sessionOptions, context.Properties?.RedirectUri, ClassifyFailure(context.Failure));
 
-        var returnUrl = ReturnUrlValidator.IsLocalPath(context.Properties?.RedirectUri)
-            ? context.Properties!.RedirectUri!
-            : "/";
+        return Task.CompletedTask;
+    }
 
-        var code = ClassifyFailure(context.Failure);
+    /// <summary>The generic <c>authError</c> of a sign-in that failed for a reason the person cannot act on.</summary>
+    private const string SignInFailedCode = "sign_in_failed";
+
+    private static void RedirectToPanel(HttpContext httpContext, SessionOidcOptions sessionOptions, string? redirectUri, string code)
+    {
+        var returnUrl = ReturnUrlValidator.IsLocalPath(redirectUri) ? redirectUri! : "/";
 
         // Plain interpolation put a second "?" in front
         // of authError whenever returnUrl already carried a query string
         // (e.g. "/tasks?status=active"), producing a malformed Location
         // the panel could not parse — AddQueryString appends with "&" when
         // one is already there.
-        context.HttpContext.Response.Redirect(
+        httpContext.Response.Redirect(
             QueryHelpers.AddQueryString($"{sessionOptions.PanelUrl}{returnUrl}", "authError", code));
-
-        return Task.CompletedTask;
     }
 
     /// <summary>
@@ -350,7 +398,7 @@ public static class SessionAuthenticationSetup
     {
         OpenIdConnectProtocolException protocolException when IsAccessDenied(protocolException) => "access_denied",
         HttpRequestException or TaskCanceledException or TimeoutException or IOException or InvalidOperationException => "idp_unavailable",
-        _ => "sign_in_failed",
+        _ => SignInFailedCode,
     };
 
     private static bool IsAccessDenied(OpenIdConnectProtocolException exception) =>

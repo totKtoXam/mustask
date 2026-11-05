@@ -48,7 +48,9 @@ read it before your first task. In short:
   files (`docs/backlog.md`, `docs/backlog/*.md`): the queue lives in main, and
   a task gets its number by having its line put there. The queue is edited with
   `scripts/queue.sh add|take|withdraw` — it issues the number, writes the
-  line by the format and stages only queue files. What is in flight, what
+  line by the format, stages only queue files and lands the commit as a
+  squash PR from a `sync/queue-*` branch with auto-merge asked for, never on
+  the local `main` (`--local` only when there is no remote). What is in flight, what
   is queued and how each epic stands — `bash scripts/backlog.sh`
   (`scripts/backlog.ps1` in PowerShell), and what is already finished —
   `scripts/backlog.sh --done`. Do not reconstruct any of it by reading every
@@ -60,6 +62,21 @@ read it before your first task. In short:
 - Tests are written together with the code; an MR with failing tests is not
   opened.
 - Secrets — only through environment variables / user secrets, never in code.
+- **Bind the actual agent session before task work.** Bind it to the checkout
+  assigned to its run before implementation, QA, review or subagent
+  delegation. An implementation or orchestrator run uses the task worktree
+  and confirms its task branch with `git branch --show-current`; a permitted
+  detached QA/review run uses its own checkout and confirms `git rev-parse
+  HEAD` is the expected task commit. From every bound session, show its
+  host/project root and `git rev-parse --show-toplevel` as well. A shell
+  `cd`, `git -C` or a command-specific `workdir` does not
+  move an existing desktop session. Where the vendor surfaces an IDE/Open
+  target, it must point at the assigned checkout. Use native current-session
+  relocation only when this session supports it and its confirmation is
+  available. Otherwise keep the worktree, branch and files, prepare an
+  interactive handoff, and stop the original session for the human to
+  transfer; do not substitute an unattended or background session. See
+  `docs/ai-workflow/handoff.md`.
 - If you started a background process — an application, a search, anything —
   either finish with it and stop it yourself, or list it explicitly in your
   answer: what exactly is running, on which URL/port (for applications, take

@@ -7,9 +7,10 @@ using Mustask.Shared.Exceptions;
 namespace Mustask.Application.Tests.Features.Organizations.DeleteTeam;
 
 /// <summary>
-/// <c>DeleteTeam</c> on fakes (plan-backend § 14.3, L-20): the cascade of
-/// BR-M1-18, the order of answers (§ 5.3, api-contract § 0.4) and the lock order
-/// (§ 8.2).
+/// <c>DeleteTeam</c> on fakes (feat-028 plan-backend § 7.2, § 9.1; US-5): the operation of BR-OL-9 — the owned items of every linked
+/// project go to «Без команды», the places go, the settings are cleared, the links are removed, the memberships end — with no
+/// last-team guard (BR-OL-10), the order of answers (api-contract § 0.5) and the lock order (ADR-0028 rule 8). Rewritten from the
+/// project-nested form (mod-017 BR-OT-11, BR-OT-12; D-16); the last-team tests are retired with BR-OL-10.
 /// </summary>
 public sealed class DeleteTeamHandlerTests
 {
@@ -18,11 +19,22 @@ public sealed class DeleteTeamHandlerTests
         public Fixture()
         {
             Organization = Store.AddOrganization();
-            Project = Store.AddProject(Organization);
-            Platform = Store.AddTeam(Project);
+            Alpha = Store.AddProject(Organization, "Альфа", "ALP").Project;
+            Beta = Store.AddProject(Organization, "Бета", "BET").Project;
+            Mars = Store.AddTeam(Organization, "MARS");
+            Store.Link(Alpha, Mars);
+            Store.Link(Beta, Mars);
+            Ownership = new FakeWorkItemTeamOwnership(Store);
+            Clock = new FakeClock();
             Handler = new DeleteTeamHandler(
                 new FakeProjectRepository(Store),
                 new FakeTeamRepository(Store),
+                new FakeProjectTeamRepository(Store),
+                new FakeAreaLinkRepository(Store),
+                new FakeTeamMembershipRepository(Store),
+                Ownership,
+                new FakeTeamBacklogPlaces(Store),
+                Clock,
                 new FakeUnitOfWork());
         }
 
@@ -30,83 +42,79 @@ public sealed class DeleteTeamHandlerTests
 
         public Organization Organization { get; }
 
-        /// <summary>«Пример проекта» (PRM): the first team «Пример проекта» and the root, owned by it.</summary>
-        public NewProject Project { get; }
+        public Project Alpha { get; }
 
-        /// <summary>The second team «Платформа» with its area «Платформа», a child of the root, owned by it and its default.</summary>
-        public NewTeam Platform { get; }
+        public Project Beta { get; }
+
+        /// <summary>«MARS», linked to both projects.</summary>
+        public Team Mars { get; }
+
+        public FakeWorkItemTeamOwnership Ownership { get; }
+
+        public FakeClock Clock { get; }
 
         public DeleteTeamHandler Handler { get; }
 
-        public DeleteTeamCommand Command(string? teamId = null, string? projectId = null, string? organizationId = null) =>
-            new(
-                organizationId ?? Organization.Id.ToString(),
-                projectId ?? Project.Project.Id.ToString(),
-                teamId ?? Platform.Team.Id.ToString());
+        public DeleteTeamCommand Command(string? teamId = null, string? organizationId = null) =>
+            new(organizationId ?? Organization.Id.ToString(), teamId ?? Mars.Id.ToString());
 
         public Task HandleAsync(DeleteTeamCommand command) => Handler.Handle(command, CancellationToken.None);
-
-        public AreaTree Tree() =>
-            new(Store.Areas.Select(area => new AreaNode(area.Id, area.ParentId, area.Name, area.OwnerTeamId, area.DefaultOfTeamId)));
     }
 
-    // US-7 · "A team is deleted after a confirmation, and its areas pass to the first team": «Платформа» owns the areas
-    // «Платформа» and «Платформа / API» explicitly and «Платформа / API / Шлюз» by inheritance. The areas of another team stay.
+    // US-5 · "confirming deletes in one operation": the team is deleted, the items it owns in EVERY linked project pass to nobody
+    // with the operation's time, the links go, the area tree is untouched.
     [Fact]
-    public async Task Handle_PassesExplicitAreasToTheFirstTeam_InheritedFollow_NamesAndPlacesKept()
+    public async Task Handle_DeletesTheTeam_ReassignsWhatItOwnsInEveryProject_RemovesTheLinks()
     {
         var f = new Fixture();
-        var api = f.Store.AddArea(f.Platform.Area, "API", f.Platform.Team);
-        var gateway = f.Store.AddArea(api, "Шлюз");
-        var data = f.Store.AddTeam(f.Project, "Данные");
-        var reports = f.Store.AddArea(f.Project.Root, "Отчёты", data.Team);
-        var before = f.Tree();
-        var placesBefore = f.Store.Areas.ToDictionary(area => area.Id, area => (area.ParentId, area.Name, Path: before.PathOf(area.Id)));
-        var firstTeamId = f.Project.FirstTeam.Id;
+        f.Ownership.Owned[(f.Alpha.Id, f.Mars.Id)] = 5;
+        f.Ownership.Owned[(f.Beta.Id, f.Mars.Id)] = 3;
+        var areasBefore = f.Store.Areas.Select(area => (area.Id, area.ParentId, area.Name)).ToList();
+        f.Clock.UtcNow = new DateTimeOffset(2026, 10, 17, 3, 0, 0, TimeSpan.Zero);
 
         await f.HandleAsync(f.Command());
 
-        Assert.Equal(TeamStatus.Deleted, f.Platform.Team.Status);
-        Assert.Equal(firstTeamId, f.Platform.Area.OwnerTeamId);
-        Assert.Equal(firstTeamId, api.OwnerTeamId);
-        Assert.Null(gateway.OwnerTeamId);
-
-        var after = f.Tree();
-        Assert.Equal(new ResolvedOwner(firstTeamId, false), after.ResolveOwner(api.Id));
-        Assert.Equal(new ResolvedOwner(firstTeamId, true), after.ResolveOwner(gateway.Id));
-        Assert.Equal("Платформа / API / Шлюз", after.PathOf(gateway.Id));
-        Assert.Equal(
-            placesBefore,
-            f.Store.Areas.ToDictionary(area => area.Id, area => (area.ParentId, area.Name, Path: after.PathOf(area.Id))));
-
-        // The areas of another team, and the other team's default, are not touched.
-        Assert.Equal(data.Team.Id, reports.OwnerTeamId);
-        Assert.Equal(data.Team.Id, data.Area.DefaultOfTeamId);
-        Assert.Equal(data.Team.Id, data.Area.OwnerTeamId);
+        Assert.Equal(TeamStatus.Deleted, f.Mars.Status);
+        Assert.Empty(f.Ownership.Owned);
+        Assert.Equal(8, f.Ownership.Unowned);
+        Assert.Equal(f.Clock.UtcNow, f.Ownership.ReassignedAt);
+        Assert.Null(f.Ownership.LastDestination);
+        Assert.Empty(f.Store.Links);
+        Assert.Equal(areasBefore, f.Store.Areas.Select(area => (area.Id, area.ParentId, area.Name)).ToList());
+        Assert.Contains(f.Mars, f.Store.Teams);
     }
 
-    // US-7 · "A team is deleted ...": the area that was the deleted team's default loses the mark, and the first team's default
-    // stays the root for good (BR-M1-14, BR-M1-18). Nothing is removed.
+    // US-5 · "a project's last team can be deleted" (BR-OL-10): no guard — the only team of a project goes, and the project stays
+    // (retires TeamTests.Delete_LastTeam_IsRefused and Handle_LastTeam_Returns409_ChangesNothing).
     [Fact]
-    public async Task Handle_DefaultAreaLosesTheMark_FirstTeamsDefaultStaysTheRoot_NothingIsRemoved()
+    public async Task Handle_TheProjectsLastTeam_IsDeleted_NoGuardCode()
     {
         var f = new Fixture();
-        var areasBefore = f.Store.Areas.Count;
-        var firstTeamId = f.Project.FirstTeam.Id;
+        f.Store.Links.RemoveAll(link => link.ProjectId == f.Beta.Id);
 
         await f.HandleAsync(f.Command());
 
-        Assert.Null(f.Platform.Area.DefaultOfTeamId);
-        Assert.Equal(firstTeamId, f.Platform.Area.OwnerTeamId);
-        Assert.Equal(firstTeamId, f.Project.Root.OwnerTeamId);
-        Assert.Equal(firstTeamId, f.Project.Root.DefaultOfTeamId);
-        Assert.Single(f.Store.Areas, area => area.DefaultOfTeamId == firstTeamId);
-        Assert.DoesNotContain(f.Store.Areas, area => area.OwnerTeamId == f.Platform.Team.Id || area.DefaultOfTeamId == f.Platform.Team.Id);
-        Assert.Equal(areasBefore, f.Store.Areas.Count);
-        Assert.Contains(f.Platform.Team, f.Store.Teams);
+        Assert.Equal(TeamStatus.Deleted, f.Mars.Status);
+        Assert.True(f.Alpha.IsActive);
     }
 
-    // US-7 · "A deleted team answers not found": the second deletion of the same team.
+    // US-3 · "losing the named team": a setting that named the deleted team is cleared in every project; one that names another
+    // team stays.
+    [Fact]
+    public async Task Handle_ClearsTheDefaultSettingsThatNamedTheTeam_KeepsOneThatNamesAnother()
+    {
+        var f = new Fixture();
+        var other = f.Store.AddLinkedTeam(f.Organization, f.Beta, "VENUS");
+        f.Alpha.NameDefaultTeam(f.Mars.Id);
+        f.Beta.NameDefaultTeam(other.Id);
+
+        await f.HandleAsync(f.Command());
+
+        Assert.Null(f.Alpha.DefaultTeamId);
+        Assert.Equal(other.Id, f.Beta.DefaultTeamId);
+    }
+
+    // US-5 · "a team deleted again answers not found": the second deletion of the same team changes nothing.
     [Fact]
     public async Task Handle_DeletedTwice_SecondIsTeamNotFound_ChangesNothing()
     {
@@ -117,126 +125,87 @@ public sealed class DeleteTeamHandlerTests
         var refusal = await Assert.ThrowsAsync<NotFoundException>(() => f.HandleAsync(f.Command()));
 
         Assert.Equal(OrganizationErrorCodes.TeamNotFound, refusal.Code);
-        Assert.Equal(TeamStatus.Deleted, f.Platform.Team.Status);
-        Assert.DoesNotContain(f.Store.Calls, call => call.StartsWith("reassign", StringComparison.Ordinal));
-        Assert.Equal(0, f.Store.SaveCount);
+        Assert.Equal(["lock team no-key-update " + f.Mars.Id], f.Store.Calls);
     }
 
-    // US-7 · "The first team cannot be deleted": refused with its own code, and nothing changes (the refusal comes before any write).
-    [Fact]
-    public async Task Handle_FirstTeam_IsFirstTeamCannotBeDeleted_ChangesNothing()
-    {
-        var f = new Fixture();
-        var first = f.Project.FirstTeam;
-
-        var refusal = await Assert.ThrowsAsync<ConflictException>(() => f.HandleAsync(f.Command(teamId: first.Id.ToString())));
-
-        Assert.Equal(OrganizationErrorCodes.TeamFirstTeamCannotBeDeleted, refusal.Code);
-        Assert.True(first.IsActive);
-        Assert.Equal(first.Id, f.Project.Root.OwnerTeamId);
-        Assert.Equal([$"lock team update {first.Id}"], f.Store.Calls);
-    }
-
-    // BR-M1-20: behind the filter the organization id is well formed; if it were not, the outermost level answers.
+    // US-8 · a malformed organization, and an unknown, malformed or foreign team, answer by their level.
     [Fact]
     public async Task Handle_MalformedOrganization_IsOrganizationNotFound()
     {
         var f = new Fixture();
 
-        var refusal = await Assert.ThrowsAsync<NotFoundException>(() => f.HandleAsync(f.Command(organizationId: "abc", projectId: "x", teamId: "y")));
+        var refusal = await Assert.ThrowsAsync<NotFoundException>(() => f.HandleAsync(f.Command(organizationId: "not-an-id")));
 
         Assert.Equal(OrganizationErrorCodes.OrganizationNotFound, refusal.Code);
-        Assert.Empty(f.Store.Calls);
     }
 
-    // US-3 · "A project id names no project of the organization" and "a project is deactivated" (BR-M1-20, BR-M1-22): the
-    // project level answers before the team is looked at, so the team's id is wrong too.
     [Theory]
     [InlineData("malformed")]
     [InlineData("unknown")]
-    [InlineData("of another organization")]
-    [InlineData("deactivated")]
-    [InlineData("under a deactivated organization")]
-    public async Task Handle_ProjectNotReachable_IsProjectNotFound_BeforeTheTeam(string how)
+    [InlineData("foreign")]
+    public async Task Handle_TeamNotAnActiveTeamOfTheOrganization_IsTeamNotFound_ChangesNothing(string how)
     {
         var f = new Fixture();
-        var other = f.Store.AddProject(f.Store.AddOrganization("Другая организация"), "Чужой", "OTH");
-        var projectId = how switch
+        var other = f.Store.AddOrganization("Другая");
+        var foreign = f.Store.AddTeam(other, "Чужая");
+        var id = how switch
         {
             "malformed" => "not-an-id",
             "unknown" => Guid.CreateVersion7().ToString(),
-            "of another organization" => other.Project.Id.ToString(),
-            _ => f.Project.Project.Id.ToString(),
+            _ => foreign.Id.ToString(),
         };
 
-        if (how == "deactivated")
-        {
-            f.Project.Project.Deactivate();
-        }
-
-        if (how == "under a deactivated organization")
-        {
-            f.Organization.Deactivate();
-        }
-
-        var refusal = await Assert.ThrowsAsync<NotFoundException>(() => f.HandleAsync(f.Command(projectId: projectId, teamId: "not-a-team")));
-
-        Assert.Equal(OrganizationErrorCodes.ProjectNotFound, refusal.Code);
-        Assert.Empty(f.Store.Calls);
-        Assert.True(f.Platform.Team.IsActive);
-    }
-
-    // US-4 · "A team id names no team of the project" (BR-M1-22) and US-7 · "A deleted team answers not found": malformed,
-    // absent, unknown, a team of another project or organization (its first team included: the address answers before the
-    // first-team rule, api-contract § 0.4 step 1 before 2), or one already deleted. Nothing is written.
-    [Theory]
-    [InlineData("malformed")]
-    [InlineData("absent")]
-    [InlineData("unknown")]
-    [InlineData("first team of another project")]
-    [InlineData("team of another organization")]
-    [InlineData("deleted")]
-    public async Task Handle_TeamNotAnActiveTeamOfTheProject_IsTeamNotFound_ChangesNothing(string how)
-    {
-        var f = new Fixture();
-        var sibling = f.Store.AddProject(f.Organization, "Второй проект", "SEC");
-        var foreign = f.Store.AddTeam(f.Store.AddProject(f.Store.AddOrganization("Другая организация"), "Чужой", "OTH"), "Чужая команда");
-        var command = how switch
-        {
-            "malformed" => f.Command(teamId: f.Platform.Team.Id.ToString("N")),
-            "absent" => f.Command() with { TeamId = null },
-            "unknown" => f.Command(teamId: Guid.CreateVersion7().ToString()),
-            "first team of another project" => f.Command(teamId: sibling.FirstTeam.Id.ToString()),
-            "team of another organization" => f.Command(teamId: foreign.Team.Id.ToString()),
-            _ => f.Command(),
-        };
-
-        if (how == "deleted")
-        {
-            f.Platform.Team.Delete();
-        }
-
-        var refusal = await Assert.ThrowsAsync<NotFoundException>(() => f.HandleAsync(command));
+        var refusal = await Assert.ThrowsAsync<NotFoundException>(() => f.HandleAsync(f.Command(teamId: id)));
 
         Assert.Equal(OrganizationErrorCodes.TeamNotFound, refusal.Code);
-        Assert.DoesNotContain(f.Store.Calls, call => call.StartsWith("reassign", StringComparison.Ordinal));
-        Assert.Equal(0, f.Store.SaveCount);
-        Assert.Equal(f.Platform.Team.Id, f.Platform.Area.OwnerTeamId);
-        Assert.True(foreign.Team.IsActive);
-        Assert.True(sibling.FirstTeam.IsActive);
+        Assert.True(foreign.IsActive);
+        Assert.Equal(2, f.Store.Links.Count);
     }
 
-    // plan-backend § 8.2: the team FOR UPDATE, then the set-based re-own to the first team, then one save. No project lock, no
-    // area lock of the handler's own (the statement takes the area rows it changes).
+    // plan-backend § 7.2 · the order of ADR-0028 rule 8: the team row, then ITS links, then the settings (the project rows — before any
+    // item, mod-005 plan-backend § 14: a project backlog's reorder holds the project row and then its members), then the hierarchy
+    // locks of EVERY linked project in one call (before any item, mod-005 QD-1: a parent write locks the hierarchy, then its child and
+    // its parents, and the items are locked by id), then the owned items, the places, the reassignment, the links, the memberships;
+    // one flush.
     [Fact]
-    public async Task Handle_LocksTheTeamForUpdate_ThenReassignsSetBased_ThenSavesOnce()
+    public async Task Handle_LocksTheTeam_ThenItsLinks_ThenClearsTheSettings_ThenTheHierarchies_ThenTheOwnedItems_ThenReassigns_ThenEndsTheMemberships_ThenSavesOnce()
     {
         var f = new Fixture();
 
         await f.HandleAsync(f.Command());
 
+        var team = f.Mars.Id;
+        var projects = string.Join(",", new[] { f.Alpha.Id, f.Beta.Id }.Order());
         Assert.Equal(
-            [$"lock team update {f.Platform.Team.Id}", $"reassign {f.Platform.Team.Id} {f.Project.FirstTeam.Id}", "save"],
+            [
+                $"lock team no-key-update {team}",
+                $"lock team links {team}",
+                $"clear default team {team}",
+                $"lock hierarchies {projects}",
+                $"lock owned {team}",
+                $"drop team places {team}",
+                $"reassign owned {team} to none",
+                $"remove team links {team}",
+                $"remove area team links {team}",
+                $"end team memberships {team}",
+                "save",
+            ],
             f.Store.Calls);
+    }
+
+    // mod-016 BR-M1-36 · the team's memberships end; a person who is also in another team stays there.
+    [Fact]
+    public async Task Handle_EndsTheTeamsMemberships_AMemberOfAnotherTeamStaysThere()
+    {
+        var f = new Fixture();
+        var other = f.Store.AddLinkedTeam(f.Organization, f.Alpha, "VENUS");
+        f.Store.AddMember(f.Organization, "u-1");
+        f.Store.AddTeamMember(f.Organization, f.Mars, "u-1");
+        f.Store.AddTeamMember(f.Organization, other, "u-1");
+
+        await f.HandleAsync(f.Command());
+
+        var remaining = Assert.Single(f.Store.TeamMemberships);
+        Assert.Equal(other.Id, remaining.TeamId);
     }
 }

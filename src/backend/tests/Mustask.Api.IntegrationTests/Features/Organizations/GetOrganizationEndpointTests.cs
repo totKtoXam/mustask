@@ -7,8 +7,8 @@ namespace Mustask.Api.IntegrationTests.Features.Organizations;
 /// <summary>
 /// <c>GET /api/organizations/{organizationId}</c> (api-contract § 1.4) through
 /// the real host and a real PostgreSQL. The organization level of the not-found
-/// theories (malformed, unknown, deactivated) is phase 1's, once for every route:
-/// <c>OrganizationContextFilterTests</c>. Every test builds its own organization
+/// theories (malformed, unknown, deactivated, a non-member) is the scoped check's,
+/// once for every route: <c>ScopedAccessTests</c> (mod-016 ADR-0027). Every test builds its own organization
 /// (<see cref="OrganizationsTestData"/>): the database is shared and never
 /// emptied, so none asserts the content of a global list.
 /// </summary>
@@ -37,32 +37,46 @@ public sealed class GetOrganizationEndpointTests(MustaskApiFactory factory)
         Assert.Equal(name, answer.Body.GetProperty("name").GetString());
     }
 
-    // US-1 · "Every signed-in user sees every organization": the reader holds no create right and is not the creator, and
-    // the organization still opens.
+    // US-1 · "Every signed-in user sees every organization" — since mod-016 every MEMBER does (BR-M1-7): the reader holds no
+    // create right, is not the creator and is only a viewer, and the organization still opens.
     [Fact]
-    public async Task Get_UserWithoutRight_Opens()
+    public async Task Get_AViewerWithoutRight_Opens()
     {
         var organization = await OrganizationsTestData.CreateOrganizationAsync(factory);
-        var readerSubject = OrganizationsTokens.NewSubject();
+        var reader = await MembershipTestData.NewMemberAsync(factory, organization.Id, Mustask.Domain.Identity.OrganizationRole.Viewer);
 
-        var answer = await GetAsync(organization.Id, OrganizationsTokens.SignedIn(readerSubject));
+        var answer = await GetAsync(organization.Id, reader.Token);
 
-        Assert.NotEqual(organization.CreatedBy, readerSubject);
+        Assert.NotEqual(organization.CreatedBy, reader.Id);
         Assert.Equal(HttpStatusCode.OK, answer.Status);
         Assert.Equal(organization.Id, answer.Body.GetProperty("id").GetGuid());
         Assert.Equal(organization.Name, answer.Body.GetProperty("name").GetString());
     }
 
-    // US-1 · the same answer for a user who holds the create right: the right narrows nothing but the creation (BR-M1-19).
+    // US-1 · the same answer for a member who holds the create right: the right narrows nothing but the creation (BR-M1-19).
     [Fact]
-    public async Task Get_UserWithCreateRight_OpensTheSameOrganization()
+    public async Task Get_AMemberWithCreateRight_OpensTheSameOrganization()
+    {
+        var organization = await OrganizationsTestData.CreateOrganizationAsync(factory);
+        var user = await MembershipTestData.NewMemberAsync(factory, organization.Id, Mustask.Domain.Identity.OrganizationRole.Member);
+
+        var answer = await GetAsync(organization.Id, OrganizationsTokens.WithCreateRight(user.Id));
+
+        Assert.Equal(HttpStatusCode.OK, answer.Status);
+        Assert.Equal(organization.Name, answer.Body.GetProperty("name").GetString());
+    }
+
+    // mod-016 api-contract § 0.1 · the create right is an instance code and opens no organization: a user holding it and no
+    // membership gets the one not-found answer (a non-member learns nothing about the organization).
+    [Fact]
+    public async Task Get_UserWithCreateRightButNoMembership_Gets404OrganizationNotFound()
     {
         var organization = await OrganizationsTestData.CreateOrganizationAsync(factory);
 
         var answer = await GetAsync(organization.Id, OrganizationsTokens.WithCreateRight());
 
-        Assert.Equal(HttpStatusCode.OK, answer.Status);
-        Assert.Equal(organization.Name, answer.Body.GetProperty("name").GetString());
+        Assert.Equal(HttpStatusCode.NotFound, answer.Status);
+        Assert.Equal("organizations.organization.not_found", answer.ErrorCode);
     }
 
     // The id in the address is read in either letter case (api-contract § 0.2) and the answer writes it in lowercase.

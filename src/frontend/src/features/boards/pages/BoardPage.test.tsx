@@ -3,11 +3,12 @@ import { act, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { focusManager } from '@tanstack/react-query';
 import { HttpResponse, delay, http } from 'msw';
+import { theme } from '../../../app/theme';
 import { server } from '../../../test/mocks/server';
 import { CATEGORY_MARKER_CLASS } from '../../../shared/ui/WorkTrackingMarks';
 import { serveBoards } from '../testApi';
 import { CELL, cellText, findBacklogTable, rowsOf } from '../testBacklog';
-import { cardOf, cardsIn, columnList, columnNames, findBoard } from '../testBoard';
+import { cardOf, cardsIn, columnBox, columnList, columnNames, findBoard } from '../testBoard';
 import { chooseLevel, levelButton } from '../testLevels';
 import {
   BOARD_URL,
@@ -18,12 +19,51 @@ import {
   stateId,
   storiesDataset,
 } from '../testFixtures';
-import { boardAddress, backlogAddress, mskForm, renderBoards, teamPrefix } from '../testRender';
+import {
+  boardAddress,
+  backlogAddress,
+  mskForm,
+  renderBoards,
+  teamContext,
+  teamPrefix,
+} from '../testRender';
 
 // US-4 and US-7's board scenario: «Платформа»'s boards per level.
 
 afterEach(() => {
   focusManager.setFocused(undefined);
+});
+
+/** `#242424` → `rgb(36, 36, 36)`, the form jsdom's computed style reports. */
+function rgb(hex: string): string {
+  const value = Number.parseInt(hex.slice(1), 16);
+  return `rgb(${(value >> 16) & 255}, ${(value >> 8) & 255}, ${value & 255})`;
+}
+
+describe('Board columns are coloured by their status category', () => {
+  it('each column has a stripe on top and a dot in its header in its category’s colour', async () => {
+    const data = boardsDataset();
+    data.items.push(platformItem(1, 'US', 'Первый'));
+    serveBoards(data);
+    renderBoards(boardAddress());
+    const board = await findBoard();
+
+    const columns: [string, string][] = [
+      ['Новая', 'Proposed'],
+      ['Активна', 'InProgress'],
+      ['Разрешена', 'Resolved'],
+      ['Закрыта', 'Completed'],
+    ];
+    for (const [header, category] of columns) {
+      const colour = rgb(theme.workTracking.categoryColour(category));
+      const box = columnBox(board, header);
+      expect(getComputedStyle(box).borderTopColor).toBe(colour);
+      expect(getComputedStyle(box).borderTopWidth).toBe('4px');
+      const dot = box.querySelector<HTMLElement>(`.${CATEGORY_MARKER_CLASS}`);
+      expect(dot, `the «${header}» column's category dot`).not.toBeNull();
+      expect(getComputedStyle(dot as HTMLElement).backgroundColor).toBe(colour);
+    }
+  });
 });
 
 describe('US-4 Scenario Outline: Each level’s board has its own columns', () => {
@@ -157,9 +197,12 @@ describe('US-4 Scenario: A card shows the item at a glance and opens it', () => 
       'menu',
     );
 
-    await userEvent.click(within(card).getByRole('link', { name: 'Неверный счётчик' }));
-
-    expect(screen.getByTestId('location')).toHaveTextContent(mskForm('MSK-BUG-5'));
+    // A plain click opens the card as a dialog (BoardPage.card.test.tsx); the address stays the
+    // item's own page, for a new tab (feat-029 BR-C-1).
+    expect(within(card).getByRole('link', { name: 'Неверный счётчик' })).toHaveAttribute(
+      'href',
+      mskForm('MSK-BUG-5'),
+    );
   });
 });
 
@@ -196,7 +239,7 @@ describe('US-4 Scenario: A level with no items shows the empty frame', () => {
 describe('US-4 Scenario: Entry, levels and the link to the backlog (feat-001 US-6: «Канбан», the drop-down)', () => {
   it('«Канбан» opens `<team>/boards/stories`; the drop-down; «Фичи» → «Показать бэклог» → its «Показать канбан»', async () => {
     serveBoards(storiesDataset());
-    renderBoards(mskForm('MSK-US-3'));
+    renderBoards(mskForm('MSK-US-3'), { context: teamContext({ projectId: undefined }) });
 
     const navigation = screen.getByRole('navigation', { name: 'Основное меню' });
     const entry = within(navigation).getByRole('link', { name: 'Канбан' });
@@ -272,25 +315,20 @@ describe('US-4 Scenario: Failure and not found are the backlog’s', () => {
   it.each([
     ['team id is malformed', 'Команда не найдена', teamPrefix('not-a-uuid')],
     ['team has been deleted', 'Команда не найдена', teamPrefix(ids.analyticsTeam)],
-    ['team belongs to another project', 'Команда не найдена', teamPrefix(ids.opsTeam)],
-    [
-      'project has been deactivated',
-      'Проект не найден',
-      `/organizations/${ids.example}/projects/${ids.ops}/teams/${ids.opsTeam}`,
-    ],
+    // feat-040 BR-TS-13: see the backlog's twin. The retired «project has been deactivated» case has
+    // no twin: a team's address has no project level (BR-TS-1).
+    ['team belongs to another organization', 'Команда не найдена', teamPrefix(ids.saturnTeam)],
     [
       'organization id names no organization',
       'Организация не найдена',
-      `/organizations/e0000000-0000-4000-8000-0000000000ff/projects/${ids.msk}/teams/${ids.platformTeam}`,
+      `/organizations/e0000000-0000-4000-8000-0000000000ff/teams/${ids.platformTeam}`,
     ],
   ])('a board address whose %s shows «%s»', async (_part, frame, prefix) => {
     const data = storiesDataset();
     data.teams = data.teams.map((team) =>
       team.id === ids.analyticsTeam ? { ...team, active: false } : team,
     );
-    data.projects = data.projects.map((project) =>
-      project.id === ids.ops ? { ...project, active: false } : project,
-    );
+    data.teams.push({ id: ids.saturnTeam, projectId: ids.otherMsk, name: 'SATURN', active: true });
     serveBoards(data);
     renderBoards(`${prefix}/boards/stories`);
 

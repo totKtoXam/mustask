@@ -7,15 +7,34 @@ using Mustask.Application.Features.Organizations.DeactivateOrganization;
 using Mustask.Application.Features.Organizations.DeactivateProject;
 using Mustask.Application.Features.Organizations.DeleteArea;
 using Mustask.Application.Features.Organizations.DeleteTeam;
+using Mustask.Application.Features.Organizations.GetArea;
+using Mustask.Application.Features.Organizations.GetAreaDeletion;
+using Mustask.Application.Features.Organizations.GetAreaTeams;
 using Mustask.Application.Features.Organizations.GetAreaTree;
+using Mustask.Application.Features.Organizations.GetProjectAreas;
+using Mustask.Application.Features.Organizations.GetTeamAreas;
+using Mustask.Application.Features.Organizations.LinkAreasToTeam;
+using Mustask.Application.Features.Organizations.LinkTeamsToArea;
+using Mustask.Application.Features.Organizations.SetAreaDescription;
+using Mustask.Application.Features.Organizations.UnlinkAreaFromTeam;
+using Mustask.Application.Features.Organizations.UnlinkTeamFromArea;
 using Mustask.Application.Features.Organizations.GetDeactivatedOrganizations;
 using Mustask.Application.Features.Organizations.GetDeactivatedProjects;
 using Mustask.Application.Features.Organizations.GetOrganization;
+using Mustask.Application.Features.Organizations.GetOrganizationTeams;
+using Mustask.Application.Features.Organizations.GetOverview;
+using Mustask.Application.Features.Organizations.GetSelectorOffers;
 using Mustask.Application.Features.Organizations.GetOrganizations;
 using Mustask.Application.Features.Organizations.GetProject;
 using Mustask.Application.Features.Organizations.GetProjects;
 using Mustask.Application.Features.Organizations.GetTeam;
+using Mustask.Application.Features.Organizations.GetTeamDeletionCounts;
+using Mustask.Application.Features.Organizations.GetTeamOwnedItemCount;
+using Mustask.Application.Features.Organizations.GetTeamProjects;
+using Mustask.Application.Features.Organizations.GetProjectTeamLinks;
 using Mustask.Application.Features.Organizations.GetTeams;
+using Mustask.Application.Features.Organizations.LinkProjectsToTeam;
+using Mustask.Application.Features.Organizations.LinkTeamsToProject;
 using Mustask.Application.Features.Organizations.MoveArea;
 using Mustask.Application.Features.Organizations.RenameArea;
 using Mustask.Application.Features.Organizations.RenameOrganization;
@@ -23,10 +42,13 @@ using Mustask.Application.Features.Organizations.RenameProject;
 using Mustask.Application.Features.Organizations.RenameTeam;
 using Mustask.Application.Features.Organizations.RestoreOrganization;
 using Mustask.Application.Features.Organizations.RestoreProject;
-using Mustask.Application.Features.Organizations.SetAreaOwner;
-using Mustask.Application.Features.Organizations.SetTeamDefaultArea;
+using Mustask.Application.Features.Organizations.SetDefaultTeam;
+using Mustask.Application.Features.Organizations.SetProjectDescription;
+using Mustask.Application.Features.Organizations.SetTeamDescription;
+using Mustask.Application.Features.Organizations.UnlinkTeam;
 using Mustask.Domain.Identity;
 using Mustask.Domain.Organizations;
+using System.Text.Json;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;
 
@@ -34,18 +56,27 @@ namespace Mustask.Api.Features.Organizations;
 
 /// <summary>
 /// <c>/api/organizations/*</c>: M1's structure (mod-002 api-contract § 1-§ 5),
-/// every route mapped here and wired to its own slice. The route parameters
-/// are plain strings with no constraint, so a malformed id reaches the filter
-/// or the handler and gets its level's not-found code instead of a routing
-/// 404 (BR-M1-20). Id fields in bodies are strings for the same reason.
+/// every route mapped here and wired to its own slice. Every route with an
+/// <c>{organizationId}</c> declares its organization code with
+/// <c>RequiresOrganizationPermission</c> (mod-016 ADR-0027, api-contract § 4.1):
+/// the scoped check answers 401, then 404 for a non-member, then 403 for a role
+/// without the code, all before a body is read. The route parameters are plain
+/// strings with no constraint, so a malformed id reaches the check or the
+/// handler and gets its level's not-found code instead of a routing 404
+/// (BR-M1-20). Id fields in bodies are strings for the same reason.
 /// </summary>
 public static class OrganizationEndpoints
 {
     private const string Tag = "Organizations";
 
-    private const string InterimAccess =
-        "Interim access (BR-M1-19, C-2): any signed-in user, until mod-016 retrofits the organization-scoped check; "
-        + "a non-member then gets the not-found answer, not a 403.";
+    private const string ListsOnlyMine =
+        "Lists only the organizations the caller belongs to, in any role (mod-016 BR-M1-7, api-contract § 4.1 row 1): "
+        + "the route names no organization, so no organization code applies, and a caller with no membership gets an empty list.";
+
+    private const string DeactivatedListsOnlyMine =
+        "Lists only the deactivated organizations where the caller's role may deactivate and restore the organization "
+        + "(mod-016 BR-M1-35, api-contract § 4.1 row 2): the route names no organization, so the narrowing is by membership "
+        + "inside the read, and the roles are derived from the bundles.";
 
     public static IEndpointRouteBuilder MapOrganizationEndpoints(this IEndpointRouteBuilder app)
     {
@@ -53,12 +84,12 @@ public static class OrganizationEndpoints
 
         // § 1. Organizations. "/deactivated" is a literal segment: the router ranks it above "{organizationId}".
         organizations.MapGet("/", GetOrganizationsAsync)
-            .AuthenticatedOnly(InterimAccess)
+            .AuthenticatedOnly(ListsOnlyMine)
             .Produces<IReadOnlyList<Application.Features.Organizations.GetOrganizations.OrganizationListItemResponse>>()
             .ProducesProblem(StatusCodes.Status401Unauthorized);
 
         organizations.MapGet("/deactivated", GetDeactivatedOrganizationsAsync)
-            .AuthenticatedOnly(InterimAccess)
+            .AuthenticatedOnly(DeactivatedListsOnlyMine)
             .Produces<IReadOnlyList<Application.Features.Organizations.GetDeactivatedOrganizations.OrganizationListItemResponse>>()
             .ProducesProblem(StatusCodes.Status401Unauthorized);
 
@@ -73,197 +104,323 @@ public static class OrganizationEndpoints
             .ProducesProblem(StatusCodes.Status500InternalServerError);
 
         organizations.MapGet("/{organizationId}", GetOrganizationAsync)
-            .AuthenticatedOnly(InterimAccess)
-            .RequiresOrganizationContext()
+            .RequiresOrganizationPermission(PermissionCatalog.OrganizationsOrganizationRead)
             .Produces<Application.Features.Organizations.GetOrganization.OrganizationResponse>()
             .ProducesProblem(StatusCodes.Status401Unauthorized)
+            .ProducesProblem(StatusCodes.Status403Forbidden)
             .ProducesProblem(StatusCodes.Status404NotFound);
 
         organizations.MapPut("/{organizationId}/name", RenameOrganizationAsync)
-            .AuthenticatedOnly(InterimAccess)
-            .RequiresOrganizationContext()
+            .RequiresOrganizationPermission(PermissionCatalog.OrganizationsOrganizationWrite)
             .Produces<Application.Features.Organizations.RenameOrganization.OrganizationResponse>()
             .ProducesProblem(StatusCodes.Status400BadRequest)
             .ProducesProblem(StatusCodes.Status401Unauthorized)
+            .ProducesProblem(StatusCodes.Status403Forbidden)
             .ProducesProblem(StatusCodes.Status404NotFound)
             .ProducesProblem(StatusCodes.Status409Conflict);
 
         organizations.MapPost("/{organizationId}/deactivate", DeactivateOrganizationAsync)
-            .AuthenticatedOnly(InterimAccess)
-            .RequiresOrganizationContext()
+            .RequiresOrganizationPermission(PermissionCatalog.OrganizationsOrganizationDeactivate)
             .Produces(StatusCodes.Status204NoContent)
             .ProducesProblem(StatusCodes.Status401Unauthorized)
+            .ProducesProblem(StatusCodes.Status403Forbidden)
             .ProducesProblem(StatusCodes.Status404NotFound);
 
         // The one request a deactivated organization accepts (api-contract § 1.7).
         organizations.MapPost("/{organizationId}/restore", RestoreOrganizationAsync)
-            .AuthenticatedOnly(InterimAccess)
-            .RequiresOrganizationContext(acceptsDeactivated: true)
+            .RequiresOrganizationPermission(PermissionCatalog.OrganizationsOrganizationDeactivate, acceptsDeactivated: true)
             .Produces<Application.Features.Organizations.RestoreOrganization.OrganizationResponse>()
             .ProducesProblem(StatusCodes.Status401Unauthorized)
+            .ProducesProblem(StatusCodes.Status403Forbidden)
             .ProducesProblem(StatusCodes.Status404NotFound);
+
+        // feat-043 api-contract § 1-§ 2: the bounded reads of the navigation («Обзор», the selectors' offers and the lists). Literal
+        // segments beside "{organizationId}"; read with the organization's own read code (the role bundle until mod-019).
+        organizations.MapGet("/{organizationId}/overview", GetOverviewAsync)
+            .RequiresOrganizationPermission(PermissionCatalog.OrganizationsOrganizationRead)
+            .Produces<Application.Features.Organizations.GetOverview.OverviewResponse>()
+            .WithReadProblems();
+
+        organizations.MapGet("/{organizationId}/selector-offers", GetSelectorOffersAsync)
+            .RequiresOrganizationPermission(PermissionCatalog.OrganizationsOrganizationRead)
+            .Produces<Application.Features.Organizations.GetSelectorOffers.SelectorOffersResponse>()
+            .WithReadProblems();
 
         // § 2. Projects.
         var projects = organizations.MapGroup("/{organizationId}/projects");
 
         projects.MapGet("/", GetProjectsAsync)
-            .AuthenticatedOnly(InterimAccess)
-            .RequiresOrganizationContext()
+            .RequiresOrganizationPermission(PermissionCatalog.OrganizationsProjectRead)
             .Produces<IReadOnlyList<Application.Features.Organizations.GetProjects.ProjectListItemResponse>>()
             .ProducesProblem(StatusCodes.Status401Unauthorized)
+            .ProducesProblem(StatusCodes.Status403Forbidden)
             .ProducesProblem(StatusCodes.Status404NotFound);
 
         projects.MapGet("/deactivated", GetDeactivatedProjectsAsync)
-            .AuthenticatedOnly(InterimAccess)
-            .RequiresOrganizationContext()
+            .RequiresOrganizationPermission(PermissionCatalog.OrganizationsProjectDeactivate)
             .Produces<IReadOnlyList<Application.Features.Organizations.GetDeactivatedProjects.ProjectListItemResponse>>()
             .ProducesProblem(StatusCodes.Status401Unauthorized)
+            .ProducesProblem(StatusCodes.Status403Forbidden)
             .ProducesProblem(StatusCodes.Status404NotFound);
 
         projects.MapPost("/", CreateProjectAsync)
-            .AuthenticatedOnly(InterimAccess)
-            .RequiresOrganizationContext()
+            .RequiresOrganizationPermission(PermissionCatalog.OrganizationsProjectWrite)
             .Produces<Application.Features.Organizations.CreateProject.ProjectResponse>(StatusCodes.Status201Created)
             .ProducesProblem(StatusCodes.Status400BadRequest)
             .ProducesProblem(StatusCodes.Status401Unauthorized)
+            .ProducesProblem(StatusCodes.Status403Forbidden)
             .ProducesProblem(StatusCodes.Status404NotFound)
             .ProducesProblem(StatusCodes.Status409Conflict);
 
         projects.MapGet("/{projectId}", GetProjectAsync)
-            .AuthenticatedOnly(InterimAccess)
-            .RequiresOrganizationContext()
+            .RequiresOrganizationPermission(PermissionCatalog.OrganizationsProjectRead)
             .Produces<Application.Features.Organizations.GetProject.ProjectResponse>()
             .ProducesProblem(StatusCodes.Status401Unauthorized)
+            .ProducesProblem(StatusCodes.Status403Forbidden)
             .ProducesProblem(StatusCodes.Status404NotFound);
 
         projects.MapPut("/{projectId}/name", RenameProjectAsync)
-            .AuthenticatedOnly(InterimAccess)
-            .RequiresOrganizationContext()
+            .RequiresOrganizationPermission(PermissionCatalog.OrganizationsProjectWrite)
             .Produces<Application.Features.Organizations.RenameProject.ProjectResponse>()
             .ProducesProblem(StatusCodes.Status400BadRequest)
             .ProducesProblem(StatusCodes.Status401Unauthorized)
+            .ProducesProblem(StatusCodes.Status403Forbidden)
             .ProducesProblem(StatusCodes.Status404NotFound)
             .ProducesProblem(StatusCodes.Status409Conflict);
 
         projects.MapPost("/{projectId}/deactivate", DeactivateProjectAsync)
-            .AuthenticatedOnly(InterimAccess)
-            .RequiresOrganizationContext()
+            .RequiresOrganizationPermission(PermissionCatalog.OrganizationsProjectDeactivate)
             .Produces(StatusCodes.Status204NoContent)
             .ProducesProblem(StatusCodes.Status401Unauthorized)
+            .ProducesProblem(StatusCodes.Status403Forbidden)
             .ProducesProblem(StatusCodes.Status404NotFound);
 
         projects.MapPost("/{projectId}/restore", RestoreProjectAsync)
-            .AuthenticatedOnly(InterimAccess)
-            .RequiresOrganizationContext()
+            .RequiresOrganizationPermission(PermissionCatalog.OrganizationsProjectDeactivate)
             .Produces<Application.Features.Organizations.RestoreProject.ProjectResponse>()
             .ProducesProblem(StatusCodes.Status401Unauthorized)
+            .ProducesProblem(StatusCodes.Status403Forbidden)
             .ProducesProblem(StatusCodes.Status404NotFound);
 
-        // § 3. Teams.
-        var teams = projects.MapGroup("/{projectId}/teams");
+        // feat-028 api-contract § 2.4. Name the project's default team, or clear the setting (an empty body, {} and
+        // { "teamId": null } all clear it); the team must be linked to the project. Declared project.write (mod-017 had team.write).
+        projects.MapPut("/{projectId}/default-team", SetDefaultTeamAsync)
+            .RequiresOrganizationPermission(PermissionCatalog.OrganizationsProjectWrite)
+            .Produces(StatusCodes.Status204NoContent)
+            .ProducesProblem(StatusCodes.Status401Unauthorized)
+            .ProducesProblem(StatusCodes.Status403Forbidden)
+            .ProducesProblem(StatusCodes.Status404NotFound)
+            .ProducesProblem(StatusCodes.Status409Conflict);
 
-        teams.MapGet("/", GetTeamsAsync)
-            .AuthenticatedOnly(InterimAccess)
-            .RequiresOrganizationContext()
+        // feat-028 api-contract § 2.4. A project's description, kept as typed; the empty string and null clear it.
+        projects.MapPut("/{projectId}/description", SetProjectDescriptionAsync)
+            .RequiresOrganizationPermission(PermissionCatalog.OrganizationsProjectWrite)
+            .Produces<Application.Features.Organizations.SetProjectDescription.ProjectResponse>()
+            .ProducesProblem(StatusCodes.Status400BadRequest)
+            .ProducesProblem(StatusCodes.Status401Unauthorized)
+            .ProducesProblem(StatusCodes.Status403Forbidden)
+            .ProducesProblem(StatusCodes.Status404NotFound);
+
+        // § 3a. The project's end of its teams (feat-028 api-contract § 2.4): the linked teams, the link, the unlink.
+        var projectTeams = projects.MapGroup("/{projectId}/teams");
+
+        projectTeams.MapGet("/", GetTeamsAsync)
+            .RequiresOrganizationPermission(PermissionCatalog.OrganizationsTeamRead)
             .Produces<IReadOnlyList<Application.Features.Organizations.GetTeams.TeamResponse>>()
             .ProducesProblem(StatusCodes.Status401Unauthorized)
+            .ProducesProblem(StatusCodes.Status403Forbidden)
             .ProducesProblem(StatusCodes.Status404NotFound);
 
-        teams.MapGet("/{teamId}", GetTeamAsync)
-            .AuthenticatedOnly(InterimAccess)
-            .RequiresOrganizationContext()
-            .Produces<Application.Features.Organizations.GetTeam.TeamResponse>()
+        // The old "add a team" path with another meaning: link teams to the project. The second code, organizations.team.link,
+        // is asked by the handler first of all (D-7).
+        projectTeams.MapPost("/", LinkTeamsToProjectAsync)
+            .RequiresOrganizationPermission(PermissionCatalog.OrganizationsProjectLink)
+            .Produces(StatusCodes.Status204NoContent)
             .ProducesProblem(StatusCodes.Status401Unauthorized)
+            .ProducesProblem(StatusCodes.Status403Forbidden)
             .ProducesProblem(StatusCodes.Status404NotFound);
 
+        // SC-09. Take a team off the project, giving its items there to a destination (a POST: a body on a DELETE is dropped by
+        // some proxies, D-6).
+        projectTeams.MapPost("/{teamId}/unlink", UnlinkTeamAsync)
+            .RequiresOrganizationPermission(PermissionCatalog.OrganizationsProjectLink)
+            .Produces(StatusCodes.Status204NoContent)
+            .ProducesProblem(StatusCodes.Status400BadRequest)
+            .ProducesProblem(StatusCodes.Status401Unauthorized)
+            .ProducesProblem(StatusCodes.Status403Forbidden)
+            .ProducesProblem(StatusCodes.Status404NotFound)
+            .ProducesProblem(StatusCodes.Status409Conflict);
+
+        // What an unlink would reassign: the items the team owns in this project, in any state.
+        projectTeams.MapGet("/{teamId}/unlink-count", GetTeamOwnedItemCountAsync)
+            .RequiresOrganizationPermission(PermissionCatalog.OrganizationsProjectLink)
+            .Produces<GetTeamOwnedItemCountResult>()
+            .ProducesProblem(StatusCodes.Status401Unauthorized)
+            .ProducesProblem(StatusCodes.Status403Forbidden)
+            .ProducesProblem(StatusCodes.Status404NotFound);
+
+        // § 3b. The organization's teams (feat-028 api-contract § 2.1, § 2.2). The team's members are mapped in MembershipEndpoints.
+        var teams = organizations.MapGroup("/{organizationId}/teams");
+
+        teams.MapGet("/", GetOrganizationTeamsAsync)
+            .RequiresOrganizationPermission(PermissionCatalog.OrganizationsTeamRead)
+            .Produces<IReadOnlyList<TeamListItemResponse>>()
+            .ProducesProblem(StatusCodes.Status401Unauthorized)
+            .ProducesProblem(StatusCodes.Status403Forbidden)
+            .ProducesProblem(StatusCodes.Status404NotFound);
+
+        // The second codes of a creation that links or staffs the team are asked by the handler first of all (D-7).
         teams.MapPost("/", AddTeamAsync)
-            .AuthenticatedOnly(InterimAccess)
-            .RequiresOrganizationContext()
+            .RequiresOrganizationPermission(PermissionCatalog.OrganizationsTeamCreate)
             .Produces<Application.Features.Organizations.AddTeam.TeamResponse>(StatusCodes.Status201Created)
             .ProducesProblem(StatusCodes.Status400BadRequest)
             .ProducesProblem(StatusCodes.Status401Unauthorized)
+            .ProducesProblem(StatusCodes.Status403Forbidden)
             .ProducesProblem(StatusCodes.Status404NotFound)
             .ProducesProblem(StatusCodes.Status409Conflict);
 
+        teams.MapGet("/{teamId}", GetTeamAsync)
+            .RequiresOrganizationPermission(PermissionCatalog.OrganizationsTeamRead)
+            .Produces<Application.Features.Organizations.GetTeam.TeamResponse>()
+            .ProducesProblem(StatusCodes.Status401Unauthorized)
+            .ProducesProblem(StatusCodes.Status403Forbidden)
+            .ProducesProblem(StatusCodes.Status404NotFound);
+
         teams.MapPut("/{teamId}/name", RenameTeamAsync)
-            .AuthenticatedOnly(InterimAccess)
-            .RequiresOrganizationContext()
+            .RequiresOrganizationPermission(PermissionCatalog.OrganizationsTeamWrite)
             .Produces<Application.Features.Organizations.RenameTeam.TeamResponse>()
             .ProducesProblem(StatusCodes.Status400BadRequest)
             .ProducesProblem(StatusCodes.Status401Unauthorized)
+            .ProducesProblem(StatusCodes.Status403Forbidden)
             .ProducesProblem(StatusCodes.Status404NotFound)
             .ProducesProblem(StatusCodes.Status409Conflict);
 
-        teams.MapPut("/{teamId}/default-area", SetTeamDefaultAreaAsync)
-            .AuthenticatedOnly(InterimAccess)
-            .RequiresOrganizationContext()
-            .Produces<Application.Features.Organizations.SetTeamDefaultArea.TeamResponse>()
+        teams.MapPut("/{teamId}/description", SetTeamDescriptionAsync)
+            .RequiresOrganizationPermission(PermissionCatalog.OrganizationsTeamWrite)
+            .Produces<Application.Features.Organizations.SetTeamDescription.TeamResponse>()
             .ProducesProblem(StatusCodes.Status400BadRequest)
             .ProducesProblem(StatusCodes.Status401Unauthorized)
-            .ProducesProblem(StatusCodes.Status404NotFound)
-            .ProducesProblem(StatusCodes.Status409Conflict);
-
-        teams.MapDelete("/{teamId}", DeleteTeamAsync)
-            .AuthenticatedOnly(InterimAccess)
-            .RequiresOrganizationContext()
-            .Produces(StatusCodes.Status204NoContent)
-            .ProducesProblem(StatusCodes.Status401Unauthorized)
-            .ProducesProblem(StatusCodes.Status404NotFound)
-            .ProducesProblem(StatusCodes.Status409Conflict);
-
-        // § 4. Areas.
-        var areas = projects.MapGroup("/{projectId}/areas");
-
-        areas.MapGet("/", GetAreaTreeAsync)
-            .AuthenticatedOnly(InterimAccess)
-            .RequiresOrganizationContext()
-            .Produces<IReadOnlyList<AreaNodeResponse>>()
-            .ProducesProblem(StatusCodes.Status401Unauthorized)
+            .ProducesProblem(StatusCodes.Status403Forbidden)
             .ProducesProblem(StatusCodes.Status404NotFound);
 
-        areas.MapPost("/", CreateAreaAsync)
-            .AuthenticatedOnly(InterimAccess)
-            .RequiresOrganizationContext()
-            .Produces<Application.Features.Organizations.CreateArea.AreaResponse>(StatusCodes.Status201Created)
-            .ProducesProblem(StatusCodes.Status400BadRequest)
+        // What a deletion would reassign, per project the team is linked to.
+        teams.MapGet("/{teamId}/deletion-counts", GetTeamDeletionCountsAsync)
+            .RequiresOrganizationPermission(PermissionCatalog.OrganizationsTeamDelete)
+            .Produces<GetTeamDeletionCountsResult>()
             .ProducesProblem(StatusCodes.Status401Unauthorized)
-            .ProducesProblem(StatusCodes.Status404NotFound)
-            .ProducesProblem(StatusCodes.Status409Conflict);
+            .ProducesProblem(StatusCodes.Status403Forbidden)
+            .ProducesProblem(StatusCodes.Status404NotFound);
 
-        areas.MapPut("/{areaId}/name", RenameAreaAsync)
-            .AuthenticatedOnly(InterimAccess)
-            .RequiresOrganizationContext()
-            .Produces<Application.Features.Organizations.RenameArea.AreaResponse>()
-            .ProducesProblem(StatusCodes.Status400BadRequest)
-            .ProducesProblem(StatusCodes.Status401Unauthorized)
-            .ProducesProblem(StatusCodes.Status404NotFound)
-            .ProducesProblem(StatusCodes.Status409Conflict);
-
-        areas.MapPut("/{areaId}/parent", MoveAreaAsync)
-            .AuthenticatedOnly(InterimAccess)
-            .RequiresOrganizationContext()
-            .Produces<Application.Features.Organizations.MoveArea.AreaResponse>()
-            .ProducesProblem(StatusCodes.Status400BadRequest)
-            .ProducesProblem(StatusCodes.Status401Unauthorized)
-            .ProducesProblem(StatusCodes.Status404NotFound)
-            .ProducesProblem(StatusCodes.Status409Conflict);
-
-        areas.MapPut("/{areaId}/owner", SetAreaOwnerAsync)
-            .AuthenticatedOnly(InterimAccess)
-            .RequiresOrganizationContext()
-            .Produces<Application.Features.Organizations.SetAreaOwner.AreaResponse>()
-            .ProducesProblem(StatusCodes.Status400BadRequest)
-            .ProducesProblem(StatusCodes.Status401Unauthorized)
-            .ProducesProblem(StatusCodes.Status404NotFound)
-            .ProducesProblem(StatusCodes.Status409Conflict);
-
-        areas.MapDelete("/{areaId}", DeleteAreaAsync)
-            .AuthenticatedOnly(InterimAccess)
-            .RequiresOrganizationContext()
+        teams.MapDelete("/{teamId}", DeleteTeamAsync)
+            .RequiresOrganizationPermission(PermissionCatalog.OrganizationsTeamDelete)
             .Produces(StatusCodes.Status204NoContent)
             .ProducesProblem(StatusCodes.Status401Unauthorized)
-            .ProducesProblem(StatusCodes.Status404NotFound)
+            .ProducesProblem(StatusCodes.Status403Forbidden)
+            .ProducesProblem(StatusCodes.Status404NotFound);
+
+        teams.MapGet("/{teamId}/projects", GetTeamProjectsAsync)
+            .RequiresOrganizationPermission(PermissionCatalog.OrganizationsTeamRead)
+            .Produces<IReadOnlyList<Application.Features.Organizations.GetTeamProjects.TeamProjectResponse>>()
+            .ProducesProblem(StatusCodes.Status401Unauthorized)
+            .ProducesProblem(StatusCodes.Status403Forbidden)
+            .ProducesProblem(StatusCodes.Status404NotFound);
+
+        // The team's end of a link; the second code, organizations.project.link, is asked by the handler first of all (D-7).
+        teams.MapPost("/{teamId}/projects", LinkProjectsToTeamAsync)
+            .RequiresOrganizationPermission(PermissionCatalog.OrganizationsTeamLink)
+            .Produces(StatusCodes.Status204NoContent)
+            .ProducesProblem(StatusCodes.Status401Unauthorized)
+            .ProducesProblem(StatusCodes.Status403Forbidden)
+            .ProducesProblem(StatusCodes.Status404NotFound);
+
+        // § 4. Areas (mod-018 api-contract § 2, § 3): one tree per organization. The declared code is the route's; the second codes
+        // (area.create, area.link and the other end's link code) are asked by the handlers first of all (D-7).
+        var areas = organizations.MapGroup("/{organizationId}/areas");
+
+        areas.MapGet("/", GetAreaTreeAsync)
+            .RequiresOrganizationPermission(PermissionCatalog.OrganizationsAreaRead)
+            .Produces<IReadOnlyList<AreaNodeResponse>>()
+            .WithReadProblems();
+
+        areas.MapPost("/", CreateAreaAsync)
+            .RequiresOrganizationPermission(PermissionCatalog.OrganizationsAreaWrite)
+            .Produces<Application.Features.Organizations.CreateArea.AreaResponse>(StatusCodes.Status201Created)
+            .WriteProblems();
+
+        areas.MapGet("/{areaId}", GetAreaAsync)
+            .RequiresOrganizationPermission(PermissionCatalog.OrganizationsAreaRead)
+            .Produces<AreaPageResponse>()
+            .WithReadProblems();
+
+        areas.MapPut("/{areaId}/name", RenameAreaAsync)
+            .RequiresOrganizationPermission(PermissionCatalog.OrganizationsAreaWrite)
+            .Produces<Application.Features.Organizations.RenameArea.AreaResponse>()
+            .WriteProblems();
+
+        areas.MapPut("/{areaId}/description", SetAreaDescriptionAsync)
+            .RequiresOrganizationPermission(PermissionCatalog.OrganizationsAreaWrite)
+            .Produces<Application.Features.Organizations.SetAreaDescription.AreaResponse>()
+            .WriteProblems();
+
+        areas.MapPut("/{areaId}/parent", MoveAreaAsync)
+            .RequiresOrganizationPermission(PermissionCatalog.OrganizationsAreaWrite)
+            .Produces<Application.Features.Organizations.MoveArea.AreaResponse>()
+            .WriteProblems();
+
+        areas.MapDelete("/{areaId}", DeleteAreaAsync)
+            .RequiresOrganizationPermission(PermissionCatalog.OrganizationsAreaWrite)
+            .Produces(StatusCodes.Status204NoContent)
+            .WriteProblems();
+
+        areas.MapGet("/{areaId}/deletion", GetAreaDeletionAsync)
+            .RequiresOrganizationPermission(PermissionCatalog.OrganizationsAreaWrite)
+            .Produces<GetAreaDeletionResult>()
+            .WithReadProblems();
+
+        areas.MapGet("/{areaId}/teams", GetAreaTeamsAsync)
+            .RequiresOrganizationPermission(PermissionCatalog.OrganizationsAreaRead)
+            .Produces<IReadOnlyList<AreaTeamResponse>>()
+            .WithReadProblems();
+
+        areas.MapPost("/{areaId}/teams", LinkTeamsToAreaAsync)
+            .RequiresOrganizationPermission(PermissionCatalog.OrganizationsAreaLink)
+            .Produces(StatusCodes.Status204NoContent)
+            .WithReadProblems()
             .ProducesProblem(StatusCodes.Status409Conflict);
+
+        areas.MapDelete("/{areaId}/teams/{teamId}", UnlinkTeamFromAreaAsync)
+            .RequiresOrganizationPermission(PermissionCatalog.OrganizationsAreaLink)
+            .Produces(StatusCodes.Status204NoContent)
+            .WithReadProblems();
+
+        // The project's and the team's ends of the same links (mod-018 api-contract § 3).
+        // The project node's read-only «Команды» (design § 4, OQ-6 A): the linked teams of a project of any status.
+        projects.MapGet("/{projectId}/team-links", GetProjectTeamLinksAsync)
+            .RequiresOrganizationPermission(PermissionCatalog.OrganizationsTeamRead)
+            .Produces<IReadOnlyList<ProjectTeamLinkResponse>>()
+            .WithReadProblems();
+
+        projects.MapGet("/{projectId}/areas", GetProjectAreasAsync)
+            .RequiresOrganizationPermission(PermissionCatalog.OrganizationsAreaRead)
+            .Produces<IReadOnlyList<ProjectAreaResponse>>()
+            .WithReadProblems();
+
+        teams.MapGet("/{teamId}/areas", GetTeamAreasAsync)
+            .RequiresOrganizationPermission(PermissionCatalog.OrganizationsAreaRead)
+            .Produces<IReadOnlyList<TeamAreaResponse>>()
+            .WithReadProblems();
+
+        teams.MapPost("/{teamId}/areas", LinkAreasToTeamAsync)
+            .RequiresOrganizationPermission(PermissionCatalog.OrganizationsTeamLink)
+            .Produces(StatusCodes.Status204NoContent)
+            .WithReadProblems()
+            .ProducesProblem(StatusCodes.Status409Conflict);
+
+        teams.MapDelete("/{teamId}/areas/{areaId}", UnlinkAreaFromTeamAsync)
+            .RequiresOrganizationPermission(PermissionCatalog.OrganizationsTeamLink)
+            .Produces(StatusCodes.Status204NoContent)
+            .WithReadProblems();
+
 
         return app;
     }
@@ -311,10 +468,16 @@ public static class OrganizationEndpoints
     private static async Task<IResult> CreateProjectAsync(
         string organizationId, CreateProjectRequest? request, CreateProjectHandler handler, CancellationToken cancellationToken)
     {
-        var result = await handler.Handle(new CreateProjectCommand(organizationId, request?.Name, request?.Key), cancellationToken);
+        var result = await handler.Handle(
+            new CreateProjectCommand(organizationId, request?.Name, request?.Key, request?.Description, request?.TeamIds, request?.ParentAreaId),
+            cancellationToken);
 
         return Results.Created($"/api/organizations/{result.Response.OrganizationId}/projects/{result.Response.Id}", result.Response);
     }
+
+    private static async Task<IResult> SetProjectDescriptionAsync(
+        string organizationId, string projectId, DescriptionRequest? request, SetProjectDescriptionHandler handler, CancellationToken cancellationToken) =>
+        Results.Ok((await handler.Handle(new SetProjectDescriptionCommand(organizationId, projectId, request?.Description), cancellationToken)).Response);
 
     private static async Task<IResult> GetProjectAsync(string organizationId, string projectId, GetProjectHandler handler, CancellationToken cancellationToken) =>
         Results.Ok((await handler.Handle(new GetProjectQuery(organizationId, projectId), cancellationToken)).Response);
@@ -337,73 +500,231 @@ public static class OrganizationEndpoints
 
     // --- § 3. Teams -------------------------------------------------------------------
 
-    private static async Task<IResult> GetTeamsAsync(string organizationId, string projectId, GetTeamsHandler handler, CancellationToken cancellationToken) =>
-        Results.Ok((await handler.Handle(new GetTeamsQuery(organizationId, projectId), cancellationToken)).Items);
-
-    private static async Task<IResult> GetTeamAsync(
-        string organizationId, string projectId, string teamId, GetTeamHandler handler, CancellationToken cancellationToken) =>
-        Results.Ok((await handler.Handle(new GetTeamQuery(organizationId, projectId, teamId), cancellationToken)).Response);
-
-    private static async Task<IResult> AddTeamAsync(
-        string organizationId, string projectId, NameRequest? request, AddTeamHandler handler, CancellationToken cancellationToken)
+    private static async Task<IResult> SetDefaultTeamAsync(
+        string organizationId, string projectId, DefaultTeamRequest? request, SetDefaultTeamHandler handler, CancellationToken cancellationToken)
     {
-        var result = await handler.Handle(new AddTeamCommand(organizationId, projectId, request?.Name), cancellationToken);
-
-        return Results.Created($"{ProjectPath(organizationId, result.Response.ProjectId)}/teams/{result.Response.Id}", result.Response);
-    }
-
-    private static async Task<IResult> RenameTeamAsync(
-        string organizationId, string projectId, string teamId, NameRequest? request, RenameTeamHandler handler, CancellationToken cancellationToken) =>
-        Results.Ok((await handler.Handle(new RenameTeamCommand(organizationId, projectId, teamId, request?.Name), cancellationToken)).Response);
-
-    private static async Task<IResult> SetTeamDefaultAreaAsync(
-        string organizationId,
-        string projectId,
-        string teamId,
-        DefaultAreaRequest? request,
-        SetTeamDefaultAreaHandler handler,
-        CancellationToken cancellationToken) =>
-        Results.Ok((await handler.Handle(new SetTeamDefaultAreaCommand(organizationId, projectId, teamId, request?.AreaId), cancellationToken)).Response);
-
-    private static async Task<IResult> DeleteTeamAsync(
-        string organizationId, string projectId, string teamId, DeleteTeamHandler handler, CancellationToken cancellationToken)
-    {
-        await handler.Handle(new DeleteTeamCommand(organizationId, projectId, teamId), cancellationToken);
+        // A missing body is {}: clear (api-contract § 2.8, D-7).
+        await handler.Handle(new SetDefaultTeamCommand(organizationId, projectId, request?.TeamId), cancellationToken);
 
         return Results.NoContent();
     }
 
-    // --- § 4. Areas -------------------------------------------------------------------
+    private static async Task<IResult> GetTeamOwnedItemCountAsync(
+        string organizationId, string projectId, string teamId, GetTeamOwnedItemCountHandler handler, CancellationToken cancellationToken) =>
+        Results.Ok(await handler.Handle(new GetTeamOwnedItemCountQuery(organizationId, projectId, teamId), cancellationToken));
 
-    private static async Task<IResult> GetAreaTreeAsync(string organizationId, string projectId, GetAreaTreeHandler handler, CancellationToken cancellationToken) =>
-        Results.Ok((await handler.Handle(new GetAreaTreeQuery(organizationId, projectId), cancellationToken)).Items);
+    private static async Task<IResult> GetTeamsAsync(string organizationId, string projectId, GetTeamsHandler handler, CancellationToken cancellationToken) =>
+        Results.Ok((await handler.Handle(new GetTeamsQuery(organizationId, projectId), cancellationToken)).Items);
 
-    private static async Task<IResult> CreateAreaAsync(
-        string organizationId, string projectId, CreateAreaRequest? request, CreateAreaHandler handler, CancellationToken cancellationToken)
+    private static async Task<IResult> LinkTeamsToProjectAsync(
+        string organizationId, string projectId, LinkTeamsRequest? request, LinkTeamsToProjectHandler handler, CancellationToken cancellationToken)
+    {
+        // An absent body, an old { "name" } body and an empty list all read as an empty list: a no-op 204 (D-14).
+        await handler.Handle(new LinkTeamsToProjectCommand(organizationId, projectId, request?.TeamIds), cancellationToken);
+
+        return Results.NoContent();
+    }
+
+    private static async Task<IResult> UnlinkTeamAsync(
+        string organizationId, string projectId, string teamId, UnlinkRequest? request, UnlinkTeamHandler handler, CancellationToken cancellationToken)
+    {
+        await handler.Handle(new UnlinkTeamCommand(organizationId, projectId, teamId, ReadDestination(request?.Destination)), cancellationToken);
+
+        return Results.NoContent();
+    }
+
+    private static async Task<IResult> GetOverviewAsync(string organizationId, GetOverviewHandler handler, CancellationToken cancellationToken) =>
+        Results.Ok(await handler.Handle(new GetOverviewQuery(organizationId), cancellationToken));
+
+    private static async Task<IResult> GetSelectorOffersAsync(string organizationId, GetSelectorOffersHandler handler, CancellationToken cancellationToken) =>
+        Results.Ok(await handler.Handle(new GetSelectorOffersQuery(organizationId), cancellationToken));
+
+    private static async Task<IResult> GetOrganizationTeamsAsync(string organizationId, GetOrganizationTeamsHandler handler, CancellationToken cancellationToken) =>
+        Results.Ok((await handler.Handle(new GetOrganizationTeamsQuery(organizationId), cancellationToken)).Items);
+
+    private static async Task<IResult> GetTeamAsync(
+        string organizationId, string teamId, GetTeamHandler handler, CancellationToken cancellationToken) =>
+        Results.Ok((await handler.Handle(new GetTeamQuery(organizationId, teamId), cancellationToken)).Response);
+
+    private static async Task<IResult> AddTeamAsync(
+        string organizationId, AddTeamRequest? request, AddTeamHandler handler, CancellationToken cancellationToken)
     {
         var result = await handler.Handle(
-            new CreateAreaCommand(organizationId, projectId, request?.ParentId, request?.Name, request?.OwnerTeamId),
+            new AddTeamCommand(organizationId, request?.Name, request?.Description, request?.MemberIds, request?.ProjectIds, request?.AreaIds),
             cancellationToken);
 
-        return Results.Created($"{ProjectPath(organizationId, result.Response.ProjectId)}/areas/{result.Response.Id}", result.Response);
+        return Results.Created($"/api/organizations/{organizationId.ToLowerInvariant()}/teams/{result.Response.Id}", result.Response);
+    }
+
+    private static async Task<IResult> RenameTeamAsync(
+        string organizationId, string teamId, NameRequest? request, RenameTeamHandler handler, CancellationToken cancellationToken) =>
+        Results.Ok((await handler.Handle(new RenameTeamCommand(organizationId, teamId, request?.Name), cancellationToken)).Response);
+
+    private static async Task<IResult> SetTeamDescriptionAsync(
+        string organizationId, string teamId, DescriptionRequest? request, SetTeamDescriptionHandler handler, CancellationToken cancellationToken) =>
+        Results.Ok((await handler.Handle(new SetTeamDescriptionCommand(organizationId, teamId, request?.Description), cancellationToken)).Response);
+
+    private static async Task<IResult> GetTeamDeletionCountsAsync(
+        string organizationId, string teamId, GetTeamDeletionCountsHandler handler, CancellationToken cancellationToken) =>
+        Results.Ok(await handler.Handle(new GetTeamDeletionCountsQuery(organizationId, teamId), cancellationToken));
+
+    private static async Task<IResult> DeleteTeamAsync(
+        string organizationId, string teamId, DeleteTeamHandler handler, CancellationToken cancellationToken)
+    {
+        await handler.Handle(new DeleteTeamCommand(organizationId, teamId), cancellationToken);
+
+        return Results.NoContent();
+    }
+
+    private static async Task<IResult> GetTeamProjectsAsync(
+        string organizationId, string teamId, GetTeamProjectsHandler handler, CancellationToken cancellationToken) =>
+        Results.Ok((await handler.Handle(new GetTeamProjectsQuery(organizationId, teamId), cancellationToken)).Items);
+
+    private static async Task<IResult> LinkProjectsToTeamAsync(
+        string organizationId, string teamId, LinkProjectsRequest? request, LinkProjectsToTeamHandler handler, CancellationToken cancellationToken)
+    {
+        await handler.Handle(new LinkProjectsToTeamCommand(organizationId, teamId, request?.ProjectIds), cancellationToken);
+
+        return Results.NoContent();
+    }
+
+    /// <summary>
+    /// The unlink's <c>destination</c> wrapper (D-8): <c>{ "teamId": "…" }</c> names a team and <c>{ "teamId": null }</c> is «Без команды».
+    /// The wrapper absent, <c>null</c> or <c>{}</c> — its <c>teamId</c> key missing — is <c>null</c> here, which the handler answers
+    /// with 400 <c>destination_required</c>: «Без команды» is never the answer to a missing key, so a client defect cannot move every
+    /// item to no team silently. A <c>destination</c> that is not an object, or a <c>teamId</c> that is neither a string nor <c>null</c>,
+    /// is a malformed body (400 <c>http.bad_request</c>), as a number in any other id field is.
+    /// </summary>
+    private static UnlinkDestination? ReadDestination(JsonElement? destination)
+    {
+        if (destination is not { } wrapper || wrapper.ValueKind is JsonValueKind.Null or JsonValueKind.Undefined)
+        {
+            return null;
+        }
+
+        if (wrapper.ValueKind != JsonValueKind.Object)
+        {
+            throw new BadHttpRequestException("The destination of an unlink is an object with a teamId.");
+        }
+
+        foreach (var property in wrapper.EnumerateObject())
+        {
+            // Property names bind case-insensitively like every other body of the API.
+            if (!string.Equals(property.Name, "teamId", StringComparison.OrdinalIgnoreCase))
+            {
+                continue;
+            }
+
+            return property.Value.ValueKind switch
+            {
+                JsonValueKind.String => new UnlinkDestination(property.Value.GetString()),
+                JsonValueKind.Null => new UnlinkDestination(null),
+                _ => throw new BadHttpRequestException("The teamId of an unlink's destination is a string or null."),
+            };
+        }
+
+        return null;
+    }
+
+    // --- § 4. Areas -------------------------------------------------------------------
+
+    private static RouteHandlerBuilder WithReadProblems(this RouteHandlerBuilder builder) =>
+        builder
+            .ProducesProblem(StatusCodes.Status401Unauthorized)
+            .ProducesProblem(StatusCodes.Status403Forbidden)
+            .ProducesProblem(StatusCodes.Status404NotFound);
+
+    private static RouteHandlerBuilder WriteProblems(this RouteHandlerBuilder builder) =>
+        builder
+            .ProducesProblem(StatusCodes.Status400BadRequest)
+            .WithReadProblems()
+            .ProducesProblem(StatusCodes.Status409Conflict);
+
+    private static async Task<IResult> GetAreaTreeAsync(string organizationId, GetAreaTreeHandler handler, CancellationToken cancellationToken) =>
+        Results.Ok((await handler.Handle(new GetAreaTreeQuery(organizationId), cancellationToken)).Items);
+
+    private static async Task<IResult> GetAreaAsync(string organizationId, string areaId, GetAreaHandler handler, CancellationToken cancellationToken) =>
+        Results.Ok((await handler.Handle(new GetAreaQuery(organizationId, areaId), cancellationToken)).Response);
+
+    private static async Task<IResult> CreateAreaAsync(
+        string organizationId, CreateAreaRequest? request, CreateAreaHandler handler, CancellationToken cancellationToken)
+    {
+        var result = await handler.Handle(
+            new CreateAreaCommand(
+                organizationId, request?.Name, request?.ParentId, request?.Description, request?.TeamIds),
+            cancellationToken);
+
+        return Results.Created($"/api/organizations/{organizationId.ToLowerInvariant()}/areas/{result.Response.Id}", result.Response);
     }
 
     private static async Task<IResult> RenameAreaAsync(
-        string organizationId, string projectId, string areaId, NameRequest? request, RenameAreaHandler handler, CancellationToken cancellationToken) =>
-        Results.Ok((await handler.Handle(new RenameAreaCommand(organizationId, projectId, areaId, request?.Name), cancellationToken)).Response);
+        string organizationId, string areaId, NameRequest? request, RenameAreaHandler handler, CancellationToken cancellationToken) =>
+        Results.Ok((await handler.Handle(new RenameAreaCommand(organizationId, areaId, request?.Name), cancellationToken)).Response);
+
+    private static async Task<IResult> SetAreaDescriptionAsync(
+        string organizationId, string areaId, DescriptionRequest? request, SetAreaDescriptionHandler handler, CancellationToken cancellationToken) =>
+        Results.Ok((await handler.Handle(new SetAreaDescriptionCommand(organizationId, areaId, request?.Description), cancellationToken)).Response);
 
     private static async Task<IResult> MoveAreaAsync(
-        string organizationId, string projectId, string areaId, ParentRequest? request, MoveAreaHandler handler, CancellationToken cancellationToken) =>
-        Results.Ok((await handler.Handle(new MoveAreaCommand(organizationId, projectId, areaId, request?.ParentId), cancellationToken)).Response);
-
-    private static async Task<IResult> SetAreaOwnerAsync(
-        string organizationId, string projectId, string areaId, OwnerRequest? request, SetAreaOwnerHandler handler, CancellationToken cancellationToken) =>
-        Results.Ok((await handler.Handle(new SetAreaOwnerCommand(organizationId, projectId, areaId, request?.OwnerTeamId), cancellationToken)).Response);
+        string organizationId, string areaId, ParentRequest? request, MoveAreaHandler handler, CancellationToken cancellationToken) =>
+        Results.Ok((await handler.Handle(new MoveAreaCommand(organizationId, areaId, request?.ParentId), cancellationToken)).Response);
 
     private static async Task<IResult> DeleteAreaAsync(
-        string organizationId, string projectId, string areaId, DeleteAreaHandler handler, CancellationToken cancellationToken)
+        string organizationId, string areaId, DeleteAreaHandler handler, CancellationToken cancellationToken)
     {
-        await handler.Handle(new DeleteAreaCommand(organizationId, projectId, areaId), cancellationToken);
+        await handler.Handle(new DeleteAreaCommand(organizationId, areaId), cancellationToken);
+
+        return Results.NoContent();
+    }
+
+    private static async Task<IResult> GetAreaDeletionAsync(
+        string organizationId, string areaId, GetAreaDeletionHandler handler, CancellationToken cancellationToken) =>
+        Results.Ok(await handler.Handle(new GetAreaDeletionQuery(organizationId, areaId), cancellationToken));
+
+    private static async Task<IResult> GetAreaTeamsAsync(
+        string organizationId, string areaId, GetAreaTeamsHandler handler, CancellationToken cancellationToken) =>
+        Results.Ok((await handler.Handle(new GetAreaTeamsQuery(organizationId, areaId), cancellationToken)).Items);
+
+    private static async Task<IResult> LinkTeamsToAreaAsync(
+        string organizationId, string areaId, LinkTeamsRequest? request, LinkTeamsToAreaHandler handler, CancellationToken cancellationToken)
+    {
+        await handler.Handle(new LinkTeamsToAreaCommand(organizationId, areaId, request?.TeamIds), cancellationToken);
+
+        return Results.NoContent();
+    }
+
+    private static async Task<IResult> UnlinkTeamFromAreaAsync(
+        string organizationId, string areaId, string teamId, UnlinkTeamFromAreaHandler handler, CancellationToken cancellationToken)
+    {
+        await handler.Handle(new UnlinkTeamFromAreaCommand(organizationId, areaId, teamId), cancellationToken);
+
+        return Results.NoContent();
+    }
+
+    private static async Task<IResult> GetProjectTeamLinksAsync(
+        string organizationId, string projectId, GetProjectTeamLinksHandler handler, CancellationToken cancellationToken) =>
+        Results.Ok((await handler.Handle(new GetProjectTeamLinksQuery(organizationId, projectId), cancellationToken)).Items);
+
+    private static async Task<IResult> GetProjectAreasAsync(
+        string organizationId, string projectId, GetProjectAreasHandler handler, CancellationToken cancellationToken) =>
+        Results.Ok((await handler.Handle(new GetProjectAreasQuery(organizationId, projectId), cancellationToken)).Items);
+
+    private static async Task<IResult> GetTeamAreasAsync(
+        string organizationId, string teamId, GetTeamAreasHandler handler, CancellationToken cancellationToken) =>
+        Results.Ok((await handler.Handle(new GetTeamAreasQuery(organizationId, teamId), cancellationToken)).Items);
+
+    private static async Task<IResult> LinkAreasToTeamAsync(
+        string organizationId, string teamId, LinkAreasRequest? request, LinkAreasToTeamHandler handler, CancellationToken cancellationToken)
+    {
+        await handler.Handle(new LinkAreasToTeamCommand(organizationId, teamId, request?.AreaIds), cancellationToken);
+
+        return Results.NoContent();
+    }
+
+    private static async Task<IResult> UnlinkAreaFromTeamAsync(
+        string organizationId, string teamId, string areaId, UnlinkAreaFromTeamHandler handler, CancellationToken cancellationToken)
+    {
+        await handler.Handle(new UnlinkAreaFromTeamCommand(organizationId, teamId, areaId), cancellationToken);
 
         return Results.NoContent();
     }
@@ -420,13 +741,41 @@ public static class OrganizationEndpoints
 
     private sealed record NameRequest(string? Name);
 
-    private sealed record CreateProjectRequest(string? Name, string? Key);
+    private sealed record CreateProjectRequest(
+        string? Name, string? Key, string? Description, IReadOnlyList<string?>? TeamIds, string? ParentAreaId = null);
 
-    private sealed record DefaultAreaRequest(string? AreaId);
+    /// <summary>feat-028 api-contract § 2.1: a team with its optional description, people and projects.</summary>
+    private sealed record AddTeamRequest(
+        string? Name,
+        string? Description,
+        IReadOnlyList<string?>? MemberIds,
+        IReadOnlyList<string?>? ProjectIds,
+        IReadOnlyList<string?>? AreaIds = null);
 
-    private sealed record CreateAreaRequest(string? ParentId, string? Name, string? OwnerTeamId);
+    /// <summary>feat-028 api-contract § 2.1, § 2.4: <c>description</c> a string, or <c>null</c> (or absent) to clear it.</summary>
+    private sealed record DescriptionRequest(string? Description);
+
+    private sealed record LinkTeamsRequest(IReadOnlyList<string?>? TeamIds);
+
+    private sealed record LinkProjectsRequest(IReadOnlyList<string?>? ProjectIds);
+
+    /// <summary>
+    /// feat-028 api-contract § 2.4: the unlink's body. <c>destination</c> is bound as a raw JSON value (D-8) because its
+    /// <c>teamId</c> key must be told apart from a missing one: a typed record would read both as <c>null</c>.
+    /// </summary>
+    private sealed record UnlinkRequest(JsonElement? Destination);
+
+    /// <summary>mod-017 api-contract § 2.8: <c>teamId</c> a string, or <c>null</c> (or absent) to clear the setting.</summary>
+    private sealed record DefaultTeamRequest(string? TeamId);
+
+    /// <summary>mod-018 api-contract § 2: a department or a sub-area with its optional description and the teams to link (a department only).</summary>
+    private sealed record CreateAreaRequest(
+        string? Name,
+        string? ParentId,
+        string? Description,
+        IReadOnlyList<string?>? TeamIds);
+
+    private sealed record LinkAreasRequest(IReadOnlyList<string?>? AreaIds);
 
     private sealed record ParentRequest(string? ParentId);
-
-    private sealed record OwnerRequest(string? OwnerTeamId);
 }

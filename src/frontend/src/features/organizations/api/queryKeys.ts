@@ -1,5 +1,5 @@
 // TanStack Query keys of the slice, `['organizations', <entity>, …]`
-// (frontend.md "Data and state", plan-frontend § 3.3). The switcher's three
+// (frontend.md "Data and state", plan-frontend § 3.3). The selectors’ three
 // levels use the same keys as the pages that read the same lists, so one
 // request serves both and one invalidation refreshes both.
 import type { ListView } from './organizationsApi';
@@ -16,13 +16,98 @@ export const organizationsKeys = {
     [ROOT, 'projects', organizationId, view] as const,
   project: (organizationId: string, projectId: string) =>
     [ROOT, 'project', organizationId, projectId] as const,
+  /**
+   * A project's linked teams (feat-028 § 2.4): the page's table, the shell's team level and
+   * the work item pickers read this one key.
+   */
   teams: (organizationId: string, projectId: string) =>
     [ROOT, 'teams', organizationId, projectId] as const,
-  team: (organizationId: string, projectId: string, teamId: string) =>
-    [ROOT, 'team', organizationId, projectId, teamId] as const,
-  /** Every team page of a project. */
-  teamPages: (organizationId: string, projectId: string) =>
-    [ROOT, 'team', organizationId, projectId] as const,
-  areas: (organizationId: string, projectId: string) =>
-    [ROOT, 'areas', organizationId, projectId] as const,
+  /** The read-only team list of a project of any status (mod-018). */
+  teamLinks: (organizationId: string, projectId: string) =>
+    [ROOT, 'team-links', organizationId, projectId] as const,
+  /** Every project's linked-team list of an organization: a team's rename or deletion refreshes them all. */
+  projectTeamLists: (organizationId: string) => [ROOT, 'teams', organizationId] as const,
+  /** The organization's own list of teams, with their projects (feat-028 § 2.1). */
+  orgTeams: (organizationId: string) => [ROOT, 'org-teams', organizationId] as const,
+  team: (organizationId: string, teamId: string) => [ROOT, 'team', organizationId, teamId] as const,
+  /** Every team page of an organization. */
+  teamPages: (organizationId: string) => [ROOT, 'team', organizationId] as const,
+  /** A team's projects (§ 2.2). */
+  teamProjects: (organizationId: string, teamId: string) =>
+    [ROOT, 'team-projects', organizationId, teamId] as const,
+  /** Every team's projects of an organization: a link or an unlink refreshes the ones on screen. */
+  teamProjectLists: (organizationId: string) => [ROOT, 'team-projects', organizationId] as const,
+  /** What one team's deletion would reassign, per project (§ 2.1). */
+  deletionCounts: (organizationId: string, teamId: string) =>
+    [ROOT, 'deletion-counts', organizationId, teamId] as const,
+  /** What one unlink would reassign (§ 2.4). */
+  unlinkCount: (organizationId: string, projectId: string, teamId: string) =>
+    [ROOT, 'unlink-count', organizationId, projectId, teamId] as const,
+  /** The organization's area tree (mod-018 § 3). */
+  areas: (organizationId: string) => [ROOT, 'areas', organizationId] as const,
+  /** A project's subtree: its node and the sub-areas (§ 4). */
+  projectAreaTree: (organizationId: string, projectId: string) =>
+    [ROOT, 'project-area-tree', organizationId, projectId] as const,
+  /** Every project subtree of an organization. */
+  projectAreaTrees: (organizationId: string) =>
+    [ROOT, 'project-area-tree', organizationId] as const,
+  /** An area's page. */
+  area: (organizationId: string, areaId: string) => [ROOT, 'area', organizationId, areaId] as const,
+  /** Every area page of an organization. */
+  areaPages: (organizationId: string) => [ROOT, 'area', organizationId] as const,
+  /** A department's linked teams (§ 3). */
+  areaTeams: (organizationId: string, areaId: string) =>
+    [ROOT, 'area-teams', organizationId, areaId] as const,
+  /** Every department's team list of an organization: a link or an unlink refreshes the ones on screen. */
+  areaTeamLists: (organizationId: string) => [ROOT, 'area-teams', organizationId] as const,
+  /** What one department's deletion would end (§ 3). */
+  areaDeletion: (organizationId: string, areaId: string) =>
+    [ROOT, 'area-deletion', organizationId, areaId] as const,
+  /** A team's linked departments (§ 5). */
+  teamAreas: (organizationId: string, teamId: string) =>
+    [ROOT, 'team-areas', organizationId, teamId] as const,
+  teamAreaLists: (organizationId: string) => [ROOT, 'team-areas', organizationId] as const,
+  /**
+   * The caller's served access to an organization (mod-016 api-contract
+   * § 1.1): its data is an `AccessAnswer` — codes, or the 404 as an answer.
+   */
+  access: (organizationId: string) => [ROOT, 'access', organizationId] as const,
+  /** Every access entry, for the watcher's cache subscription. */
+  accesses: [ROOT, 'access'] as const,
+  /** The members of an organization (api-contract § 1.2). */
+  members: (organizationId: string) => [ROOT, 'members', organizationId] as const,
+  /** The add-member search (§ 1.3): one entry per text. */
+  memberCandidates: (organizationId: string, text: string) =>
+    [ROOT, 'member-candidates', organizationId, text] as const,
+  /** The members of one team (§ 2.1). */
+  teamMembers: (organizationId: string, teamId: string) =>
+    [ROOT, 'team-members', organizationId, teamId] as const,
+  /** Every team-members list of an organization: a member's removal invalidates them all. */
+  teamMembersOf: (organizationId: string) => [ROOT, 'team-members', organizationId] as const,
+  /** The instance administrator's list of every organization (feat-033 § 1.1): one entry per page and filter. */
+  rescueList: (page: number, name: string) => [ROOT, 'rescue-list', page, name] as const,
+  /** Every rescue list page: an appointment refreshes them all. */
+  rescueLists: [ROOT, 'rescue-list'] as const,
+  /** The appointee search of the rescue dialog (§ 1.2): no organization. */
+  appointeeCandidates: (text: string) => [ROOT, 'appointee-candidates', text] as const,
+  /** An organization's appointment record, read by either host (§ 1.4, § 2.1). */
+  appointments: (organizationId: string, host: 'rescue' | 'organization') =>
+    [ROOT, 'appointments', organizationId, host] as const,
+  /** The add-to-team search (§ 2.2). */
+  teamMemberCandidates: (organizationId: string, teamId: string, text: string) =>
+    [ROOT, 'team-member-candidates', organizationId, teamId, text] as const,
+  /** The creation form's member search (feat-028 § 2.3a): a team that does not exist yet. */
+  newTeamMemberCandidates: (organizationId: string, text: string) =>
+    [ROOT, 'new-team-member-candidates', organizationId, text] as const,
+};
+
+/**
+ * The navigation reads of feat-043 (plan-frontend section 3): "Overview" and the selectors'
+ * offers. Their own root, so that every organization write refreshes them with one invalidation.
+ */
+export const navigationKeys = {
+  all: ['navigation'] as const,
+  overview: (organizationId: string) => ['navigation', 'overview', organizationId] as const,
+  selectorOffers: (organizationId: string) =>
+    ['navigation', 'selector-offers', organizationId] as const,
 };

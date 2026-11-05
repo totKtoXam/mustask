@@ -1,0 +1,164 @@
+<!doctype html>
+<html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>feat-048 prototype (delta states and groupings)</title>
+<style>
+:root{--bg:#F8F8F8;--nav:#EBEBEB;--navh:#E2E2E2;--tx:#242424;--tx2:#616161;--acc:#0078D4;--accd:#0C5598;--div:#E0E0E0;--hov:#F0F0F0;--sel:#E5F0FA;--err:#C42B1C;--errbg:#FDF3F2;--inf:#EFF6FC}
+*{box-sizing:border-box}body{margin:0;font:14px/20px "Segoe UI",system-ui,sans-serif;color:var(--tx);background:var(--bg)}
+button{font:inherit;background:var(--nav);color:var(--tx);border:0;border-radius:4px;min-height:32px;padding:4px 12px;font-weight:600;cursor:pointer}button:hover{background:var(--navh)}button:focus-visible,[tabindex]:focus-visible{outline:2px solid var(--acc);outline-offset:1px}
+button.t{background:transparent;color:var(--accd)}button.t:hover{background:var(--hov)}button:disabled{opacity:.5;cursor:default}
+.top{background:#fff;border-bottom:1px solid var(--div);padding:8px 16px}.top b{margin-right:8px}
+.sc{display:flex;flex-wrap:wrap;gap:4px;margin-top:6px}.sc button{min-height:28px;font-weight:400}.sc button.on{background:var(--sel);font-weight:600}
+.note{padding:6px 16px;font-size:12px;line-height:16px;color:var(--tx2);background:#fff;border-bottom:1px solid var(--div)}
+main{max-width:980px;margin:0 auto;padding:16px}h1{font-size:20px;line-height:28px;margin:0 0 4px}
+.tag{display:inline-block;border:1px solid var(--div);border-radius:4px;padding:0 6px;font-size:12px;line-height:18px;background:#fff;color:var(--tx2);margin-left:6px;font-weight:400}
+.bar{display:flex;gap:8px;align-items:center;margin:8px 0;flex-wrap:wrap}
+.ntc{border-radius:4px;padding:8px 12px;margin:8px 0;font-size:13px}.ntc.i{background:var(--inf)}.ntc.e{background:var(--errbg);color:var(--err)}
+.acc{background:#fff;border:1px solid var(--div);border-radius:4px;margin:6px 0}
+.sum{display:flex;align-items:center;gap:8px;padding:0 12px;min-height:44px;cursor:pointer;flex-wrap:wrap}.sum:hover{background:var(--hov)}.sum h2{font-size:14px;margin:0}.sum .cnt{margin-left:auto;color:var(--tx2)}
+.det{border-top:1px solid var(--div);padding:4px 0 8px}
+.row{display:flex;align-items:center;gap:8px;padding:0 12px;min-height:36px;border-bottom:1px solid #F0F0F0;position:relative}
+.row .g{color:#9a9a9a;width:14px;font-size:12px}.row .id{color:var(--tx2);width:70px}.row .ti{flex:1}.row .mn{position:relative}
+.row.dropb{box-shadow:0 2px 0 var(--acc)}.row.over{background:var(--sel)}
+.menu{position:absolute;right:0;top:30px;background:#fff;border-radius:4px;box-shadow:0 3px 7px rgba(0,0,0,.2);z-index:5;min-width:240px;padding:4px 0}
+.menu div{padding:4px 12px;cursor:pointer}.menu div:hover{background:var(--hov)}.menu div.dis{opacity:.5;cursor:default}.menu div.dis:hover{background:none}.menu small{display:block;color:var(--tx2);font-size:12px;line-height:16px}
+.sk{height:14px;margin:12px;border-radius:3px;background:linear-gradient(90deg,#eee,#f6f6f6,#eee)}
+.cap{padding:4px 12px;color:var(--tx2);font-size:12px}
+.eb{margin:8px 12px;padding:8px 12px;border-radius:4px;background:var(--errbg);color:var(--err);display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.toast{position:fixed;left:50%;bottom:16px;transform:translateX(-50%);background:#323232;color:#fff;padding:8px 16px;border-radius:4px;max-width:90%}
+table{border-collapse:collapse;width:100%;background:#fff}th,td{text-align:left;padding:6px 10px;border-bottom:1px solid var(--div)}th{font-size:12px;color:var(--tx2)}
+.lane{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;padding:8px 12px}.cell{background:#F3F3F3;border-radius:4px;padding:6px;min-height:60px}.cell h3{margin:0 0 4px;font-size:12px;color:var(--tx2)}
+.card{background:#fff;border-radius:4px;padding:4px 8px;margin:4px 0;position:relative;box-shadow:0 1px 2px rgba(0,0,0,.12);cursor:grab}
+.sel{display:inline-block;border:1px solid var(--div);background:#fff;border-radius:4px;padding:2px 8px}
+</style></head><body>
+<div class="top"><b>feat-048: состояния дельты</b>Сценарии ниже. Счётчики уменьшены: 5 строк в прототипе означают 50 в продукте.
+<div class="sc" id="sc" role="tablist"></div></div>
+<div class="note" id="note"></div>
+<main id="m"></main>
+<div class="toast" id="toast" role="status" style="display:none"></div>
+<script>
+var SC=[
+['part','Бэклог: группа загружена частично'],['retry','429: повтор по Retry-After'],['refused','429: после последней попытки'],
+['more','429 на «Показать ещё»'],['cursor','Курсор отклонён (400)'],['gone','Проект отключён'],['narrow','Сужено выбором'],
+['list','Список и «Без команды»'],['board','Канбан: дорожка'],['vb','Группировка: Бэклог'],['vk','Группировка: Канбан'],['vw','Группировка: Рабочие элементы'],['vt','Группировка: уровень команды']];
+var NOTES={
+part:'«Ниже» на последней загруженной строке недоступен; «В конец» уводит строку в конец бэклога проекта; сброс ниже последней загруженной строки запрещён, пока есть «Показать ещё». Попробуйте меню «⋮» и перетаскивание за строку.',
+retry:'Группа в состоянии загрузки с подписью; её слот из четырёх на вкладке свободен. Кнопка ниже продвигает попытки.',
+refused:'Все три попытки отклонены: сообщение в группе и «Повторить»; остальные группы работают.',
+more:'Строки остаются, «Показать ещё» снова доступна, под группой сообщение.',
+cursor:'400 по полю cursor: строки сбрасываются и читаются заново с первой страницы, без сообщения. Нажмите «Показать ещё».',
+gone:'«Проект не найден» при «Показать ещё», переносе строки или карточки: группа исчезает, заголовки читаются заново, уведомление. Нажмите «Показать ещё».',
+narrow:'Выбор (команда) сужает: строки в порядке проекта, без ручек и без пунктов «Переместить»; подсказка одна, под заголовком. Заголовок «3 из 40».',
+list:'Список «Рабочие элементы» проекта: один контроль «Без команды» вместо «Команда». Он взаимоисключающий с выбором команды в селекторе.',
+board:'Дорожка проекта: ячейка с «Показать ещё»; карточка переносится только между колонками своей дорожки (меню «⋮» или перетаскивание). Целевая ячейка читается заново.'};
+var st={}, cur='part', ROWS=['Оплата заказа','Отчёт по складу','Акт сверки','Закрытие периода','Учёт остатков'];
+function $(i){return document.getElementById(i)}
+function toast(t){var e=$('toast');e.textContent=t;e.style.display='block';clearTimeout(toast.h);toast.h=setTimeout(function(){e.style.display='none'},3500)}
+function esc(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;')}
+function init(k){if(k.charAt(0)==='v'&&k.length===2)return vin(k);cur=k;st={open:true,rows:ROWS.slice(),menu:-1,phase:0,gone:false,team:'',nots:false,drag:-1,cards:{a:['MSK-1 Оплата заказа','MSK-2 Отчёт'],b:['MSK-3 Акт сверки'],c:[]},cmenu:null};
+ if(k==='retry')st.phase=1;if(k==='refused')st.phase=9;if(k==='more')st.phase=5;if(k==='cursor')st.phase=0;if(k==='list'){st.team=''}
+ $('note').textContent=NOTES[k];draw()}
+function head(name,key,count,extra){return '<div class="sum" data-a="tog" tabindex="0" role="button" aria-expanded="'+st.open+'"><h2>'+name+'</h2><span class="tag">'+key+'</span><span class="cnt">'+count+'</span></div>'}
+function rows(grip,menu){var h='';st.rows.forEach(function(r,i){var last=i===st.rows.length-1,mn='';
+ if(menu){mn='<span class="mn"><button class="t" data-a="mn" data-i="'+i+'" aria-label="Ещё действия: '+esc(r)+'">⋮</button>'+(st.menu===i?'<div class="menu" role="menu"><div data-a="mv" data-k="top" class="'+(i===0?'dis':'')+'">В начало</div><div data-a="mv" data-k="up" class="'+(i===0?'dis':'')+'">Выше</div><div data-a="mv" data-k="down" class="'+(last?'dis':'')+'">Ниже'+(last?'<small>Сначала нажмите «Показать ещё»</small>':'')+'</div><div data-a="mv" data-k="end">В конец</div></div>':'')+'</span>'}
+ h+='<div class="row'+(st.over===i?' over':'')+'" '+(grip?'draggable="true"':'')+' data-i="'+i+'"><span class="g" aria-hidden="true">'+(grip?'⋮⋮':'')+'</span><span class="id">MSK-'+(i+1)+'</span><span class="ti">'+esc(r)+'</span>'+mn+'</div>'});return h}
+function backlog(grip){var sk='<div class="sk"></div><div class="sk"></div><div class="sk"></div>',d='',c='12';
+ if(cur==='narrow')c='3 из 40';
+ if(st.gone){return '<p>Группа «Склад» скрыта.</p>'}
+ if(!st.open){d=''}else if(st.phase===1){d='<div role="status">'+sk+'<div class="cap" aria-live="polite">Сервис занят, пробуем ещё раз…</div></div><div class="cap"><button class="t" data-a="adv">Следующая попытка (проход времени)</button></div>'}
+ else if(st.phase===2){d='<div role="status">'+sk+'<div class="cap">Загрузка элементов проекта</div></div><div class="cap"><button class="t" data-a="adv">Завершить чтение</button></div>'}
+ else if(st.phase===9){d='<div class="eb" role="alert">Не удалось загрузить элементы проекта. Сервис занят, попробуйте ещё раз. <button class="t" data-a="retry">Повторить</button></div>'}
+ else{d=rows(grip,grip)+(st.phase===5?'<div class="ntc e" role="alert" style="margin:8px 12px">Не удалось загрузить элементы проекта. Сервис занят, попробуйте ещё раз.</div>':'')+'<div class="cap"><button class="t" data-a="more">Показать ещё</button></div>'}
+ return head('Склад','MSK',c)+'<div class="det">'+d+'</div>'}
+function draw(){var m=$('m'),h='<h1>',s='';if(VK[cur])return vdraw();
+ if(cur==='list')return list();if(cur==='board')return board();
+ h+='Бэклог'+(cur==='narrow'?'<span class="tag">сужено: команда MARS</span>':'')+'</h1><div class="bar"><button data-a="col">Свернуть все</button></div>';
+ if(cur==='narrow')h+='<div class="ntc i">Пока выбор сужает список, порядок не меняется. Выберите «все», чтобы менять его.</div>';
+ h+='<div class="acc" data-g="1">'+backlog(cur!=='narrow')+'</div><div class="acc">'+head('Оплата','PAY','8')+'</div>';
+ m.innerHTML=h}
+function list(){var on=st.nots;$('m').innerHTML='<h1>Рабочие элементы<span class="tag">'+(on?'':'')+'MSK</span></h1><div class="bar"><span>Команда в селекторе: <select id="tsel" class="sel"><option value="">все</option><option value="MARS"'+(st.team==='MARS'?' selected':'')+'>MARS</option></select></span><label><input type="checkbox" id="nots" '+(on?'checked':'')+'> Без команды</label></div>'+(st.reset?'<div class="ntc i">Выбор сброшен: команда MARS.</div>':'')+'<table><thead><tr><th>Номер</th><th>Название</th><th>Состояние</th></tr></thead><tbody><tr><td>MSK-1</td><td>Оплата заказа</td><td>Новая</td></tr><tr><td>MSK-3</td><td>Без владельца</td><td>Новая</td></tr></tbody></table><p style="color:#616161;font-size:12px">На уровнях организации, департамента и команды контроля «Команда» нет: команду задаёт селектор; «Без команды» остаётся только в списке проекта.</p>'}
+function board(){var cl={a:'Новая',b:'Активна',c:'Готово'},h='<h1>Канбан</h1><div class="bar"><button data-a="col">Свернуть все</button></div><div class="acc">'+head('Склад','MSK','3')+'<div class="det"><div class="lane">';
+ ['a','b','c'].forEach(function(k){h+='<div class="cell" data-c="'+k+'"><h3>'+cl[k]+' '+(k==='a'?'(120)':st.cards[k].length)+'</h3>';
+ st.cards[k].forEach(function(t,i){h+='<div class="card" draggable="true" data-c="'+k+'" data-i="'+i+'">'+esc(t)+' <button class="t" data-a="cm" data-c="'+k+'" data-i="'+i+'" aria-label="Ещё действия: '+esc(t)+'">⋮</button>'+(st.cmenu&&st.cmenu[0]===k&&st.cmenu[1]===i?'<div class="menu"><div data-a="cmv" data-to="'+(k==='a'?'b':'a')+'">Переместить в колонку «'+cl[k==='a'?'b':'a']+'»</div><div data-a="cmv" data-to="c">Переместить в колонку «Готово»</div></div>':'')+'</div>'});
+ if(k==='a')h+='<button class="t" data-a="more">Показать ещё</button>';h+='</div>'});
+ $('m').innerHTML=h+'</div></div></div>'}
+$('m').addEventListener('click',function(e){if(VK[cur])return;var t=e.target.closest('[data-a]');if(!t){st.menu=-1;st.cmenu=null;return draw()}var a=t.getAttribute('data-a'),i=+t.getAttribute('data-i');
+ if(a==='tog'){st.open=!st.open}else if(a==='col'){st.open=false}
+ else if(a==='mn'){st.menu=st.menu===i?-1:i;e.stopPropagation()}
+ else if(a==='mv'){if(t.className.indexOf('dis')>-1)return;var k=t.getAttribute('data-k'),r=st.rows,x=st.menu,v=r[x];
+  if(k==='end'){r.splice(x,1);toast('Элемент перенесён в конец бэклога проекта. Он появится после «Показать ещё».')}
+  else if(k==='top'){r.splice(x,1);r.unshift(v)}else if(k==='up'){r.splice(x,1);r.splice(x-1,0,v)}else{r.splice(x,1);r.splice(x+1,0,v)}st.menu=-1}
+ else if(a==='adv'){st.phase=(st.tries=(st.tries||0)+1)>1?0:1;if(st.phase===0)st.tries=0}
+ else if(a==='retry'){st.phase=1;st.tries=0}
+ else if(a==='more'){if(cur==='more'){st.phase=st.phase===5?0:5;if(st.phase===0)toast('Загружено ещё элементов: 5')}
+  else if(cur==='cursor'){st.phase=2;draw();setTimeout(function(){st.rows=ROWS.slice();st.phase=0;draw()},700);return}
+  else if(cur==='gone'){st.gone=true;toast('Проект больше недоступен: группа скрыта.')}
+  else if(cur==='board'){toast('Загружено ещё карточек: 5')}else{st.rows=st.rows.concat(['Новая задача '+(st.rows.length+1)])}}
+ else if(a==='cm'){var c=t.getAttribute('data-c');st.cmenu=st.cmenu&&st.cmenu[0]===c&&st.cmenu[1]===i?null:[c,i];e.stopPropagation()}
+ else if(a==='cmv'){var f=st.cmenu,to=t.getAttribute('data-to');st.cards[to].unshift(st.cards[f[0]].splice(f[1],1)[0]);st.cmenu=null;toast('Ячейка «'+to+'» прочитана заново с первой страницы.')}
+ draw()});
+$('m').addEventListener('change',function(e){if(e.target.id==='nots'){st.nots=e.target.checked;if(st.nots&&st.team){st.team='';st.reset=true}else st.reset=false}
+ if(e.target.id==='tsel'){st.team=e.target.value;if(st.team){st.nots=false}st.reset=false}list()});
+$('m').addEventListener('dragstart',function(e){var r=e.target.closest('.row');if(r)st.drag=+r.getAttribute('data-i');if(e.dataTransfer)e.dataTransfer.setData('text','x')});
+$('m').addEventListener('dragover',function(e){var r=e.target.closest('.row');if(st.drag<0)return;var i=r?+r.getAttribute('data-i'):-1,last=i===st.rows.length-1;
+ if(r&&!(last&&false)){e.preventDefault();e.dataTransfer.dropEffect='move'}else{e.dataTransfer.dropEffect='none'}});
+$('m').addEventListener('drop',function(e){var r=e.target.closest('.row');if(!r||st.drag<0)return;e.preventDefault();var i=+r.getAttribute('data-i'),v=st.rows.splice(st.drag,1)[0];st.rows.splice(i,0,v);st.drag=-1;draw()});
+/* ---- grouping switch scenarios (US-11); 3 rows stand for 50 ---- */
+var VK={vb:'b',vk:'k',vw:'w',vt:'b'},PAGE=3,V={lvl:'org',mem:{},open:{},shown:{},menu:false,rm:null,cs:{}};
+var IT=[['MSK-2','MSK','VENUS',1,'Отчёт по складу'],['DDD-1','DDD','',0,'Свод данных'],['BET-2','BET','MARS',0,'Закупка стеллажей'],['MSK-1','MSK','MARS',1,'Оплата заказа'],['FIN-1','FIN','MARS',2,'Квартальный бюджет'],['MSK-3','MSK','',0,'Акт сверки'],['BET-1','BET','MARS',1,'Договор поставки']];
+var PJ={MSK:['Склад','Логистика'],BET:['Закупки','Логистика'],FIN:['Бюджет','Финансы'],DDD:['Данные','']};
+var RK={MSK:['MSK-3','MSK-1','MSK-2'],BET:['BET-2','BET-1'],FIN:['FIN-1'],DDD:['DDD-1']};
+var LV=[['org','Организация'],['dept','Департамент «Логистика»'],['team','Команда MARS'],['teamd','Команда MARS + департамент «Логистика»'],['proj','Проект «Склад»'],['projt','Проект «Склад» + команда MARS']];
+var OFF={org:['none','department','project','team'],dept:['none','project','team'],team:['none','project'],teamd:['none','project'],proj:['none','team'],projt:['none']};
+var GN={none:'Без группировки',department:'По департаменту',project:'По проекту',team:'По команде'},COLS=['Новая','Активна','Готово'];
+var VNOTE={vb:'«Бэклог»: переключатель «Группировка» (MenuButton), уровни выбираются кнопками. Умолчание и память по уровню; перемещение только «По проекту» без сужения; подсказка одна, под заголовком.',
+vk:'«Канбан»: дорожки по группам, «Без команды» первой; без группировки одна доска без дорожек. Карточка переносится между колонками только внутри своей дорожки (меню «⋮»).',
+vw:'«Рабочие элементы»: без группировки таблица с сортировкой и страницами; с группировкой группы с «Показать ещё», без страниц и без сортировки.',
+vt:'Уровень команды (OQ-7 A): команда без департамента открывается «Без группировки» (как сейчас), с департаментом «По проекту». Переключайте уровень кнопками.'};
+function vin(k){cur=k;V.lvl=k==='vt'?'team':'org';V.menu=false;V.rm=null;$('note').textContent=VNOTE[k];vdraw()}
+function vscope(){var l=V.lvl;return IT.filter(function(x){var d=PJ[x[1]][1];
+ return l==='org'||(l==='dept'&&d==='Логистика')||(l==='team'&&x[2]==='MARS')||(l==='teamd'&&x[2]==='MARS'&&d==='Логистика')||(l==='proj'&&x[1]==='MSK')||(l==='projt'&&x[1]==='MSK'&&x[2]==='MARS')})}
+function vgrp(){var vw=VK[cur],o=OFF[V.lvl],m=V.mem[vw+V.lvl],def=vw==='w'?'none':(V.lvl==='team'||V.lvl==='proj'||V.lvl==='projt'?'none':'project');
+ return m&&o.indexOf(m)>-1?m:def}
+function vgroups(g,its){if(g==='none'){var a=its.slice();if(V.lvl==='proj')a.sort(function(x,y){return RK.MSK.indexOf(x[0])-RK.MSK.indexOf(y[0])});return[{n:'',k:'',its:a}]}
+ var by={};its.forEach(function(x){var n=g==='project'?PJ[x[1]][0]:g==='department'?(PJ[x[1]][1]||'Без департамента'):(x[2]||'Без команды');(by[n]=by[n]||{n:n,k:g==='project'?x[1]:'',its:[]}).its.push(x)});
+ var r=Object.keys(by).sort(function(a,b){var l=a==='Без департамента'||a==='Без команды',m=b==='Без департамента'||b==='Без команды';return l!==m?(l?-1:1):a.localeCompare(b,'ru')}).map(function(n){return by[n]});
+ if(g==='project')r.forEach(function(q){q.its.sort(function(x,y){return RK[x[1]].indexOf(x[0])-RK[y[1]].indexOf(y[0])})});return r}
+function vsw(g){var o=OFF[V.lvl];if(o.length<2)return'';var h='<span style="position:relative"><button class="t" data-v="sw" aria-haspopup="menu" aria-expanded="'+V.menu+'">Группировка: '+GN[g]+' ▾</button>';
+ if(V.menu){h+='<div class="menu" role="menu" aria-label="Группировка" style="top:32px;left:0">';o.forEach(function(x){h+='<div role="menuitemradio" aria-checked="'+(x===g)+'" data-v="pick" data-g="'+x+'">'+(x===g?'✓ ':'&nbsp;&nbsp;&nbsp;')+GN[x]+'</div>'});h+='</div>'}return h+'</span>'}
+function vrow(x,g,mv){var tm=g==='team'?'':'<span class="tag">'+(x[2]||'Без команды')+'</span>';
+ return '<div class="row"><span class="g" aria-hidden="true">'+(mv?'⋮⋮':'')+'</span><span class="id">'+x[0]+'</span><span class="ti">'+esc(x[4])+'</span>'+tm+(mv?'<span class="mn"><button class="t" data-v="rm" data-i="'+x[0]+'" aria-label="Ещё действия: '+x[0]+'">⋮</button>'+(V.rm===x[0]?'<div class="menu" role="menu"><div data-v="mv">В начало</div><div data-v="mv">Выше</div><div data-v="mv">Ниже</div><div data-v="mv">В конец</div></div>':'')+'</span>':'')+'</div>'}
+function vcs(x){return V.cs[x[0]]!==undefined?V.cs[x[0]]:x[3]}
+function vcard(x){var cs=vcs(x);return '<div class="card">'+x[0]+' '+esc(x[4])+' <button class="t" data-v="cm" data-i="'+x[0]+'" aria-label="Ещё действия: '+x[0]+'">⋮</button>'+(V.rm===x[0]?'<div class="menu" role="menu">'+COLS.map(function(c,j){return j===cs?'':'<div data-v="cmv" data-i="'+x[0]+'" data-c="'+j+'">Переместить в колонку «'+c+'»</div>'}).join('')+'</div>':'')+'</div>'}
+function vtab(rows){return '<table><thead><tr><th>Номер</th><th>Название</th><th>Проект</th><th>Команда</th></tr></thead><tbody>'+rows.map(function(x){return'<tr><td>'+x[0]+'</td><td>'+esc(x[4])+'</td><td><a href="#">'+x[1]+'</a></td><td>'+(x[2]||'Без команды')+'</td></tr>'}).join('')+'</tbody></table>'}
+function vbody(vw,gr,g,mv,key){var its=gr.its,sh=V.shown[key]||PAGE,part=its.slice(0,sh),more=its.length>sh,h='';
+ if(vw==='b')h=part.map(function(x){return vrow(x,g,mv)}).join('');
+ else if(vw==='w')h=vtab(part);
+ else h='<div class="lane">'+COLS.map(function(c,j){return '<div class="cell"><h3>'+c+' ('+its.filter(function(x){return vcs(x)===j}).length+')</h3>'+part.filter(function(x){return vcs(x)===j}).map(vcard).join('')+'</div>'}).join('')+'</div>';
+ return h+(more?'<div class="cap"><button class="t" data-v="more" data-k="'+key+'">Показать ещё</button></div>':'')}
+function vdraw(){var vw=VK[cur],g=vgrp(),its=vscope(),gs=vgroups(g,its),l=V.lvl,nar=l==='team'||l==='teamd'||l==='projt';
+ var mv=vw==='b'&&((g==='project'&&!nar&&(l==='org'||l==='dept'))||(l==='proj'&&g==='none'));
+ var hint='';if(vw==='b'){if(g==='project'&&nar)hint='Пока выбор сужает список, порядок не меняется. Выберите «все», чтобы менять его.';
+  else if(g!=='project'&&((l==='org'||l==='dept')||(l==='proj'&&g==='team')))hint='При этой группировке строки идут по времени изменения, порядок не меняется. Выберите «По проекту», чтобы менять его.'}
+ var h='<div class="bar"><span>Уровень:</span>'+LV.map(function(x){return'<button data-v="lv" data-l="'+x[0]+'" style="'+(x[0]===l?'background:var(--sel)':'')+'">'+x[1]+'</button>'}).join('')+'</div>';
+ h+='<h1>'+{b:'Бэклог',k:'Канбан',w:'Рабочие элементы'}[vw]+'</h1><div class="bar">'+vsw(g)+(g!=='none'?'<button data-v="col">Свернуть все</button>':(vw==='w'?'':'<span class="cap">Элементов: '+its.length+'</span>'))+'</div>';
+ if(hint)h+='<div class="ntc i">'+hint+'</div>';
+ var ok=vw+l+g;
+ if(!its.length)h+='<p>Ничего не найдено</p>';
+ else if(vw==='w'&&g==='none')h+=vtab(its)+'<div class="cap">Строки 1–'+its.length+' из '+its.length+' · столбцы сортируются, страницы по 50</div>';
+ else if(g==='none')h+='<div class="acc" role="region" aria-label="Элементы">'+vbody(vw,gs[0],g,mv,ok+'|')+'</div>';
+ else gs.forEach(function(q,i){var op=V.open[ok]?V.open[ok].indexOf(q.n)>-1:i===0,tag=q.k?'<span class="tag">'+q.k+'</span>':'';
+  h+='<div class="acc"><div class="sum" data-v="tog" data-k="'+ok+'" data-n="'+esc(q.n)+'" tabindex="0" role="button" aria-expanded="'+op+'"><h2>'+esc(q.n)+'</h2>'+tag+'<span class="cnt">'+q.its.length+'</span></div>'+(op?'<div class="det">'+vbody(vw,q,g,mv,ok+'|'+q.n)+'</div>':'')+'</div>'});
+ $('m').innerHTML=h}
+$('m').addEventListener('click',function(e){if(!VK[cur])return;var t=e.target.closest('[data-v]');if(!t){V.menu=false;V.rm=null;return vdraw()}var a=t.getAttribute('data-v'),vw=VK[cur];
+ if(a==='sw'){V.menu=!V.menu;V.rm=null}
+ else if(a==='pick'){V.mem[vw+V.lvl]=t.getAttribute('data-g');V.menu=false;toast('Группировка: '+GN[t.getAttribute('data-g')])}
+ else if(a==='lv'){V.lvl=t.getAttribute('data-l');V.menu=false;V.rm=null}
+ else if(a==='tog'){var k=t.getAttribute('data-k'),n=t.getAttribute('data-n'),gs=vgroups(vgrp(),vscope());
+  if(!V.open[k])V.open[k]=[gs[0].n];var o=V.open[k],ix=o.indexOf(n);if(ix>-1)o.splice(ix,1);else o.push(n)}
+ else if(a==='col'){V.open[vw+V.lvl+vgrp()]=[]}
+ else if(a==='more'){var kk=t.getAttribute('data-k');V.shown[kk]=(V.shown[kk]||PAGE)+PAGE;toast('Загружено ещё элементов: '+PAGE)}
+ else if(a==='rm'||a==='cm'){var id=t.getAttribute('data-i');V.rm=V.rm===id?null:id;V.menu=false}
+ else if(a==='mv'){V.rm=null;toast('Строка перемещена внутри группы (макет)')}
+ else if(a==='cmv'){V.cs[t.getAttribute('data-i')]=+t.getAttribute('data-c');V.rm=null;toast('Карточка перенесена; ячейка читается заново с первой страницы.')}
+ vdraw()});
+(function(){var s=$('sc');SC.forEach(function(x){var b=document.createElement('button');b.textContent=x[1];b.setAttribute('role','tab');b.onclick=function(){[].forEach.call(s.children,function(c){c.className=''});b.className='on';init(x[0])};s.appendChild(b)});s.children[0].className='on';init('part')})();
+</script></body></html>

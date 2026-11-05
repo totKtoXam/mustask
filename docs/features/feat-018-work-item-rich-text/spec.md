@@ -182,7 +182,7 @@ BR-RT-16 and the table exit of BR-RT-17 work with the editor's isolating
 nodes, and that its trailing-node behaviour is off (no stored trailing
 paragraph, BR-RT-5); the ADR (D-2), which at acceptance must also cover the
 dependencies the amendment adds beyond D-2 (an emoji picker or data set, a
-syntax-highlighting library if one is used; ADR-0027 is `proposed` and names
+syntax-highlighting library if one is used; ADR-0037 is `proposed` and names
 neither) or state them built in-house; the editor-bundle weight measured and
 loaded lazily on the form route, TipTap themed in MUI's tokens, the palette
 token mapping including dark mode (BR-RT-14, ADR-0024), the emoji set and

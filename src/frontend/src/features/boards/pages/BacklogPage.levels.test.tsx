@@ -213,7 +213,7 @@ describe('US-6 Scenario: Each level keeps its own address', () => {
 describe('US-6 Scenario: The board is named «Канбан» everywhere it is named', () => {
   it('the entry, the tab, the browser tab, the region and «Показать канбан» read «Канбан»; nothing reads «Доски» or «Показать доску»', async () => {
     serveBoards(dataset());
-    renderBoards(mskForm('MSK-US-3'));
+    renderBoards(mskForm('MSK-US-3'), { context: teamContext({ projectId: undefined }) });
 
     const navigation = screen.getByRole('navigation', { name: 'Основное меню' });
     const entry = within(navigation).getByRole('link', { name: 'Канбан' });

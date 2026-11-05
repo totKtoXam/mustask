@@ -2,11 +2,11 @@ import { readFileSync } from 'node:fs';
 import { availableParallelism } from 'node:os';
 import { fileURLToPath } from 'node:url';
 import { gzipSync } from 'node:zlib';
-import { configDefaults, defineConfig } from 'vitest/config';
+import { configDefaults, coverageConfigDefaults, defineConfig } from 'vitest/config';
 import { loadEnv, searchForWorkspaceRoot, type Plugin } from 'vite';
 import react from '@vitejs/plugin-react';
 
-// feat-018 (ADR-0027 decisions 6 and 10). The rich-text vocabulary is imported
+// feat-018 (ADR-0037 decisions 6 and 10). The rich-text vocabulary is imported
 // from `contracts/` beside the panel, so the dev server may serve the
 // repository root; a deployment build context must include `contracts/`.
 const REPOSITORY_ROOT = fileURLToPath(new URL('../..', import.meta.url));
@@ -119,6 +119,14 @@ function bundleReportPlugin(): Plugin {
   };
 }
 
+// The heavy files the fast tier skips (generated: scripts/slow-files.mjs).
+const slowFiles: string[] =
+  process.env.VITEST_FAST === '1'
+    ? (JSON.parse(readFileSync(new URL('./src/test/slowFiles.json', import.meta.url), 'utf8')) as {
+        files: string[];
+      }).files
+    : [];
+
 // https://vite.dev/config/
 export default defineConfig(({ command, mode }) => {
   // VITE_API_BASE_URL вшивается на этапе сборки, и прод-бандл без неё
@@ -160,7 +168,7 @@ export default defineConfig(({ command, mode }) => {
       },
     },
     test: {
-      environment: 'jsdom',
+      environment: './src/test/sharedJsdom.ts',
       setupFiles: ['./src/test/setup.ts'],
       // Every component test renders under the panel's theme: the bare
       // specifier resolves to a wrapper whose `render` adds the app's
@@ -175,14 +183,46 @@ export default defineConfig(({ command, mode }) => {
         },
       ],
       css: true,
+      // Off unless asked: scripts/verify.sh passes --coverage on the full run
+      // (CI) and scripts/coverage-gate.mjs holds the line floor (tech-046).
+      coverage: {
+        provider: 'v8',
+        include: ['src/**/*.{ts,tsx}'],
+        exclude: [...coverageConfigDefaults.exclude, 'src/test/**'],
+        reporter: ['text-summary', 'json-summary'],
+      },
       // Playwright owns e2e/**: its specs also end in *.spec.ts, but they
       // need a live stand and real Keycloak (src/frontend/AGENTS.md
       // § E2E test suite) — Vitest must never pick them up.
-      exclude: [...configDefaults.exclude, 'e2e/**'],
+      // `npm run test:fast` (scripts/test-fast.mjs) also leaves out the heavy page
+      // tests listed in src/test/slowFiles.json; every other entry point runs all.
+      exclude: [...configDefaults.exclude, 'e2e/**', ...slowFiles],
+      // `vitest --changed` (scripts/verify.sh) runs the tests whose import graph
+      // reaches a changed file. A change to the test harness, the theme or the
+      // kit touches everything, so these globs make `--changed` run the whole
+      // suite. The defaults (package.json, the vite/vitest config) stay;
+      // Vitest adds the setup files itself. Tests that read sources off disk
+      // (kit guard, colour scan, e2e guards) are not reached by any import:
+      // scripts/verify.sh runs them separately, on every affected-only run.
+      forceRerunTriggers: [
+        ...configDefaults.forceRerunTriggers,
+        '**/src/test/**',
+        '**/src/app/theme/**',
+        '**/src/shared/ui/**',
+      ],
       // Пороги и кламп воркеров: при параллельном прогоне jsdom-воркеры
       // конкурируют за ядра, и дефолтные таймауты начинают ложно падать.
-      testTimeout: 20000,
-      maxWorkers: Math.max(1, Math.min(4, availableParallelism() - 1)),
+      // 60 s: the heavy page tests ask for 60–120 s with `vi.setConfig`, and under
+      // `--sequence.shuffle` with isolate: false they were still cut at 20 s.
+      // The cause was not established; the global budget is what holds. A hung
+      // test costs a minute, not 20 s.
+      testTimeout: 60000,
+      // One jsdom window and one module cache per worker (tech-029); the app's
+      // own modules are re-evaluated per file by src/test/setup.ts.
+      isolate: false,
+      // At most eight (tech-047): on 22 cores the full run took 1 969 s with
+      // four workers and 986 s with eight. A 4-core CI runner still gets three.
+      maxWorkers: Math.max(1, Math.min(8, availableParallelism() - 1)),
       // Базовый URL API для тестов — совпадает с моками в src/test/mocks/handlers.ts.
       env: {
         VITE_API_BASE_URL: 'http://localhost:5000',

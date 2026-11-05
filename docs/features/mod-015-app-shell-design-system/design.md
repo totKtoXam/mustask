@@ -101,6 +101,8 @@ as literals (BR-1).
 
 ### 2.1 Colour roles (BR-2)
 
+> Changed in part by feat-027 (the reference colours and Segoe UI panel-wide, D-10) and by tech-015 (the UI kit's tokens, `docs/conventions/ui-kit.md`); the old roles stay below as written.
+
 | Role | Theme key | Value | Used by |
 |---|---|---|---|
 | Application background | `palette.background.default` | `#F8F8F8` | behind pages, the page header, auth card, crash screen |
@@ -151,6 +153,8 @@ focused field keeps its label in `text.secondary`, and its 2 px accent border
 is the focus indicator.
 
 ### 2.3 Work-tracking appearance (BR-4; D-6, D-16, R-25)
+
+> Changed in part by feat-027 (the reference type colours and state dots, D-10) and by tech-015 (the marks `TypeLabel`, `StateLabel`, `CategoryMarker` in the kit); the old table stays below as written.
 
 The process seed stores per type exactly one token name; the theme holds its
 icon and colour. Two lookups live in `app/theme`:
@@ -208,6 +212,8 @@ drawn as a circle box with `borderRadius: '50%'`, not as an icon glyph,
 because an icon scaled to 8 px loses the ring.
 
 ### 2.4 Typography
+
+> Changed in part by feat-027 (Segoe UI, weight 600) and by tech-015 (`typography.cardTitle` and the kit's scale, `docs/conventions/ui-kit.md`); the old scale stays below as written.
 
 > **Superseded by feat-027 D-7 (Segoe UI, weight 600), 2026-10-09:** the
 > panel's family is no longer Roboto but `"Segoe UI", -apple-system,
@@ -297,7 +303,7 @@ Content padding: 24 px left and right at ≥ 1024 px, 16 px below.
 - Theme unit test: the density tokens (14 px, 48 px, row ≤ 40 px), the
   colour roles (navigation ≠ application background, top bar = content
   surface, secondary labels neutral), the contrast table of § 2.1 and § 2.3,
-  the five tokens and five categories distinct and none equal to the accent,
+  the five tokens (superseded in part by feat-032 (2026-10-12): the set of appearance tokens is six, `testcase` joins the five (see feat-032's api-contract § 4 and spec BR-C-11).) and five categories distinct and none equal to the accent,
   and the two lookups (§ 2.3).
 - Colour-literal check, run by `npm test` (BR-1): scans `src/frontend/src/`
   except `app/theme/`, `*.test.*` and `src/test/` for a string literal that is
@@ -1056,6 +1062,7 @@ Empty: «Бэклог пуст», «Добавьте рабочий элемен
 Type icons and dots follow § 2.3 everywhere: list, board card, backlog,
 form band, type picker, header-strip status. The prototype's «Язык
 оформления» page shows the five tokens and five categories with their labels.
+*Superseded in part by feat-032 (2026-10-12): the set of appearance tokens is six, `testcase` joins the five (see feat-032's api-contract § 4 and spec BR-C-11).*
 
 ### 10.7 Tree registry — «Области», «Итерации» (built by mod-002, D-19)
 

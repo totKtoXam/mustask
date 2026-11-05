@@ -103,11 +103,11 @@ public sealed class BacklogTreeEndpointTests(MustaskApiFactory factory)
             Assert.DoesNotContain("MSK-TASK-7", shape);
         }
 
-        var firstTeamFeatures = await RowsAsync(world, world.FirstTeamId, Features);
+        var firstTeamFeatures = await RowsAsync(world, world.ProjectTeamId, Features);
         Assert.Equal(["MSK-FEAT-21"], Identifiers(firstTeamFeatures));
         Assert.Equal("MSK-EPIC-1", BacklogTreeTestData.ParentOf(firstTeamFeatures.Single()));
         Assert.Empty(firstTeamFeatures.Single().GetProperty("children").EnumerateArray());
-        Assert.Equal(string.Empty, await ShapeAsync(world, world.FirstTeamId, Stories));
+        Assert.Equal(string.Empty, await ShapeAsync(world, world.ProjectTeamId, Stories));
     }
 
     // US-2 · "A same-level child stands beneath its parent only" (OQ-5, BR-T-5): «Фичи» is MSK-FEAT-8 «1», MSK-FEAT-6 «2»;
@@ -206,7 +206,7 @@ public sealed class BacklogTreeEndpointTests(MustaskApiFactory factory)
     public async Task Get_AChainOfTheBoundsLength_IsAnsweredWhole()
     {
         var (world, items) = await BacklogTreeTestData.CreateWorldAsync(factory);
-        await BulkItemsTestData.InsertChainAsync(factory, world.Items, world.PlatformAreaId, length: 60, firstNumber: 24, beneath: items["MSK-TASK-3"].Id);
+        await BulkItemsTestData.InsertChainAsync(factory, world.Items, world.PlatformAreaId, length: 60, firstNumber: 24, beneath: items["MSK-TASK-3"].Id, owningTeamId: world.PlatformId);
 
         using var epics = await ReadDeepAsync(world, Epics);
         using var stories = await ReadDeepAsync(world, Stories);
@@ -459,7 +459,7 @@ public sealed class BacklogTreeEndpointTests(MustaskApiFactory factory)
         var features = await RowsAsync(world, world.PlatformId, Features);
         Assert.Null(BacklogTreeTestData.ParentOf(BacklogTreeTestData.Row(features, "MSK-FEAT-6")));
         Assert.Null(BacklogTreeTestData.ParentOf(BacklogTreeTestData.Row(features, "MSK-FEAT-8")));
-        Assert.Null(BacklogTreeTestData.ParentOf((await RowsAsync(world, world.FirstTeamId, Features)).Single()));
+        Assert.Null(BacklogTreeTestData.ParentOf((await RowsAsync(world, world.ProjectTeamId, Features)).Single()));
         Assert.Null(BacklogTreeTestData.ParentOf(BacklogTreeTestData.Row(await RowsAsync(world, world.PlatformId, Stories), "MSK-US-22")));
         Assert.Equal(items["MSK-EPIC-1"].Id, await LinksTestData.StoredParentAsync(factory, items["MSK-FEAT-6"]));
     }

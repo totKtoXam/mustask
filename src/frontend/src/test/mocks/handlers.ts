@@ -1,10 +1,12 @@
 import { HttpResponse, http } from 'msw';
 import { encodeTestToken } from '../jwt';
+import { servedFor } from '../organizationRoles';
+import { rolesForPermissions } from '../instanceRoles';
 
 // Базовый URL совпадает с test.env.VITE_API_BASE_URL в vite.config.ts.
 const api = 'http://localhost:5000';
 
-/** Права стенда — как их несёт `resource_access.mustask-api.roles` access-токена. */
+/** Права стенда — коды, которые дают роли `resource_access.mustask-api.roles` access-токена (`user` и `dictionaries-admin`). */
 export const TEST_PERMISSIONS = ['dictionaries.languages.read', 'dictionaries.languages.write'];
 
 /**
@@ -16,6 +18,8 @@ export function fakeAccessToken(
     name?: string | null;
     preferredUsername?: string | null;
     permissions?: string[];
+    /** Имена клиентских ролей напрямую (в обход `permissions`): `[]` — токен без роли `user`. */
+    roles?: string[];
     expiresInSeconds?: number;
   } = {},
 ): string {
@@ -23,11 +27,12 @@ export function fakeAccessToken(
     name = 'Иванов Иван',
     preferredUsername = 'ivanov',
     permissions = TEST_PERMISSIONS,
+    roles,
     expiresInSeconds = 900,
   } = overrides;
   const payload: Record<string, unknown> = {
     exp: Math.floor(Date.now() / 1000) + expiresInSeconds,
-    resource_access: { 'mustask-api': { roles: permissions } },
+    resource_access: { 'mustask-api': { roles: roles ?? rolesForPermissions(permissions) } },
   };
   if (name !== null) payload.name = name;
   if (preferredUsername !== null) payload.preferred_username = preferredUsername;
@@ -56,4 +61,14 @@ export const handlers = [
   // that mounts the real routes reads nothing else unless it serves a
   // dataset of its own (mod-002 plan-frontend § 2.4).
   http.get(`${api}/api/organizations`, () => HttpResponse.json([])),
+
+  // The served access of an organization (mod-016 api-contract § 1.1): the
+  // shell reads it for the selection and the gate for the address. By
+  // default the caller is the organization's administrator, so a test that
+  // mounts the shell with a real selection (and `onUnhandledRequest:
+  // 'error'`) needs nothing more; a test about another role serves its own
+  // (`organizationRoles.ts`, `testMembership.ts`).
+  http.get(`${api}/api/organizations/:organizationId/access`, () =>
+    HttpResponse.json(servedFor('admin')),
+  ),
 ];

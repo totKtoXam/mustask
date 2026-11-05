@@ -1,9 +1,12 @@
 using Mustask.Application.Abstractions;
+using Mustask.Application.Abstractions.Organizations;
 using Mustask.Application.Abstractions.Process;
 using Mustask.Application.Abstractions.RichText;
 using Mustask.Application.Abstractions.UserDirectory;
 using Mustask.Application.Abstractions.WorkItems;
+using Mustask.Application.Features.Boards;
 using Mustask.Application.Features.Organizations;
+using Mustask.Domain.Identity;
 using Mustask.Domain.Organizations;
 using Mustask.Domain.WorkItems;
 using Mustask.Shared.Errors;
@@ -18,18 +21,34 @@ namespace Mustask.Application.Features.WorkItems.SaveWorkItem;
 /// <remarks>
 /// <para>
 /// <b>The order of answers</b> (api-contract § 0.4, feat-001 api-contract
-/// § 3.3): the address from the outside in, as the read resolves it; the values
+/// § 3.3, mod-016 api-contract § 4.2): the scoped check has answered for the
+/// organization and the route's code; a save that carries a parent then answers
+/// 403 when the role lacks <c>workitems.link.write</c>, before anything below;
+/// the address from the outside in, as the read resolves it; <b>mod-005: the item in «Удалена» (409
+/// <c>workitems.workitem.deleted</c>, step 1a — decided on the stored state under the item's lock, whatever the body carries,
+/// before anything below)</b>; the values
 /// (400, every field reason at once — feat-022's fields included, checked by the
 /// domain against the item's type and its stored dates, under the item's lock,
-/// feat-022 api-contract § 3.2); the area, then the new parent (404); the
+/// feat-022 api-contract § 3.2); the area (404); mod-017's team (404, or 409 for a team of
+/// another project, <see cref="ProjectTeams.EnsureBindable"/>); then the new parent (404); the
 /// state, then the assignee (409, decided by the domain), then the parent's
 /// 409s (<see cref="WorkItemHierarchy.Write"/>). A refusal throws before
-/// anything is flushed, and the transaction rolls back: every field, the parent
+/// anything is flushed, and the transaction rolls back: every field, the team and the parent
 /// included, stays as it was (feat-001 BR-H-6).
 /// </para>
 /// <para>
-/// <b>Locks.</b> When the save carries a parent (feat-001), the project's
-/// hierarchy <c>FOR UPDATE</c> first, as every parent write takes it. Then the
+/// <b>The owning team</b> (mod-017 BR-OT-1, BR-OT-2, BR-OT-6, BR-OT-13): a save that names a team locks it
+/// <c>FOR SHARE</c> <i>first</i> of everything it locks (the binder's lock, ADR-0028 rule 8; plan-backend § 7.2), so a deletion
+/// of that team either commits before this save reads it — the team then reads deleted and the save answers
+/// <c>team.not_found</c> — or waits for this save and takes the item with the rest. The team is judged after the area: the team
+/// itself on a fresh read, its <b>link by what the lock statement returned</b> (review-security S-1; a link committed after the lock
+/// is not held, so the save is 409 <c>team.not_in_project</c> as if it had run before the link). A team that changes the item's owner drops the item's team place <i>before</i> the item is written, in the same
+/// transaction: the place's key onto the item's current owner is checked at the end of the item's <c>UPDATE</c>, and the
+/// item lands unplaced below every placed item on the new team's backlog, with no memory of a former place.
+/// </para>
+/// <para>
+/// <b>Locks.</b> When the save names a team, the team <c>FOR SHARE</c>. When the save carries a parent (feat-001), the project's
+/// hierarchy <c>FOR UPDATE</c> next, as every parent write takes it. Then the
 /// item <c>FOR UPDATE</c>, before it is loaded: two saves of one item run one
 /// after the other, and the second applies its own fields to what the first
 /// stored, so a field it did not send keeps the first's value and a field both
@@ -45,14 +64,26 @@ public sealed class SaveWorkItemHandler(
     IOrganizationStructure structure,
     IProcessDefinitionReadModel processes,
     IUserDirectory directory,
+    IMemberReadModel members,
     IWorkItemRepository workItems,
     IWorkItemReadModel readModel,
+    ITeamBacklogPlaces teamPlaces,
+    IOrganizationAccess access,
     IClock clock,
     IUnitOfWork unitOfWork,
     IRichTextReducer reducer)
 {
     public async Task<SaveWorkItemResult> Handle(SaveWorkItemCommand command, CancellationToken cancellationToken)
     {
+        // 0. The second code of a parent write (mod-016 api-contract § 4.2, feat-001 BR-H-18): the route declares
+        // workitems.workitem.write, and a save that carries a parent needs workitems.link.write as well. It is checked first,
+        // before the project, the item or the parent is looked at and before any 400, so a role without it learns nothing about
+        // any of them and nothing changes. Under the bundles of D-8 the two codes never differ.
+        if (command.Parent is not null && !access.Holds(PermissionCatalog.WorkItemsLinkWrite))
+        {
+            throw new ForbiddenException(OrganizationErrorCodes.AccessForbidden);
+        }
+
         // feat-018: the description is read, reduced and measured before the transaction, with no lock held (the
         // reduction is CPU-bound and has no I/O); its refusal is raised with the other field reasons at step 2.
         var prepared = await PrepareDescriptionAsync(command, cancellationToken);
@@ -125,8 +156,7 @@ public sealed class SaveWorkItemHandler(
                 }
 
                 if (!AddressedId.TryParse(command.ProjectId, out var projectId)
-                    || await structure.FindProjectAsync(projectId, ct) is not { IsReachable: true } project
-                    || project.OrganizationId != organizationId)
+                    || await structure.FindProjectAsync(organizationId, projectId, ct) is not { IsReachable: true } project)
                 {
                     throw new NotFoundException(OrganizationErrorCodes.ProjectNotFound);
                 }
@@ -140,6 +170,15 @@ public sealed class SaveWorkItemHandler(
                 var process = await processes.FindByOrganizationAsync(organizationId, ct)
                     ?? throw new InvalidOperationException($"The organization {organizationId} has no process.");
 
+                // The binder's lock first of all (mod-017 plan-backend § 7.1): only a team that is named as an id is locked. The
+                // statement returns the link it held, and that answer — not a second read — says "linked" (review-security S-1).
+                var teamLinkHeld = false;
+
+                if (TeamIdOf(command.Team) is { } namedTeamId)
+                {
+                    teamLinkHeld = await workItems.LockTeamLinkAsync(organizationId, projectId, namedTeamId, ct);
+                }
+
                 if (command.Parent is not null)
                 {
                     await workItems.LockHierarchyAsync(projectId, ct);
@@ -148,18 +187,28 @@ public sealed class SaveWorkItemHandler(
                 var item = await workItems.LockAsync(projectId, identifier.Number, ct)
                     ?? throw new NotFoundException(WorkItemErrorCodes.WorkItemNotFound);
 
-                var type = ItemType(process, item.TypeId);
+                var type = ProcessWorkItemTypes.OfItem(process, item.TypeId);
 
                 if (!string.Equals(type.TypeKey, identifier.TypeKey, StringComparison.Ordinal))
                 {
                     throw new NotFoundException(WorkItemErrorCodes.WorkItemNotFound);
                 }
 
+                // 1a. mod-005 (BR-DR-8, ADR-0030 rule 3): an item in «Удалена» takes no save. Decided on the stored state, under the
+                // item's lock, before any value is looked at — so a 300-character title on a deleted item answers 409 and not 400, and
+                // a live state sent with a parent cannot slip past (tech-012 m1). The domain's Save asks again; it does not rely on
+                // this call, which only fixes the answer's place in the order.
+                item.EnsureLive(type);
+
                 // 2. The values, every field reason at once.
                 var title = ValidateValues(command, item, type, prepared);
 
                 // 3. The area: one of the item's own project, still there under the lock (BR-M3-23, BR-M3-24).
                 var areaId = await LockAreaAsync(projectId, item.AreaId, command.AreaId, ct);
+
+                // 3a. The team: a team of this project, or none, judged under the link's lock — the team on a fresh read, its link
+                // by what the lock held (mod-017 api-contract § 0.2). Not sent: the stored team stays.
+                var team = await DecideTeamAsync(command.Team, organizationId, projectId, teamLinkHeld, ct);
 
                 // 3b. The new parent, an item of this project, and the rest of the parent write (feat-001 BR-H-1).
                 var parentWrite = command.Parent is { } change
@@ -172,13 +221,22 @@ public sealed class SaveWorkItemHandler(
                     title,
                     prepared.Value?.Value,
                     StateIdOf(command.StateId),
-                    await AssigneeOfAsync(command.Assignee, ct),
+                    await AssigneeOfAsync(command.Assignee, organizationId, ct),
                     areaId,
                     command.Fields,
+                    team,
                     prepared.Value?.Format);
 
                 var now = clock.UtcNow;
+                var previousTeamId = item.OwningTeamId;
                 var changed = item.Save(edit, type, now);
+
+                // BR-OT-6: a changed owner drops the item's team place in the same write, before the item's UPDATE (the place
+                // key is checked at the end of that statement). The project's place is another table and stays.
+                if (item.OwningTeamId != previousTeamId)
+                {
+                    await teamPlaces.DropForItemAsync(item.Id, ct);
+                }
 
                 if (parentWrite is not null)
                 {
@@ -257,6 +315,45 @@ public sealed class SaveWorkItemHandler(
         return areaId;
     }
 
+    /// <summary>The sent team as an id to lock: <c>null</c> for a team not sent, «Без команды» and a string that is no id.</summary>
+    private static Guid? TeamIdOf(TeamChange? change) =>
+        change?.TeamId is { } raw && AddressedId.TryParse(raw, out var teamId) ? teamId : null;
+
+    /// <summary>
+    /// <c>null</c> when no team was sent; «Без команды» for a sent <c>null</c>; otherwise the team, which must be an active
+    /// team linked to this project (feat-028 api-contract § 0.3, BR-OL-6): a string that is no id, or an unknown, foreign or
+    /// deleted team, answers 404 <c>team.not_found</c> alike, and an active team of the organization that is not linked to the
+    /// project 409 <c>team.not_in_project</c>. The team is read afresh; "linked" is <paramref name="linkHeld"/>, the answer of the
+    /// statement that locked the link — the fresh read's own <c>IsLinked</c> is not used, because a link committed after the lock
+    /// reads linked there and is held by nobody (review-security S-1).
+    /// </summary>
+    private async Task<TeamEdit?> DecideTeamAsync(
+        TeamChange? change, Guid organizationId, Guid projectId, bool linkHeld, CancellationToken cancellationToken)
+    {
+        if (change is null)
+        {
+            return null;
+        }
+
+        if (change.TeamId is null)
+        {
+            return new TeamEdit(null);
+        }
+
+        if (!AddressedId.TryParse(change.TeamId, out var teamId))
+        {
+            throw new NotFoundException(OrganizationErrorCodes.TeamNotFound);
+        }
+
+        var found = await structure.FindProjectTeamAsync(organizationId, projectId, teamId, cancellationToken);
+
+        ProjectTeams.EnsureBindable(
+            found is null ? null : new TeamFacts(found.Team.Id, found.Team.OrganizationId, found.Team.Status, linkHeld),
+            organizationId);
+
+        return new TeamEdit(teamId);
+    }
+
     /// <summary>A sent state that is not even an id is a state the type does not have (BR-M3-21).</summary>
     private static Guid? StateIdOf(string? rawStateId)
     {
@@ -270,8 +367,13 @@ public sealed class SaveWorkItemHandler(
             : throw new ConflictException(WorkItemErrorCodes.StateNotAllowed);
     }
 
-    /// <summary>The sent assignee with whether the directory knows them as active (BR-M3-22); the domain decides.</summary>
-    private async Task<AssigneeEdit?> AssigneeOfAsync(AssigneeChange? change, CancellationToken cancellationToken)
+    /// <summary>
+    /// The sent assignee with whether they can be assigned (BR-M3-22, mod-016 BR-M1-26): known to the directory, active
+    /// there, <b>and a member of the item's organization</b> in any role. The domain decides, and refuses only a
+    /// <i>newly set</i> unavailable assignee: an assignee who was set and has since left, or been disabled, stays and never
+    /// refuses a save of other fields, and clearing the assignee is always allowed.
+    /// </summary>
+    private async Task<AssigneeEdit?> AssigneeOfAsync(AssigneeChange? change, Guid organizationId, CancellationToken cancellationToken)
     {
         if (change is null)
         {
@@ -284,7 +386,9 @@ public sealed class SaveWorkItemHandler(
         }
 
         var lookup = await directory.LookupAsync([userId], cancellationToken);
-        var isAvailable = lookup.Known.TryGetValue(userId, out var user) && user.IsActive;
+        var isAvailable = lookup.Known.TryGetValue(userId, out var user)
+            && user.IsActive
+            && await members.IsMemberAsync(organizationId, userId, cancellationToken);
 
         return new AssigneeEdit(userId, isAvailable);
     }
@@ -312,16 +416,4 @@ public sealed class SaveWorkItemHandler(
         _ => throw new ArgumentOutOfRangeException(nameof(field), field, "Unknown work item field."),
     };
 
-    /// <summary>The item's own type in the organization's process. It is always there: the type never changes (BR-M3-1).</summary>
-    private static WorkItemTypeStates ItemType(ProcessDefinitionRow process, Guid typeId)
-    {
-        var type = process.WorkItemTypes.SingleOrDefault(candidate => candidate.Id == typeId)
-            ?? throw new InvalidOperationException($"The type {typeId} of a work item is not in its organization's process.");
-
-        return new WorkItemTypeStates(
-            type.Id,
-            type.Key,
-            type.Appearance,
-            type.States.Select(state => new WorkItemTypeState(state.Id, state.Position, state.Category)).ToList());
-    }
 }

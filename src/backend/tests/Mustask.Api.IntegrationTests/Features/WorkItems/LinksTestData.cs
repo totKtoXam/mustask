@@ -13,8 +13,9 @@ namespace Mustask.Api.IntegrationTests.Features.WorkItems;
 /// feat-001's data and requests. The stories' items keep their identifiers:
 /// they are created through mod-003's create in number order, the numbers the
 /// stories do not name taken by filler tasks, so MSK-FEAT-6 is MSK-FEAT-6 and a
-/// cycle's path reads as US-2 quotes it. «Удалена» is set straight in the table
-/// (D-8 OQ-1): no route reaches it before mod-005.
+/// cycle's path reads as US-2 quotes it. «Удалена» is reached through mod-005's real Delete
+/// (<see cref="DeleteAsync"/>); the one set-up that still writes the state straight in the table is an item in
+/// «Удалена» with no marks (<see cref="PutInRemovedWithNoMarksAsync"/>).
 /// </summary>
 internal static class LinksTestData
 {
@@ -110,8 +111,24 @@ internal static class LinksTestData
         return Identifiers(answer.Body.GetProperty("items"));
     }
 
-    /// <summary>Puts the item in its type's «Удалена» straight in the table (D-8 OQ-1).</summary>
-    public static Task DeleteAsync(MustaskApiFactory factory, WorkItemsWorld world, Item item) =>
+    /// <summary>
+    /// Deletes the item through the real route, as the organization's administrator (mod-005 BR-DR-18, feat-001 D-8 OQ-1): the
+    /// state is «Удалена» and the three marks are set, so the scenarios that used to write the state straight in the table now
+    /// start from what a user can do. Fails the test unless the delete answers 200. «Изменён» of the item takes the deletion's time.
+    /// </summary>
+    public static async Task DeleteAsync(MustaskApiFactory factory, WorkItemsWorld world, Item item)
+    {
+        var answer = await OrganizationsApi.SendAsync(
+            factory, HttpMethod.Post, $"{WorkItemsTestData.Item(world, item.Identifier)}/delete", token: OrganizationsTokens.SignedIn());
+
+        Assert.True(answer.Status == HttpStatusCode.OK, $"Deleting {item.Identifier} answered {answer.Status} {answer.ErrorCode}.");
+    }
+
+    /// <summary>
+    /// Puts the item in its type's «Удалена» straight in the table: the state and nothing else, so the item carries no marks
+    /// (mod-005 BR-DR-10) — the set-up of the restore of an item with no remembered state, which no route can produce.
+    /// </summary>
+    public static Task PutInRemovedWithNoMarksAsync(MustaskApiFactory factory, WorkItemsWorld world, Item item) =>
         WorkItemsTestData.ExecuteAsync(
             factory,
             $"UPDATE work_items SET state_id = {world.Types[TypeKeyOf(item)].StateId(StateCategory.Removed)} WHERE id = {item.Id}");

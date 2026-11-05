@@ -1,0 +1,354 @@
+import { describe, expect, it } from 'vitest';
+import { screen, waitFor, within, cleanup } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
+import type { TestRole } from '../../../test/organizationRoles';
+import { organizationsKeys } from '../api/queryKeys';
+import {
+  AREAS_URL,
+  ORGANIZATION_URL,
+  ORG_TEAMS_URL,
+  PROJECTS_URL,
+  PROJECT_URL,
+  TEAMS_URL,
+  ids,
+  emptyTreeDataset,
+  problem,
+} from '../testFixtures';
+import { serveOrganizations, serveProblem } from '../testApi';
+import { renderPage } from '../testRender';
+
+// mod-016 design § 6.2, § 6.3 (plan-frontend § 3.3): the controls of the organization,
+// project, team and area pages follow the served codes of the reader's role. A missing
+// code hides the control and whatever it would leave empty — an actions column, a tab
+// strip of one view — and the empty states tell the others who holds the right. The
+// 403 flow, once per page: the dialog's `Alert`, the typed values kept, the codes read
+// again, the primary disabled, «Отмена» working.
+
+const ALFA_GENERAL = `/organizations/${ids.alfa}/settings/general`;
+const ALFA_PROJECTS = `/organizations/${ids.alfa}/projects`;
+const PRM_GENERAL = `/organizations/${ids.alfa}/projects/${ids.prm}/general`;
+const PRM_SETTINGS = `/organizations/${ids.alfa}/projects/${ids.prm}/settings`;
+const PLATFORM_PROJECTS = `/organizations/${ids.alfa}/teams/${ids.platformTeam}/projects`;
+const PLATFORM_SETTINGS = `/organizations/${ids.alfa}/teams/${ids.platformTeam}/settings`;
+const PRM_TEAMS = `/organizations/${ids.alfa}/projects/${ids.prm}/teams`;
+const ALFA_TEAMS = `/organizations/${ids.alfa}/teams`;
+const ALFA_AREAS = `/organizations/${ids.alfa}/areas`;
+const NEW_ORGANIZATION = 'a0000000-0000-4000-8000-0000000000aa';
+
+const REFUSED = 'Недостаточно прав';
+
+const ROLES = [
+  ['admin', true],
+  ['member', false],
+  ['viewer', false],
+] as const;
+
+/** The count of a page's controls: `1` for an administrator, `0` for the others. */
+const held = (holds: boolean) => (holds ? 1 : 0);
+
+const button = (name: string) => screen.queryAllByRole('button', { name });
+
+describe.each(ROLES)(
+  'mod-016 design § 6.2 Scenario: the organization pages for the %s',
+  (role: TestRole, holds) => {
+    it('«Общие» of the organization: «Переименовать» and «Деактивировать» only with their codes', async () => {
+      serveOrganizations();
+      renderPage({ path: ALFA_GENERAL, role });
+
+      await screen.findByText('Альфа');
+
+      expect(button('Переименовать')).toHaveLength(held(holds));
+      expect(button('Деактивировать')).toHaveLength(held(holds));
+      expect(screen.getByText('Название')).toBeVisible();
+    });
+
+    it('«Проекты»: «Создать проект» and the select «Показывать» only with their codes; the list reads for everyone', async () => {
+      serveOrganizations();
+      renderPage({ path: ALFA_PROJECTS, role });
+
+      const table = await screen.findByRole('table', { name: 'Проекты' });
+
+      expect(button('Создать проект')).toHaveLength(held(holds));
+      expect(screen.queryAllByRole('combobox', { name: 'Показывать' })).toHaveLength(held(holds));
+      // The list itself reads for everyone, each project a link to its «Общие».
+      expect(within(table).getByRole('link', { name: 'Пример проекта' })).toBeVisible();
+    });
+
+    it('«Проекты» of an organization with none: the heading stays, the hint is the holder’s or says who creates projects, and the action is the holder’s', async () => {
+      const api = serveOrganizations();
+      api.data.organizations.push({ id: NEW_ORGANIZATION, name: 'Новая', active: true });
+      renderPage({ path: `/organizations/${NEW_ORGANIZATION}/projects`, role });
+
+      expect(
+        await screen.findByRole('heading', { level: 2, name: 'Проектов пока нет' }),
+      ).toBeVisible();
+
+      expect(screen.queryAllByText('Создайте первый проект.')).toHaveLength(held(holds));
+      expect(screen.queryAllByText('Проекты создаёт администратор организации.')).toHaveLength(
+        held(!holds),
+      );
+      // The header’s primary and the frame’s action.
+      expect(button('Создать проект')).toHaveLength(holds ? 2 : 0);
+    });
+
+    it('«Параметры» of the project: «Переименовать» and «Изменить описание» only with their codes; the «Процесс» link stays on «Общие»', async () => {
+      serveOrganizations();
+      renderPage({ path: PRM_SETTINGS, role });
+
+      await screen.findByText('Пример проекта');
+
+      expect(button('Переименовать')).toHaveLength(held(holds));
+      expect(button('Изменить описание')).toHaveLength(held(holds));
+      cleanup();
+      renderPage({ path: PRM_GENERAL, role });
+      expect(await screen.findByRole('link', { name: /Процесс/ })).toBeVisible();
+    });
+
+    it('«Команды» of the organization: «Создать команду» and the row menus only with their codes; the team links and the projects stay for everyone (feat-028 design § 10)', async () => {
+      serveOrganizations();
+      renderPage({ path: ALFA_TEAMS, role });
+
+      const table = await screen.findByRole('table', { name: 'Команды' });
+
+      expect(button('Создать команду')).toHaveLength(held(holds));
+      expect(within(table).queryAllByRole('button', { name: /^Ещё действия: / })).toHaveLength(
+        holds ? within(table).getAllByRole('row').length - 1 : 0,
+      );
+      expect(within(table).getAllByRole('columnheader')).toHaveLength(holds ? 3 : 2);
+      expect(within(table).getByRole('link', { name: 'Платформа' })).toBeVisible();
+      // The projects column left the list (feat-043 design § 5.3).
+    });
+
+    it('a team’s pages: its three commands in «Параметры», «Добавить проект», the unlink menus and the members’ controls only with their codes', async () => {
+      serveOrganizations();
+      renderPage({ path: PLATFORM_SETTINGS, role });
+      await screen.findByRole('heading', { level: 1, name: 'Команда: Платформа' });
+      expect(button('Переименовать')).toHaveLength(held(holds));
+      expect(button('Изменить описание')).toHaveLength(held(holds));
+      expect(button('Удалить команду')).toHaveLength(held(holds));
+      cleanup();
+
+      renderPage({ path: PLATFORM_PROJECTS, role });
+      const projects = await screen.findByRole('table', { name: 'Проекты команды' });
+      expect(button('Добавить проекты')).toHaveLength(held(holds));
+      expect(within(projects).queryAllByRole('button', { name: /^Ещё действия: / })).toHaveLength(
+        held(holds),
+      );
+      expect(within(projects).getByRole('link', { name: 'Пример проекта' })).toBeVisible();
+    });
+
+    it('«Команды» of the project: «Добавить команды» and the actions column only with the code; the team links stay', async () => {
+      serveOrganizations();
+      renderPage({ path: PRM_TEAMS, role });
+
+      const table = await screen.findByRole('table', { name: 'Команды проекта' });
+
+      expect(button('Добавить команды')).toHaveLength(held(holds));
+      expect(within(table).queryAllByRole('button', { name: /^Ещё действия: / })).toHaveLength(
+        holds ? within(table).getAllByRole('row').length - 1 : 0,
+      );
+      expect(within(table).getAllByRole('columnheader')).toHaveLength(holds ? 2 : 1);
+      expect(within(table).getByRole('link', { name: 'Платформа' })).toBeVisible();
+    });
+
+    it('«Структура»: «Новая область» and the row menus only with the code; the tree stays a treegrid', async () => {
+      serveOrganizations();
+      renderPage({ path: ALFA_AREAS, role });
+
+      const tree = await screen.findByRole('treegrid', { name: 'Структура' });
+
+      expect(button('Создать департамент')).toHaveLength(held(holds));
+      expect(within(tree).queryAllByRole('button', { name: /^Действия: / }).length > 0).toBe(holds);
+      expect(within(tree).getAllByRole('row', { selected: false }).length).toBeGreaterThan(1);
+    });
+
+    it('«Структура» with no area at all: the heading stays, the hint is the holder’s or says who creates the areas, and the action is the holder’s', async () => {
+      serveOrganizations(emptyTreeDataset());
+      renderPage({ path: ALFA_AREAS, role });
+
+      expect(
+        await screen.findByRole('heading', {
+          name: 'В организации пока нет областей',
+        }),
+      ).toBeVisible();
+
+      expect(
+        screen.queryAllByText('Создайте первый департамент: он объединяет проекты и команды.'),
+      ).toHaveLength(held(holds));
+      expect(screen.queryAllByText('Департаменты создаёт администратор организации.')).toHaveLength(
+        held(!holds),
+      );
+      expect(button('Создать департамент')).toHaveLength(holds ? 2 : 0);
+    });
+  },
+);
+
+describe('mod-016 design § 2.3 Scenario: a refused write, then the codes are read again', () => {
+  /** The shape of the flow: the dialog stays with its values and the alert; the re-read locks its primary. */
+  async function lockedAfterRefusal(
+    dialog: HTMLElement,
+    primary: string,
+    field: HTMLElement,
+    value: string,
+    page: { update(next: { role: TestRole }): void },
+  ) {
+    await userEvent.click(within(dialog).getByRole('button', { name: primary }));
+
+    expect(await within(dialog).findByText(REFUSED)).toBeVisible();
+    expect(field).toHaveValue(value);
+    expect(within(dialog).getByRole('button', { name: primary })).toBeEnabled();
+
+    page.update({ role: 'member' });
+
+    await waitFor(() =>
+      expect(within(dialog).getByRole('button', { name: primary })).toBeDisabled(),
+    );
+    expect(field).toHaveValue(value);
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Отмена' }));
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
+  }
+
+  it('renames the organization', async () => {
+    serveOrganizations();
+    const page = renderPage({ path: ALFA_GENERAL });
+    await screen.findByText('Альфа');
+    await userEvent.click(screen.getByRole('button', { name: 'Переименовать' }));
+    const dialog = await screen.findByRole('dialog', { name: 'Переименование организации' });
+    const field = within(dialog).getByRole('textbox', { name: 'Название' });
+    await userEvent.clear(field);
+    await userEvent.type(field, 'Омега');
+    serveProblem('put', `${ORGANIZATION_URL}/name`, problem('organizations.access.forbidden'), {
+      once: true,
+    });
+
+    await lockedAfterRefusal(dialog, 'Сохранить', field, 'Омега', page);
+
+    expect(button('Переименовать')).toHaveLength(0);
+  });
+
+  it('creates a project', async () => {
+    serveOrganizations();
+    const page = renderPage({ path: ALFA_PROJECTS });
+    await screen.findByRole('table', { name: 'Проекты' });
+    await userEvent.click(screen.getByRole('button', { name: 'Создать проект' }));
+    const dialog = await screen.findByRole('dialog', { name: 'Новый проект' });
+    const field = within(dialog).getByRole('textbox', { name: 'Название' });
+    await userEvent.type(field, 'Омега');
+    await userEvent.type(within(dialog).getByRole('textbox', { name: 'Ключ' }), 'OMG');
+    serveProblem('post', PROJECTS_URL, problem('organizations.access.forbidden'), { once: true });
+
+    await lockedAfterRefusal(dialog, 'Создать', field, 'Омега', page);
+
+    expect(button('Создать проект')).toHaveLength(0);
+    expect(screen.queryByRole('tablist')).not.toBeInTheDocument();
+  });
+
+  it('renames the project', async () => {
+    serveOrganizations();
+    const page = renderPage({ path: PRM_SETTINGS });
+    await screen.findByText('Пример проекта');
+    await userEvent.click(screen.getByRole('button', { name: 'Переименовать' }));
+    const dialog = await screen.findByRole('dialog', { name: 'Переименование проекта' });
+    const field = within(dialog).getByRole('textbox', { name: 'Название' });
+    await userEvent.clear(field);
+    await userEvent.type(field, 'Омега');
+    serveProblem('put', `${PROJECT_URL}/name`, problem('organizations.access.forbidden'), {
+      once: true,
+    });
+
+    await lockedAfterRefusal(dialog, 'Сохранить', field, 'Омега', page);
+
+    expect(button('Переименовать')).toHaveLength(0);
+    expect(button('Деактивировать')).toHaveLength(0);
+  });
+
+  // feat-028 BR-OL-5 (doc-012 P-1): «adds a team» at the project's «Команды» is retired by name — a
+  // team is created in the organization's «Команды», and the project's page links existing ones.
+  it('creates a team', async () => {
+    serveOrganizations();
+    const page = renderPage({ path: ALFA_TEAMS });
+    await screen.findByRole('table', { name: 'Команды' });
+    await userEvent.click(screen.getByRole('button', { name: 'Создать команду' }));
+    const dialog = await screen.findByRole('dialog', { name: 'Новая команда' });
+    const field = within(dialog).getByRole('textbox', { name: 'Название' });
+    await userEvent.type(field, 'Омега');
+    serveProblem('post', ORG_TEAMS_URL, problem('organizations.access.forbidden'), { once: true });
+
+    await lockedAfterRefusal(dialog, 'Создать', field, 'Омега', page);
+
+    expect(button('Создать команду')).toHaveLength(0);
+    expect(
+      within(screen.getByRole('table', { name: 'Команды' })).queryAllByRole('button'),
+    ).toHaveLength(0);
+  });
+
+  it('links teams to a project', async () => {
+    serveOrganizations();
+    const page = renderPage({ path: PRM_TEAMS });
+    await screen.findByRole('table', { name: 'Команды проекта' });
+    await userEvent.click(screen.getByRole('button', { name: 'Добавить команды' }));
+    const dialog = await screen.findByRole('dialog', { name: 'Добавление команд в проект' });
+    const field = within(dialog).getByRole('combobox', { name: 'Команды' });
+    await userEvent.click(field);
+    await userEvent.click(await screen.findByRole('option', { name: 'Аналитика' }));
+    serveProblem('post', TEAMS_URL, problem('organizations.access.forbidden'), { once: true });
+
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Добавить' }));
+    expect(await within(dialog).findByText(REFUSED)).toBeVisible();
+    expect(within(dialog).getByRole('button', { name: 'Убрать «Аналитика»' })).toBeVisible();
+    expect(within(dialog).getByRole('button', { name: 'Добавить' })).toBeEnabled();
+
+    page.update({ role: 'member' });
+
+    await waitFor(() =>
+      expect(within(dialog).getByRole('button', { name: 'Добавить' })).toBeDisabled(),
+    );
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Отмена' }));
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
+    expect(button('Добавить команды')).toHaveLength(0);
+  });
+
+  it('creates an area', async () => {
+    serveOrganizations();
+    const page = renderPage({ path: ALFA_AREAS });
+    await screen.findByRole('treegrid', { name: 'Структура' });
+    await userEvent.click(screen.getByRole('button', { name: 'Создать департамент' }));
+    const dialog = await screen.findByRole('dialog', { name: 'Новый департамент' });
+    const field = within(dialog).getByRole('textbox', { name: 'Название' });
+    await userEvent.type(field, 'Омега');
+    serveProblem('post', AREAS_URL, problem('organizations.access.forbidden'), { once: true });
+
+    await lockedAfterRefusal(dialog, 'Создать', field, 'Омега', page);
+
+    expect(button('Создать департамент')).toHaveLength(0);
+    expect(
+      within(screen.getByRole('treegrid', { name: 'Структура' })).queryAllByRole('button', {
+        name: /^Действия: /,
+      }),
+    ).toHaveLength(0);
+  });
+});
+
+describe('mod-016 plan § 3.3 Scenario: a deactivated organization answers not found from now on', () => {
+  it('its served access leaves the tab’s memory once the page has been left for the deactivated list', async () => {
+    serveOrganizations();
+    const page = renderPage({ path: ALFA_GENERAL });
+    await screen.findByText('Альфа');
+    page.queryClient.setQueryData(organizationsKeys.access(ids.alfa), {
+      kind: 'member',
+      role: 'admin',
+      permissions: [],
+    });
+    await userEvent.click(screen.getByRole('button', { name: 'Деактивировать' }));
+    const dialog = await screen.findByRole('dialog', { name: 'Деактивировать организацию?' });
+
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Деактивировать' }));
+
+    await waitFor(() =>
+      expect(screen.getByTestId('location')).toHaveTextContent('/organizations/deactivated'),
+    );
+    await waitFor(() =>
+      expect(page.queryClient.getQueryData(organizationsKeys.access(ids.alfa))).toBeUndefined(),
+    );
+  });
+});

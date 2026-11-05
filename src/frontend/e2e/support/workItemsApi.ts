@@ -4,7 +4,10 @@
 // feat-001's parent write (its api-contract § 3.2), spec 25 a save of
 // feat-022's fields per type (its api-contract § 3.2), spec 26 a create that
 // names its team and its parent (feat-027's api-contract § 3) and the id of a
-// state by its name (mod-001's process, for a save of `stateId`). Every call goes through
+// state by its name (mod-001's process, for a save of `stateId`); spec 27 adds an
+// area beneath a team's default area (mod-002's area create with another
+// parent) and the id of a user of the directory (mod-003's assignee
+// candidates, api-contract § 2.5). Every call goes through
 // `organizationsApi.ts`'s `send`, so the token exchange, its rules (never
 // logged, never handed to a page) and the prior `signIn(page, …)` it needs
 // are that module's.
@@ -71,6 +74,45 @@ export async function createArea(
     name,
     ownerTeamId: null,
   });
+}
+
+/**
+ * An area beneath `parentId` — a team's default area, say, so that the area's
+ * path reads «Платформа / API» — owned by inheritance (mod-002 api-contract
+ * § 4.2); `createArea` above is the child of the root.
+ */
+export function createChildArea(
+  request: APIRequestContext,
+  organizationId: string,
+  projectId: string,
+  parentId: string,
+  name: string,
+): Promise<AreaDto> {
+  return call(request, 'POST', `${projectPath(organizationId, projectId)}/areas`, {
+    parentId,
+    name,
+    ownerTeamId: null,
+  });
+}
+
+/**
+ * The id of the one user of the organization's directory whose e-mail or
+ * display name contains `text` (mod-003 api-contract § 2.5; two characters at
+ * least), for a save of `assignee`. The fixture user is `e2e-fixture@…`.
+ */
+export async function assigneeId(
+  request: APIRequestContext,
+  organizationId: string,
+  text: string,
+): Promise<string> {
+  const found = await call<{ users: { id: string; displayName: string | null; email: string }[] }>(
+    request,
+    'GET',
+    `/api/organizations/${encodeURIComponent(organizationId)}/workitems/assignee-candidates?text=${encodeURIComponent(text)}`,
+  );
+  const [user] = found.users;
+  if (!user) throw new Error(`The directory has no user matching «${text}».`);
+  return user.id;
 }
 
 /** One type's id from the organization's process (mod-001 api-contract § 1). */

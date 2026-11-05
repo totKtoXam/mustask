@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { fireEvent, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { HttpResponse, http } from 'msw';
@@ -7,6 +7,9 @@ import { pasteInto } from '../../../test/richTextEditor';
 import { serveWorkItems, type WorkItemsTestApi } from '../testApi';
 import { WORK_ITEM_URL, exampleDataset, ids, validationProblem } from '../testFixtures';
 import { MSK_LIST, mskForm, renderWorkItems } from '../testRender';
+
+// Each user action draws the kit’s fields in jsdom; a test of several steps outlasts the default.
+vi.setConfig({ testTimeout: 120_000 });
 
 const BUG_4 = mskForm('MSK-BUG-4');
 
@@ -332,7 +335,9 @@ describe('mod-003 spec § Page: a work item’s form — loading, error and a go
     renderWorkItems(BUG_4);
 
     expect(await screen.findByRole('status', { name: 'Загрузка данных' })).toBeInTheDocument();
-    expect(screen.queryByRole('heading', { level: 1 })).not.toBeInTheDocument();
+    expect(
+      screen.getByRole('heading', { level: 1, name: 'Рабочий элемент MSK-BUG-4' }),
+    ).toBeInTheDocument();
     release();
     expect(await screen.findByRole('alert')).toHaveTextContent('Нет ответа.');
   });

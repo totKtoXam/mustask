@@ -9,7 +9,10 @@ export async function findBoard(): Promise<HTMLElement> {
 
 /** Every column's list, in board order. */
 export function columnLists(board: HTMLElement): HTMLElement[] {
-  return within(board).getAllByRole('list');
+  // A card's open checklist is a list too (feat-032): only the columns' own are meant.
+  return within(board)
+    .getAllByRole('list')
+    .filter((list) => list.parentElement?.hasAttribute('data-column'));
 }
 
 /** The columns' list names, «<колонка>, рабочих элементов: <n>», in board order. */
@@ -37,6 +40,7 @@ export function columnBox(board: HTMLElement, header: string): HTMLElement {
 export function cardsIn(board: HTMLElement, header: string): string[] {
   return within(columnList(board, header))
     .queryAllByRole('listitem')
+    .filter((card) => card.hasAttribute('data-card'))
     .map((card) => card.getAttribute('data-card') ?? '');
 }
 

@@ -15,7 +15,9 @@ import {
   EXPAND_ONE_LEVEL_LABEL,
   HIERARCHY_HEADER,
   ORDER_HEADER,
+  PROJECT_HEADER,
   STATE_HEADER,
+  TEAM_HEADER,
   TITLE_HEADER,
   TYPE_HEADER,
   VALUE_AREA_HEADER,
@@ -30,7 +32,7 @@ const SEPARATED = 'BacklogHead-separated';
  * `stickyHeader`, which keeps the separators in view too.
  */
 function headCellSx(theme: Theme) {
-  const table = theme.layout.backlogTable;
+  const { table } = theme.layout;
   return {
     ...theme.typography.caption,
     color: theme.palette.text.secondary,
@@ -72,20 +74,20 @@ const clipped = {
 
 /** The two small square outlined buttons of the hierarchy header (design § 4.5). */
 function levelButtonSx(theme: Theme, available: boolean) {
-  const table = theme.layout.backlogTable;
+  const { header } = theme.layout.iconAction;
   // An idle button — nothing to open or close — keeps a readable outline and
   // glyph: the reference draws the pair alike, and `action.disabled` (about
   // 1.9:1) made «+» look broken beside the black «−» (V-3).
   const colour = available ? theme.palette.text.primary : theme.palette.text.secondary;
   return {
-    width: table.headerButton,
-    height: table.headerButton,
+    width: header.box,
+    height: header.box,
     p: 0,
     border: `1px solid ${colour}`,
     borderRadius: `${Number(theme.shape.borderRadius) / 2}px`,
     backgroundColor: theme.palette.background.paper,
     color: colour,
-    '& .MuiSvgIcon-root': { fontSize: table.headerGlyph },
+    '& .MuiSvgIcon-root': { fontSize: header.glyph },
     '&:hover': { backgroundColor: available ? theme.palette.action.hover : undefined },
   };
 }
@@ -129,43 +131,46 @@ export function BacklogHeadRow({
             />
           </Box>
         </TableCell>
-        <TableCell sx={headCellSx}>
-          <Box component="span" sx={clipped}>
-            {ORDER_HEADER}
-          </Box>
-        </TableCell>
-        <TableCell className={SEPARATED} sx={headCellSx}>
-          <Box component="span" sx={clipped}>
-            {TYPE_HEADER}
-          </Box>
-        </TableCell>
-        <TableCell className={SEPARATED} sx={[headCellSx, { pl: TITLE_LABEL_INSET }]}>
-          <Box component="span" sx={clipped}>
-            {TITLE_HEADER}
-          </Box>
-        </TableCell>
-        <TableCell className={SEPARATED} sx={headCellSx}>
-          <Box component="span" sx={clipped}>
-            {STATE_HEADER}
-          </Box>
-        </TableCell>
-        <TableCell className={SEPARATED} title={EFFORT_HEADER} sx={headCellSx}>
-          <Box component="span" sx={clipped}>
-            {EFFORT_HEADER}
-          </Box>
-        </TableCell>
-        <TableCell className={SEPARATED} title={BUSINESS_VALUE_HEADER} sx={headCellSx}>
-          <Box component="span" sx={clipped}>
-            {BUSINESS_VALUE_HEADER}
-          </Box>
-        </TableCell>
-        <TableCell sx={headCellSx}>
-          <Box component="span" sx={clipped}>
-            {VALUE_AREA_HEADER}
-          </Box>
-        </TableCell>
+        <HeadLabel label={ORDER_HEADER} />
+        <HeadLabel label={TYPE_HEADER} separated />
+        <HeadLabel label={TITLE_HEADER} separated inset={TITLE_LABEL_INSET} />
+        <HeadLabel label={STATE_HEADER} separated />
+        <HeadLabel label={TEAM_HEADER} separated />
+        <HeadLabel label={PROJECT_HEADER} separated />
+        <HeadLabel label={EFFORT_HEADER} separated title={EFFORT_HEADER} />
+        <HeadLabel label={BUSINESS_VALUE_HEADER} separated title={BUSINESS_VALUE_HEADER} />
+        <HeadLabel label={VALUE_AREA_HEADER} />
       </TableRow>
     </TableHead>
+  );
+}
+
+/**
+ * A header cell with a label that is cut with an ellipsis and still named in full; `separated`
+ * draws the static line at its right edge, `title` gives the full label as the tooltip, `inset`
+ * moves the label right («Заголовок» stands over the title cell’s icon).
+ */
+function HeadLabel({
+  label,
+  separated = false,
+  title,
+  inset,
+}: {
+  label: string;
+  separated?: boolean;
+  title?: string;
+  inset?: string;
+}) {
+  return (
+    <TableCell
+      className={separated ? SEPARATED : undefined}
+      title={title}
+      sx={inset === undefined ? headCellSx : [headCellSx, { pl: inset }]}
+    >
+      <Box component="span" sx={clipped}>
+        {label}
+      </Box>
+    </TableCell>
   );
 }
 

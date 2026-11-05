@@ -15,8 +15,18 @@ export function cycleRefusalText(target: string, item: string, path: readonly st
   return `Нельзя выбрать родителем ${target}: он вложен в ${item} (${path.join(' → ')}).`;
 }
 
-/** Why a target is refused: a type BR-H-2 does not allow, or one of the item's own descendants. */
-export type DropRefusal = 'level' | 'descendant';
+/**
+ * The notice of a drop onto a row of another project (feat-040 design § 5.3, BR-TS-5), in the
+ * words of the type refusal: a team's backlog holds the rows of several projects, and a parent is
+ * always in the item's own project.
+ */
+export const PROJECT_REFUSAL_TEXT = 'Родителем может быть только рабочий элемент того же проекта.';
+
+/**
+ * Why a target is refused: a row of another project (feat-040 BR-TS-5), a type BR-H-2 does not
+ * allow, or one of the item's own descendants.
+ */
+export type DropRefusal = 'project' | 'level' | 'descendant';
 
 /** What a drag finds under the pointer, on a row. */
 export type DropVerdict =
@@ -27,8 +37,11 @@ export type DropVerdict =
   | { kind: 'refused'; reason: DropRefusal };
 
 /** The part of a row a verdict reads. */
-type DraggedRow = Pick<BacklogTreeItem, 'id' | 'identifier' | 'type' | 'parent' | 'children'>;
-type TargetRow = Pick<BacklogTreeItem, 'id' | 'identifier' | 'type'>;
+type DraggedRow = Pick<
+  BacklogTreeItem,
+  'id' | 'identifier' | 'type' | 'parent' | 'children' | 'project'
+>;
+type TargetRow = Pick<BacklogTreeItem, 'id' | 'identifier' | 'type' | 'project'>;
 
 /**
  * The level rank of each type of the process, by the type's id (mod-001
@@ -97,8 +110,10 @@ export function pathDown(
 
 /**
  * What a drag of `dragged` finds on the row `target` (BR-T-12): the item
- * itself and its current parent are no target; a target of a type BR-H-2 does
- * not allow above the item's — by the process's level ranks — is refused, then
+ * itself and its current parent are no target; a row of another project is
+ * refused first (feat-040 BR-TS-5: the server cannot find another project's parent at
+ * all, `workitems.link.parent_not_found`, before any type check); a target of a type
+ * BR-H-2 does not allow above the item's — by the process's level ranks — is refused, then
  * one of the item's own `descendants`; any other is allowed. With the process
  * not read yet there is no rank to refuse by, and the server decides.
  */
@@ -109,6 +124,9 @@ export function dropVerdict(
 ): DropVerdict {
   if (target.id === dragged.id || target.id === dragged.parent?.id) {
     return { kind: 'none' };
+  }
+  if (target.project.id !== dragged.project.id) {
+    return { kind: 'refused', reason: 'project' };
   }
   const own = context.ranks.get(dragged.type.id);
   const above = context.ranks.get(target.type.id);
@@ -126,6 +144,9 @@ export function dropVerdict(
  * descendant's is walked here, once, on the release — not on every pointer move.
  */
 export function refusalNotice(reason: DropRefusal, dragged: DraggedRow, target: TargetRow): string {
+  if (reason === 'project') {
+    return PROJECT_REFUSAL_TEXT;
+  }
   if (reason === 'level') {
     return LEVEL_REFUSAL_TEXT;
   }

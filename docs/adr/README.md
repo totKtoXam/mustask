@@ -43,17 +43,26 @@ anything already fixed by the conventions.
 
 Keep the list current (append-only, newest on top):
 
-- ADR-0027 — Store the work item description as server-sanitized HTML with closed class palettes, edited with TipTap beside MUI · accepted
+- ADR-0037 — Store the work item description as server-sanitized HTML with closed class palettes, edited with TipTap beside MUI · accepted
+- ADR-0036 — Page the aggregate views' group reads by a cursor, and limit those reads per user and per process · proposed (deviates from ADR-0014/0015 for these reads only)
+- ADR-0035 — Let the instance administrator appoint organization administrators on request, on a permanent record · accepted (amends the wording of ADR-0027 rule 4 and ADR-0033 § 1) (accepted 2026-11-04)
+- ADR-0034 — Fill the user projection from the sign-in claims instead of a Keycloak event-listener provider · proposed (amends ADR-0025)
+- ADR-0033 — Run in the company-wide realm on four client roles, and keep the role-to-right table in code · proposed (amends ADR-0018, ADR-0027); amended by ADR-0035
+- ADR-0031 — Make the organization's area tree a typed single tree whose project nodes are the projects' places in it · accepted (supersedes ADR-0028 rules 1, 2, 3, 6, 7, 8, its mod-018 delivery row, and ADR-0029 § 6 and its mod-018 delivery bullet, in part)
+- ADR-0030 — Delete a work item into its Removed state with the way back on its row, hide it by named entry points, and purge it in one locked transaction · accepted (amends ADR-0029 § 4)
+- ADR-0029 — Compute effective permissions once, from organization, area, project and team scopes over the membership-derived codes · accepted (amends ADR-0027); amended by ADR-0030; partially superseded by ADR-0031 (accepted 2026-10-29)
+- ADR-0028 — Organize an organization as independent areas, projects and teams joined by links, with the organization as the only tenant boundary · accepted (amends ADR-0024, ADR-0026); partially superseded by ADR-0031 (accepted 2026-10-29)
+- ADR-0027 — Derive organization access from the membership of the resource's organization, and keep Keycloak to instance roles · accepted (amends ADR-0018); amended by ADR-0033 (proposed), ADR-0035
 - ADR-0024 — Build every panel screen on one shell and one theme, carry the work context in the address, and name type appearance by a closed token set · accepted
 - ADR-0025 — Project Keycloak users through a read-only event-listener provider that pushes signed, ordered state into MUSTASK · proposed
-- ADR-0025 — Project Keycloak users through a read-only event-listener provider that pushes signed, ordered state into MUSTASK · accepted
+- ADR-0025 — Project Keycloak users through a read-only event-listener provider that pushes signed, ordered state into MUSTASK · accepted; amended by ADR-0034 (proposed)
 - ADR-0026 — Remove organizations, projects and teams softly by a status on the object itself, and decide reachability by containment · accepted
 - ADR-0023 — A stand-only Keycloak client impersonates the E2E fixture user · accepted
 - ADR-0022 — The panel's refresh token never reaches the browser: a token-mediating backend · proposed
 - ADR-0021 — Store a dictionary as an entry plus a typed translation table per dictionary, and resolve the language on the server · proposed
 - ADR-0020 — Remove the MUSTASK data store until the first module with data appears · superseded by ADR-0021
 - ADR-0019 — Narrow the UI stack to what is actually used: MUI core instead of x-data-grid, controlled forms instead of react-hook-form · accepted
-- ADR-0018 — Hand authentication to Keycloak with separate realms instead of our own issuer · accepted
+- ADR-0018 — Hand authentication to Keycloak with separate realms instead of our own issuer · accepted; amended by ADR-0027, ADR-0033 (proposed)
 - ADR-0016 — Build the frontend's Gridify requests with the official gridify-client · accepted
 - ADR-0015 — Use Gridify for pagination, sorting and filtering of list reads · accepted
 - ADR-0014 — A shared paginated response envelope for list reads of the API · superseded by ADR-0015
@@ -63,7 +72,7 @@ Keep the list current (append-only, newest on top):
 - ADR-0010 — Implement optimistic concurrency via `xmin` by an automatic convention · accepted
 - ADR-0009 — Use EF Core + Npgsql as the primary data access · accepted
 - ADR-0008 — Issue JWTs ourselves (RS256) instead of plugging in an external IdP · superseded by ADR-0018
-- ADR-0007 — Fix the frontend UI stack and the canonical screen states · accepted, partially narrowed by ADR-0019, amended by ADR-0024 and ADR-0027
+- ADR-0007 — Fix the frontend UI stack and the canonical screen states · accepted, partially narrowed by ADR-0019, amended by ADR-0024 and ADR-0037
 - ADR-0006 — Error texts live in a shared catalog, not in server code · proposed
 - ADR-0005 — Treat error codes as a stable registry — part of the API contract · accepted
 - ADR-0004 — Business errors are exceptions, mapping to ProblemDetails is centralized · accepted, partially superseded by ADR-0006

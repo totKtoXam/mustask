@@ -19,7 +19,7 @@ MUSTASK checks access by permission codes — the existing `PermissionCatalog`
 pattern (ADR-0018, `src/backend/Mustask.Domain/Identity/PermissionCatalog.cs`):
 a **permission** is a `<module>.<resource>.<action>` code, bundled into a
 named **role**. **D-9 (an ADR-0018 amendment owed by
-`mod-002-organizations-projects-teams`, bound by doc-006 § Roles
+`mod-016-organization-access`, bound by doc-006 § Roles
 constraints 1–8):** that role lives on `ORG_MEMBERSHIP` itself —
 admin/member/viewer, one per organization a user belongs to — never on a
 Keycloak realm role; team membership carries no role and no access of its
@@ -46,7 +46,7 @@ D-14): create, read, update, delete and restore of one's own private
 objects — any object a spec declares personal; in release 2 personal
 queries and «Мои запросы». No bundle reads or writes another user's private
 object; the one exception is the organization administrator's purge of a
-soft-deleted one, which grants no read of its content (BR-6). mod-002's
+soft-deleted one, which grants no read of its content (BR-6). mod-016's
 ADR-0018 amendment states the predicate; feat-002 and mod-004 implement it
 for own comments and attachments; mod-008 registers the personal-object
 code (release 2).
@@ -319,7 +319,7 @@ BR-M<k>-n (M3 = doc-002 … M6 = doc-005).
 | BR-2 | Every state a type defines maps to exactly one category (Proposed/InProgress/Resolved/Completed/Removed); backlogs, reports and metrics rely on the category, never the state name. «Разрешена» is InProgress on Эпик, Фича and Пользовательская история and Resolved on Баг, so a board maps each (type, state) to a column: on the «Истории» board Пользовательская история «Разрешена» gets its own column, not the «В работе» column, and each board's headers follow that per-level mapping (doc-003); a state filter matches the label on every type, so «Статус = Разрешена» spans two categories. | research/ado-boards.md § Work item types; D-3; doc-010 D-4, D-5 |
 | BR-3 | A work item is on a team's board/backlog only when its Area is owned by that team (directly, or by inheriting the nearest owned ancestor Area); it never appears on more than one team's board at once. Every area resolves to exactly one owning team: the root is always owned, by the project's first team (doc-006 BR-M1-11). | D-8; research/ado-boards.md (Team field = Area Path) |
 | BR-4 | Work item history: every create, field change, state transition (a card move is a state revision authored by the mover), link add/remove, tag add/remove, comment add/edit/delete, attachment add/remove, delete and restore is recorded in the item's history with who and when; one save is one revision, however many fields it touched; history is derived and append-only, never edited. A comment edit records that the text changed, not the old text, and marks the comment as edited with the edit time. A purge removes the item with its history and records the purge of the parent, with its identifier, in each surviving child's history. | research/ado-boards.md § Rules; D-5; doc-010 D-20 |
-| BR-5 | A permission check for an org/project/team-scoped resource derives its codes from the acting user's `ORG_MEMBERSHIP.role` for that resource's organization, never from a Keycloak realm role; Keycloak carries only authentication plus instance-level roles, named by the ADR-0018 amendment. MVP scopes no finer than the organization (no per-project or per-team override). A user with no membership in the resource's organization is answered "not found" in every module (doc-006 BR-M1-8); «Недостаточно прав» is only for a member whose role lacks the code. A code may carry an ownership predicate (§ Roles): a private object is reachable only by its owner, whatever their role, while they hold a membership in its organization. | D-9, D-2; ADR-0018 (amendment owed by `mod-002-organizations-projects-teams`); doc-010 D-11, D-12 |
+| BR-5 | A permission check for an org/project/team-scoped resource derives its codes from the acting user's `ORG_MEMBERSHIP.role` for that resource's organization, never from a Keycloak realm role; Keycloak carries only authentication plus instance-level roles, named by the ADR-0018 amendment. MVP scopes no finer than the organization (no per-project or per-team override). A user with no membership in the resource's organization is answered "not found" in every module (doc-006 BR-M1-8); «Недостаточно прав» is only for a member whose role lacks the code. A code may carry an ownership predicate (§ Roles): a private object is reachable only by its owner, whatever their role, while they hold a membership in its organization. | D-9, D-2; ADR-0018 (amendment owed by `mod-016-organization-access`); doc-010 D-11, D-12 |
 | BR-6 | Deletion is soft wherever the entity can be restored, and retention is indefinite. Where a spec defines a purge, only the organization administrator performs it, in the product: work items in MVP; queries and folders (release 2), dashboards and widgets (release 3), whose purge list shows owner, folder and deletion date, never content. Organizations, projects, teams and iterations are never purged. Per entity: § Deletion lifecycle; an item in «Удалена» takes part in other operations per BR-14. | D-5; doc-010 D-13, D-20 |
 | BR-7 | An iteration is a single optional pointer on a work item (never a set); boards, backlogs and planning all read that one pointer. | Module map M5 |
 | BR-8 | Tags are project-scoped; a filter or a board never shows a tag from another project. | research/ado-boards.md § Security |
@@ -417,8 +417,9 @@ analysis task writes none):
 
 | Module | Founding line | ADRs it owes |
 |---|---|---|
-| M1 | `mod-002-organizations-projects-teams` | the ADR-0018 amendment — the role on `ORG_MEMBERSHIP` (D-9), bound by doc-006 § Roles constraints 1–8, the ownership predicate included (doc-010 D-11); status-based soft deactivation |
-| M1 | `mod-NNN-keycloak-user-projection`, which mod-002's member search depends on | the Keycloak event-listener provider and the user projection; ADR-0023's guards stay (doc-010 D-9) |
+| M1 | `mod-002-organizations-projects-teams` | status-based soft deactivation |
+| M1 | `mod-016-organization-access`, M1's access sub-slice (doc-010 D-25) | the ADR-0018 amendment — the role on `ORG_MEMBERSHIP` (D-9), bound by doc-006 § Roles constraints 1–8, the ownership predicate included (doc-010 D-11) |
+| M1 | `mod-NNN-keycloak-user-projection`, which mod-016's member search depends on | the Keycloak event-listener provider and the user projection; ADR-0023's guards stay (doc-010 D-9) |
 | M2 | `mod-001-process-seed` | none: `L` as the module's founder |
 | M3 | `mod-003-work-item-core`; `mod-004-work-item-attachments`; `mod-005-work-item-delete-restore` | history/audit, scoped to anticipate the M1 audit log (doc-006 BR-M1-15), "Was Ever" and release-2 metrics; the client-visible concurrency token; attachment storage on each organization's Drive; the recycle bin, referencing mod-002's soft deactivation |
 | M4 | `mod-006-boards-backlogs` | none of its own: it reuses mod-003's concurrency token |

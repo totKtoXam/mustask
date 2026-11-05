@@ -19,7 +19,7 @@ const COPY_ICON_PATH =
   'M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z';
 
 /**
- * The code block of the subset (BR-RT-16, ADR-0027 decision 7): text only, no
+ * The code block of the subset (BR-RT-16, ADR-0037 decision 7): text only, no
  * marks, isolating (default commands never merge across its boundary), the
  * language one of the closed list or none.
  *

@@ -3,6 +3,7 @@ import AssignmentTurnedInIcon from '@mui/icons-material/AssignmentTurnedIn';
 import BugReportIcon from '@mui/icons-material/BugReport';
 import EmojiEventsIcon from '@mui/icons-material/EmojiEvents';
 import HelpOutlineOutlinedIcon from '@mui/icons-material/HelpOutlineOutlined';
+import ScienceIcon from '@mui/icons-material/Science';
 import { CrownIcon } from './CrownIcon';
 import { StoryIcon } from './StoryIcon';
 import {
@@ -47,6 +48,8 @@ const TYPE_ICONS: Record<AppearanceToken, SvgIconComponent> = {
   story: StoryIcon,
   task: AssignmentTurnedInIcon,
   bug: BugReportIcon,
+  // feat-032 design § 2: the flask, as the reference's test case.
+  testcase: ScienceIcon,
 };
 
 function isAppearanceToken(value: string): value is AppearanceToken {

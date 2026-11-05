@@ -23,10 +23,10 @@ import Typography from '@mui/material/Typography';
 import { useTheme } from '@mui/material/styles';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import MoreHorizIcon from '@mui/icons-material/MoreHoriz';
-import { useDocumentTitle } from '../lib/documentTitle';
+import { MoreActionsMenu } from './actions/MoreActionsMenu';
 import { splitCommands } from './commandOverflow';
-import { usePageChrome, type TrailSegment } from './pageChrome';
-import { PageTrail } from './PageTrail';
+import type { TrailSegment } from './pageChrome';
+import { usePageHead } from './usePageHead';
 
 /** A page command: a button with `onClick`, or a link with `to`. */
 export interface Command {
@@ -40,6 +40,8 @@ export interface Command {
    */
   onClick?: (event?: MouseEvent<HTMLElement>) => void;
   to?: string;
+  /** The router state a link (`to`) carries, e.g. the request to focus the next page's `h1`. */
+  state?: unknown;
   /** Unavailable for a reason of state (BR-9); a missing code hides the command instead. */
   disabled?: boolean;
   /**
@@ -63,10 +65,19 @@ export interface Command {
   tone?: 'neutral';
 }
 
-/** One view of a page: a tab that is its own address (design § 6.1). */
+/**
+ * One view of a page: a tab that is its own address (design § 6.1). The address may carry a query
+ * (a page that keeps its filter in the address gives its own tab that filter, mod-020): the link
+ * keeps it, and the current view is found by the path alone.
+ */
 export interface PageView {
   label: string;
   to: string;
+}
+
+/** A view's path: its address without the query or the hash, which decide no current view. */
+function pathOfView(to: string): string {
+  return to.split(/[?#]/, 1)[0] ?? to;
 }
 
 export interface PageHeaderProps {
@@ -78,6 +89,11 @@ export interface PageHeaderProps {
   primaryAction?: Command;
   /** Secondary commands: text buttons with a leading icon, in this order. */
   commands?: readonly Command[];
+  /**
+   * The page's views as tabs. A plain header draws them for two or more; one
+   * view draws none (mod-016 DC-2) unless the header is the team head
+   * (`variant="team"`) or has a `viewsEnd`.
+   */
   views?: readonly PageView[];
   /**
    * The views' own accessible name, e.g. «Организации по статусу» (mod-002
@@ -102,12 +118,21 @@ export interface PageHeaderProps {
   /** The right end of the views row — the level drop-down (feat-027 design § 3.4). */
   viewsEnd?: ReactNode;
   /**
-   * `team`: the spacing of the team head (feat-027 design § 3.2) — 28 px above
-   * the first row, the views row 12 px under it, 20 px below — the title
-   * group's 10 px gap, and a tab that stands flush with the content's left
-   * edge. Absent: the spacing every other page has.
+   * `team`: the kit's page head (feat-027 design § 3.2, tech-015 design § 5.6) —
+   * `layout.pageHead`'s rhythm: 28 px above the first row, the views row 12 px
+   * under it, 20 px below — the title group's 10 px gap, and a tab that stands
+   * flush with the content's left edge; its overflow is the kit's «⋮»
+   * (`MoreActionsMenu`, neutral icons) and a command is a grey button unless
+   * it says otherwise. Absent: the legacy head every other page still has —
+   * frozen, deleted with this prop when the last page leaves it (tech-020).
    */
   variant?: 'team';
+  /**
+   * The title's level, default 1. A head shown inside a region (the showcase)
+   * takes the level below its section's. Only the element changes: the look is
+   * the page title's.
+   */
+  headingLevel?: 1 | 2 | 3;
 }
 
 /** Class names the tests and later patterns can address. */
@@ -121,7 +146,7 @@ const NO_COMMANDS: readonly Command[] = [];
 
 function commandProps(command: Command) {
   if (command.to) {
-    return { component: RouterLink, to: command.to } as const;
+    return { component: RouterLink, to: command.to, state: command.state } as const;
   }
   const opensMenu = command.menuOpen !== undefined;
   return {
@@ -154,45 +179,44 @@ export function PageHeader({
   titleControl,
   viewsEnd,
   variant,
+  headingLevel = 1,
 }: PageHeaderProps) {
-  useDocumentTitle(documentTitle ?? title);
-  const { registerHeader, trail, trailPlacement } = usePageChrome();
+  // The tab, the registration with the shell and the trail's placement: the same seam a
+  // page with no head of its own (the work item card) gets from `usePageHead`.
+  const { trail } = usePageHead({ title, ancestors, documentTitle });
   const titleId = useId();
-
-  // Keyed by the serialized ancestors, so a new array on every render of the
-  // page does not register again and again.
-  const ancestorsKey = JSON.stringify(ancestors);
-  useLayoutEffect(
-    () => registerHeader(JSON.parse(ancestorsKey) as TrailSegment[]),
-    [registerHeader, ancestorsKey],
-  );
 
   const commandsKey = commands.map((command) => command.label).join('\u0000');
 
   return (
     <Box
       className={pageHeaderClasses.root}
-      sx={variant === 'team' ? { pt: 3.5, pb: 2.5 } : { pt: 2, pb: 1 }}
+      sx={
+        variant === 'team'
+          ? (theme) => ({
+              paddingTop: `${theme.layout.pageHead.top}px`,
+              paddingBottom: `${theme.layout.pageHead.bottom}px`,
+            })
+          : { pt: 2, pb: 1 }
+      }
     >
-      {trailPlacement === 'header' && trail.length > 0 && (
-        <Box sx={{ mb: 1 }}>
-          <PageTrail segments={trail} />
-        </Box>
+      {trail && (
+        <Box sx={(theme) => ({ marginBottom: `${theme.layout.pageHead.trailGap}px` })}>{trail}</Box>
       )}
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
         <Box
-          sx={{
+          sx={(theme) => ({
             flex: '0 1 auto',
             minWidth: 0,
             display: 'flex',
             alignItems: 'center',
-            gap: variant === 'team' ? 1.25 : 1,
-          }}
+            gap: variant === 'team' ? `${theme.layout.pageHead.titleGap}px` : 1,
+          })}
         >
           {titleIcon}
           <Typography
             variant="h1"
-            component="h1"
+            component={`h${headingLevel}`}
             id={titleId}
             ref={titleRef}
             tabIndex={titleRef ? -1 : undefined}
@@ -202,9 +226,14 @@ export function PageHeader({
           </Typography>
           {titleControl}
         </Box>
-        <CommandBar key={commandsKey} primaryAction={primaryAction} commands={commands} />
+        <CommandBar
+          key={commandsKey}
+          primaryAction={primaryAction}
+          commands={commands}
+          variant={variant}
+        />
       </Box>
-      {views && views.length > 0 && (
+      {views && showsViews(views, variant, viewsEnd) && (
         <PageViews
           views={views}
           labelledBy={titleId}
@@ -218,6 +247,22 @@ export function PageHeader({
 }
 
 /**
+ * Whether the views are drawn. A strip of one tab is a control in all but
+ * name (mod-016 DC-2): a plain header draws it only for two or more views, so
+ * a reader who is left with «Активные» alone sees no tab. The team head of
+ * «Бэклоги» and «Канбан» (`variant="team"`, feat-027) keeps its one tab with
+ * the level drop-down beside it; so does any header that hands the end of the
+ * row something (`viewsEnd`).
+ */
+function showsViews(
+  views: readonly PageView[],
+  variant: PageHeaderProps['variant'],
+  viewsEnd: ReactNode,
+): boolean {
+  return views.length > 1 || (views.length === 1 && (variant === 'team' || viewsEnd !== undefined));
+}
+
+/**
  * The command bar. It keeps `density.controlHeight` with no command at all,
  * so a reader's header is as high as an administrator's (US-6). Where a
  * `ResizeObserver` exists it measures the bar, and secondary commands that do
@@ -227,9 +272,11 @@ export function PageHeader({
 function CommandBar({
   primaryAction,
   commands,
+  variant,
 }: {
   primaryAction?: Command;
   commands: readonly Command[];
+  variant?: 'team';
 }) {
   const theme = useTheme();
   const barRef = useRef<HTMLDivElement>(null);
@@ -306,23 +353,41 @@ function CommandBar({
           {primaryAction.label}
         </Button>
       )}
-      {inline.map((command, index) => (
-        <Button
-          key={command.label}
-          ref={(element: HTMLElement | null) => {
-            commandRefs.current[index] = element;
-          }}
-          variant={command.tone === 'neutral' ? 'contained' : 'text'}
-          color={command.tone === 'neutral' ? 'inherit' : 'primary'}
-          startIcon={command.icon}
-          disabled={command.disabled}
-          sx={{ flexShrink: 0, whiteSpace: 'nowrap' }}
-          {...commandProps(command)}
-        >
-          {command.label}
-        </Button>
-      ))}
-      {overflow.length > 0 && (
+      {inline.map((command, index) => {
+        // The kit's head: a command is a grey button unless it says otherwise.
+        const neutral =
+          (command.tone ?? (variant === 'team' ? 'neutral' : undefined)) === 'neutral';
+        return (
+          <Button
+            key={command.label}
+            ref={(element: HTMLElement | null) => {
+              commandRefs.current[index] = element;
+            }}
+            variant={neutral ? 'contained' : 'text'}
+            color={neutral ? 'inherit' : 'primary'}
+            startIcon={command.icon}
+            disabled={command.disabled}
+            sx={{ flexShrink: 0, whiteSpace: 'nowrap' }}
+            {...commandProps(command)}
+          >
+            {command.label}
+          </Button>
+        );
+      })}
+      {overflow.length > 0 && variant === 'team' && (
+        // The kit's overflow: the vertical «⋮», neutral icons (design § 5.6).
+        <MoreActionsMenu
+          items={overflow.map((command) => ({
+            label: command.label,
+            icon: command.icon,
+            to: command.to,
+            state: command.state,
+            disabled: command.disabled,
+            onSelect: () => command.onClick?.(),
+          }))}
+        />
+      )}
+      {overflow.length > 0 && variant !== 'team' && (
         <>
           <IconButton
             size="small"
@@ -346,6 +411,7 @@ function CommandBar({
                   key={command.label}
                   component={RouterLink}
                   to={command.to}
+                  state={command.state}
                   disabled={command.disabled}
                   onClick={() => setMenuAnchor(null)}
                 >
@@ -384,12 +450,16 @@ function PageViews({
   end?: ReactNode;
   variant?: 'team';
 }) {
-  const { pathname } = useLocation();
+  const { pathname, search } = useLocation();
+  // Views of one path told apart by the query (feat-043: «Проекты» and its deactivated view):
+  // the address with its query first, then the view with no query, then the path alone.
   const selected =
-    views.find((view) => view.to === pathname) ??
+    views.find((view) => view.to === pathname + search) ??
+    views.find((view) => pathOfView(view.to) === pathname && !view.to.includes('?')) ??
+    views.find((view) => pathOfView(view.to) === pathname) ??
     [...views]
-      .sort((first, second) => second.to.length - first.to.length)
-      .find((view) => pathname.startsWith(`${view.to}/`));
+      .sort((first, second) => pathOfView(second.to).length - pathOfView(first.to).length)
+      .find((view) => pathname.startsWith(`${pathOfView(view.to)}/`));
 
   const team = variant === 'team';
   const tabs = (
@@ -423,13 +493,13 @@ function PageViews({
   }
   return (
     <Box
-      sx={{
+      sx={(theme) => ({
         display: 'flex',
         justifyContent: 'space-between',
         alignItems: 'center',
         gap: 2,
-        mt: team ? 1.5 : 1,
-      }}
+        marginTop: team ? `${theme.layout.pageHead.viewsGap}px` : theme.spacing(1),
+      })}
     >
       {tabs}
       {end}

@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import { Route } from 'react-router-dom';
 import { screen, within } from '@testing-library/react';
 import { HttpResponse, http } from 'msw';
@@ -31,10 +31,11 @@ const routes = (
 /** What mod-002 will supply: a real context whose organization is the address's (mod-015 § 5.7). */
 const realSource: WorkContextSource = {
   status: 'ready',
-  organizations: [{ id: DEMONSTRATION_ORGANIZATION_ID, name: 'Демонстрация', projects: [] }],
+  organizations: [
+    { id: DEMONSTRATION_ORGANIZATION_ID, name: 'Демонстрация', projects: [], teams: [] },
+  ],
   selection: { organizationId: DEMONSTRATION_ORGANIZATION_ID },
   isReal: true,
-  select: vi.fn(),
 };
 
 function serveProcess() {

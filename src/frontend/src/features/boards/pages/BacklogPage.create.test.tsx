@@ -88,8 +88,11 @@ describe('US-3 Scenario: The primary offers only the level’s types', () => {
   );
 });
 
-describe('US-3 Scenario: The item takes the team’s default area and lands last', () => {
-  it('names «Новая», «Платформа» and the team; creates with the team; the notice; the row last', async () => {
+// mod-017 BR-OT-3, BR-OT-10: a team has no default area; the dialog names the root, starts with the
+// team of the backlog it was opened on and sends what it shows. Rewritten over the owning team:
+// the first, second and third scenario below.
+describe('US-3 Scenario: The item takes the team and the root, and lands last', () => {
+  it('names «Новая», the root «Мастаск» and the team; creates with the team; the notice; the row last', async () => {
     const api = serveBoards(reorderedStories());
     renderBoards(backlogAddress());
     const table = await findBacklogTable();
@@ -101,20 +104,16 @@ describe('US-3 Scenario: The item takes the team’s default area and lands last
     );
     const found = await dialog();
     expect(
-      within(found).getByText(
-        'Рабочий элемент будет создан в статусе «Новая» в области «Платформа» и встанет в конец бэклога команды «Платформа». Остальные поля заполняются в его форме.',
+      await within(found).findByText(
+        'Рабочий элемент будет создан в статусе «Новая» в области «Мастаск». Остальные поля заполняются в его форме.',
       ),
     ).toBeInTheDocument();
     expect(within(found).getByRole('combobox', { name: 'Тип' })).toHaveTextContent(
       'Пользовательская история',
     );
-    // The team's text needs no area tree: only the backlog, and the process that names the row «+» types, were read.
-    expect(api.requests.some((request) => request.path.includes('/areas'))).toBe(false);
-    expect(
-      api.requests.every(
-        (request) => request.path.includes('/backlogs/') || request.path.endsWith('/process'),
-      ),
-    ).toBe(true);
+    const team = await within(found).findByRole('combobox', { name: 'Команда' });
+    expect(team).toHaveValue('Платформа');
+    expect(within(found).getByText('Встанет в конец бэклога команды «Платформа».')).toBeVisible();
 
     await userEvent.type(
       within(found).getByRole('textbox', { name: 'Заголовок' }),
@@ -126,14 +125,21 @@ describe('US-3 Scenario: The item takes the team’s default area and lands last
     expect(screen.queryByRole('dialog')).toBeNull();
     await waitFor(() => expect(identifiers(table)).toEqual(['MSK-US-3', 'MSK-US-9', 'MSK-US-10']));
     const [post] = posts(api);
-    const body = post?.body as { requestId: string; typeId: string; title: string; teamId: string };
+    const body = post?.body as {
+      requestId: string;
+      typeId: string;
+      title: string;
+      team: { teamId: string };
+    };
     expect(post?.path).toBe(`/api/organizations/${ids.example}/projects/${ids.msk}/workitems`);
-    expect(body.teamId).toBe(ids.platformTeam);
+    expect(body.team).toEqual({ teamId: ids.platformTeam });
+    expect(body).not.toHaveProperty('teamId');
     expect(body.typeId).toBe(processType('US').id);
     expect(body.title).toBe('Экспорт отчёта');
     expect(body.requestId).toMatch(UUID);
     const created = api.item(ids.msk, 10);
-    expect(created.areaId).toBe(ids.platform);
+    expect(created.areaId).toBe(ids.mskRoot);
+    expect(created.teamId).toBe(ids.platformTeam);
     expect(created.stateId).toBe(stateId('US', 'Новая'));
     expect(created.assigneeId).toBeNull();
     expect(api.order(ids.mskTeam)).not.toContain('MSK-US-10');
@@ -150,14 +156,14 @@ describe('US-3 Scenario: The item takes the team’s default area and lands last
 
     expect(within(found).getByRole('combobox', { name: 'Тип' })).toHaveTextContent('Баг');
     expect(
-      within(found).getByText(
-        /^Рабочий элемент будет создан в статусе «Новая» в области «Платформа»/,
+      await within(found).findByText(
+        /^Рабочий элемент будет создан в статусе «Новая» в области «Мастаск»/,
       ),
     ).toBeInTheDocument();
   });
 });
 
-describe('US-3 Scenario: The first team’s default area is the root', () => {
+describe('US-3 Scenario: «Мастаск»’s backlog starts the dialog with «Мастаск»', () => {
   it('a «Фича» with only a title on «Мастаск»’s «Фичи» takes «Мастаск» and is the last row', async () => {
     const data = boardsDataset();
     data.items.push(platformItem(1, 'FEAT', 'Чужая фича', { areaId: ids.mskRoot }));
@@ -168,43 +174,24 @@ describe('US-3 Scenario: The first team’s default area is the root', () => {
     await userEvent.click(await primary());
     const found = await dialog();
     expect(
-      within(found).getByText(
-        'Рабочий элемент будет создан в статусе «Новая» в области «Мастаск» и встанет в конец бэклога команды «Мастаск». Остальные поля заполняются в его форме.',
+      await within(found).findByText(
+        'Рабочий элемент будет создан в статусе «Новая» в области «Мастаск». Остальные поля заполняются в его форме.',
       ),
     ).toBeInTheDocument();
+    expect(await within(found).findByRole('combobox', { name: 'Команда' })).toHaveValue('Мастаск');
+    expect(within(found).getByText('Встанет в конец бэклога команды «Мастаск».')).toBeVisible();
     await userEvent.type(within(found).getByRole('textbox', { name: 'Заголовок' }), 'Отчёты');
     await userEvent.click(within(found).getByRole('button', { name: 'Создать' }));
 
     await waitFor(() => expect(identifiers(table)).toEqual(['MSK-FEAT-1', 'MSK-FEAT-2']));
     expect(api.item(ids.msk, 2).areaId).toBe(ids.mskRoot);
+    expect(api.item(ids.msk, 2).teamId).toBe(ids.mskTeam);
   });
 });
 
-describe('US-3 Scenario: The default area is read when the item is created', () => {
-  it('another user’s new default «Платформа / API» is the one the item takes; the others keep «Платформа»', async () => {
-    const api = serveBoards(reorderedStories());
-    renderBoards(backlogAddress());
-    const table = await findBacklogTable();
-    await userEvent.click(await primary());
-    await userEvent.click(
-      await screen.findByRole('menuitem', { name: 'Пользовательская история' }),
-    );
-    const found = await dialog();
-
-    // Another user gives «Платформа / API» the owner «Платформа» and makes it the default.
-    api.data.owners[ids.api] = ids.platformTeam;
-    api.data.teams = api.data.teams.map((team) =>
-      team.id === ids.platformTeam ? { ...team, defaultAreaId: ids.api } : team,
-    );
-    await userEvent.type(within(found).getByRole('textbox', { name: 'Заголовок' }), 'Экспорт');
-    await userEvent.click(within(found).getByRole('button', { name: 'Создать' }));
-
-    await waitFor(() => expect(identifiers(table)).toEqual(['MSK-US-3', 'MSK-US-9', 'MSK-US-10']));
-    expect(api.item(ids.msk, 10).areaId).toBe(ids.api);
-    expect(api.item(ids.msk, 3).areaId).toBe(ids.platform);
-    expect(api.item(ids.msk, 9).areaId).toBe(ids.platform);
-  });
-});
+// mod-017 BR-OT-10: retired by name (doc-012 P-1) — «The default area is read when the item is created» —
+// «another user’s new default «Платформа / API» is the one the item takes; the others keep «Платформа»»:
+// a team has no default area; the item takes the root.
 
 describe('US-3 Scenario: Creation rules stay mod-003’s', () => {
   it('an empty «Заголовок» is refused under the field with nothing sent; a double «Создать» creates one item', async () => {
@@ -231,7 +218,7 @@ describe('US-3 Scenario: Creation rules stay mod-003’s', () => {
 });
 
 describe('US-3 Scenario: The team was deleted while the dialog was open', () => {
-  it('shows «Команда не найдена.» in the dialog, creates nothing, and closing shows the frame', async () => {
+  it('shows «Команда не найдена.» under «Команда» (mod-017 BR-OT-13), creates nothing, and a pick clears it', async () => {
     const api = serveBoards(reorderedStories());
     renderBoards(backlogAddress());
     await findBacklogTable();
@@ -240,6 +227,7 @@ describe('US-3 Scenario: The team was deleted while the dialog was open', () => 
       await screen.findByRole('menuitem', { name: 'Пользовательская история' }),
     );
     const found = await dialog();
+    await within(found).findByRole('combobox', { name: 'Команда' });
 
     api.data.teams = api.data.teams.map((team) =>
       team.id === ids.platformTeam ? { ...team, active: false } : team,
@@ -247,13 +235,14 @@ describe('US-3 Scenario: The team was deleted while the dialog was open', () => 
     await userEvent.type(within(found).getByRole('textbox', { name: 'Заголовок' }), 'Экспорт');
     await userEvent.click(within(found).getByRole('button', { name: 'Создать' }));
 
-    expect(await within(found).findByRole('alert')).toHaveTextContent('Команда не найдена.');
+    expect(await within(found).findByText('Команда не найдена.')).toBeInTheDocument();
+    expect(within(found).getByRole('combobox', { name: 'Команда' })).toHaveFocus();
+    expect(within(found).getByRole('textbox', { name: 'Заголовок' })).toHaveValue('Экспорт');
     expect(api.data.items).toHaveLength(2);
-    await userEvent.click(within(found).getByRole('button', { name: 'Отмена' }));
 
-    expect(
-      await screen.findByRole('heading', { level: 1, name: 'Команда не найдена' }),
-    ).toBeInTheDocument();
+    await userEvent.click(within(found).getByRole('combobox', { name: 'Команда' }));
+    await userEvent.click(await screen.findByRole('option', { name: 'Мастаск' }));
+    expect(within(found).queryByText('Команда не найдена.')).not.toBeInTheDocument();
   });
 });
 
@@ -274,11 +263,11 @@ describe('US-3 Scenario: Creating from the empty backlog', () => {
     ).toEqual(['Пользовательская история', 'Баг']);
     await userEvent.click(within(menu).getByRole('menuitem', { name: 'Баг' }));
     const found = await dialog();
-    expect(
-      within(found).getByText(
-        /в области «Аналитика» и встанет в конец бэклога команды «Аналитика»/,
-      ),
-    ).toBeInTheDocument();
+    expect(await within(found).findByText(/в области «Мастаск»/)).toBeInTheDocument();
+    expect(await within(found).findByRole('combobox', { name: 'Команда' })).toHaveValue(
+      'Аналитика',
+    );
+    expect(within(found).getByText('Встанет в конец бэклога команды «Аналитика».')).toBeVisible();
     await userEvent.type(
       within(found).getByRole('textbox', { name: 'Заголовок' }),
       'Сбой выгрузки',
@@ -287,6 +276,7 @@ describe('US-3 Scenario: Creating from the empty backlog', () => {
 
     expect(identifiers(await findBacklogTable())).toEqual(['MSK-BUG-12']);
     expect(screen.queryByRole('heading', { level: 2, name: 'Бэклог пуст' })).toBeNull();
-    expect(api.item(ids.msk, 12).areaId).toBe(ids.analyticsArea);
+    expect(api.item(ids.msk, 12).areaId).toBe(ids.mskRoot);
+    expect(api.item(ids.msk, 12).teamId).toBe(ids.analyticsTeam);
   });
 });

@@ -5,11 +5,12 @@ using Microsoft.EntityFrameworkCore;
 namespace Mustask.Infrastructure.Organizations;
 
 /// <summary>
-/// The reads M1 offers other modules (api-contract § 7). By-id reads return the
-/// object with its status, reachable or not (ADR-0026 rule 4); reachability is
-/// computed through <see cref="Reachability"/>, and an area's owner through
-/// <see cref="AreaTree"/>, the same code the tree read uses (US-6). Each read
-/// runs a fixed number of queries.
+/// The reads M1 offers other modules (api-contract § 7, feat-028 api-contract § 6). By-id reads return the object with its
+/// status, reachable or not (ADR-0026 rule 4), and <b>take the organization</b>: an object of another organization answers
+/// <c>null</c> (BR-OL-1, mod-017 S-2), so no caller compares organizations itself. Reachability is computed through
+/// <see cref="Reachability"/>, and the project default team through <see cref="ProjectDefaultTeam"/> (mod-017 BR-OT-4) over the
+/// project's <b>links</b>. An area has no owner any more, so there is no read of one (BR-OT-10). Each read runs a fixed number of
+/// queries.
 /// </summary>
 internal sealed class OrganizationStructure(MustaskDbContext context) : IOrganizationStructure
 {
@@ -26,11 +27,11 @@ internal sealed class OrganizationStructure(MustaskDbContext context) : IOrganiz
                 organization.CreatedAt))
             .SingleOrDefaultAsync(cancellationToken);
 
-    public async Task<ProjectInfo?> FindProjectAsync(Guid projectId, CancellationToken cancellationToken)
+    public async Task<ProjectInfo?> FindProjectAsync(Guid organizationId, Guid projectId, CancellationToken cancellationToken)
     {
         var project = await context.Projects
             .AsNoTracking()
-            .Where(candidate => candidate.Id == projectId)
+            .Where(candidate => candidate.Id == projectId && candidate.OrganizationId == organizationId)
             .Select(candidate => new
             {
                 candidate.Id,
@@ -40,12 +41,29 @@ internal sealed class OrganizationStructure(MustaskDbContext context) : IOrganiz
                 candidate.Status,
                 candidate.CreatedBy,
                 candidate.CreatedAt,
-                FirstTeamId = context.Teams
-                    .Where(team => team.ProjectId == candidate.Id && team.IsFirstTeam)
-                    .Select(team => team.Id)
-                    .First(),
+                // mod-017 BR-OT-4, feat-028 BR-OL-7: the default team in one statement with the project — the named team when it
+                // is still linked and active, the count of the project's linked active teams, and one of them (read only when it
+                // is the only one).
+                NamedActiveTeamId = (
+                        from link in context.ProjectTeams
+                        join team in context.Teams on link.TeamId equals team.Id
+                        where link.ProjectId == candidate.Id && team.Id == candidate.DefaultTeamId && team.Status == TeamStatus.Active
+                        select (Guid?)team.Id)
+                    .FirstOrDefault(),
+                ActiveTeams = (
+                        from link in context.ProjectTeams
+                        join team in context.Teams on link.TeamId equals team.Id
+                        where link.ProjectId == candidate.Id && team.Status == TeamStatus.Active
+                        select team.Id)
+                    .Count(),
+                AnActiveTeamId = (
+                        from link in context.ProjectTeams
+                        join team in context.Teams on link.TeamId equals team.Id
+                        where link.ProjectId == candidate.Id && team.Status == TeamStatus.Active
+                        select (Guid?)team.Id)
+                    .FirstOrDefault(),
                 RootAreaId = context.Areas
-                    .Where(area => area.ProjectId == candidate.Id && area.ParentId == null)
+                    .Where(area => area.ProjectId == candidate.Id && area.Type == AreaType.Project)
                     .Select(area => area.Id)
                     .First(),
             })
@@ -56,7 +74,8 @@ internal sealed class OrganizationStructure(MustaskDbContext context) : IOrganiz
             return null;
         }
 
-        var isReachable = await IsProjectReachableAsync(project.OrganizationId, project.Id, cancellationToken);
+        var isReachable = await context.ReachableProjects(project.OrganizationId)
+            .AnyAsync(candidate => candidate.Id == project.Id, cancellationToken);
 
         return new ProjectInfo(
             project.Id,
@@ -65,123 +84,133 @@ internal sealed class OrganizationStructure(MustaskDbContext context) : IOrganiz
             project.Key,
             project.Status,
             isReachable,
-            project.FirstTeamId,
+            ProjectDefaultTeam.Resolve(project.NamedActiveTeamId, project.ActiveTeams, project.AnActiveTeamId),
             project.RootAreaId,
             project.CreatedBy,
             project.CreatedAt);
     }
 
-    public async Task<TeamInfo?> FindTeamAsync(Guid teamId, CancellationToken cancellationToken)
+    public async Task<TeamInfo?> FindTeamAsync(Guid organizationId, Guid teamId, CancellationToken cancellationToken)
     {
-        var team = await Stored(context.Teams.Where(candidate => candidate.Id == teamId)).SingleOrDefaultAsync(cancellationToken);
-
-        if (team is null)
-        {
-            return null;
-        }
-
-        var isReachable = await context.ReachableTeams(team.OrganizationId, team.ProjectId)
-            .AnyAsync(candidate => candidate.Id == teamId, cancellationToken);
-
-        return ToInfo(team, isReachable);
-    }
-
-    public async Task<IReadOnlyList<TeamInfo>> ListActiveTeamsAsync(Guid projectId, CancellationToken cancellationToken)
-    {
-        var organizationId = await context.Projects
-            .AsNoTracking()
-            .Where(project => project.Id == projectId)
-            .Select(project => (Guid?)project.OrganizationId)
+        var team = await StoredTeams(context.Teams.Where(candidate => candidate.Id == teamId && candidate.OrganizationId == organizationId))
             .SingleOrDefaultAsync(cancellationToken);
 
-        if (organizationId is null)
+        return team is null ? null : ToInfo(team);
+    }
+
+    public async Task<ProjectTeamInfo?> FindProjectTeamAsync(
+        Guid organizationId, Guid projectId, Guid teamId, CancellationToken cancellationToken)
+    {
+        var team = await context.Teams
+            .AsNoTracking()
+            .Where(candidate => candidate.Id == teamId && candidate.OrganizationId == organizationId)
+            .Select(candidate => new
+            {
+                Stored = new StoredTeam(
+                    candidate.Id,
+                    candidate.OrganizationId,
+                    candidate.Name,
+                    candidate.Status,
+                    context.Organizations.Any(organization => organization.Id == candidate.OrganizationId
+                        && organization.Status == OrganizationStatus.Active)),
+                // Both predicates carry the organization: a link across organizations cannot exist, and a project id of
+                // another organization finds nothing (BR-OL-1).
+                IsLinked = context.ProjectTeams.Any(link =>
+                    link.OrganizationId == organizationId && link.ProjectId == projectId && link.TeamId == candidate.Id),
+            })
+            .SingleOrDefaultAsync(cancellationToken);
+
+        return team is null ? null : new ProjectTeamInfo(ToInfo(team.Stored), team.IsLinked);
+    }
+
+    public async Task<IReadOnlyList<TeamInfo>> ListLinkedTeamsAsync(Guid organizationId, Guid projectId, CancellationToken cancellationToken)
+    {
+        var teams = await StoredTeams(
+                from link in context.ProjectTeams
+                join team in context.Teams on link.TeamId equals team.Id
+                where link.OrganizationId == organizationId && link.ProjectId == projectId && team.Status == TeamStatus.Active
+                orderby EF.Functions.Collate(team.Name, OrganizationsCollation.Russian), team.Id
+                select team)
+            .ToListAsync(cancellationToken);
+
+        return teams.Select(ToInfo).ToList();
+    }
+
+    public async Task<IReadOnlyList<LinkedProjectInfo>> ListLinkedProjectsAsync(Guid organizationId, Guid teamId, CancellationToken cancellationToken) =>
+        await (
+                from link in context.ProjectTeams.AsNoTracking()
+                join project in context.ReachableProjects(organizationId) on link.ProjectId equals project.Id
+                where link.OrganizationId == organizationId && link.TeamId == teamId
+                orderby EF.Functions.Collate(project.Name, OrganizationsCollation.Russian), project.Id
+                select new LinkedProjectInfo(project.Id, project.Name, project.Key, true))
+            .ToListAsync(cancellationToken);
+
+    public async Task<AreaInfo?> FindAreaAsync(Guid organizationId, Guid areaId, CancellationToken cancellationToken)
+    {
+        var tree = await LoadTreeAsync(organizationId, cancellationToken);
+
+        return tree.Rows.TryGetValue(areaId, out var row) ? ToInfo(organizationId, row, tree.Tree) : null;
+    }
+
+    public async Task<IReadOnlyList<AreaInfo>> ListAreasOfTeamAsync(Guid organizationId, Guid teamId, CancellationToken cancellationToken)
+    {
+        var ids = await context.AreaTeams
+            .AsNoTracking()
+            .Where(link => link.OrganizationId == organizationId && link.TeamId == teamId)
+            .Select(link => link.AreaId)
+            .ToListAsync(cancellationToken);
+
+        if (ids.Count == 0)
         {
             return [];
         }
 
-        var teams = await Stored(context.Teams
-                .Where(team => team.ProjectId == projectId && team.Status == TeamStatus.Active)
-                .OrderByDescending(team => team.IsFirstTeam)
-                .ThenBy(team => EF.Functions.Collate(team.Name, OrganizationsCollation.Russian))
-                .ThenBy(team => team.Id))
-            .ToListAsync(cancellationToken);
+        var loaded = await LoadTreeAsync(organizationId, cancellationToken);
+        var wanted = ids.ToHashSet();
 
-        var isReachable = await IsProjectReachableAsync(organizationId.Value, projectId, cancellationToken);
-
-        return teams.Select(team => ToInfo(team, isReachable)).ToList();
+        return loaded.Tree.PreOrder()
+            .Where(node => wanted.Contains(node.Id))
+            .Select(node => ToInfo(organizationId, loaded.Rows[node.Id], loaded.Tree))
+            .ToList();
     }
 
-    public async Task<AreaOwnerInfo?> FindAreaOwnerAsync(Guid areaId, CancellationToken cancellationToken)
+    private async Task<(Dictionary<Guid, AreaRow> Rows, AreaTree Tree)> LoadTreeAsync(Guid organizationId, CancellationToken cancellationToken)
     {
-        var area = await context.Areas
+        var rows = await context.Areas
             .AsNoTracking()
-            .Where(candidate => candidate.Id == areaId)
-            .Select(candidate => new
-            {
-                candidate.ProjectId,
-                OrganizationId = context.Projects
-                    .Where(project => project.Id == candidate.ProjectId)
-                    .Select(project => project.OrganizationId)
-                    .First(),
-            })
-            .SingleOrDefaultAsync(cancellationToken);
-
-        if (area is null)
-        {
-            return null;
-        }
-
-        var nodes = await context.Areas
-            .AsNoTracking()
-            .Where(candidate => candidate.ProjectId == area.ProjectId)
-            .Select(candidate => new AreaNode(candidate.Id, candidate.ParentId, candidate.Name, candidate.OwnerTeamId, candidate.DefaultOfTeamId))
+            .Where(area => area.OrganizationId == organizationId)
+            .OrderBy(area => EF.Functions.Collate(area.Name, OrganizationsCollation.Russian))
+            .ThenBy(area => area.Id)
+            .Select(area => new AreaRow(area.Id, area.ParentId, area.Name, area.Description, area.Type, area.ProjectId))
             .ToListAsync(cancellationToken);
 
-        var tree = new AreaTree(nodes);
-
-        if (!tree.Contains(areaId))
-        {
-            // Deleted between the two reads: a deleted area is gone.
-            return null;
-        }
-
-        var owner = tree.ResolveOwner(areaId);
-        var isReachable = await IsProjectReachableAsync(area.OrganizationId, area.ProjectId, cancellationToken);
-
-        return new AreaOwnerInfo(areaId, area.ProjectId, owner.TeamId, owner.IsInherited, isReachable);
+        return (
+            rows.ToDictionary(row => row.Id),
+            new AreaTree(rows.Select(row => new AreaNode(row.Id, row.ParentId, row.Name, row.Type, row.ProjectId))));
     }
 
-    private Task<bool> IsProjectReachableAsync(Guid organizationId, Guid projectId, CancellationToken cancellationToken) =>
-        context.ReachableProjects(organizationId).AnyAsync(project => project.Id == projectId, cancellationToken);
+    private static AreaInfo ToInfo(Guid organizationId, AreaRow row, AreaTree tree) =>
+        new(row.Id, organizationId, row.ParentId, row.Type, row.ProjectId, row.Name, row.Description, tree.PathOf(row.Id));
 
-    private IQueryable<StoredTeam> Stored(IQueryable<Team> teams) =>
+    private sealed record AreaRow(Guid Id, Guid? ParentId, string Name, string? Description, AreaType Type, Guid? ProjectId);
+
+    private IQueryable<StoredTeam> StoredTeams(IQueryable<Team> teams) =>
         teams
             .AsNoTracking()
             .Select(team => new StoredTeam(
                 team.Id,
-                team.ProjectId,
-                context.Projects.Where(project => project.Id == team.ProjectId).Select(project => project.OrganizationId).First(),
+                team.OrganizationId,
                 team.Name,
                 team.Status,
-                team.IsFirstTeam,
-                context.Areas.Where(area => area.DefaultOfTeamId == team.Id).Select(area => (Guid?)area.Id).FirstOrDefault()));
+                context.Organizations.Any(organization => organization.Id == team.OrganizationId
+                    && organization.Status == OrganizationStatus.Active)));
 
-    private static TeamInfo ToInfo(StoredTeam team, bool isReachable) => new(
+    private static TeamInfo ToInfo(StoredTeam team) => new(
         team.Id,
-        team.ProjectId,
         team.OrganizationId,
         team.Name,
         team.Status,
-        team.IsFirstTeam,
-        team.Status == TeamStatus.Deleted ? null : team.DefaultAreaId,
-        isReachable && team.Status == TeamStatus.Active);
+        team.IsOrganizationActive && team.Status == TeamStatus.Active);
 
-    private sealed record StoredTeam(
-        Guid Id,
-        Guid ProjectId,
-        Guid OrganizationId,
-        string Name,
-        TeamStatus Status,
-        bool IsFirstTeam,
-        Guid? DefaultAreaId);
+    private sealed record StoredTeam(Guid Id, Guid OrganizationId, string Name, TeamStatus Status, bool IsOrganizationActive);
 }

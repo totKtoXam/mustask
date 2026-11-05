@@ -22,6 +22,8 @@ function row(identifier: string, order: number): BacklogItem {
     type: { id: 'us', key: 'US', name: 'Пользовательская история', appearance: 'story' },
     title: identifier,
     assignee: null,
+    team: null,
+    project: { id: 'prj-1', name: 'Мастаск' },
     state: { id: 'new', name: 'Новая', category: { code: 'Proposed', label: 'Новые' } },
     priority: 2,
   };

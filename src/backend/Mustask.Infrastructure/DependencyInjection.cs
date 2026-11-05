@@ -6,7 +6,9 @@ using Mustask.Application.Abstractions.Process;
 using Mustask.Application.Abstractions.RichText;
 using Mustask.Infrastructure.RichText;
 using Microsoft.Extensions.Configuration;
+using Mustask.Application.Features.Boards;
 using Mustask.Application.Features.Organizations;
+using Mustask.Application.Features.WorkItems;
 using Mustask.Infrastructure.Boards;
 using Mustask.Infrastructure.Dictionaries;
 using Mustask.Infrastructure.Dictionaries.Seeding;
@@ -74,7 +76,6 @@ public static class DependencyInjection
         // slices consume (ADR-0025 § 9).
         builder.Services.AddScoped<IUserDirectory, UserDirectoryReadModel>();
         builder.Services.AddScoped<IProjectedUserStore, ProjectedUserStore>();
-        builder.Services.AddScoped<IDirectorySnapshotStore, DirectorySnapshotStore>();
 
         // Organizations (mod-002): M1's repositories, read models and the reads for other modules.
         builder.Services.AddOrganizationsInfrastructure();
@@ -89,8 +90,7 @@ public static class DependencyInjection
     }
 
     /// <summary>
-    /// The work items module's repository, read model and its implementation of
-    /// M1's <see cref="IAreaUsage"/>, all scoped. Public, like
+    /// The work items module repository and read model, all scoped. Public, like
     /// <see cref="AddOrganizationsInfrastructure"/>, so a test host that builds
     /// its own context wires the same set.
     /// </summary>
@@ -99,8 +99,9 @@ public static class DependencyInjection
         services.AddScoped<IWorkItemRepository, WorkItemRepository>();
         services.AddScoped<IWorkItemReadModel, WorkItemReadModel>();
         services.AddScoped<IAreaUsage, WorkItemAreaUsage>();
+        services.AddScoped<IWorkItemTeamOwnership, WorkItemTeamOwnership>();
 
-        // feat-018 / ADR-0027: the rich-text reduction. A singleton: it holds the vocabulary and the concurrency gate.
+        // feat-018 / ADR-0037: the rich-text reduction. A singleton: it holds the vocabulary and the concurrency gate.
         services.AddSingleton<IRichTextReducer>(provider =>
         {
             var options = new RichTextOptions();
@@ -120,7 +121,10 @@ public static class DependencyInjection
     public static IServiceCollection AddBoardsInfrastructure(this IServiceCollection services)
     {
         services.AddScoped<IBacklogReadModel, BacklogReadModel>();
+        services.AddScoped<IAggregateViewReadModel, AggregateViewReadModel>();
         services.AddScoped<IBacklogRepository, BacklogRepository>();
+        services.AddScoped<IProjectBacklogRepository, ProjectBacklogRepository>();
+        services.AddScoped<ITeamBacklogPlaces, TeamBacklogPlaces>();
 
         return services;
     }
@@ -136,12 +140,25 @@ public static class DependencyInjection
         services.AddScoped<IOrganizationRepository, OrganizationRepository>();
         services.AddScoped<IProjectRepository, ProjectRepository>();
         services.AddScoped<ITeamRepository, TeamRepository>();
+        services.AddScoped<IProjectTeamRepository, ProjectTeamRepository>();
         services.AddScoped<IAreaRepository, AreaRepository>();
+        services.AddScoped<IAreaLinkRepository, AreaLinkRepository>();
         services.AddScoped<IOrganizationReadModel, OrganizationReadModel>();
         services.AddScoped<IProjectReadModel, ProjectReadModel>();
         services.AddScoped<ITeamReadModel, TeamReadModel>();
         services.AddScoped<IAreaTreeReadModel, AreaTreeReadModel>();
+        services.AddScoped<INavigationReadModel, NavigationReadModel>();
         services.AddScoped<IOrganizationStructure, OrganizationStructure>();
+
+        // Organization access (mod-016): the memberships' repositories and reads, and the scoped check's one read.
+        services.AddScoped<IMembershipRepository, MembershipRepository>();
+        services.AddScoped<ITeamMembershipRepository, TeamMembershipRepository>();
+        services.AddScoped<IMemberReadModel, MemberReadModel>();
+        services.AddScoped<IOrganizationAccessReadModel, OrganizationAccessReadModel>();
+
+        // feat-033: the appointment record of a system administrator's rescue.
+        services.AddScoped<IAppointmentRecordRepository, AppointmentRecordRepository>();
+        services.AddScoped<IAppointmentReadModel, AppointmentReadModel>();
 
         return services;
     }

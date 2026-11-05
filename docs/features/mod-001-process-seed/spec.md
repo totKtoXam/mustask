@@ -87,7 +87,7 @@ into doc-007 wherever doc-007 states the built-in types' icon and colour
 Log line in doc-007's status.md (status.md D-6; doc-010 PR-7). In place of
 doc-007's icon and colour, each type stores exactly one appearance token from
 the closed set `epic`, `feature`, `story`, `task`, `bug`, no two types sharing
-one; `app/theme` holds what a token looks like (mod-015 BR-4). Each state
+one; `app/theme` holds what a token looks like (mod-015 BR-4). *Superseded in part by feat-032 (2026-10-12): the set of appearance tokens is six, `testcase` joins the five (see feat-032's api-contract § 4 and spec BR-C-11).* Each state
 stores its doc-007 category code (`Proposed`, `InProgress`, `Resolved`,
 `Completed`, `Removed`), and the Russian category label is derived from that
 code (doc-010 D-5). BR-M2-1, BR-M2-2, BR-M2-4,

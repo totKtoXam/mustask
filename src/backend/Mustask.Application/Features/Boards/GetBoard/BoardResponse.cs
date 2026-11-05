@@ -1,18 +1,14 @@
 using Mustask.Application.Abstractions.Boards;
-using Mustask.Application.Abstractions.WorkItems;
 
 namespace Mustask.Application.Features.Boards.GetBoard;
 
-/// <summary>The board (api-contract § 3.3): the team, the level, and its columns in board order with their cards.</summary>
-public sealed record BoardResponse(BoardTeamView Team, BoardLevelView Level, IReadOnlyList<BoardColumnView> Columns);
-
-/// <summary>A column: its key, header and category, what a drop writes per type, and its cards in the backlog's order.</summary>
-public sealed record BoardColumnView(
-    string Key,
-    string Header,
-    WorkItemStateCategoryView Category,
-    IReadOnlyList<BoardColumnTargetView> Targets,
-    IReadOnlyList<BacklogItemView> Items);
-
-/// <summary>The state a drop of a card of <see cref="TypeId"/> writes; <c>null</c>: no drop target (BR-M4-18).</summary>
-public sealed record BoardColumnTargetView(Guid TypeId, Guid? StateId);
+/// <summary>
+/// The team's board (api-contract § 3.3): the team, <paramref name="Projects"/> (its linked active projects, never narrowed by
+/// the filter), the level, and its columns in board order with their cards. The column and target views are shared with the
+/// project's board (feat-039), so they live in <c>Abstractions/Boards</c>.
+/// </summary>
+public sealed record BoardResponse(
+    BoardTeamView Team,
+    IReadOnlyList<BoardProjectView> Projects,
+    BoardLevelView Level,
+    IReadOnlyList<BoardColumnView> Columns);

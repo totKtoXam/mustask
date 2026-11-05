@@ -33,6 +33,8 @@ describe('US-7 Scenario Outline: Not found names the missing context (BR-12, BR-
     ['organization', 'Организация не найдена'],
     ['project', 'Проект не найден'],
     ['team', 'Команда не найдена'],
+    // mod-018 design § 4: an area’s page has its own frame.
+    ['area', 'Область не найдена'],
     // mod-003 spec § Not-found answers: the new variant, icon `SearchOff`.
     ['workItem', 'Рабочий элемент не найден'],
   ])('the frame used for the %s level reads «%s», the hint and «На главную»', (level, heading) => {
@@ -62,7 +64,7 @@ describe('US-7 Scenario: Not found (BR-13)', () => {
 
   // qa.md D-2: the shell learns from the frame that no page serves the
   // address, so it shows no settings navigation and marks nothing current.
-  it.each<NotFoundLevel>(['page', 'organization', 'project', 'team', 'workItem'])(
+  it.each<NotFoundLevel>(['page', 'organization', 'project', 'team', 'area', 'workItem'])(
     'tells the shell there is no page while it is shown — level %s',
     (level) => {
       const unregister = vi.fn();
@@ -139,6 +141,27 @@ describe('US-7 Scenario: One frame for the full-area states', () => {
     expect(screen.getByRole('heading', { level: 2, name: 'Справочник пуст' })).toBeInTheDocument();
     expect(screen.queryByRole('heading', { level: 1 })).not.toBeInTheDocument();
     expect(document.title).toBe('Языки — Mustask');
+  });
+
+  it('takes an h3 for a frame that stands under an h2 and looks the same (mod-016 design § 4.3)', () => {
+    render(
+      <>
+        <StateFrame icon={InboxOutlinedIcon} heading="Как h2" />
+        <StateFrame icon={InboxOutlinedIcon} heading="Как h3" headingLevel={3} />
+      </>,
+    );
+
+    const h2 = screen.getByRole('heading', { level: 2, name: 'Как h2' });
+    const h3 = screen.getByRole('heading', { level: 3, name: 'Как h3' });
+    expect(h3.tagName).toBe('H3');
+    expect(h3.className).toBe(h2.className);
+    expect(getComputedStyle(h3).fontSize).toBe(getComputedStyle(h2).fontSize);
+  });
+
+  it('keeps a full-page frame the page’s h1 whatever the level asked', () => {
+    render(<StateFrame fullPage icon={InboxOutlinedIcon} heading="Страница" headingLevel={3} />);
+
+    expect(screen.getByRole('heading', { level: 1, name: 'Страница' })).toBeInTheDocument();
   });
 
   it('offers at most one action, an outlined button with its leading icon', async () => {

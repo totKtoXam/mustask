@@ -23,7 +23,7 @@ public sealed record BacklogLevelResponse(Guid Id, string Name, int Rank, string
 /// <param name="Id">The type's stable identity.</param>
 /// <param name="Key"><c>EPIC</c>, <c>FEAT</c>, <c>US</c>, <c>BUG</c> or <c>TASK</c>.</param>
 /// <param name="Name">The Russian name.</param>
-/// <param name="Appearance">The appearance token: <c>epic</c>, <c>feature</c>, <c>story</c>, <c>task</c> or <c>bug</c>.</param>
+/// <param name="Appearance">The appearance token: <c>epic</c>, <c>feature</c>, <c>story</c>, <c>task</c>, <c>bug</c> or <c>testcase</c>.</param>
 /// <param name="BacklogLevel">The level hosting the type, equal to one entry of <see cref="ProcessDefinitionResponse.BacklogLevels"/>.</param>
 /// <param name="States">The type's states, ordered by <see cref="StateResponse.Order"/> ascending.</param>
 public sealed record WorkItemTypeResponse(

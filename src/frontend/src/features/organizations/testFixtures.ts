@@ -14,10 +14,19 @@ export const ORGANIZATIONS_URL = `${API}/api/organizations`;
 export const ORGANIZATION_URL = `${ORGANIZATIONS_URL}/:organizationId`;
 export const PROJECTS_URL = `${ORGANIZATION_URL}/projects`;
 export const PROJECT_URL = `${PROJECTS_URL}/:projectId`;
+/** The project's linked teams, and the link's pair (feat-028 api-contract § 2.4). */
 export const TEAMS_URL = `${PROJECT_URL}/teams`;
-export const TEAM_URL = `${TEAMS_URL}/:teamId`;
-export const AREAS_URL = `${PROJECT_URL}/areas`;
+export const TEAM_LINKS_URL = `${PROJECT_URL}/team-links`;
+export const PROJECT_TEAM_URL = `${TEAMS_URL}/:teamId`;
+/** The organization's teams (feat-028 api-contract § 2.1): a team's address is the organization's. */
+export const ORG_TEAMS_URL = `${ORGANIZATION_URL}/teams`;
+export const ORG_TEAM_URL = `${ORG_TEAMS_URL}/:teamId`;
+/** mod-018: the organization's typed area tree, the project's subtree and the team's department links. */
+export const AREAS_URL = `${ORGANIZATION_URL}/areas`;
 export const AREA_URL = `${AREAS_URL}/:areaId`;
+export const PROJECT_AREAS_URL = `${PROJECT_URL}/areas`;
+export const TEAM_AREAS_URL = `${ORG_TEAM_URL}/areas`;
+export const TEAM_AREA_URL = `${TEAM_AREAS_URL}/:areaId`;
 
 /** Stable ids of the dataset: canonical lowercase uuids, never shown on screen. */
 export const ids = {
@@ -59,40 +68,115 @@ export interface ProjectRecord {
   name: string;
   key: string;
   active: boolean;
+  /** The team the project's settings name (mod-017 BR-OT-4); absent or `null`: none named. */
+  defaultTeamId?: string | null;
+  /** feat-028 BR-OL-3: as typed; absent or `null`: none. */
+  description?: string | null;
 }
 
+/** A team is the organization's (feat-028 BR-OL-1); the projects it works on are `Dataset.links`. */
 export interface TeamRecord {
   id: string;
-  projectId: string;
+  organizationId: string;
   name: string;
-  isFirstTeam: boolean;
+  description?: string | null;
   deleted: boolean;
-  /** `null` once deleted (api-contract § 7). */
-  defaultAreaId: string | null;
 }
 
+/** One project–team link (feat-028 BR-OL-4): at most one per pair. */
+export interface LinkRecord {
+  projectId: string;
+  teamId: string;
+}
+
+/**
+ * mod-018 (ADR-0031): a node of the organization's typed tree. A project node takes its name and
+ * its description from its project.
+ */
 export interface AreaRecord {
   id: string;
-  projectId: string;
+  organizationId: string;
+  type: 'department' | 'project' | 'area';
+  /** The project of a project node or a sub-area; `null` for a department. */
+  projectId: string | null;
   parentId: string | null;
   name: string;
-  ownerTeamId: string | null;
+  description?: string | null;
+}
+
+/** One department–team link: at most one per pair. */
+export interface AreaLinkRecord {
+  areaId: string;
+  targetId: string;
+}
+
+/** A user in a team (mod-016 api-contract § 2): the team list's `isMember` reads it. */
+export interface TeamMemberRecord {
+  teamId: string;
+  userId: string;
+}
+
+/** A person as the user projection holds them (mod-016 api-contract § 0.4). */
+export interface UserRecord {
+  id: string;
+  displayName: string | null;
+  email: string | null;
+  state: 'active' | 'inactive' | 'unknown';
+}
+
+/** A user's role in an organization (mod-016 api-contract § 1.2). */
+export interface MembershipRecord {
+  organizationId: string;
+  userId: string;
+  role: 'admin' | 'member' | 'viewer';
+  addedAt?: string;
+  addedBy?: string;
+  roleChangedAt?: string | null;
+  roleChangedBy?: string | null;
 }
 
 export interface Dataset {
   organizations: OrganizationRecord[];
   projects: ProjectRecord[];
   teams: TeamRecord[];
+  /** The project–team links; a team with none works on no project, a project with none has no team. */
+  links: LinkRecord[];
   areas: AreaRecord[];
+  /** The department–team links; absent: none. */
+  areaTeams?: AreaLinkRecord[];
+  /** The projection's users (mod-016 § 0.4); empty by default. */
+  users?: UserRecord[];
+  /**
+   * Who is in which organization, in which role. Absent: the acting user is the
+   * administrator of every active organization, which is what the slice's
+   * existing flows assume; present (even empty): exactly these, and
+   * `serveMemberships` answers by them.
+   */
+  memberships?: MembershipRecord[];
+  /** Who is in which team; empty by default, so no team is the acting user's own. */
+  teamMembers?: TeamMemberRecord[];
+  /**
+   * How many items a team owns in a project, in any state (feat-028 api-contract § 1.5), keyed by
+   * `ownedKey(projectId, teamId)`; absent: none.
+   */
+  ownedItemCounts?: Record<string, number>;
+  /** The caller the handlers answer as (the token's `sub`); needed with `teamMembers` and `memberships`. */
+  actingUserId?: string;
+}
+
+/** The key of `Dataset.ownedItemCounts`: the items a team owns in one project. */
+export function ownedKey(projectId: string, teamId: string): string {
+  return `${projectId}:${teamId}`;
 }
 
 /**
  * The stories' example (design § 17): «Альфа» with «Пример проекта» (`PRM`),
  * «Аналитика» and the deactivated «Старый проект»; «Бета» with
- * «Отчётность»; the deactivated «Гамма». In «Пример проекта» the team
- * «Платформа» owns «Платформа» and «Платформа / API» explicitly (its
- * default) and «Платформа / API / Шлюз» by inheritance (US-4); «Мобильное
- * приложение» was left to the first team by a deleted team.
+ * «Отчётность»; the deactivated «Гамма». The teams are the organizations': «Альфа» has
+ * «Платформа», «Пример проекта», «Аналитика» and «Старый проект». «Пример проекта» is linked
+ * to two teams, «Платформа» and «Пример проекта», and has no named default (so neither carries
+ * a mark); every other project is linked to one team, which is its default as the only one
+ * (feat-028 BR-OL-7). The area tree has no owners (BR-OT-10).
  */
 export function exampleDataset(): Dataset {
   return {
@@ -109,51 +193,108 @@ export function exampleDataset(): Dataset {
       { id: ids.arc, organizationId: ids.gamma, name: 'Архив', key: 'ARC', active: true },
     ],
     teams: [
-      team(ids.prmTeam, ids.prm, 'Пример проекта', true, ids.prmRoot),
-      team(ids.platformTeam, ids.prm, 'Платформа', false, ids.apiArea),
-      team(ids.anlTeam, ids.anl, 'Аналитика', true, ids.anlRoot),
-      team(ids.repTeam, ids.rep, 'Отчётность', true, ids.repRoot),
-      team(ids.oldTeam, ids.old, 'Старый проект', true, ids.oldRoot),
-      team(ids.arcTeam, ids.arc, 'Архив', true, ids.arcRoot),
+      team(ids.prmTeam, ids.alfa, 'Пример проекта'),
+      team(ids.platformTeam, ids.alfa, 'Платформа'),
+      team(ids.anlTeam, ids.alfa, 'Аналитика'),
+      team(ids.repTeam, ids.beta, 'Отчётность'),
+      team(ids.oldTeam, ids.alfa, 'Старый проект'),
+      team(ids.arcTeam, ids.gamma, 'Архив'),
+    ],
+    links: [
+      { projectId: ids.prm, teamId: ids.prmTeam },
+      { projectId: ids.prm, teamId: ids.platformTeam },
+      { projectId: ids.anl, teamId: ids.anlTeam },
+      { projectId: ids.rep, teamId: ids.repTeam },
+      { projectId: ids.old, teamId: ids.oldTeam },
+      { projectId: ids.arc, teamId: ids.arcTeam },
     ],
     areas: [
-      area(ids.prmRoot, ids.prm, null, 'Пример проекта', ids.prmTeam),
-      area(ids.platformArea, ids.prm, ids.prmRoot, 'Платформа', ids.platformTeam),
-      area(ids.apiArea, ids.prm, ids.platformArea, 'API', ids.platformTeam),
-      area(ids.gatewayArea, ids.prm, ids.apiArea, 'Шлюз', null),
-      area(ids.mobileArea, ids.prm, ids.prmRoot, 'Мобильное приложение', ids.prmTeam),
-      area(ids.reportsArea, ids.prm, ids.prmRoot, 'Отчёты', null),
-      area(ids.anlRoot, ids.anl, null, 'Аналитика', ids.anlTeam),
-      area(ids.repRoot, ids.rep, null, 'Отчётность', ids.repTeam),
-      area(ids.oldRoot, ids.old, null, 'Старый проект', ids.oldTeam),
-      area(ids.arcRoot, ids.arc, null, 'Архив', ids.arcTeam),
+      department(ids.platformArea, ids.alfa, 'Платформа', 'Платформенные сервисы'),
+      department(ids.reportsArea, ids.alfa, 'Отчёты'),
+      projectNode(ids.prmRoot, ids.alfa, ids.prm, ids.platformArea),
+      projectNode(ids.anlRoot, ids.alfa, ids.anl, null),
+      projectNode(ids.oldRoot, ids.alfa, ids.old, null),
+      projectNode(ids.repRoot, ids.beta, ids.rep, null),
+      projectNode(ids.arcRoot, ids.gamma, ids.arc, null),
+      subArea(ids.apiArea, ids.alfa, ids.prm, ids.prmRoot, 'API'),
+      subArea(ids.gatewayArea, ids.alfa, ids.prm, ids.apiArea, 'Шлюз'),
+      subArea(ids.mobileArea, ids.alfa, ids.prm, ids.prmRoot, 'Мобильное приложение'),
     ],
+    areaTeams: [{ areaId: ids.platformArea, targetId: ids.platformTeam }],
   };
 }
 
 /** An instance with no organization at all (US-1 «No organization yet»). */
 export function emptyDataset(): Dataset {
-  return { organizations: [], projects: [], teams: [], areas: [] };
+  return { organizations: [], projects: [], teams: [], links: [], areas: [] };
 }
 
-function team(
+/** The state right after the upgrade (mod-018 US-5): the example with no area anywhere. */
+export function noAreasDataset(): Dataset {
+  const example = exampleDataset();
+  return {
+    ...example,
+    areas: example.areas
+      .filter((node) => node.type === 'project')
+      .map((node) => ({ ...node, parentId: null })),
+    areaTeams: [],
+  };
+}
+
+/**
+ * The right after the upgrade state of feat-028 US-7: the example's organizations and projects,
+ * no team anywhere and no link — every project has none.
+ */
+export function noTeamsDataset(): Dataset {
+  return { ...exampleDataset(), teams: [], links: [] };
+}
+
+/** A team of an organization, active (feat-028: the organization's, with no project). */
+export function team(
   id: string,
-  projectId: string,
+  organizationId: string,
   name: string,
-  isFirstTeam: boolean,
-  defaultAreaId: string,
+  description: string | null = null,
 ): TeamRecord {
-  return { id, projectId, name, isFirstTeam, deleted: false, defaultAreaId };
+  return { id, organizationId, name, description, deleted: false };
 }
 
-function area(
+export function department(
   id: string,
+  organizationId: string,
+  name: string,
+  description: string | null = null,
+): AreaRecord {
+  return {
+    id,
+    organizationId,
+    type: 'department',
+    projectId: null,
+    parentId: null,
+    name,
+    description,
+  };
+}
+
+/** A project's node; its name and description are the project's. */
+export function projectNode(
+  id: string,
+  organizationId: string,
   projectId: string,
   parentId: string | null,
-  name: string,
-  ownerTeamId: string | null,
 ): AreaRecord {
-  return { id, projectId, parentId, name, ownerTeamId };
+  return { id, organizationId, type: 'project', projectId, parentId, name: '' };
+}
+
+export function subArea(
+  id: string,
+  organizationId: string,
+  projectId: string,
+  parentId: string,
+  name: string,
+  description: string | null = null,
+): AreaRecord {
+  return { id, organizationId, type: 'area', projectId, parentId, name, description };
 }
 
 /** The organizations module's error catalog (ADR-0006), read once. */
@@ -221,3 +362,101 @@ export function validationProblem(reasons: Record<string, readonly string[]>): P
 
 /** The headers of a problem answer. */
 export const PROBLEM_HEADERS = { 'Content-Type': 'application/problem+json' };
+
+/** An organization with no department and no project: the area tree is empty (mod-018 US-5). */
+export function emptyTreeDataset(): Dataset {
+  const data = exampleDataset();
+  return {
+    ...data,
+    projects: data.projects.filter((project) => project.organizationId !== ids.alfa),
+    areas: [],
+  };
+}
+
+/** feat-043 api-contract sections 1-2: the two navigation reads. */
+export const OVERVIEW_URL = `${ORGANIZATION_URL}/overview`;
+export const SELECTOR_OFFERS_URL = `${ORGANIZATION_URL}/selector-offers`;
+
+/** The US-8 cast ids, canonical lowercase uuids. */
+export const navigationIds = {
+  logistics: 'c0000000-0000-4000-8000-000000000001',
+  finance: 'c0000000-0000-4000-8000-000000000002',
+  a: 'd0000000-0000-4000-8000-000000000001',
+  b: 'd0000000-0000-4000-8000-000000000002',
+  c: 'd0000000-0000-4000-8000-000000000003',
+  d: 'd0000000-0000-4000-8000-000000000004',
+  mars: 'e0000000-0000-4000-8000-000000000001',
+  venus: 'e0000000-0000-4000-8000-000000000002',
+  jupiter: 'e0000000-0000-4000-8000-000000000003',
+};
+
+/**
+ * The US-8 cast as selector-offers answers it: Logistics holds A and B and is linked to MARS
+ * and VENUS; Finance holds C; MARS is linked to A, B and C, VENUS to A; D and JUPITER have no
+ * link. VENUS is the caller's own team.
+ */
+export const selectorOffersFixture = {
+  departments: [
+    { id: navigationIds.finance, name: 'Финансы' },
+    { id: navigationIds.logistics, name: 'Логистика' },
+  ],
+  projects: [
+    {
+      id: navigationIds.a,
+      name: 'A',
+      key: 'A',
+      departmentId: navigationIds.logistics,
+      departmentName: 'Логистика',
+      teamIds: [navigationIds.mars, navigationIds.venus],
+    },
+    {
+      id: navigationIds.b,
+      name: 'B',
+      key: 'B',
+      departmentId: navigationIds.logistics,
+      departmentName: 'Логистика',
+      teamIds: [navigationIds.mars],
+    },
+    {
+      id: navigationIds.c,
+      name: 'C',
+      key: 'C',
+      departmentId: navigationIds.finance,
+      departmentName: 'Финансы',
+      teamIds: [navigationIds.mars],
+    },
+    {
+      id: navigationIds.d,
+      name: 'D',
+      key: 'D',
+      departmentId: null,
+      departmentName: null,
+      teamIds: [],
+    },
+  ],
+  teams: [
+    { id: navigationIds.jupiter, name: 'JUPITER', isMember: false, departmentIds: [] },
+    {
+      id: navigationIds.mars,
+      name: 'MARS',
+      isMember: false,
+      departmentIds: [navigationIds.logistics],
+    },
+    {
+      id: navigationIds.venus,
+      name: 'VENUS',
+      isMember: true,
+      departmentIds: [navigationIds.logistics],
+    },
+  ],
+};
+
+export const overviewFixture = {
+  departmentCount: 2,
+  projectCount: 4,
+  teamCount: 3,
+  departments: selectorOffersFixture.departments,
+  projects: selectorOffersFixture.projects.map(({ id, name, key }) => ({ id, name, key })),
+  teams: selectorOffersFixture.teams.map(({ id, name, isMember }) => ({ id, name, isMember })),
+  myTeams: [{ id: navigationIds.venus, name: 'VENUS', isMember: true }],
+};

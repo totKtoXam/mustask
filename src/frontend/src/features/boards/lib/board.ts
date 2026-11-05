@@ -1,5 +1,5 @@
 import type { WorkItemStateReference } from '../../workitems';
-import type { BacklogItem, Board, BoardColumn } from '../api/boardsApi';
+import type { BacklogItem, Board, BoardCardItem, BoardColumn } from '../api/boardsApi';
 
 // Where a card may go on the board and how the board looks after it goes
 // (spec § Model "The board's columns and what a card move writes"; BR-M4-3,
@@ -49,7 +49,7 @@ export function applyCardMove<T extends Pick<Board, 'columns'>>(
   if (!from || !card || from.key === toKey) {
     return board;
   }
-  const moved: BacklogItem = state ? { ...card, state } : card;
+  const moved: BoardCardItem = state ? { ...card, state } : card;
   return {
     ...board,
     columns: board.columns.map((column) => {
@@ -66,6 +66,12 @@ export function applyCardMove<T extends Pick<Board, 'columns'>>(
     }),
   };
 }
+
+/**
+ * The hint of the empty frame of a team that works on no active project (feat-040 design § 10,
+ * state 10 (a)): the same for every role, saying nothing of why a project is gone.
+ */
+export const NO_PROJECT_HINT = 'Команда не участвует ни в одном проекте.';
 
 /** Whether no column holds a card: the board shows its empty frame (spec § Page «Доски»). */
 export function isBoardEmpty(board: Pick<Board, 'columns'>): boolean {

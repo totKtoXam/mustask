@@ -95,13 +95,24 @@ internal static class BacklogTreeTestData
     /// <summary>The «Родитель» cell of a row: the parent's identifier, or <c>null</c> for «Нет».</summary>
     public static string? ParentOf(JsonElement row) => LinksTestData.IdentifierOf(row.GetProperty("parent"));
 
-    /// <summary>The create request as a row's «Добавить: <Тип>» sends it (api-contract § 3): the parent, no team.</summary>
+    /// <summary>
+    /// The create request as a row's «Добавить: <Тип>» sends it (api-contract § 3): the parent, no team. A test that wants to
+    /// show a team a child's creation carries is not read (mod-017 BR-OT-3) names <paramref name="teamId"/>, sent in the
+    /// wrapper of api-contract § 0.2.
+    /// </summary>
     public static Task<Answer> CreateChildAsync(
         MustaskApiFactory factory, BoardsWorld world, string typeKey, string title, string? parentId, Guid? requestId = null, string? teamId = null) =>
         OrganizationsApi.SendAsync(
             factory,
             HttpMethod.Post,
             WorkItemsTestData.List(world.Items),
-            new { requestId = (requestId ?? Guid.NewGuid()).ToString(), typeId = world.Items.Types[typeKey].Id.ToString(), title, parentId, teamId },
+            new
+            {
+                requestId = (requestId ?? Guid.NewGuid()).ToString(),
+                typeId = world.Items.Types[typeKey].Id.ToString(),
+                title,
+                parentId,
+                team = teamId is null ? null : new { teamId },
+            },
             OrganizationsTokens.SignedIn());
 }

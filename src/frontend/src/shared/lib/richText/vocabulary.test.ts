@@ -60,7 +60,7 @@ describe('vocabulary (contracts/rich-text/vocabularies.json)', () => {
 });
 
 /**
- * ADR-0027 decision 6: neither side hand-writes a token. No class literal of
+ * ADR-0037 decision 6: neither side hand-writes a token. No class literal of
  * the vocabulary appears in product code outside `vocabulary.ts` and the theme
  * table (`app/theme`), which is keyed by the imported class names.
  */

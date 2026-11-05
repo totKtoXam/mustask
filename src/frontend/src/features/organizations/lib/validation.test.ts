@@ -3,6 +3,7 @@ import {
   KEY_FORMAT_TEXT,
   KEY_REQUIRED_TEXT,
   NAME_LENGTH_TEXT,
+  descriptionError,
   keyError,
   nameError,
 } from './validation';
@@ -20,6 +21,22 @@ describe('mod-002 US-1 Scenario: The name is trimmed and its length checked', ()
     'accepts %j, counted after trimming',
     (value) => {
       expect(nameError(value)).toBeNull();
+    },
+  );
+});
+
+describe('feat-028 BR-OL-3 Scenario: A description is at most 2 000 characters, as typed', () => {
+  it.each([[''], ['Платформа и инструменты'], [' \n '], ['я'.repeat(2000)]])(
+    'accepts %j — never trimmed, an empty one being no description',
+    (value) => {
+      expect(descriptionError(value)).toBeNull();
+    },
+  );
+
+  it.each([['я'.repeat(2001)], [` ${'я'.repeat(2000)}`]])(
+    'refuses a text of %j characters with «Описание должно содержать не более 2000 символов»',
+    (value) => {
+      expect(descriptionError(value)).toBe('Описание должно содержать не более 2000 символов');
     },
   );
 });

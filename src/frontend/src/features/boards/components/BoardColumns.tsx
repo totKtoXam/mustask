@@ -23,25 +23,37 @@ import type { Theme } from '@mui/material/styles';
 import AddIcon from '@mui/icons-material/Add';
 import MoreHorizIcon from '@mui/icons-material/MoreHoriz';
 import { useQueryClient } from '@tanstack/react-query';
+import { useProcessDefinition } from '../../process';
 import {
   AssigneeName,
   StateName,
-  useSetWorkItemState,
+  isPlainClick,
+  teamTexts,
+  useSetWorkItemStateIn,
+  useWorkItemDialog,
   workItemPath,
   type WorkItemStateReference,
 } from '../../workitems';
-import { TypeMark } from '../../../shared/ui/WorkTrackingMarks';
-import type { BacklogItem, Board, BoardColumn } from '../api/boardsApi';
-import { boardsKeys } from '../api/queryKeys';
-import { useReadTeamAgain } from '../hooks/queries';
+import { TruncatedText, VisuallyHidden } from '../../../shared/ui';
+import { CategoryMarker, TypeMark } from '../../../shared/ui/WorkTrackingMarks';
+import type { BacklogItem, BoardCardItem, BoardColumn, BoardSurface } from '../api/boardsApi';
+import { boardKey } from '../api/queryKeys';
+import { useReadAgain } from '../hooks/queries';
+import { useChecklists, type AddField, type ChecklistEnv } from '../hooks/useChecklists';
 import { useMoveView } from '../hooks/useMoveView';
 import type { NewWorkItem } from '../hooks/useNewWorkItem';
 import { applyCardMove, columnOf, columnTarget, moveTargets } from '../lib/board';
 import type { BoardLevelCode } from '../lib/levels';
-import { moveRefusalNotice } from '../lib/refusals';
+import type { ChecklistKind } from '../lib/checklist';
+import { isAccessRefusal, moveRefusalNotice } from '../lib/refusals';
+import type { BoardScope } from '../lib/scope';
+import { CardChecklists } from './CardChecklists';
 
 /** spec § Page «Доски»: the button at the top of the first column. */
 const NEW_CARD_LABEL = 'Новый элемент';
+
+/** The process's types until it is read. */
+const NO_TYPES: never[] = [];
 
 /** The card menu's subheader, which also names the menu. */
 const MOVE_TO_COLUMN = 'Переместить в колонку';
@@ -76,31 +88,59 @@ function dropAreaSx(over: boolean) {
  * card menu is off (`aria-disabled`) and no card is draggable; then the board
  * is read again. A refusal puts the card back and shows its notice.
  */
+/** No filter: the board is read unfiltered. */
+const NO_FILTER: readonly string[] = [];
+
 export function BoardColumns({
   organizationId,
-  projectId,
-  teamId,
+  scope,
   level,
   board,
+  filterIds = NO_FILTER,
+  busy = false,
+  canWrite,
   newItem,
   stateOf,
   announce,
   showError,
+  showCreated,
 }: {
   organizationId: string;
-  projectId: string;
-  teamId: string;
+  scope: BoardScope;
   level: BoardLevelCode;
-  board: Board;
-  newItem: Pick<NewWorkItem, 'open' | 'opensMenu' | 'menuOpen'>;
+  board: BoardSurface;
+  /**
+   * The filter the board was read under — the team's project filter (feat-040 BR-TS-8) or the
+   * project's team filter (mod-017 § 3): part of the cache key.
+   */
+  filterIds?: readonly string[];
+  /** Another filter is being read: the columns shown are the previous ones (`aria-busy`). */
+  busy?: boolean;
+  /**
+   * `workitems.workitem.write` (mod-016 design § 6.2): without it (the reader) a card has no
+   * «Ещё действия», no dragging, and the first column no «Новый элемент».
+   */
+  canWrite: boolean;
+  /**
+   * What the first column's «Новый элемент» opens. A team's board and, since mod-017 lifted
+   * feat-039 BR-PB-6, the project's have it.
+   */
+  newItem?: Pick<NewWorkItem, 'open' | 'opensMenu' | 'menuOpen'>;
   /** A state's name and category from the process, once it is read. */
   stateOf(typeId: string, stateId: string): WorkItemStateReference | undefined;
   announce(text: string): void;
   showError(text: string): void;
+  /** mod-003's plain notice of a created item (feat-032 BR-C-9). */
+  showCreated(text: string): void;
 }) {
   const client = useQueryClient();
-  const setState = useSetWorkItemState(organizationId, projectId);
-  const readAgain = useReadTeamAgain(organizationId, projectId, teamId);
+  // A card move writes the item's state in the item's own project (feat-040 BR-TS-5): a team's
+  // board holds the cards of several, and the project's page is the case where they all agree.
+  const setState = useSetWorkItemStateIn(organizationId);
+  const readAgain = useReadAgain(organizationId, scope);
+  // A title's plain click opens the card as a dialog over the board (feat-029 BR-C-1);
+  // `open` keeps its identity, so the memoised cards are not redrawn by the navigation.
+  const { open: openItem } = useWorkItemDialog();
   const view = useMoveView(board);
   const [menu, setMenu] = useState<{ anchor: HTMLElement; cardId: string } | null>(null);
   const [drag, setDrag] = useState<DragState | null>(null);
@@ -111,7 +151,26 @@ export function BoardColumns({
   const menuId = useId();
   const subheaderId = useId();
 
-  const { saving, shown } = view;
+  const process = useProcessDefinition(organizationId);
+  // feat-032 BR-C-8: a task created from a card is a write too — the controls are off while it is
+  // saved, as for a move or a tick (`view` sees only the writes that change what is shown).
+  const [creating, setCreating] = useState(false);
+  const { saving: moving, shown } = view;
+  const saving = moving || creating;
+  const checklists = useChecklists({
+    organizationId,
+    scope,
+    level,
+    filterIds,
+    board,
+    view,
+    inFlightRef: inFlight,
+    setCreating,
+    types: process.data?.workItemTypes ?? NO_TYPES,
+    announce,
+    showError,
+    showCreated,
+  });
 
   // The moved card is drawn anew in its new column: focus goes to its
   // «Ещё действия» there, and back to it if a later redraw drops it. A passive
@@ -145,15 +204,25 @@ export function BoardColumns({
     announce(`${card.identifier} перемещён в колонку «${column.header}».`);
     let notice: string | null = null;
     try {
-      await setState.mutateAsync({ identifier: card.identifier, stateId });
+      await setState.mutateAsync({
+        projectId: card.project.id,
+        identifier: card.identifier,
+        stateId,
+      });
     } catch (error) {
       notice = moveRefusalNotice(error);
+      if (isAccessRefusal(error) && notice !== null) {
+        // At once, not after the read: the codes are read again meanwhile, and a role that
+        // changed replaces this notice with its own (mod-016 design § 2.4).
+        showError(notice);
+        notice = null;
+      }
     }
     // The board is read again whatever the answer, before a refusal's notice.
     await readAgain();
     inFlight.current = false;
     view.end(
-      client.getQueryData<Board>(boardsKeys.board(organizationId, projectId, teamId, level)),
+      client.getQueryData<BoardSurface>(boardKey(organizationId, scope, level, filterIds)),
       board,
     );
     if (notice !== null) {
@@ -180,7 +249,7 @@ export function BoardColumns({
 
   const startDrag = useCallback(
     (event: DragEvent<HTMLElement>, card: BacklogItem) => {
-      if (saving) {
+      if (saving || !canWrite) {
         event.preventDefault();
         return;
       }
@@ -190,7 +259,7 @@ export function BoardColumns({
       }
       setDrag({ cardId: card.id, over: null });
     },
-    [saving],
+    [saving, canWrite],
   );
 
   const endDrag = useCallback(() => setDrag(null), []);
@@ -247,6 +316,7 @@ export function BoardColumns({
       component="section"
       // feat-001 BR-H-16: the board region is named as the page, «Канбан».
       aria-label="Канбан"
+      aria-busy={busy ? 'true' : undefined}
       sx={{ display: 'flex', alignItems: 'flex-start', gap: 2, overflowX: 'auto', pb: 2 }}
     >
       {shown.columns.map((column, columnIndex) => {
@@ -269,11 +339,15 @@ export function BoardColumns({
                 display: 'flex',
                 flexDirection: 'column',
                 gap: 1,
+                // The column's status category as a stripe on top, in the colour of the
+                // category dots the backlog and the card draw (the code is never shown).
+                borderTop: `${theme.spacing(0.5)} solid ${theme.workTracking.categoryColour(column.category.code)}`,
               }),
               ...(isDropArea ? [dropAreaSx(drag?.over === column.key)] : []),
             ]}
           >
-            <Box sx={{ display: 'flex', alignItems: 'baseline', gap: 1, px: 0.5 }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, px: 0.5 }}>
+              <CategoryMarker code={column.category.code} />
               <Typography component="h2" variant="subtitle2">
                 {column.header}
               </Typography>
@@ -281,7 +355,7 @@ export function BoardColumns({
                 {column.items.length}
               </Typography>
             </Box>
-            {columnIndex === 0 && (
+            {columnIndex === 0 && canWrite && newItem && (
               <Button
                 variant="text"
                 startIcon={<AddIcon />}
@@ -310,9 +384,14 @@ export function BoardColumns({
                   key={card.id}
                   card={card}
                   saving={saving}
+                  canWrite={canWrite}
                   menuOpen={menu?.cardId === card.id}
                   menuId={menuId}
-                  formPath={workItemPath(organizationId, projectId, card.identifier)}
+                  checklistEnv={checklists.env}
+                  openKinds={checklists.openKinds(card.id)}
+                  adding={checklists.addFieldOf(card.id)}
+                  formPath={workItemPath(organizationId, card.project.id, card.identifier)}
+                  onOpenItem={openItem}
                   onOpenMenu={openMenu}
                   onDragStart={startDrag}
                   onDragEnd={endDrag}
@@ -326,7 +405,7 @@ export function BoardColumns({
       <Menu
         id={menuId}
         anchorEl={menu?.anchor ?? null}
-        open={menu !== null}
+        open={menu !== null && canWrite}
         onClose={closeMenu}
         disableRestoreFocus
         anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
@@ -357,46 +436,77 @@ export function BoardColumns({
 /**
  * One card (spec § Page «Доски», BR-M4-14): a 4 px stripe in the type's
  * colour; the type icon, ID and «Заголовок» as a link to the form; the
- * category dot and the state; «Исполнитель», then «Приоритет: <n>» as a
- * caption (feat-022 BR-M3-39); and «Ещё действия: <ID>». The
+ * category dot and the state with the owning team at the right (mod-017); «Исполнитель»,
+ * then «Приоритет: <n>» as a caption (feat-022 BR-M3-39) and the item's project at the right end
+ * (feat-040 D-1); and «Ещё действия: <ID>». The
  * card itself is the drag source. Memoized, so a drag over one column redraws
  * no card.
  */
 const BoardCard = memo(function BoardCard({
   card,
   saving,
+  canWrite,
   menuOpen,
   menuId,
+  checklistEnv,
+  openKinds,
+  adding,
   formPath,
+  onOpenItem,
   onOpenMenu,
   onDragStart,
   onDragEnd,
   registerMenuButton,
 }: {
-  card: BacklogItem;
+  card: BoardCardItem;
   saving: boolean;
+  /** `workitems.workitem.write`: without it the card has no menu and no drag. */
+  canWrite: boolean;
   menuOpen: boolean;
   menuId: string;
+  checklistEnv: ChecklistEnv;
+  openKinds: readonly ChecklistKind[];
+  adding: AddField | null;
+  /** The item's full page: the title's `href`, followed by a modified click (BR-C-1). */
   formPath: string;
+  /** A plain click on the title opens the item's card as a dialog over the board (BR-C-1). */
+  onOpenItem(identifier: string): void;
   onOpenMenu(event: MouseEvent<HTMLElement>, cardId: string): void;
   onDragStart(event: DragEvent<HTMLElement>, card: BacklogItem): void;
   onDragEnd(): void;
   registerMenuButton(cardId: string, element: HTMLElement | null): void;
 }) {
+  // feat-032 BR-C-12, design § 9: a press that starts inside the checklist (`data-no-drag`) never
+  // starts the card's drag; the whole card stays the drag source for the rest of its surface.
+  const pressedInChecklist = useRef(false);
   return (
     <Card
       role="listitem"
       elevation={1}
-      draggable={!saving}
+      draggable={canWrite && !saving}
       data-card={card.identifier}
-      onDragStart={(event: DragEvent<HTMLElement>) => onDragStart(event, card)}
-      onDragEnd={onDragEnd}
+      // The card's dialog gives focus back to this card's title by the identifier (BR-C-4).
+      data-identifier={card.identifier}
+      onMouseDownCapture={(event: MouseEvent<HTMLElement>) => {
+        pressedInChecklist.current = (event.target as Element).closest('[data-no-drag]') !== null;
+      }}
+      onDragStart={(event: DragEvent<HTMLElement>) => {
+        if (pressedInChecklist.current) {
+          event.preventDefault();
+          return;
+        }
+        onDragStart(event, card);
+      }}
+      onDragEnd={() => {
+        pressedInChecklist.current = false;
+        onDragEnd();
+      }}
       sx={(theme) => ({
         p: 1,
         display: 'flex',
         flexDirection: 'column',
         gap: 0.5,
-        cursor: saving ? 'default' : 'grab',
+        cursor: saving || !canWrite ? 'default' : 'grab',
         borderLeft: `${theme.spacing(0.5)} solid ${theme.workTracking.typeAppearance(card.type.appearance).colour}`,
       })}
     >
@@ -409,27 +519,47 @@ const BoardCard = memo(function BoardCard({
           component={RouterLink}
           to={formPath}
           variant="body2"
+          onClick={(event: MouseEvent<HTMLElement>) => {
+            if (isPlainClick(event)) {
+              event.preventDefault();
+              onOpenItem(card.identifier);
+            }
+          }}
           sx={{ flex: '1 1 auto', minWidth: 0, overflowWrap: 'anywhere' }}
         >
           {card.title}
         </Link>
-        <IconButton
-          size="small"
-          ref={(element: HTMLElement | null) => registerMenuButton(card.id, element)}
-          aria-label={`Ещё действия: ${card.identifier}`}
-          aria-haspopup="menu"
-          aria-expanded={menuOpen ? 'true' : 'false'}
-          aria-controls={menuOpen ? menuId : undefined}
-          aria-disabled={saving ? 'true' : undefined}
-          onClick={(event: MouseEvent<HTMLElement>) => onOpenMenu(event, card.id)}
-          sx={{ mt: -0.5, color: saving ? 'text.disabled' : undefined }}
-        >
-          <MoreHorizIcon fontSize="small" />
-        </IconButton>
+        {canWrite && (
+          <IconButton
+            size="small"
+            ref={(element: HTMLElement | null) => registerMenuButton(card.id, element)}
+            aria-label={`Ещё действия: ${card.identifier}`}
+            aria-haspopup="menu"
+            aria-expanded={menuOpen ? 'true' : 'false'}
+            aria-controls={menuOpen ? menuId : undefined}
+            aria-disabled={saving ? 'true' : undefined}
+            onClick={(event: MouseEvent<HTMLElement>) => onOpenMenu(event, card.id)}
+            sx={{ mt: -0.5, color: saving ? 'text.disabled' : undefined }}
+          >
+            <MoreHorizIcon fontSize="small" />
+          </IconButton>
+        )}
       </Box>
-      <Typography component="div" variant="body2">
-        <StateName state={card.state} />
-      </Typography>
+      {/* mod-017 design § 6.4: the state at the left, the owning team at the right (BR-OT-7). */}
+      <Box sx={{ display: 'flex', alignItems: 'center', columnGap: 1, minWidth: 0 }}>
+        <Typography component="div" variant="body2" sx={{ flex: '1 1 auto', minWidth: 0 }}>
+          <StateName state={card.state} />
+        </Typography>
+        <Typography
+          component="div"
+          variant="caption"
+          color="text.secondary"
+          sx={{ maxWidth: '50%', minWidth: 0, flex: '0 1 auto', ml: 'auto' }}
+        >
+          <VisuallyHidden>Команда: </VisuallyHidden>
+          <TruncatedText>{card.team?.name ?? teamTexts.noTeam}</TruncatedText>
+        </Typography>
+      </Box>
       <Box
         sx={{ display: 'flex', alignItems: 'center', columnGap: 1, flexWrap: 'wrap', minWidth: 0 }}
       >
@@ -439,7 +569,25 @@ const BoardCard = memo(function BoardCard({
         <Typography component="div" variant="caption" color="text.secondary">
           {priorityText(card.priority)}
         </Typography>
+        {/* feat-040 design § 5.2, D-1: the item's project at the right end of this row, under the
+            team of the row above, so the card does not grow. */}
+        <Typography
+          component="div"
+          variant="caption"
+          color="text.secondary"
+          sx={{ maxWidth: '50%', minWidth: 0, flex: '0 1 auto', ml: 'auto' }}
+        >
+          <VisuallyHidden>Проект: </VisuallyHidden>
+          <TruncatedText>{card.project.name}</TruncatedText>
+        </Typography>
       </Box>
+      <CardChecklists
+        card={card}
+        env={checklistEnv}
+        openKinds={openKinds}
+        adding={adding}
+        off={saving || !canWrite}
+      />
     </Card>
   );
 });

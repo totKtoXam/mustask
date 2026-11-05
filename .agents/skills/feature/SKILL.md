@@ -7,8 +7,11 @@ description: Drive MUSTASK tasks through the project AI workflow — F/S/M/L cla
 
 Use the user's current request as the task.
 
-Read `docs/ai-workflow/README.md`, `docs/ai-workflow/routing.md` and the
-shared contract `docs/ai-workflow/feature.md`, then execute the contract.
+Read the shared contract `docs/ai-workflow/feature.md` and execute it. Its
+"Starting a task" says when `docs/ai-workflow/README.md` and
+`docs/ai-workflow/routing.md` are read as well — for a new task, or when the
+route itself is in question; a task that already has a `status.md` skips
+them.
 
 When the contract calls for a separate role, use the project custom agent
 of the same name from `.codex/agents/` or a separate bounded subagent in a

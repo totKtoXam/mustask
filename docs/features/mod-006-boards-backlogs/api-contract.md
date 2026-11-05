@@ -139,6 +139,8 @@ page; the creation itself takes the default as it stands when it runs (§ 7).
 
 ### 2.3 `BacklogItem` — a backlog row, a board card
 
+> Superseded in part by feat-032 (2026-10-12): the board card gains `checklist`, the item's task, bug and test-case children (see feat-032's api-contract § 2 and spec BR-C-1).
+
 ```json
 {
   "order": 1,
@@ -265,7 +267,7 @@ view, and nobody is told (D-2) — the panel reads the backlog again.
 | `header` | the column's title: the category's label for k = 1, otherwise the name of the state it maps for the first type, in display order, that maps one |
 | `category` | the category the column belongs to (`code` never shown) |
 | `targets` | one entry per type of the level, in display order: the state a drop of a card of that type in this column writes, or `null` — then the column is no drop target for that type and is not offered in its card menu (BR-M4-18) |
-| `items` | the cards: the items whose current state is a `targets` state of their type here, in the backlog's order (§ 1; `order` is their backlog position, so it has gaps inside a column). An empty column has `[]`. Every item of the backlog is in exactly one column. |
+| `items` | the cards: the items whose current state is a `targets` state of their type here, in the backlog's order (§ 1; `order` is their backlog position, so it has gaps inside a column). An empty column has `[]`. Every item of the backlog is in exactly one column. *Superseded in part by feat-032 (2026-10-12): the board card gains `checklist`, the item's task, bug and test-case children (see feat-032's api-contract § 2 and spec BR-C-1).* |
 
 For the seeded process: `epics` and `features` have «Новые», «В работе»,
 «Разрешена», «Завершённые»; `stories` has «Новые», «В работе», «Разрешена»

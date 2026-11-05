@@ -1,6 +1,6 @@
 import { alpha, type ThemeOptions } from '@mui/material/styles';
 import { navigationEntryClass } from './classNames';
-import { tooltipEnterDelayMs, typeScale } from './tokens';
+import { focusRing, tooltipEnterDelayMs, typeScale } from './tokens';
 
 /**
  * Component defaults (design § 2.6, plan-frontend.md § 3.2). Every value
@@ -112,7 +112,7 @@ export const components: ThemeOptions['components'] = {
       root: ({ theme }) => ({
         [`&.Mui-focused .MuiOutlinedInput-notchedOutline`]: {
           borderColor: theme.palette.primary.main,
-          borderWidth: 2,
+          borderWidth: focusRing.width,
         },
         [`&.Mui-error .MuiOutlinedInput-notchedOutline`]: { borderColor: theme.palette.error.main },
         [`&.Mui-disabled .MuiOutlinedInput-notchedOutline`]: {

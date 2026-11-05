@@ -619,7 +619,7 @@ Resolution:
 - **m-7** BR-RT-4 (spec.md:87) cites "D-8"; this spec has D-1..D-7. Write
   "doc-002 D-8".
 - **m-8** New dependencies: an emoji picker/data set and a syntax highlighter
-  are not in D-2's accepted set, and ADR-0027 (still `proposed`) does not
+  are not in D-2's accepted set, and ADR-0037 (still `proposed`) does not
   mention them. Owe them to the ADR (or state built in-house). Add: emoji data
   bundled, native glyphs, no request to a CDN; highlighting applied as
   decorations over text nodes, never by inserting a highlighter's HTML string.

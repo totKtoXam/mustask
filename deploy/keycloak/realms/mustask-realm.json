@@ -1,5 +1,5 @@
 {
-  "realm": "mustask",
+  "realm": "${MUSTASK_REALM:mustask}",
   "displayName": "Mustask",
   "displayNameHtml": "<strong>Mustask</strong>",
   "enabled": true,
@@ -19,7 +19,7 @@
   "eventsExpiration": 604800,
   "adminEventsEnabled": true,
   "adminEventsDetailsEnabled": true,
-  "eventsListeners": ["jboss-logging", "mustask-user-projection"],
+  "eventsListeners": ["jboss-logging"],
   "permanentLockout": false,
   "maxFailureWaitSeconds": 900,
   "waitIncrementSeconds": 60,
@@ -36,103 +36,24 @@
     "client": {
       "mustask-api": [
         {
-          "name": "dictionaries.languages.read",
-          "description": "Право: просмотр справочника языков"
+          "name": "user",
+          "description": "Роль: пользователь — вход в систему и просмотр справочников"
         },
         {
-          "name": "dictionaries.languages.write",
-          "description": "Право: изменение справочника языков"
+          "name": "organization-creator",
+          "description": "Роль: создатель организаций — только право создавать организации"
         },
         {
-          "name": "organizations.organization.create",
-          "description": "Право: создание организаций"
-        }
-      ]
-    },
-    "realm": [
-      {
-        "name": "admin",
-        "description": "Роль: администратор Mustask — все права",
-        "composite": true,
-        "composites": {
-          "client": {
-            "mustask-api": [
-              "dictionaries.languages.read",
-              "dictionaries.languages.write",
-              "organizations.organization.create"
-            ]
-          }
-        }
-      },
-      {
-        "name": "member",
-        "description": "Роль: участник — работает с задачами",
-        "composite": true,
-        "composites": {
-          "client": {
-            "mustask-api": ["dictionaries.languages.read"]
-          }
-        }
-      },
-      {
-        "name": "viewer",
-        "description": "Роль: наблюдатель — только просмотр",
-        "composite": true,
-        "composites": {
-          "client": {
-            "mustask-api": ["dictionaries.languages.read"]
-          }
-        }
-      },
-      {
-        "name": "dictionaries-admin",
-        "description": "Роль: администратор справочников — полное управление языками",
-        "composite": true,
-        "composites": {
-          "client": {
-            "mustask-api": [
-              "dictionaries.languages.read",
-              "dictionaries.languages.write"
-            ]
-          }
-        }
-      },
-      {
-        "name": "organization-creator",
-        "description": "Роль: создатель организаций — только право создавать организации",
-        "composite": true,
-        "composites": {
-          "client": {
-            "mustask-api": ["organizations.organization.create"]
-          }
-        }
-      }
-    ]
-  },
-  "groups": [
-    {
-      "name": "Администраторы",
-      "realmRoles": ["admin"]
-    },
-    {
-      "name": "Сотрудники",
-      "realmRoles": ["viewer"],
-      "subGroups": [
+          "name": "dictionaries-admin",
+          "description": "Роль: администратор справочников — полное управление языками"
+        },
         {
-          "name": "Участники",
-          "realmRoles": ["member"]
+          "name": "system-admin",
+          "description": "Роль: администратор системы — все права уровня экземпляра"
         }
       ]
-    },
-    {
-      "name": "Администраторы справочников",
-      "realmRoles": ["dictionaries-admin"]
-    },
-    {
-      "name": "Создатели организаций",
-      "realmRoles": ["organization-creator"]
     }
-  ],
+  },
   "clients": [
     {
       "clientId": "mustask-panel",
@@ -165,19 +86,6 @@
             "included.client.audience": "mustask-api",
             "access.token.claim": "true",
             "id.token.claim": "false"
-          }
-        },
-        {
-          "name": "groups",
-          "protocol": "openid-connect",
-          "protocolMapper": "oidc-group-membership-mapper",
-          "consentRequired": false,
-          "config": {
-            "claim.name": "groups",
-            "full.path": "true",
-            "access.token.claim": "false",
-            "id.token.claim": "true",
-            "userinfo.token.claim": "true"
           }
         }
       ]

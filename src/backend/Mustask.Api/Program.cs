@@ -2,6 +2,7 @@ using Mustask.Api.ApiExplorer;
 using Mustask.Api.CurrentUser;
 using Mustask.Api.ErrorHandling;
 using Mustask.Application.Abstractions;
+using Mustask.Application.Abstractions.Organizations;
 using Mustask.Api.Authentication;
 using Mustask.Api.Authentication.Readiness;
 using Mustask.Api.Authorization;
@@ -10,7 +11,6 @@ using Mustask.Api.Features.Dictionaries;
 using Mustask.Api.Features.Organizations;
 using Mustask.Api.Features.Process;
 using Mustask.Api.Features.Session;
-using Mustask.Api.Features.UserDirectory;
 using Mustask.Api.Features.WorkItems;
 using Gridify;
 using Mustask.Application;
@@ -106,7 +106,8 @@ if (builder.Environment.IsDevelopment())
             .WithOrigins(allowedOrigins)
             .AllowAnyHeader()
             .AllowAnyMethod()
-            .AllowCredentials()));
+            .AllowCredentials()
+            .WithExposedHeaders("Retry-After")));
     // ADR-0022: .AllowCredentials() вернулся — эта строка
     // раньше несла комментарий "снят" (шаг сноса старого cookie/anti-CSRF
     // контура), и с тех пор он не совпадал с кодом:
@@ -136,6 +137,14 @@ builder.Services.AddSingleton<IAuthorizationMiddlewareResultHandler, ForbiddenEr
 // the anonymous constant.
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<ICurrentUser, HttpContextCurrentUser>();
+
+// mod-016 (ADR-0027): the role the scoped check resolved for this request, for the handlers that need it (the served access,
+// the second code of a parent write). Asking on a route without the check throws.
+builder.Services.AddScoped<IOrganizationAccess, HttpContextOrganizationAccess>();
+
+// The read limiter of the aggregate views (feat-048 OQ-2): one per API process, on the clock the host runs on.
+builder.Services.AddSingleton<AggregateReadLimiter>();
+builder.Services.AddScoped<AggregateReadLimitFilter>();
 
 // ADR-0018: Mustask.Api как resource server realm'а Keycloak. Значения
 // читаются один раз из builder.Configuration до Build() — единственный
@@ -168,16 +177,14 @@ builder.Services.AddHostedService(sp => sp.GetRequiredService<RealmReadinessMoni
 // discovery/JWKS выше — не второй разбор конфигурации.
 var sessionOptions = SessionOidcOptions.FromConfiguration(builder.Configuration, builder.Environment);
 builder.Services.AddMustaskSessionAuthentication(keycloak, sessionOptions);
+// tech-025 (ADR-0034): the session endpoints record the signed-in person through a port of their own; the user directory
+// implements it. Scoped: it uses the request's DbContext through the Application handler.
+builder.Services.AddScoped<Mustask.Api.Authentication.ISessionSignInRecorder, Mustask.Api.Features.UserDirectory.SessionUserProjection>();
 
-// mod-014 (ADR-0025 § 3, § 9): the user projection's push channel. Its
-// shared secret is read once here, before Build() — the KeycloakOptions
-// pattern: a missing or short UserDirectory:Push:Secret fails the start
-// naming the key. The read model orders by the ICU 'ru' collation, so an
-// invariant-globalization runtime is refused here too, before anything runs.
+// The read model of the user projection orders by the ICU 'ru' collation, so an invariant-globalization runtime is
+// refused here, before anything runs (mod-014, ADR-0025 § 9). The projection itself is written at sign-in (tech-025,
+// ADR-0034): there is no push channel and no shared secret.
 DirectoryCollation.EnsureSupported();
-builder.Services.AddSingleton(PushChannelOptions.FromConfiguration(builder.Configuration));
-builder.Services.AddSingleton<PushSignatureVerifier>();
-builder.Services.AddHostedService<PushChannelStartupNotice>();
 
 // keycloak-realm — без тега "live", поэтому виден /health, но не
 // /alive (Mustask.ServiceDefaults/Extensions.cs, Predicate = live).
@@ -301,11 +308,13 @@ app.UseAuthorization();
 
 app.MapDictionaryEndpoints();
 app.MapOrganizationEndpoints();
+app.MapRescueEndpoints();
+app.MapMembershipEndpoints();
 app.MapProcessEndpoints();
 app.MapSessionEndpoints();
-app.MapUserDirectoryEndpoints();
 app.MapWorkItemEndpoints();
 app.MapBoardEndpoints();
+app.MapAggregateViewEndpoints();
 
 app.Run();
 

@@ -7,6 +7,18 @@ name: CI
 # previous version of this file kept its own matrix and had already drifted
 # from verify.sh).
 #
+# CI is the full run (tech-041): the Verify step sets VERIFY_FULL=1, so a
+# change that touches the frontend runs the whole Vitest suite here, not only
+# the tests that reach the diff. The pre-push hook runs the quick default (and
+# `VERIFY_FULL=1 git push` asks it for the full one), so the whole suite is paid
+# for once, on the runner, and this check is the one required on main.
+#
+# The job name below is the status-check context main's branch protection
+# requires. It reads "change-proportionate" because the classification still
+# is (a docs-only PR finishes in seconds); the full run only widens the
+# frontend tests. Rename the job and the protection rule together or every PR
+# hangs waiting for a check that never reports.
+#
 # The job runs on every PR with no paths filters ON PURPOSE: a required
 # check skipped via paths-ignore doesn't run at all — and the PR hangs
 # waiting. Instead, verify.sh itself finishes a docs-only run in seconds.
@@ -25,7 +37,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
         with:
-          fetch-depth: 0 # verify.sh compares against main via merge-base
+          fetch-depth: 0 # verify.sh compares with a base via merge-base; the push to main needs HEAD^1
 
       - name: Setup .NET
         uses: actions/setup-dotnet@v4
@@ -46,9 +58,39 @@ jobs:
         working-directory: src/frontend
         run: npm ci
 
+      # What verify.sh compares HEAD with (tech-044). A pull request: origin/main
+      # (HEAD is the PR merged into main, so the diff is the PR). A push to main:
+      # origin/main is HEAD itself, which made every run after a merge print "No
+      # changes - nothing to verify". So the merged commit is compared with the
+      # commit main pointed at before the push (github.event.before; for a squash
+      # merge that is its first parent), and with HEAD^1 when `before` is not in
+      # the clone (a new branch, a force-push). No base at all fails the step: a
+      # silent "nothing to verify" is what this step exists to stop.
+      - name: Comparison base
+        id: base
+        env:
+          EVENT: ${{ github.event_name }}
+          BEFORE: ${{ github.event.before }}
+        run: |
+          base=origin/main
+          if [ "$EVENT" = push ]; then
+            if [ -n "$BEFORE" ] && git cat-file -e "$BEFORE^{commit}" 2>/dev/null; then
+              base=$BEFORE
+            elif git rev-parse --verify -q "HEAD^1" >/dev/null; then
+              base=$(git rev-parse "HEAD^1")
+            else
+              echo "::error::nothing to compare the push with: no github.event.before in the clone, HEAD has no parent"
+              exit 1
+            fi
+          fi
+          echo "base=$base" >> "$GITHUB_OUTPUT"
+          echo "verify.sh compares HEAD with $base ($(git rev-parse --short "$base"))"
+
       - name: Verify
         env:
-          BASE: origin/main
+          BASE: ${{ steps.base.outputs.base }}
+          # The whole frontend suite, not only the tests the diff reaches.
+          VERIFY_FULL: "1"
           VITE_API_BASE_URL: http://ci.invalid
         # Docker is preinstalled on ubuntu-latest — Testcontainers work.
         run: sh scripts/verify.sh

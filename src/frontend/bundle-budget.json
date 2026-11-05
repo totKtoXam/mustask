@@ -1,5 +1,5 @@
 {
-  "$comment": "feat-018 / ADR-0027 decision 10, plan-frontend § 10.2. Gzipped bytes as `dist/bundle-report.json` measures them (node:zlib, level 6). The baseline is the app's single entry chunk on the branch before the editor was reachable from it. The ceilings are PROPOSED by the developer from the first measurement (slice 3) and wait for the human to confirm or change them (ADR-0027 decision 10); `scripts/check-bundle.mjs` (`npm run bundle:check`, after `npm run build`) holds the build to them.",
+  "$comment": "feat-018 / ADR-0037 decision 10, plan-frontend § 10.2. Gzipped bytes as `dist/bundle-report.json` measures them (node:zlib, level 6). The baseline is the app's single entry chunk on the branch before the editor was reachable from it. The ceilings are PROPOSED by the developer from the first measurement (slice 3) and wait for the human to confirm or change them (ADR-0037 decision 10); `scripts/check-bundle.mjs` (`npm run bundle:check`, after `npm run build`) holds the build to them.",
   "status": "proposed",
   "measured": {
     "date": "2026-10-13",
@@ -8,7 +8,7 @@
     "entryGrowthGzipBytes": 9862,
     "editorChunkGzipBytes": 182041,
     "emojiChunkGzipBytes": 46857,
-    "note": "Real numbers from vite build with the page wired. The highlighter (about 24 KB) is inside the editor chunk. The ceilings below are still the developer's proposal until the human confirms them (ADR-0027 decision 10)."
+    "note": "Real numbers from vite build with the page wired. The highlighter (about 24 KB) is inside the editor chunk. The ceilings below are still the developer's proposal until the human confirms them (ADR-0037 decision 10)."
   },
   "baseline": {
     "entryGzipBytes": 279519

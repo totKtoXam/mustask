@@ -2,6 +2,7 @@ using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json.Nodes;
 using Mustask.AppHost.Provisioning;
+using Mustask.Domain.Identity;
 
 namespace Mustask.Contracts.Tests;
 
@@ -9,7 +10,9 @@ namespace Mustask.Contracts.Tests;
 /// mod-014 US-4 "A realm import that differs from the live realm fails the
 /// start" (D-10 (a); ADR-0025 § 7): the drift check against a fake Keycloak
 /// admin surface whose live realm starts equal to the real realm import and
-/// is then changed one way at a time. No Docker, no Keycloak.
+/// is then changed one way at a time. No Docker, no Keycloak. tech-024
+/// (ADR-0033): the import declares four client roles and no realm roles or
+/// groups, and the realm's name is a value the stand takes from configuration.
 /// </summary>
 public sealed class KeycloakStandDriftCheckTests
 {
@@ -24,9 +27,9 @@ public sealed class KeycloakStandDriftCheckTests
         ["MUSTASK_PANEL_CLIENT_SECRET"] = PanelSecret,
     };
 
-    internal static KeycloakRealmImport Import(IReadOnlyDictionary<string, string>? values = null) =>
+    internal static KeycloakRealmImport Import(IReadOnlyDictionary<string, string>? values = null, string realm = "mustask") =>
         KeycloakRealmImport.Load(
-            Path.Combine(RepositoryLayout.Root.FullName, "deploy", "keycloak", "realms"), "mustask", values ?? StandValues);
+            Path.Combine(RepositoryLayout.Root.FullName, "deploy", "keycloak", "realms"), realm, values ?? StandValues);
 
     private static async Task<IReadOnlyList<string>> CheckAsync(
         FakeKeycloak live,
@@ -60,20 +63,10 @@ public sealed class KeycloakStandDriftCheckTests
     [Fact]
     public async Task ALiveRealmMadeFromTheImport_HasNoFinding_EvenWithUndeclaredClientsGroupsAndBuiltIns()
     {
-        Assert.Empty(await CheckAsync(FakeKeycloak.FromImport(Import(), PanelSecret, AdminPassword)));
-    }
-
-    // US-4: e.g. mod-002 adds a realm role to the import; a store created before never gets it.
-    [Fact]
-    public async Task ARealmRoleAddedToTheImport_FailsNamingItAndTheReset()
-    {
         var live = FakeKeycloak.FromImport(Import(), PanelSecret, AdminPassword);
-        live.RealmRoles.Remove("dictionaries-admin");
-        live.Groups["/Администраторы справочников"].Realm.Clear();
+        live.Groups.Add("/Отдел продаж"); // the company realm has groups of its own: never compared
 
-        var findings = await CheckAsync(live);
-
-        Assert.Contains(findings, finding => finding.Contains("`dictionaries-admin`", StringComparison.Ordinal) && finding.Contains("scripts/stand-reset.sh", StringComparison.Ordinal));
+        Assert.Empty(await CheckAsync(live));
     }
 
     [Fact]
@@ -85,14 +78,88 @@ public sealed class KeycloakStandDriftCheckTests
         AssertOneFindingNamingTheReset(await CheckAsync(live), "`auditor`");
     }
 
+    // A realm role that an import declares (a future import may) is compared with its composites.
     [Fact]
     public async Task ACompositeThatDiffers_Fails()
     {
-        var live = FakeKeycloak.FromImport(Import(), PanelSecret, AdminPassword);
-        live.RealmRoles["viewer"].Client["mustask-api"].Add("dictionaries.languages.write");
+        var import = KeycloakRealmImport.Parse(
+            """
+            { "realm": "mustask", "roles": { "realm": [ { "name": "legacy", "composite": true, "composites": { "client": { "mustask-api": [ "user" ] } } } ] } }
+            """,
+            StandValues);
+        var live = FakeKeycloak.FromImport(import, PanelSecret, AdminPassword);
+        live.Clients["mustask-api"] = new FakeClient("id-mustask-api", [], null, [], null, null);
 
-        AssertOneFindingNamingTheReset(await CheckAsync(live), "`viewer`");
+        Assert.Empty(await CheckAsync(live, import));
+
+        live.RealmRoles["legacy"].Client["mustask-api"].Add("system-admin");
+
+        AssertOneFindingNamingTheReset(await CheckAsync(live, import), "`legacy`");
     }
+
+    // tech-024: the default role (default-roles-<realm>) is Keycloak's own — never declared and never compared, whatever the realm is called.
+    [Theory]
+    [InlineData("mustask")]
+    [InlineData("company")]
+    public async Task TheDefaultRolesOfTheLiveRealm_AreNotCompared_UnderTheConfiguredRealmName(string realm)
+    {
+        var import = Import(WithRealm(realm), realm);
+        var live = FakeKeycloak.FromImport(import, PanelSecret, AdminPassword);
+        live.RealmRoles[$"default-roles-{realm}"].Client["mustask-api"] = ["user"];
+
+        Assert.Equal(realm, import.Realm);
+        Assert.Empty(await CheckAsync(live, import));
+    }
+
+    // tech-024 · realm name configuration: the live realm is looked for under the configured name, and the finding names it.
+    [Fact]
+    public async Task TheRealmNameIsConfigurable_TheConfiguredRealmIsTheOneChecked()
+    {
+        var import = Import(WithRealm("company"), "company");
+        var live = FakeKeycloak.FromImport(import, PanelSecret, AdminPassword);
+
+        Assert.Empty(await CheckAsync(live, import));
+
+        live.RealmExists = false;
+
+        AssertOneFindingNamingTheReset(await CheckAsync(live, import), "`company`");
+    }
+
+    // tech-024: a store created from the import before the client-role model (realm roles instance-admin, dictionaries-admin,
+    // organization-creator, groups, raw permission codes as client roles), checked against the new one, fails with findings that
+    // name the reset — the live-realm command that once converted older stores is retired; the reset picks up the new import.
+    [Fact]
+    public async Task ARealmMadeFromThePreClientRolesImport_FailsNamingTheReset()
+    {
+        var oldImport = KeycloakRealmImport.Parse(File.ReadAllText(PreTech024RealmPath), StandValues);
+        var live = FakeKeycloak.FromImport(oldImport, PanelSecret, AdminPassword);
+
+        var findings = await CheckAsync(live);
+
+        Assert.Contains(findings, finding => finding.StartsWith("Realm role `instance-admin` is in the live realm but not in the realm import", StringComparison.Ordinal));
+        Assert.Contains(findings, finding => finding.StartsWith("Realm role `dictionaries-admin` is in the live realm but not in the realm import", StringComparison.Ordinal));
+        Assert.Contains(findings, finding => finding.StartsWith("Realm role `organization-creator` is in the live realm but not in the realm import", StringComparison.Ordinal));
+
+        foreach (var role in InstanceRoles.Names)
+        {
+            Assert.Contains(findings, finding => finding.StartsWith($"Client role `mustask-api/{role}` is in the realm import but not in the live realm", StringComparison.Ordinal));
+        }
+
+        // The frozen pre-tech-024 import predates the rescue code (feat-033): it carries every other instance code as a client role.
+        var oldCodes = PermissionCatalog.InstanceCodes.Where(code => code != PermissionCatalog.OrganizationsOrganizationRescue).ToList();
+
+        foreach (var code in oldCodes)
+        {
+            Assert.Contains(findings, finding => finding.StartsWith($"Client role `mustask-api/{code}` is in the live realm but not in the realm import", StringComparison.Ordinal));
+        }
+
+        Assert.Equal(3 + InstanceRoles.Names.Count + oldCodes.Count, findings.Count);
+        Assert.All(findings, finding => Assert.Contains("scripts/stand-reset.sh", finding, StringComparison.Ordinal));
+    }
+
+    /// <summary>The import as it was before tech-024, kept as test data: the realm of a stand created from it.</summary>
+    internal static string PreTech024RealmPath =>
+        Path.Combine(RepositoryLayout.Root.FullName, "src", "backend", "tests", "Mustask.Contracts.Tests", "TestData", "mustask-realm.pre-tech-024.json");
 
     [Fact]
     public async Task AClientRoleMissingOrExtra_Fails()
@@ -101,39 +168,11 @@ public sealed class KeycloakStandDriftCheckTests
         live.Clients["mustask-api"].Roles.Add("work-items.read");
 
         AssertOneFindingNamingTheReset(await CheckAsync(live), "`mustask-api/work-items.read`");
-    }
 
-    [Fact]
-    public async Task TheListenerNotEnabledInTheLiveRealm_Fails()
-    {
-        var live = FakeKeycloak.FromImport(Import(), PanelSecret, AdminPassword);
-        live.Listeners.Remove(UserProjectionIdentifiers.ProviderId);
+        var lacking = FakeKeycloak.FromImport(Import(), PanelSecret, AdminPassword);
+        lacking.Clients["mustask-api"].Roles.Remove("system-admin");
 
-        AssertOneFindingNamingTheReset(await CheckAsync(live), UserProjectionIdentifiers.ProviderId);
-    }
-
-    [Fact]
-    public async Task ADeclaredGroupMissingOrMappedOtherwise_Fails()
-    {
-        var missing = FakeKeycloak.FromImport(Import(), PanelSecret, AdminPassword);
-        missing.Groups.Remove("/Сотрудники/Участники");
-
-        AssertOneFindingNamingTheReset(await CheckAsync(missing), "`/Сотрудники/Участники`");
-
-        var remapped = FakeKeycloak.FromImport(Import(), PanelSecret, AdminPassword);
-        remapped.Groups["/Сотрудники"].Realm.Add("admin");
-
-        AssertOneFindingNamingTheReset(await CheckAsync(remapped), "`/Сотрудники`");
-    }
-
-    // ADR-0025 § 7 / D-16: groups are compared one way — a group created in the console does not stop the stand.
-    [Fact]
-    public async Task AGroupOnlyInTheLiveRealm_IsIgnored()
-    {
-        var live = FakeKeycloak.FromImport(Import(), PanelSecret, AdminPassword);
-        live.Groups["/Отдел продаж"] = (new HashSet<string>(StringComparer.Ordinal) { "member" }, new Dictionary<string, HashSet<string>>(StringComparer.Ordinal));
-
-        Assert.Empty(await CheckAsync(live));
+        AssertOneFindingNamingTheReset(await CheckAsync(lacking), "`mustask-api/system-admin`");
     }
 
     // R-13 / D-9: a changed administrator password is announced at the start, by name, never printed.
@@ -184,17 +223,41 @@ public sealed class KeycloakStandDriftCheckTests
     [Fact]
     public void TheImport_IsReadWithTheStandsPlaceholders()
     {
-        var panel = Import().Clients["mustask-panel"];
+        var import = Import();
+        var panel = import.Clients["mustask-panel"];
 
+        Assert.Equal("mustask", import.Realm);
         Assert.Equal("http://localhost:3000", panel.RootUrl);
         Assert.Contains("http://localhost:5000/api/session/callback", panel.RedirectUris);
         Assert.True(panel.HasSecret);
-        Assert.Contains(Import().Groups, group => group.Path == "/Сотрудники/Участники");
     }
+
+    // tech-024: the realm name is a placeholder of the import, resolved with the stand's value; found by that name among the files.
+    [Fact]
+    public void TheImport_TakesItsRealmNameFromThePlaceholder()
+    {
+        Assert.Equal("company", Import(WithRealm("company"), "company").Realm);
+        Assert.Throws<InvalidOperationException>(() => Import(WithRealm("company"), "mustask"));
+    }
+
+    // tech-024: the client roles of mustask-api are the four of the table; no realm role is declared, so nothing is compared but them.
+    [Fact]
+    public void TheImport_DeclaresTheFourClientRoles_AndNoRealmRoles()
+    {
+        var import = Import();
+
+        Assert.Empty(import.RealmRoles);
+        Assert.Equal(InstanceRoles.Names.Order(StringComparer.Ordinal), import.Clients["mustask-api"].Roles.Order(StringComparer.Ordinal));
+    }
+
+    private static Dictionary<string, string> WithRealm(string realm) =>
+        new(StandValues, StringComparer.Ordinal) { ["MUSTASK_REALM"] = realm };
 
     /// <summary>A Keycloak admin surface over an in-memory realm (and the realm's public endpoint).</summary>
     internal sealed class FakeKeycloak : HttpMessageHandler
     {
+        public string Realm { get; private init; } = "mustask";
+
         public bool RealmExists { get; set; } = true;
 
         /// <summary>How many times the master administrator signed in — once per drift check run.</summary>
@@ -202,28 +265,28 @@ public sealed class KeycloakStandDriftCheckTests
 
         public string AdminPassword { get; private init; } = string.Empty;
 
-        public List<string> Listeners { get; } = [];
-
         public Dictionary<string, (HashSet<string> Realm, Dictionary<string, HashSet<string>> Client)> RealmRoles { get; } = new(StringComparer.Ordinal);
 
         public Dictionary<string, FakeClient> Clients { get; } = new(StringComparer.Ordinal);
 
-        public Dictionary<string, (HashSet<string> Realm, Dictionary<string, HashSet<string>> Client)> Groups { get; } = new(StringComparer.Ordinal);
+        /// <summary>Groups of the live realm: present, never compared (the company realm has its own).</summary>
+        public List<string> Groups { get; } = [];
 
         public static FakeKeycloak FromImport(KeycloakRealmImport import, string panelSecret, string adminPassword)
         {
-            var live = new FakeKeycloak { AdminPassword = adminPassword };
-            live.Listeners.AddRange(import.EventsListeners);
+            var live = new FakeKeycloak { AdminPassword = adminPassword, Realm = import.Realm };
 
             foreach (var role in import.RealmRoles.Values)
             {
                 live.RealmRoles[role.Name] = (role.RealmComposites.ToHashSet(StringComparer.Ordinal), Copy(role.ClientComposites));
             }
 
-            // Keycloak's own, not in any import.
-            live.RealmRoles["offline_access"] = ([], new(StringComparer.Ordinal));
-            live.RealmRoles["uma_authorization"] = ([], new(StringComparer.Ordinal));
-            live.RealmRoles["default-roles-mustask"] = (["offline_access", "uma_authorization"], new(StringComparer.Ordinal));
+            // Keycloak's own: every realm has them, declared by the import or not.
+            live.RealmRoles.TryAdd("offline_access", ([], new(StringComparer.Ordinal)));
+            live.RealmRoles.TryAdd("uma_authorization", ([], new(StringComparer.Ordinal)));
+            live.RealmRoles.TryAdd(
+                "default-roles-" + import.Realm,
+                (["offline_access", "uma_authorization"], new(StringComparer.Ordinal) { ["account"] = ["view-profile", "manage-account"] }));
 
             foreach (var client in import.Clients.Values)
             {
@@ -234,12 +297,7 @@ public sealed class KeycloakStandDriftCheckTests
 
             // ADR-0023's stand-only client and Keycloak's own: never compared.
             live.Clients["mustask-e2e"] = new FakeClient("id-mustask-e2e", ["something"], null, [], null, "e2e-secret");
-            live.Clients["account"] = new FakeClient("id-account", ["manage-account"], "${authBaseUrl}", ["/realms/mustask/account/*"], null, null);
-
-            foreach (var group in import.Groups)
-            {
-                live.Groups[group.Path] = (group.RealmRoles.ToHashSet(StringComparer.Ordinal), Copy(group.ClientRoles));
-            }
+            live.Clients["account"] = new FakeClient("id-account", ["manage-account"], "${authBaseUrl}", [$"/realms/{import.Realm}/account/*"], null, null);
 
             return live;
         }
@@ -251,8 +309,8 @@ public sealed class KeycloakStandDriftCheckTests
         {
             var path = request.RequestUri!.AbsolutePath;
 
-            // What the stand's health check asks first, unauthenticated: does realm mustask answer.
-            if (request.Method == HttpMethod.Get && path == "/realms/mustask")
+            // What the stand's health check asks first, unauthenticated: does the realm answer.
+            if (request.Method == HttpMethod.Get && path == $"/realms/{Realm}")
             {
                 return new HttpResponseMessage(RealmExists ? HttpStatusCode.OK : HttpStatusCode.NotFound);
             }
@@ -271,14 +329,14 @@ public sealed class KeycloakStandDriftCheckTests
 
             var segments = path.Split('/', StringSplitOptions.RemoveEmptyEntries).Select(Uri.UnescapeDataString).ToArray();
 
-            if (segments is not ["admin", "realms", "mustask", ..] || !RealmExists)
+            if (segments.Length < 3 || segments[0] != "admin" || segments[1] != "realms" || segments[2] != Realm || !RealmExists)
             {
                 return new HttpResponseMessage(HttpStatusCode.NotFound);
             }
 
             return segments[3..] switch
             {
-                [] => Json(new JsonObject { ["realm"] = "mustask", ["eventsListeners"] = Array(Listeners) }),
+                [] => Json(new JsonObject { ["realm"] = Realm }),
                 ["clients"] => Json(new JsonArray(Clients.Select(pair => (JsonNode)ClientJson(pair.Key, pair.Value)).ToArray())),
                 ["clients", var id, "roles"] => Json(RolesJson(ClientById(id).Roles)),
                 ["clients", var id, "client-secret"] => Json(new JsonObject { ["value"] = ClientById(id).Secret }),
@@ -288,19 +346,11 @@ public sealed class KeycloakStandDriftCheckTests
                     ["composite"] = pair.Value.Realm.Count + pair.Value.Client.Sum(client => client.Value.Count) > 0,
                 }).ToArray())),
                 ["roles", var name, "composites"] => Json(CompositesJson(RealmRoles[name])),
-                ["group-by-path", .. var groupPath] => Groups.ContainsKey("/" + string.Join('/', groupPath))
-                    ? Json(new JsonObject { ["id"] = GroupId("/" + string.Join('/', groupPath)) })
-                    : new HttpResponseMessage(HttpStatusCode.NotFound),
-                ["groups", var groupId, "role-mappings"] => Json(MappingsJson(Groups[Groups.Keys.Single(key => GroupId(key) == groupId)])),
                 _ => new HttpResponseMessage(HttpStatusCode.NotFound),
             };
         }
 
         private FakeClient ClientById(string id) => Clients.Values.Single(client => client.Id == id);
-
-        /// <summary>An id with no slash in it, as Keycloak's are.</summary>
-        private static string GroupId(string path) =>
-            "g-" + Convert.ToHexStringLower(System.Text.Encoding.UTF8.GetBytes(path));
 
         private static JsonObject ClientJson(string clientId, FakeClient client)
         {
@@ -338,18 +388,6 @@ public sealed class KeycloakStandDriftCheckTests
             }
 
             return composites;
-        }
-
-        private static JsonObject MappingsJson((HashSet<string> Realm, Dictionary<string, HashSet<string>> Client) group)
-        {
-            var byClient = new JsonObject();
-
-            foreach (var (clientId, names) in group.Client)
-            {
-                byClient[clientId] = new JsonObject { ["client"] = clientId, ["mappings"] = RolesJson(names) };
-            }
-
-            return new JsonObject { ["realmMappings"] = RolesJson(group.Realm), ["clientMappings"] = byClient };
         }
 
         private static JsonArray RolesJson(IEnumerable<string> names) =>

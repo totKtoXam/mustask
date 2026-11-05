@@ -30,7 +30,7 @@ export const WORK_ITEM_FIELD_NAMES: readonly WorkItemFieldName[] = [
   'systemInfo',
 ];
 
-/** The five kinds of type the process holds fixed (mod-001's appearance tokens). */
+/** The appearance tokens this slice draws a work item form for (a subset of mod-001's tokens). */
 export const TYPE_APPEARANCES = ['epic', 'feature', 'story', 'task', 'bug'] as const;
 export type TypeAppearance = (typeof TYPE_APPEARANCES)[number];
 
@@ -207,10 +207,6 @@ export interface TextFieldSpec {
 
 /** The type texts: each an `h2` section of its own in the left column, under «Описание». */
 export const TEXT_FIELDS: Readonly<Record<WorkItemTextFieldName, TextFieldSpec>> = {
-  acceptanceCriteria: {
-    label: 'Критерии приёмки',
-    placeholder: 'Опишите, по каким признакам история считается готовой',
-  },
   reproSteps: {
     label: 'Шаги воспроизведения',
     placeholder: 'Опишите шаги, ожидаемый и фактический результат',
@@ -240,6 +236,7 @@ export interface FieldSection {
 export interface FormLayout {
   texts: readonly WorkItemTextFieldName[];
   sections: readonly FieldSection[];
+  isStory?: boolean;
 }
 
 const PORTFOLIO_LAYOUT: FormLayout = {
@@ -271,11 +268,12 @@ const LAYOUTS: Readonly<Record<TypeAppearance, FormLayout>> = {
   epic: PORTFOLIO_LAYOUT,
   feature: PORTFOLIO_LAYOUT,
   story: {
-    texts: ['acceptanceCriteria'],
+    texts: [],
     sections: [
       { title: SECTION_TITLES.planning, fields: ['storyPoints', 'priority', 'risk'] },
       { title: SECTION_TITLES.classification, fields: ['valueArea'] },
     ],
+    isStory: true,
   },
   task: {
     texts: [],
@@ -308,16 +306,18 @@ export function layoutOf(appearance: string): FormLayout {
 /** The fields the type has (BR-M3-30): its texts, then its sections' controls, in form order. */
 export function fieldsOf(appearance: string): readonly WorkItemFieldName[] {
   const layout = layoutOf(appearance);
-  return [...layout.texts, ...layout.sections.flatMap((section) => section.fields)];
+  const base = [...layout.texts, ...layout.sections.flatMap((section) => section.fields)];
+  return layout.isStory ? ['acceptanceCriteria', ...base] : base;
 }
 
 /** How a field is drawn and checked. */
-export type FieldKind = 'list' | 'number' | 'date' | 'text';
+export type FieldKind = 'list' | 'number' | 'date' | 'text' | 'criteria';
 
 export function kindOf(name: WorkItemFieldName): FieldKind {
   if (name in LIST_FIELDS) return 'list';
   if (name in NUMBER_FIELDS) return 'number';
   if (name in DATE_FIELDS) return 'date';
+  if (name === 'acceptanceCriteria') return 'criteria';
   return 'text';
 }
 
@@ -334,5 +334,5 @@ export function isDateField(name: WorkItemFieldName): name is DateFieldName {
 }
 
 export function isTextField(name: WorkItemFieldName): name is WorkItemTextFieldName {
-  return kindOf(name) === 'text';
+  return name === 'reproSteps' || name === 'systemInfo';
 }

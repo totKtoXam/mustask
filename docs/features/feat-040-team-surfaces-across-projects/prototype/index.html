@@ -1,0 +1,318 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>feat-040: поверхности команды по проектам (прототип)</title>
+<style>
+  * { box-sizing: border-box; }
+  body { font: 14px/20px "Segoe UI", Arial, sans-serif; background: #f3f2f1; margin: 0; color: #201f1e; }
+  header.top { background: #fff; border-bottom: 1px solid #e1dfdd; padding: 8px 16px; display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+  header.top b { margin-right: 8px; }
+  header.top label { font-size: 12px; color: #605e5c; }
+  main { padding: 16px 24px 40px; max-width: 1180px; }
+  p.note { color: #605e5c; font-size: 12px; max-width: 760px; margin: 0 0 12px; }
+  button { font: inherit; color: inherit; background: #edebe9; border: 0; border-radius: 4px; padding: 5px 12px; cursor: pointer; }
+  button:hover { background: #e1dfdd; }
+  button.primary { background: #0078d4; color: #fff; }
+  button.ghost { background: none; padding: 2px 6px; }
+  button.sub { background: none; color: #605e5c; }
+  button:disabled { opacity: .5; cursor: default; }
+  button[aria-pressed="true"] { background: #fff; box-shadow: inset 0 -2px 0 #0078d4; }
+  :focus-visible { outline: 2px solid #0078d4; outline-offset: 1px; }
+  h1 { font-size: 22px; margin: 0; font-weight: 600; }
+  .row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+  .grow { flex: 1; }
+  .mute { color: #605e5c; }
+  .addr { font: 12px/18px Consolas, monospace; background: #fff; border: 1px solid #e1dfdd; border-radius: 4px; padding: 3px 8px; margin-bottom: 10px; word-break: break-all; }
+  .head { display: flex; align-items: center; gap: 8px; margin: 4px 0 8px; flex-wrap: wrap; }
+  .tabrow { display: flex; justify-content: space-between; border-bottom: 1px solid #e1dfdd; margin-bottom: 14px; }
+  .tab { padding: 6px 2px; box-shadow: inset 0 -2px 0 #0078d4; font-weight: 600; }
+  .menu { position: absolute; z-index: 10; background: #fff; border-radius: 4px; box-shadow: 0 4px 14px rgba(0,0,0,.3); padding: 4px 0; min-width: 190px; max-height: 240px; overflow: auto; list-style: none; margin: 0; }
+  .menu li { padding: 5px 12px; cursor: pointer; }
+  .menu li:hover, .menu li:focus { background: #f3f2f1; outline: none; }
+  .menu li[aria-selected="true"], .menu li[aria-current="page"] { background: #e8f0fb; }
+  .menu li.static { color: #605e5c; cursor: default; }
+  .menu li.cap { font-size: 12px; color: #605e5c; cursor: default; }
+  .rel { position: relative; display: inline-block; }
+  .filters { display: flex; gap: 8px; align-items: flex-end; flex-wrap: wrap; margin: 16px 0 14px; }
+  .filters label.t { display: block; font-size: 12px; color: #605e5c; }
+  .ms { position: relative; width: 240px; max-width: 100%; }
+  .box { display: flex; align-items: center; height: 28px; border: 1px solid #8a8886; border-radius: 4px; padding: 0 8px; background: #fff; cursor: pointer; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; width: 100%; font: inherit; text-align: left; }
+  .box.empty { color: #605e5c; }
+  .box[disabled], .box.ro { background: transparent; border-color: transparent; cursor: default; }
+  .card { background: #fff; border-radius: 4px; box-shadow: 0 1px 6px rgba(0,0,0,.18); }
+  .wrap { overflow-x: auto; }
+  table { border-collapse: collapse; width: 100%; min-width: 1100px; }
+  th { text-align: left; font-size: 12px; color: #605e5c; font-weight: 400; padding: 8px; position: sticky; top: 0; background: #fff; }
+  td { padding: 7px 8px; }
+  tr.dragging { opacity: .6; }
+  tr.ok td { background: #e8f0fb; }
+  tr.no td { outline: 2px dashed #a4262c; outline-offset: -2px; }
+  tbody tr:hover td { background: #f8f8f8; }
+  .board { display: flex; gap: 10px; overflow-x: auto; }
+  .col { background: #fff; border-radius: 4px; box-shadow: 0 1px 6px rgba(0,0,0,.18); width: 280px; flex: none; padding: 8px; }
+  .col h2 { font-size: 14px; margin: 0 0 8px; font-weight: 600; }
+  .tile { border-left: 4px solid #0078d4; border-radius: 4px; box-shadow: 0 1px 3px rgba(0,0,0,.25); padding: 6px 8px; margin-bottom: 8px; background: #fff; }
+  .tile .l { display: flex; justify-content: space-between; gap: 8px; }
+  .tile .c { font-size: 12px; color: #605e5c; max-width: 50%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .frame { text-align: center; padding: 40px 12px; background: #fff; border-radius: 4px; box-shadow: 0 1px 6px rgba(0,0,0,.18); }
+  .frame h2 { font-size: 16px; margin: 4px 0; }
+  .scrim { position: fixed; inset: 0; background: rgba(0,0,0,.35); display: flex; align-items: center; justify-content: center; padding: 12px; z-index: 20; }
+  .dlg { background: #fff; border-radius: 6px; width: 540px; max-width: 100%; padding: 18px 20px; box-shadow: 0 8px 28px rgba(0,0,0,.35); max-height: 100%; overflow: auto; }
+  .dlg h2 { font-size: 18px; margin: 0 0 10px; font-weight: 600; }
+  .dlg .foot { display: flex; gap: 8px; justify-content: flex-end; margin-top: 16px; }
+  .fld { margin: 10px 0; position: relative; }
+  .fld > label { display: block; font-size: 12px; color: #605e5c; margin-bottom: 2px; }
+  .fld input[type=text] { width: 100%; height: 28px; border: 1px solid #8a8886; border-radius: 4px; padding: 0 8px; font: inherit; }
+  .fld input.ro { border-color: transparent; background: transparent; }
+  .fld .invalid { border-color: #a4262c; }
+  .err { color: #a4262c; font-size: 12px; margin: 2px 0 0; }
+  .cap { font-size: 12px; color: #605e5c; margin: 2px 0 0; }
+  .skel { height: 28px; background: linear-gradient(90deg, #edebe9, #f8f8f8, #edebe9); border-radius: 4px; }
+  #toast { position: fixed; left: 16px; bottom: 16px; background: #323130; color: #fff; padding: 8px 12px; border-radius: 4px; display: none; z-index: 30; max-width: 80vw; }
+  #toast.error { background: #a4262c; }
+  .band { background: #f3f2f1; padding: 8px 18px; display: grid; grid-template-columns: minmax(240px, 253px) minmax(240px, 253px) 1fr; column-gap: 32px; row-gap: 2px; }
+  @media (max-width: 720px) { .band { grid-template-columns: 1fr; } }
+  .prop { display: flex; align-items: center; min-height: 32px; gap: 8px; }
+  .prop > span.k { width: 82px; color: #605e5c; font-size: 12px; flex: none; }
+  .topbar { background: #fff; border-radius: 4px; padding: 8px 12px; box-shadow: 0 1px 6px rgba(0,0,0,.18); display: flex; align-items: center; gap: 4px; flex-wrap: wrap; margin-bottom: 14px; }
+  .topbar .sep { color: #605e5c; }
+  .alertbox { background: #fde7e9; border-radius: 4px; padding: 8px 10px; display: flex; gap: 8px; align-items: center; margin-bottom: 10px; }
+  @media (max-width: 640px) { main { padding: 12px; } .ms { width: 100%; } }
+</style>
+</head>
+<body>
+<header class="top">
+  <b>feat-040</b>
+  <button data-screen="backlog" aria-pressed="true">Бэклог команды</button>
+  <button data-screen="board" aria-pressed="false">Канбан команды</button>
+  <button data-screen="card" aria-pressed="false">Карточка</button>
+  <button data-screen="switcher" aria-pressed="false">Переключатель</button>
+  <span class="grow"></span>
+  <label>Пользователь <select id="user"><option value="ann">Ann: «Администратор», без команд</option><option value="max">Max: «Участник», VENUS</option><option value="vera">Vera: «Читатель»</option></select></label>
+  <label>Команда <select id="team"><option>MARS</option><option>VENUS</option><option>JUPITER</option></select></label>
+</header>
+<main id="main"></main>
+<div id="toast" role="status"></div>
+<script>
+'use strict';
+// The spec's cast: «Ромашка», projects Alpha/Beta/Gamma/Delta; MARS (Alpha, Beta, Gamma), VENUS (Alpha), JUPITER (none).
+var PROJECTS = { p1: { name: 'Alpha', key: 'ALP' }, p2: { name: 'Beta', key: 'BET' }, p3: { name: 'Gamma', key: 'GAM' }, p4: { name: 'Delta', key: 'DLT' } };
+var TEAMS = { MARS: { projects: ['p1', 'p2', 'p3'] }, VENUS: { projects: ['p1'] }, JUPITER: { projects: [] } };
+var USERS = { ann: { own: [], role: 'admin' }, max: { own: ['VENUS'], role: 'member' }, vera: { own: [], role: 'reader' } };
+var items = [
+  { id: 'ALP-US-1', title: 'Вход по ссылке из письма', p: 'p1', team: 'MARS', st: 0, who: 'Анна Смирнова' },
+  { id: 'BET-US-1', title: 'Повторная отправка письма', p: 'p2', team: 'MARS', st: 1, who: 'Не назначен' },
+  { id: 'ALP-US-2', title: 'Экспорт отчёта', p: 'p1', team: 'MARS', st: 0, who: 'Ольга Петрова' },
+  { id: 'BET-US-2', title: 'Подсказки в форме', p: 'p2', team: 'MARS', st: 2, who: 'Не назначен' },
+  { id: 'GAM-US-1', title: 'Печать накладной', p: 'p3', team: 'MARS', st: 0, who: 'Не назначен' },
+  { id: 'ALP-US-8', title: 'Список складов', p: 'p1', team: 'VENUS', st: 0, who: 'Не назначен' },
+  { id: 'ALP-US-9', title: 'Импорт справочника', p: 'p1', team: null, st: 1, who: 'Не назначен' }
+];
+var STATES = ['Новая', 'Активна', 'Закрыта'];
+var S = { screen: 'backlog', user: 'ann', team: 'MARS', filter: [], page: 'backlog', menu: null, dlg: null, sw: 'ready', gamma: true, toastT: 0 };
+var $ = function (s, r) { return (r || document).querySelector(s); };
+var $$ = function (s, r) { return Array.prototype.slice.call((r || document).querySelectorAll(s)); };
+var esc = function (t) { return String(t).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); };
+var canWrite = function () { return USERS[S.user].role !== 'reader'; };
+function toast(text, error) { var t = $('#toast'); t.textContent = text; t.className = error ? 'error' : ''; t.style.display = 'block'; clearTimeout(S.toastT); S.toastT = setTimeout(function () { t.style.display = 'none'; }, 6000); }
+function activeProjects(team) { return TEAMS[team].projects.filter(function (id) { return S.gamma || id !== 'p3'; }); }
+function teamList() { var own = USERS[S.user].own, all = Object.keys(TEAMS).sort(); return own.slice().sort().concat(all.filter(function (n) { return own.indexOf(n) < 0; })); }
+function knownFilter() { var ok = activeProjects(S.team); return S.filter.filter(function (id) { return ok.indexOf(id) >= 0; }); }
+function visible() {
+  var ok = activeProjects(S.team), known = knownFilter();
+  return items.filter(function (i) { return i.team === S.team && ok.indexOf(i.p) >= 0 && (S.filter.length === 0 || known.indexOf(i.p) >= 0); });
+}
+function address() {
+  var q = S.filter.map(function (id) { return 'projectId=' + id; }).join('&');
+  return '/organizations/Ромашка/teams/' + S.team + '/' + (S.page === 'backlog' ? 'backlogs' : 'boards') + '/stories' + (q ? '?' + q : '');
+}
+function filterText() {
+  if (S.filter.length === 0) return '<span class="mute">Все проекты</span>';
+  var k = knownFilter();
+  return k.length ? esc(k.map(function (id) { return PROJECTS[id].name; }).join(', ')) : 'Фильтр задан';
+}
+
+// ---- the head, the filter row, the two views ----
+function headHtml(canCreate) {
+  var other = S.page === 'backlog' ? 'Показать канбан' : 'Показать бэклог';
+  return '<div class="head"><h1 id="h1">' + esc(S.team) + '</h1>' +
+    '<span class="rel"><button class="ghost" id="chev" aria-label="Сменить команду" aria-haspopup="menu" aria-expanded="' + (S.menu === 'teams') + '">⌄</button>' +
+    (S.menu === 'teams' ? '<ul class="menu" role="menu" aria-label="Команды">' + teamList().map(function (n) { return '<li role="menuitem" tabindex="0" data-team="' + n + '"' + (n === S.team ? ' aria-current="page"' : '') + '>' + esc(n) + '</li>'; }).join('') + '</ul>' : '') + '</span>' +
+    '<span class="grow"></span>' +
+    (canCreate && S.page === 'backlog' ? '<button class="primary" id="new">+ Новый рабочий элемент</button>' : '') +
+    '<button id="other">' + other + '</button></div>' +
+    '<div class="tabrow"><span class="tab">' + (S.page === 'backlog' ? 'Бэклог' : 'Канбан') + '</span><span class="mute">Истории ⌄</span></div>';
+}
+function filterRowHtml() {
+  var has = activeProjects(S.team).length > 0 || S.filter.length > 0;
+  if (!has) return '';
+  var opts = activeProjects(S.team);
+  return '<div class="filters" role="group" aria-label="Фильтры"><div><label class="t" id="plabel">Проект</label><div class="ms">' +
+    '<button class="box' + (S.filter.length ? '' : ' empty') + '" id="pbox" aria-labelledby="plabel" aria-haspopup="listbox" aria-expanded="' + (S.menu === 'proj') + '">' + filterText() + '</button>' +
+    (S.menu === 'proj' ? '<ul class="menu" role="listbox" aria-multiselectable="true" aria-labelledby="plabel" style="width:100%">' +
+      (opts.length ? opts.map(function (id) { return '<li role="option" tabindex="0" data-p="' + id + '" aria-selected="' + (S.filter.indexOf(id) >= 0) + '"><input type="checkbox" aria-hidden="true" tabindex="-1" ' + (S.filter.indexOf(id) >= 0 ? 'checked' : '') + '> ' + esc(PROJECTS[id].name) + '</li>'; }).join('') : '<li class="static">Нет проектов</li>') + '</ul>' : '') +
+    '</div></div>' + (S.filter.length ? '<button class="sub" id="clear">⊘ Очистить фильтры</button>' : '') + '</div>';
+}
+function emptyHtml(filtered) {
+  if (filtered) return '<div class="frame"><div>⊘</div><h2>Ничего не найдено</h2><p class="mute">Ни один рабочий элемент не подходит под заданные условия фильтра.</p><button id="reset">Сбросить фильтр</button></div>';
+  if (activeProjects(S.team).length === 0) return '<div class="frame"><div>▤</div><h2>' + (S.page === 'backlog' ? 'Бэклог пуст' : 'Канбан пуст') + '</h2><p class="mute">Команда не участвует ни в одном проекте.</p></div>';
+  return '<div class="frame"><h2>' + (S.page === 'backlog' ? 'Бэклог пуст' : 'Канбан пуст') + '</h2><p class="mute">' + (canWrite() ? 'Добавьте рабочий элемент — он встанет в конец бэклога.' : 'Рабочие элементы создают участники организации с ролью «Участник» или «Администратор».') + '</p></div>';
+}
+function renderView() {
+  var list = visible(), canCreate = canWrite() && activeProjects(S.team).length > 0;
+  var body;
+  if (list.length === 0) body = emptyHtml(S.filter.length > 0);
+  else if (S.page === 'backlog') {
+    body = '<div class="card wrap"><table aria-label="Бэклог"><thead><tr><th>Порядок</th><th>Тип</th><th>Заголовок</th><th>Статус</th><th>Команда</th><th>Проект</th><th>Трудоёмкость</th></tr></thead><tbody>' +
+      list.map(function (i, n) { return '<tr data-id="' + i.id + '" ' + (canWrite() ? 'draggable="true"' : '') + '><td>' + (n + 1) + '</td><td>📘 История</td><td><a href="#" data-open="' + i.id + '">' + esc(i.id) + ' ' + esc(i.title) + '</a></td><td>' + STATES[i.st] + '</td><td>' + esc(i.team || 'Без команды') + '</td><td>' + esc(PROJECTS[i.p].name) + '</td><td>—</td></tr>'; }).join('') + '</tbody></table></div>' +
+      (canWrite() ? '<p class="note" style="margin-top:8px">Перетащите строку на строку другого проекта: она помечается пунктирной рамкой, а при отпускании ничего не отправляется.</p>' : '');
+  } else {
+    body = '<div class="board">' + STATES.map(function (st, k) {
+      var col = list.filter(function (i) { return i.st === k; });
+      return '<section class="col" aria-label="' + st + '"><h2>' + st + ' · ' + col.length + '</h2>' + (k === 0 && canCreate ? '<button id="newcol" style="width:100%;margin-bottom:8px">+ Новый элемент</button>' : '') +
+        col.map(function (i) { return '<div class="tile"><div><span class="mute">📘 ' + i.id + '</span> <a href="#" data-open="' + i.id + '">' + esc(i.title) + '</a></div><div class="l"><span>● ' + STATES[i.st] + '</span><span class="c"><span class="sr" style="position:absolute;left:-9999px">Команда: </span>' + esc(i.team || 'Без команды') + '</span></div>' +
+          '<div class="l"><span class="mute">' + esc(i.who) + '</span><span class="c"><span style="position:absolute;left:-9999px">Проект: </span>' + esc(PROJECTS[i.p].name) + '</span></div></div>'; }).join('') + '</section>';
+    }).join('') + '</div>';
+  }
+  return '<p class="note">Адрес команды не называет проект. Список — рабочие элементы команды во всех её проектах. «Показать …» и смена уровня сохраняют фильтр; меню «Команды», переключатель и пункты «Бэклоги»/«Канбан» его сбрасывают. Состояния фильтра: «Имитировать значение» ниже.</p>' +
+    '<div class="addr" aria-label="Адрес страницы">' + esc(address()) + '</div>' + headHtml(canCreate) + filterRowHtml() + body +
+    '<p class="note" style="margin-top:12px"><button id="badval">Имитировать: в адресе неизвестный проект</button> <button id="gamma">' + (S.gamma ? 'Деактивировать Gamma' : 'Восстановить Gamma') + '</button></p>';
+}
+
+// ---- the creation dialog ----
+function openDialog(initialProject) {
+  var ps = activeProjects(S.team), known = knownFilter();
+  var start = null;
+  if (S.filter.length === 1 && known.length === 1) start = known[0]; else if (ps.length === 1) start = ps[0];
+  S.dlg = { project: start || initialProject || null, team: S.team, errP: '', errT: '', errTitle: '', title: '', notice: '', stale: false, open: false, q: '' };
+}
+function dlgTeams(p) { return Object.keys(TEAMS).filter(function (n) { return TEAMS[n].projects.indexOf(p) >= 0; }).sort(); }
+function dialogHtml() {
+  var d = S.dlg, ps = activeProjects(S.team);
+  var teamOpts = d.project ? [null].concat(dlgTeams(d.project)) : [];
+  var cap = !d.project ? 'Встанет в конец бэклога команды «' + d.team + '». Другую команду можно выбрать после выбора проекта.' : (d.notice ? d.notice : (d.team ? 'Встанет в конец бэклога команды «' + d.team + '».' : 'Попадёт только в бэклог проекта.'));
+  var q = d.q.toLowerCase();
+  return '<div class="scrim"><div class="dlg" role="dialog" aria-modal="true" aria-labelledby="dt"><h2 id="dt">Новый рабочий элемент</h2>' +
+    '<p class="mute" style="margin:0">' + (d.project ? 'Рабочий элемент будет создан в статусе «Новая» в области «' + esc(PROJECTS[d.project].name) + '». Остальные поля заполняются в его форме.' : 'Рабочий элемент будет создан в статусе «Новая». Остальные поля заполняются в его форме.') + '</p>' +
+    '<div class="fld"><label for="dp">Проект *</label><input type="text" id="dp" role="combobox" aria-expanded="' + d.open + '" aria-required="true" aria-invalid="' + !!d.errP + '" autocomplete="off" placeholder="Найти проект" class="' + (d.errP ? 'invalid' : '') + '" value="' + esc(d.open ? d.q : (d.project ? PROJECTS[d.project].name : '')) + '">' +
+    (d.open ? '<ul class="menu" role="listbox" style="width:100%;top:48px">' + (ps.filter(function (id) { return PROJECTS[id].name.toLowerCase().indexOf(q) >= 0; }).map(function (id) { return '<li role="option" data-dp="' + id + '" aria-selected="' + (d.project === id) + '">' + esc(PROJECTS[id].name) + '</li>'; }).join('') || '<li class="static">Ничего не найдено</li>') + '</ul>' : '') +
+    (d.errP ? '<div class="err" role="alert">' + esc(d.errP) + '</div>' : '') + '</div>' +
+    '<div class="fld"><label for="dtype">Тип</label><input type="text" id="dtype" value="📘 Пользовательская история" readonly></div>' +
+    '<div class="fld"><label for="dteam">Команда</label>' + (d.project ?
+      '<select id="dteam" class="box" style="height:30px">' + teamOpts.map(function (n) { return '<option value="' + (n || '') + '"' + ((n || null) === d.team ? ' selected' : '') + '>' + (n || 'Без команды') + '</option>'; }).join('') + '</select>' :
+      '<input type="text" class="ro" id="dteam" value="' + esc(d.team) + '" readonly aria-readonly="true">') +
+    (d.errT ? '<div class="err" role="alert">' + esc(d.errT) + '</div>' : '') + '<div class="cap" id="dcap">' + esc(cap) + '</div><div role="status" style="position:absolute;left:-9999px">' + esc(d.notice) + '</div></div>' +
+    '<div class="fld"><label for="dtitle">Заголовок *</label><input type="text" id="dtitle" aria-required="true" class="' + (d.errTitle ? 'invalid' : '') + '" value="' + esc(d.title) + '">' + (d.errTitle ? '<div class="err" role="alert">' + esc(d.errTitle) + '</div>' : '<div class="cap">До 255 символов</div>') + '</div>' +
+    '<div class="foot"><button id="dsim" class="sub">Имитировать: проект деактивирован</button><button id="dcancel">Отмена</button><button class="primary" id="dcreate">Создать</button></div></div></div>';
+}
+function bindDialog() {
+  var d = S.dlg; if (!d) return;
+  var dp = $('#dp');
+  dp.addEventListener('click', function () { if (d.open) return; d.open = true; d.q = ''; paint(); $('#dp').focus(); });
+  dp.addEventListener('keydown', function (e) { if (e.key === 'ArrowDown' && !d.open) { e.preventDefault(); d.open = true; d.q = ''; paint(); $('#dp').focus(); } if (e.key === 'Escape' && d.open) { e.stopPropagation(); d.open = false; paint(); $('#dp').focus(); } });
+  dp.addEventListener('input', function (e) { d.q = e.target.value; d.open = true; paint(); var el = $('#dp'); el.focus(); el.setSelectionRange(d.q.length, d.q.length); });
+  $$('[data-dp]').forEach(function (li) { li.addEventListener('mousedown', function (e) {
+    e.preventDefault(); var p = li.dataset.dp; d.project = p; d.open = false; d.errP = ''; d.stale = false;
+    if (d.team && TEAMS[d.team] && dlgTeams(p).indexOf(d.team) < 0) { var old = d.team; d.team = S.team; d.notice = 'Команда «' + old + '» не участвует в проекте «' + PROJECTS[p].name + '». Выбрана «' + S.team + '».'; } else d.notice = '';
+    paint(); $('#dp').focus(); }); });
+  dp.addEventListener('blur', function () { setTimeout(function () { if (S.dlg && d.open && document.activeElement !== $('#dp')) { d.open = false; paint(); } }, 120); });
+  var ts = $('#dteam'); if (ts && ts.tagName === 'SELECT') ts.addEventListener('change', function () { d.team = ts.value || null; d.errT = ''; d.notice = ''; paint(); });
+  $('#dtitle').addEventListener('input', function (e) { d.title = e.target.value; });
+  $('#dcancel').onclick = function () { S.dlg = null; paint(); };
+  $('#dsim').onclick = function () { d.stale = true; toast('Проект деактивирован другим пользователем; нажмите «Создать».'); };
+  $('#dcreate').onclick = function () {
+    d.errP = ''; d.errTitle = ''; d.errT = '';
+    if (!d.project) d.errP = 'Выберите проект';
+    if (!d.title.trim()) d.errTitle = 'Введите заголовок.';
+    if (!d.errP && d.stale) d.errP = 'Проект не найден.';
+    if (d.errP || d.errTitle) { paint(); (d.errP ? $('#dp') : $('#dtitle')).focus(); return; }
+    var n = items.length + 40, id = PROJECTS[d.project].key + '-US-' + n;
+    items.push({ id: id, title: d.title, p: d.project, team: d.team, st: 0, who: 'Не назначен' });
+    var msg = 'Рабочий элемент ' + id + ' создан.';
+    if (d.team !== S.team) msg += ' Он не принадлежит этой команде.'; else if (S.filter.length && knownFilter().indexOf(d.project) < 0) msg += ' Он не подходит под текущий фильтр.';
+    S.dlg = null; paint(); toast(msg);
+  };
+  if (!d.focused) { d.focused = true; if (!d.project) dp.focus(); else $('#dtitle').focus(); }
+}
+
+// ---- the card band ----
+function renderCard() {
+  var ro = !canWrite();
+  return '<p class="note">Полоса свойств карточки: «Проект» — в блоке A, строка 2, под «Статус», только для чтения (D-2 A). «Область» и «Команда» — проекта элемента. Сузьте окно до 720 px: блоки встают в столбец.</p>' +
+    '<div class="card"><div style="padding:14px 18px"><div class="mute">📘 BET-US-1 · Beta</div><h1 style="font-size:20px">Повторная отправка письма</h1></div>' +
+    '<div class="band"><div><div class="prop"><span class="k">Статус</span><span>● Активна</span></div><div class="prop"><span class="k">Проект</span><span>Beta</span></div></div>' +
+    '<div><div class="prop"><span class="k">Область</span><span>Beta</span></div><div class="prop"><span class="k">Команда</span><span>' + (ro ? 'MARS' : 'MARS ⌄') + '</span></div></div>' +
+    '<div class="mute" style="text-align:right;font-size:12px">Изменён: 18.10.2026 09:14</div></div>' +
+    '<div style="padding:14px 18px" class="mute">Карточка открыта поверх команды MARS по адресу <span class="addr">…/teams/MARS/boards/stories?workitem=BET-US-1</span> и читается в проекте Beta.</div></div>';
+}
+
+// ---- the switcher ----
+function renderSwitcher() {
+  var teams = teamList();
+  var lvl = S.sw === 'loading' ? '<span class="mute">▭ загрузка…</span>' : S.sw === 'failed' ? '<span>Не удалось загрузить команды <button class="sub" id="retry">Повторить</button></span>' : S.sw === 'none' ? '<span class="mute">Нет команд</span>' :
+    '<span class="rel"><button class="ghost" id="swteam" aria-haspopup="menu" aria-expanded="' + (S.menu === 'sw') + '">Команда: ' + esc(S.team) + ' ⌄</button>' +
+    (S.menu === 'sw' ? '<ul class="menu" role="menu" aria-label="Команды"><li class="cap" role="presentation">Команды</li>' + teams.map(function (n) { return '<li role="menuitem" tabindex="0" data-swteam="' + n + '"' + (n === S.team ? ' aria-current="true"' : '') + '>' + (n === S.team ? '✓ ' : '') + esc(n) + '</li>'; }).join('') + '</ul>' : '') + '</span>';
+  return '<p class="note">Командный уровень — команды организации, свои первыми, затем по имени, без заголовков групп; он виден и в организации без проектов. Смена проекта не двигает команду.</p>' +
+    '<div class="row" style="margin-bottom:8px"><button data-sw="ready">Команды прочитаны</button><button data-sw="loading">Загрузка</button><button data-sw="failed">Ошибка</button><button data-sw="none">Нет команд</button></div>' +
+    '<div class="topbar" role="group" aria-label="Контекст работы"><span>Ромашка ⌄</span><span class="sep">/</span><span>Alpha ⌄</span><span class="sep">/</span>' + lvl + '</div>' +
+    '<div class="topbar"><span>Ромашка ⌄</span><span class="sep">/</span><span class="mute">Нет проектов</span><span class="sep">/</span><span>Команда: ' + esc(teams[0]) + ' ⌄</span><span class="mute" style="margin-left:12px">← организация без проектов</span></div>' +
+    (S.sw === 'ready' || S.sw === 'loading' ? '' : '<p class="note">«Бэклоги» и «Канбан» скрыты, пока команды не прочитаны или их нет.</p>');
+}
+
+// ---- paint and events ----
+function paint() {
+  $$('header.top [data-screen]').forEach(function (b) { b.setAttribute('aria-pressed', String(b.dataset.screen === S.screen)); });
+  var m = $('#main');
+  if (S.screen === 'backlog' || S.screen === 'board') { S.page = S.screen; m.innerHTML = renderView() + (S.dlg ? dialogHtml() : ''); bindView(); if (S.dlg) bindDialog(); }
+  else if (S.screen === 'card') m.innerHTML = renderCard();
+  else { m.innerHTML = renderSwitcher(); bindSwitcher(); }
+}
+function bindView() {
+  var chev = $('#chev'); if (chev) chev.onclick = function () { S.menu = S.menu === 'teams' ? null : 'teams'; paint(); var f = $('[data-team][aria-current]'); if (f) f.focus(); };
+  $$('[data-team]').forEach(function (li) { function go() { S.team = li.dataset.team; S.filter = []; S.menu = null; $('#team').value = S.team; paint(); } li.onclick = go; li.onkeydown = function (e) { if (e.key === 'Enter') go(); if (e.key === 'Escape') { S.menu = null; paint(); $('#chev').focus(); } if (e.key === 'ArrowDown' && li.nextElementSibling) li.nextElementSibling.focus(); if (e.key === 'ArrowUp' && li.previousElementSibling) li.previousElementSibling.focus(); }; });
+  var pbox = $('#pbox'); if (pbox) pbox.onclick = function () { S.menu = S.menu === 'proj' ? null : 'proj'; paint(); var f = $('[data-p]'); if (f) f.focus(); };
+  $$('[data-p]').forEach(function (li) { function tog() { var id = li.dataset.p, i = S.filter.indexOf(id); if (i >= 0) S.filter.splice(i, 1); else S.filter.push(id); paint(); var again = $('[data-p="' + id + '"]'); if (again) again.focus(); } li.onclick = tog; li.onkeydown = function (e) { if (e.key === ' ' || e.key === 'Enter') { e.preventDefault(); tog(); } if (e.key === 'Escape') { S.menu = null; paint(); $('#pbox').focus(); } if (e.key === 'ArrowDown' && li.nextElementSibling) li.nextElementSibling.focus(); if (e.key === 'ArrowUp' && li.previousElementSibling) li.previousElementSibling.focus(); }; });
+  var c = $('#clear'); if (c) c.onclick = function () { S.filter = []; S.menu = null; paint(); };
+  var r = $('#reset'); if (r) r.onclick = function () { S.filter = []; paint(); };
+  var o = $('#other'); if (o) o.onclick = function () { S.screen = S.page === 'backlog' ? 'board' : 'backlog'; paint(); };
+  var nw = $('#new'); if (nw) nw.onclick = function () { openDialog(); paint(); };
+  var nc = $('#newcol'); if (nc) nc.onclick = function () { openDialog(); paint(); };
+  var bv = $('#badval'); if (bv) bv.onclick = function () { S.filter = ['p-unknown']; paint(); };
+  var g = $('#gamma'); if (g) g.onclick = function () { S.gamma = !S.gamma; paint(); };
+  $$('[data-open]').forEach(function (a) { a.onclick = function (e) { e.preventDefault(); S.screen = 'card'; paint(); }; });
+  bindDrag();
+}
+function bindDrag() {
+  var dragged = null;
+  $$('tbody tr[draggable]').forEach(function (tr) {
+    tr.addEventListener('dragstart', function (e) { dragged = tr.dataset.id; tr.classList.add('dragging'); e.dataTransfer.setData('text/plain', dragged); });
+    tr.addEventListener('dragend', function () { dragged = null; $$('tr').forEach(function (x) { x.classList.remove('dragging', 'ok', 'no'); }); });
+    tr.addEventListener('dragover', function (e) {
+      if (!dragged || dragged === tr.dataset.id) return; e.preventDefault();
+      var a = items.filter(function (i) { return i.id === dragged; })[0], b = items.filter(function (i) { return i.id === tr.dataset.id; })[0];
+      tr.classList.toggle('no', a.p !== b.p); tr.classList.toggle('ok', a.p === b.p);
+    });
+    tr.addEventListener('dragleave', function () { tr.classList.remove('ok', 'no'); });
+    tr.addEventListener('drop', function (e) {
+      e.preventDefault(); if (!dragged) return;
+      var a = items.filter(function (i) { return i.id === dragged; })[0], b = items.filter(function (i) { return i.id === tr.dataset.id; })[0];
+      if (a.p !== b.p) toast('Родителем может быть только рабочий элемент того же проекта.', true); else toast('У ' + a.id + ' теперь родитель ' + b.id + '.');
+      tr.classList.remove('ok', 'no');
+    });
+  });
+}
+function bindSwitcher() {
+  $$('[data-sw]').forEach(function (b) { b.onclick = function () { S.sw = b.dataset.sw; S.menu = null; paint(); }; });
+  var t = $('#swteam'); if (t) t.onclick = function () { S.menu = S.menu === 'sw' ? null : 'sw'; paint(); };
+  $$('[data-swteam]').forEach(function (li) { li.onclick = function () { S.team = li.dataset.swteam; $('#team').value = S.team; S.menu = null; S.filter = []; S.screen = 'backlog'; paint(); toast('Открыт бэклог команды ' + S.team + ' — «Истории», без фильтра.'); }; });
+  var rt = $('#retry'); if (rt) rt.onclick = function () { S.sw = 'ready'; paint(); };
+}
+$$('header.top [data-screen]').forEach(function (b) { b.onclick = function () { S.screen = b.dataset.screen; S.menu = null; paint(); }; });
+$('#user').onchange = function (e) { S.user = e.target.value; S.menu = null; paint(); };
+$('#team').onchange = function (e) { S.team = e.target.value; S.filter = []; S.menu = null; paint(); };
+paint();
+</script>
+</body>
+</html>

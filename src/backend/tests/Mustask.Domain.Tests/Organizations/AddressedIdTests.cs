@@ -6,7 +6,7 @@ namespace Mustask.Domain.Tests.Organizations;
 /// <summary>
 /// api-contract § 0.2 (BR-M1-20): one definition of a well-formed id. It agrees
 /// with mod-001's <see cref="OrganizationKey"/> on every value, so the
-/// organization-context filter and the process read never disagree.
+/// scoped check (ADR-0027) and the process read never disagree.
 /// </summary>
 public sealed class AddressedIdTests
 {

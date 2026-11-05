@@ -74,7 +74,7 @@ export function AddChildRow({
   onCancel(how: AddCancel): void;
 }) {
   const theme = useTheme();
-  const table = theme.layout.backlogTable;
+  const { table, iconAction } = theme.layout;
   const [title, setTitle] = useState(initialTitle);
   const [checked, setChecked] = useState<string | null>(null);
   const row = useRef<HTMLTableRowElement>(null);
@@ -156,7 +156,7 @@ export function AddChildRow({
           <Box
             aria-hidden="true"
             sx={{
-              width: table.chevronSlot,
+              width: iconAction.chevron.box,
               height: theme.density.registryRowHeight,
               flexShrink: 0,
             }}
@@ -228,6 +228,9 @@ export function AddChildRow({
           />
         </Box>
       </BacklogCell>
+      {/* «Статус», «Команда», «Проект» (feat-040 D-1), «Трудоёмкость», «Бизнес-ценность», «Вид ценности»: nothing yet. */}
+      <BacklogCell />
+      <BacklogCell />
       <BacklogCell />
       <BacklogCell />
       <BacklogCell />

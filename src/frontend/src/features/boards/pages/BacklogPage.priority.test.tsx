@@ -1,9 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { Route } from 'react-router-dom';
 import { authValue, renderShell } from '../../../test/renderShell';
-import { WORK_ITEM_ROUTE, WorkItemFormPage } from '../../workitems';
 import { serveWorkItems } from '../../workitems/testApi';
 import { serveBoards } from '../testApi';
 import { findBacklogTable, identifiers, openActions, titleLink, rowOf } from '../testBacklog';
@@ -54,6 +52,8 @@ describe('feat-027 D-7 Scenario: «Приоритет» is not on the backlog ro
       'Тип',
       'Заголовок',
       'Статус',
+      'Команда',
+      'Проект',
       'Трудоёмкость',
       'Бизнес-ценность',
       'Вид ценности',
@@ -66,47 +66,42 @@ describe('feat-027 D-7 Scenario: «Приоритет» is not on the backlog ro
 });
 
 describe('feat-022 US-6 Scenario: A card shows the priority', () => {
-  it('MSK-US-12’s card reads «Приоритет: 1» as a caption on its third line, after the assignee', async () => {
+  it('MSK-US-12’s card reads «Приоритет: 1» as a caption on its third line, after the assignee, the project at its right end (feat-040 D-1)', async () => {
     serveBoards(priorityDataset());
     renderBacklog(boardAddress('stories'));
 
     const card = cardOf(await findBoard(), 'MSK-US-12');
     const third = card.children[2] as HTMLElement;
-    expect(third).toHaveTextContent(/^Не назначенПриоритет: 1$/);
+    expect(third).toHaveTextContent(/^Не назначенПриоритет: 1Проект: Мастаск$/);
     expect(within(third).getByText('Приоритет: 1')).toHaveClass('MuiTypography-caption');
     expect(within(cardOf(await findBoard(), 'MSK-BUG-4')).getByText('Приоритет: 3')).toBeVisible();
   });
 });
 
 describe('feat-022 US-6 Scenario: A change on the form shows on the board', () => {
-  it('MSK-US-12 saved with «Приоритет» 4 on its form reads «Приоритет: 4» on the board', async () => {
+  it('MSK-US-12 saved with «Приоритет» 4 in its card reads «Приоритет: 4» on the board', async () => {
     const data = priorityDataset();
     serveBoards(data);
-    // The form's reads and save, over the same items.
+    // The card's reads and save, over the same items.
     serveWorkItems(data);
-    renderShell({
-      path: backlogAddress('stories'),
-      auth: authValue([]),
-      contextSource: teamContext(),
-      routes: (
-        <>
-          <Route path={WORK_ITEM_ROUTE} element={<WorkItemFormPage />} />
-          {boardsRoutes()}
-        </>
-      ),
-    });
+    renderBacklog(backlogAddress('stories'));
     const table = await findBacklogTable();
 
+    // A title opens the card as a dialog over the backlog (feat-029 BR-C-1).
     await userEvent.click(titleLink(rowOf(table, 'MSK-US-12')));
     await userEvent.click(await screen.findByRole('combobox', { name: 'Приоритет' }));
     await userEvent.click(screen.getByRole('option', { name: '4' }));
     await userEvent.click(screen.getByRole('button', { name: 'Сохранить' }));
     expect(await screen.findByText('Изменения сохранены.')).toBeInTheDocument();
+    // The saved card keeps the user's place (focus goes to the title), so Esc closes it at once.
+    await userEvent.keyboard('{Escape}');
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
 
     const navigation = screen.getByRole('navigation', { name: 'Основное меню' });
     await userEvent.click(within(navigation).getByRole('link', { name: 'Канбан' }));
     expect(within(cardOf(await findBoard(), 'MSK-US-12')).getByText('Приоритет: 4')).toBeVisible();
-  });
+    // The work item’s form is the card of feat-029: its kit fields outlast the default in jsdom.
+  }, 120_000);
 });
 
 describe('feat-022 US-6 Scenario: Nothing else on the backlog or the board changes', () => {

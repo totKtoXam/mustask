@@ -222,7 +222,7 @@ public sealed class SaveWorkItemEndpointTests(MustaskApiFactory factory)
     public async Task Save_Assignee_SetThenCleared()
     {
         var (world, bug) = await BugAsync();
-        var anna = await WorkItemsTestData.AddUserAsync(factory, "Анна", "Смирнова", "anna.smirnova@example.com");
+        var anna = await WorkItemsTestData.AddMemberAsync(factory, world, "Анна", "Смирнова", "anna.smirnova@example.com");
 
         var assigned = await WorkItemsTestData.SaveAsync(factory, world, bug, new { assignee = new { userId = anna } });
 
@@ -241,7 +241,7 @@ public sealed class SaveWorkItemEndpointTests(MustaskApiFactory factory)
     public async Task Save_AssigneeNullOrAbsent_LeavesItAsItIs()
     {
         var (world, bug) = await BugAsync();
-        var anna = await WorkItemsTestData.AddUserAsync(factory, "Анна", "Смирнова");
+        var anna = await WorkItemsTestData.AddMemberAsync(factory, world, "Анна", "Смирнова");
         await WorkItemsTestData.SaveAsync(factory, world, bug, new { assignee = new { userId = anna } });
 
         await WorkItemsTestData.SaveAsync(factory, world, bug, new { title = "Иное", assignee = (object?)null });
@@ -255,7 +255,7 @@ public sealed class SaveWorkItemEndpointTests(MustaskApiFactory factory)
     public async Task Save_InactiveOrUnknownUser_Returns409AssigneeUnavailable_NothingStored()
     {
         var (world, bug) = await BugAsync();
-        var petr = await WorkItemsTestData.AddUserAsync(factory, "Пётр", "Иванов", active: false);
+        var petr = await WorkItemsTestData.AddMemberAsync(factory, world, "Пётр", "Иванов", active: false);
 
         foreach (var userId in new[] { petr, Guid.NewGuid().ToString(), "" })
         {
@@ -275,7 +275,7 @@ public sealed class SaveWorkItemEndpointTests(MustaskApiFactory factory)
     public async Task Save_AssigneeDisabledLater_StaysOnOtherSaves()
     {
         var (world, bug) = await BugAsync();
-        var anna = await WorkItemsTestData.AddUserAsync(factory, "Анна", "Смирнова");
+        var anna = await WorkItemsTestData.AddMemberAsync(factory, world, "Анна", "Смирнова");
         await WorkItemsTestData.SaveAsync(factory, world, bug, new { assignee = new { userId = anna } });
         await WorkItemsTestData.ExecuteAsync(factory, $"UPDATE directory_users SET enabled = false, is_active = false WHERE id = {anna}");
 
@@ -284,7 +284,10 @@ public sealed class SaveWorkItemEndpointTests(MustaskApiFactory factory)
 
         Assert.Equal((HttpStatusCode.OK, HttpStatusCode.OK), (titleOnly.Status, resent.Status));
         Assert.Equal((anna, "Анна Смирнова"), (Text(resent.Body, "assignee", "id"), Text(resent.Body, "assignee", "displayName")));
-        Assert.Equal(["displayName", "email", "id"], resent.Body.GetProperty("assignee").EnumerateObject().Select(p => p.Name).Order(StringComparer.Ordinal));
+
+        // The answer marks nothing (the «неактивен» mark is feat-017's); mod-016 adds only the membership flag (api-contract § 3.3).
+        Assert.Equal(["displayName", "email", "id", "isMember"], resent.Body.GetProperty("assignee").EnumerateObject().Select(p => p.Name).Order(StringComparer.Ordinal));
+        Assert.True(resent.Body.GetProperty("assignee").GetProperty("isMember").GetBoolean());
     }
 
     // US-4 · "An area is chosen and saved": the form and the list show its path.
@@ -297,9 +300,9 @@ public sealed class SaveWorkItemEndpointTests(MustaskApiFactory factory)
 
         var answer = await WorkItemsTestData.SaveAsync(factory, world, bug, new { areaId = api.Id.ToString() });
 
-        Assert.Equal((api.Id.ToString(), "Платформа / API"), (Text(answer.Body, "area", "id"), Text(answer.Body, "area", "path")));
+        Assert.Equal((api.Id.ToString(), "Мастаск / Платформа / API"), (Text(answer.Body, "area", "id"), Text(answer.Body, "area", "path")));
         var row = (await WorkItemsTestData.ListAsync(factory, world)).Body.GetProperty("data")[0];
-        Assert.Equal("Платформа / API", Text(row, "area", "path"));
+        Assert.Equal("Мастаск / Платформа / API", Text(row, "area", "path"));
     }
 
     // US-4 · "An area of another project is refused": «Склад» of «Операции» sent for MSK-BUG-1 is «Область не найдена.»
@@ -323,14 +326,15 @@ public sealed class SaveWorkItemEndpointTests(MustaskApiFactory factory)
     }
 
     // US-4 · "The item follows its area's changes": «API» renamed to «Шлюз» and moved under «Отчёты» reads «Отчёты / Шлюз»;
-    // deleting the team that owns it leaves the item's area as it is.
+    // deleting the team that owns the item (mod-017: area edits and a team deletion are apart) leaves the item's area as it is.
+    // Renamed (D-16, BR-OT-10): Save_AreaRenamedMovedAndItsTeamDeleted_ItemFollowsTheArea -> Save_AreaRenamedMoved_ThenTheItemsTeamDeleted_ItemKeepsItsArea.
     [Fact]
-    public async Task Save_AreaRenamedMovedAndItsTeamDeleted_ItemFollowsTheArea()
+    public async Task Save_AreaRenamedMoved_ThenTheItemsTeamDeleted_ItemKeepsItsArea()
     {
         var world = await WorkItemsTestData.CreateWorldAsync(factory);
         var bug = await WorkItemsTestData.CreateItemAsync(factory, world, "BUG", "Падение при входе");
         var team = await OrganizationsTestData.AddTeamAsync(factory, world.ProjectId, "Платформа");
-        var api = await OrganizationsTestData.AddAreaAsync(factory, world.ProjectId, team.Area.Id, "API", team.Team.Id);
+        var api = await OrganizationsTestData.AddAreaAsync(factory, world.ProjectId, world.RootAreaId, "API");
         var reports = await OrganizationsTestData.AddAreaAsync(factory, world.ProjectId, world.RootAreaId, "Отчёты");
         await WorkItemsTestData.SaveAsync(factory, world, bug, new { areaId = api.Id.ToString() });
         var areaRoute = $"{OrganizationsApi.Areas(world.OrganizationId, world.ProjectId)}/{api.Id}";
@@ -338,13 +342,14 @@ public sealed class SaveWorkItemEndpointTests(MustaskApiFactory factory)
         Assert.Equal(HttpStatusCode.OK, (await OrganizationsApi.SendAsync(factory, HttpMethod.Put, $"{areaRoute}/name", new { name = "Шлюз" }, OrganizationsTokens.SignedIn())).Status);
         Assert.Equal(HttpStatusCode.OK, (await OrganizationsApi.SendAsync(factory, HttpMethod.Put, $"{areaRoute}/parent", new { parentId = reports.Id.ToString() }, OrganizationsTokens.SignedIn())).Status);
 
-        Assert.Equal("Отчёты / Шлюз", Text(await WorkItemsTestData.ReadAsync(factory, world, bug), "area", "path"));
-        Assert.Equal("Отчёты / Шлюз", Text((await WorkItemsTestData.ListAsync(factory, world)).Body.GetProperty("data")[0], "area", "path"));
+        Assert.Equal("Мастаск / Отчёты / Шлюз", Text(await WorkItemsTestData.ReadAsync(factory, world, bug), "area", "path"));
+        Assert.Equal("Мастаск / Отчёты / Шлюз", Text((await WorkItemsTestData.ListAsync(factory, world)).Body.GetProperty("data")[0], "area", "path"));
 
-        await OrganizationsTestData.DeleteTeamAsync(factory, world.ProjectId, team.Team.Id);
+        await WorkItemsTestData.ExecuteAsync(factory, $"UPDATE work_items SET owning_team_id = {team.Id} WHERE project_id = {world.ProjectId}");
+        await OrganizationsTestData.DeleteTeamAsync(factory, world.ProjectId, team.Id);
 
         var after = await WorkItemsTestData.ReadAsync(factory, world, bug);
-        Assert.Equal((api.Id.ToString(), "Отчёты / Шлюз"), (Text(after, "area", "id"), Text(after, "area", "path")));
+        Assert.Equal((api.Id.ToString(), "Мастаск / Отчёты / Шлюз"), (Text(after, "area", "id"), Text(after, "area", "path")));
     }
 
     // --- US-5 ------------------------------------------------------------------------------------------------------
@@ -375,7 +380,7 @@ public sealed class SaveWorkItemEndpointTests(MustaskApiFactory factory)
     public async Task Save_StateOnly_LeavesAssigneeAndAreaAsTheyAre()
     {
         var (world, bug) = await BugAsync();
-        var anna = await WorkItemsTestData.AddUserAsync(factory, "Анна", "Смирнова");
+        var anna = await WorkItemsTestData.AddMemberAsync(factory, world, "Анна", "Смирнова");
         var platform = await OrganizationsTestData.AddAreaAsync(factory, world.ProjectId, world.RootAreaId, "Платформа");
         await WorkItemsTestData.SaveAsync(factory, world, bug, new
         {
@@ -424,7 +429,7 @@ public sealed class SaveWorkItemEndpointTests(MustaskApiFactory factory)
     public async Task Save_SeveralFaults_AnsweredInTheContractsOrder()
     {
         var (world, bug) = await BugAsync();
-        var petr = await WorkItemsTestData.AddUserAsync(factory, "Пётр", "Иванов", active: false);
+        var petr = await WorkItemsTestData.AddMemberAsync(factory, world, "Пётр", "Иванов", active: false);
         var removed = world.Types["BUG"].StateId(StateCategory.Removed).ToString();
         var unknownArea = Guid.CreateVersion7().ToString();
 

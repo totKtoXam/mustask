@@ -7,7 +7,7 @@ namespace Mustask.Domain.Organizations;
 /// (api-contract § 0.2): a UUID in the canonical 8-4-4-4-12 form, in either
 /// letter case, not all zeros. Anything else answers like an id that names
 /// nothing (BR-M1-20). It is mod-001's <see cref="OrganizationKey"/> rule, by
-/// delegation rather than by copy, so the organization-context filter and the
+/// delegation rather than by copy, so the scoped check and the
 /// process read can never disagree about an organization id.
 /// </summary>
 public static class AddressedId

@@ -21,6 +21,41 @@ Node 23. The dev server is pinned to port 3000 — that port is in the
 - `npm run lint` — ESLint; `npm run format` / `format:check` — Prettier.
 - `npm test` — Vitest (Testing Library + MSW) in single-run mode. Never picks
   up `e2e/**` (`vite.config.ts` excludes it explicitly).
+- While you work, run Vitest on your own files (`npx vitest run
+  src/features/<x>`), not the whole suite; `npm run test:fast` is the whole
+  suite without the heavy page tests listed in `src/test/slowFiles.json` (about
+  a third of the full run; regenerate the list with `node scripts/slow-files.mjs
+  <vitest-json-report>`). `bash scripts/verify.sh` runs the
+  frontend tests that reach what the branch changed
+  (`vitest run --changed <merge-base>`); a change to `src/test/**`,
+  `src/app/theme/**` or `src/shared/ui/**` runs everything on its own, and the
+  tests that read sources off disk (kit guard, colour scan, e2e guards) always
+  run next to the affected ones. Force the whole suite with `VERIFY_FULL=1 bash
+  scripts/verify.sh` — `finish-task.sh` and CI (the required check on every
+  pull request) do, so a merge is always gated by a full run; the pre-push hook
+  runs no tests at all (`VERIFY_TESTS=0`, tech-055), and `VERIFY_FULL=1 git push` makes it full — instant
+  when a green full run of the same tree and merge-base, on a clean working
+  tree, already left its stamp in the git directory (`VERIFY_FORCE=1` repeats
+  it; use it after changing `node_modules` or the environment). A full run holds a lock
+  in the shared git directory (`vitest-full.lock`): only one runs at a time
+  across worktrees, the next one waits (a lock older than 60 min or with a dead
+  owner is taken over).
+
+## UI kit — build from it, add to it first
+
+A screen is built from the panel's UI kit (`src/shared/ui`, tokens in
+`src/app/theme`) and from nothing the kit already provides: do not import a MUI
+part the kit wraps (`TextField`, `Button`, `Menu`, `Snackbar`, `Alert`, `Paper`,
+the `Table*` family…), do not draw a surface, icon button, menu, notice or page
+head of your own (no `<input>`, `<button>`, `<h1>`, no `component="h2"`), do not
+style MUI's insides (`.Mui…`). A pattern the kit lacks goes into
+the kit first — component, test, showcase entry, guide block — and is then used.
+Read `docs/conventions/ui-kit.md` before you write a screen; the panel's
+«Витрина компонентов» (`/ui-kit`, administrators) shows every component in every
+state (the table family from tech-016). `src/test/kitGuard.test.ts` enforces the rule under `npm test`, with an
+allow-list of today's violations (an exact count per file and rule) that only
+shrinks: when it fails, use the kit part its message names, lower or remove an
+entry when you fix its file, and never raise one or add one.
 
 ## E2E test suite (Playwright)
 

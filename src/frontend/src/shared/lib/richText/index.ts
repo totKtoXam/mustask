@@ -1,5 +1,5 @@
 /**
- * The pure rich-text library (feat-018, ADR-0027): no React, no TipTap, only
+ * The pure rich-text library (feat-018, ADR-0037): no React, no TipTap, only
  * the DOM's `DOMParser`. Everything here runs on the form route without the
  * editor, so it stays small; the editor itself is a lazy chunk in
  * `shared/ui/RichTextEditor`.

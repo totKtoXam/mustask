@@ -22,8 +22,6 @@ internal sealed class DirectorySnapshotPageConfiguration : IEntityTypeConfigurat
         builder.Property(p => p.HeldAsDeleted).IsRequired();
         builder.Property(p => p.AppliedAt).IsRequired();
 
-        builder.Ignore(p => p.Tally);
-
         builder.HasOne<DirectorySnapshot>()
             .WithMany()
             .HasForeignKey(p => p.SnapshotId)

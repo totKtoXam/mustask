@@ -1,0 +1,584 @@
+<!doctype html>
+<html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>feat-049 prototype: «Структура», диаграмма</title>
+<style>
+/* tokens as in the feat-043 prototype (app/theme/tokens.ts) */
+:root{--bg:#F8F8F8;--nav:#EBEBEB;--navh:#E2E2E2;--tx:#242424;--tx2:#616161;--lab:#707070;--acc:#0078D4;--accd:#0C5598;--div:#E0E0E0;--rule:#EAEAEA;--hov:#F0F0F0;--sel:#E5F0FA;--fh:#C8C8C8;--warn:#FFF4CE;--err:#FDE7E9;--glow:0 3px 7px rgba(0,0,0,.13),0 .6px 1.8px rgba(0,0,0,.11)}
+*{box-sizing:border-box}html,body{max-width:100%}body{margin:0;font:14px/20px "Segoe UI",system-ui,sans-serif;color:var(--tx);background:var(--bg)}
+a{color:var(--accd);text-decoration:none}a:hover{text-decoration:underline}
+button,select,input{font:inherit}button{background:var(--nav);color:var(--tx);border:0;border-radius:4px;min-height:32px;padding:4px 12px;font-weight:600;cursor:pointer}button:hover{background:var(--navh)}
+button.p{background:var(--acc);color:#fff}button.p:hover{background:var(--accd)}
+button.sm{min-height:24px;min-width:24px;padding:0 4px;background:transparent;font-weight:400;color:var(--tx2)}button.sm:hover{background:var(--hov)}
+:focus-visible{outline:2px solid var(--acc);outline-offset:1px}
+input{min-height:32px;border:1px solid var(--fh);border-radius:4px;padding:4px 8px;background:#fff;color:var(--tx)}
+/* prototype control strip */
+#ctl{background:#fff;border-bottom:1px solid var(--div);padding:8px 16px;font-size:12px;line-height:16px;color:var(--tx2)}
+#ctl b{color:var(--tx)}#ctl .row{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-top:6px}
+#ctl button{min-height:24px;padding:2px 8px;font-size:12px;font-weight:400;border:1px solid var(--fh);background:#fff}#ctl button.on{background:var(--sel);border-color:var(--acc);font-weight:600}
+#bar{height:48px;background:#fff;border-bottom:1px solid var(--div);display:flex;align-items:center;padding:0 16px;font-size:16px;font-weight:600}
+#bar span{font-weight:400;color:var(--tx2);font-size:13px;margin-left:12px}
+#shell{display:flex}#menu{width:200px;background:var(--nav);padding:8px 0;flex:none;min-height:640px}
+#menu div{padding:6px 16px;color:var(--tx2)}#menu .cur{background:#DCDCDC;color:var(--tx);font-weight:600}
+#page{flex:1;min-width:0;padding:0 24px 40px}
+#page.narrow{max-width:640px}
+.head{display:flex;align-items:center;gap:12px;margin:28px 0 12px}.head h1{margin:0;font-size:20px;line-height:28px;font-weight:600;flex:1}
+/* the switch: BoxedTabs look (shared/ui/card/BoxedTabs) */
+[role=tablist]{display:flex;margin-bottom:12px}
+[role=tab]{background:transparent;border:0;border-top:1px solid var(--div);border-left:1px solid var(--div);border-radius:0;min-height:36px;padding:0 16px;font-weight:400;display:inline-flex;align-items:center;gap:6px;position:relative;color:var(--tx)}
+[role=tab]:last-child{border-right:1px solid var(--div)}[role=tab][aria-selected=true]{font-weight:600}
+[role=tab][aria-selected=true]::after{content:"";position:absolute;left:12px;right:12px;bottom:3px;height:2px;background:var(--acc)}
+.toolbar{display:flex;align-items:flex-end;gap:16px;flex-wrap:wrap}.toolbar .legend{margin-left:auto;margin-bottom:12px;font-size:12px;color:var(--tx2);display:flex;gap:16px;align-items:center}
+.legend svg{vertical-align:middle;margin-right:4px}
+/* notices (InlineNotice) */
+.nt{display:flex;align-items:center;gap:12px;padding:6px 16px;border-radius:4px;margin-bottom:8px;font-size:13px}.nt.info{background:#E5F0FA}.nt.warning{background:var(--warn)}.nt.error{background:var(--err)}.nt span{flex:1;max-height:64px;overflow:auto}
+.card{background:#fff;border-radius:4px;box-shadow:var(--glow)}
+/* the tree view */
+table{border-collapse:collapse;width:100%}th{text-align:left;font-weight:600;color:var(--tx2);padding:6px 12px;border-bottom:1px solid var(--div)}td{padding:4px 12px;border-bottom:1px solid var(--rule);height:36px}
+.tag{display:inline-block;background:var(--nav);border-radius:10px;padding:0 8px;font-size:12px;line-height:18px;margin-left:8px;white-space:nowrap}
+.state{padding:56px 16px;text-align:center}.state h2{margin:8px 0 4px;font-size:16px}.state p{margin:0 0 12px;color:var(--tx2)}
+.sk{height:20px;background:var(--hov);border-radius:4px;margin:12px 12px}
+/* the diagram */
+#frame{position:relative;overflow:auto;max-height:560px;background:#fff;border-radius:4px;box-shadow:var(--glow)}
+#frame:focus-visible{outline-offset:-2px}
+#cv{position:relative}#cv svg{position:absolute;left:0;top:0;pointer-events:none}
+.cap{position:absolute;font-size:12px;font-weight:600;color:var(--lab);line-height:16px}
+.nd{position:absolute;height:32px;border:1px solid var(--div);border-radius:4px;background:#fff;display:flex;align-items:center;gap:6px;padding:0 8px;cursor:default;white-space:nowrap;overflow:hidden;transition:opacity .12s}
+.nd.ch{cursor:pointer}.nd:hover.ch{background:var(--hov)}
+.nd .ty{font-size:11px;color:var(--lab);flex:none}.nd .nm{font-weight:600;overflow:hidden;text-overflow:ellipsis;min-width:0}.nd .nm.plain{color:var(--tx);cursor:default}
+.nd .key{font-size:12px;color:var(--tx2);flex:none}.nd .cnt{margin-left:auto;font-size:11px;color:var(--lab);flex:none;padding-left:8px}
+.nd .tg{flex:none}.nd .tog{flex:none;width:20px;min-height:20px;height:20px;padding:0;text-align:center;line-height:18px}.nd .sp{flex:none;width:20px}
+.nd.team{background:#FAFAFA}.nd.dead{background:#F5F5F5;color:var(--tx2)}
+.nd.dim{opacity:.5}.nd.emph{background:var(--sel);border-color:var(--acc)}.nd.chosen{border:2px solid var(--acc);background:var(--sel);padding:0 7px}
+.nd:focus-visible{outline:2px solid var(--acc);outline-offset:2px}
+#toast{position:fixed;left:50%;bottom:16px;transform:translateX(-50%);background:#242424;color:#fff;padding:6px 16px;border-radius:4px;font-size:13px;display:none;z-index:9}
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
+.srv{font-size:11px;color:var(--lab);margin:6px 2px;min-height:16px}
+.lv{flex:none;width:16px;height:16px;border-radius:8px;background:var(--nav);color:var(--tx2);font-size:10px;line-height:16px;text-align:center}
+
+.nd.hl{background:#CFE6FA;border:2px solid var(--acc);padding:0 7px}.nd.hit{box-shadow:0 0 0 2px #FFB900}
+.dtool{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin-bottom:8px}.dtool .qc{font-size:12px;color:var(--tx2)}.dtool .cnts{margin-left:auto;font-size:12px;color:var(--tx2)}.dtool button:disabled{opacity:.5;cursor:default}
+.dtool{row-gap:8px;column-gap:12px}.dtool .dv{width:1px;height:20px;background:var(--div)}
+/* segmented icon toggle: kit part IconToggleGroup (MUI ToggleButtonGroup size small), icon-only, adjoined */
+.seg{display:inline-flex;border:1px solid #8A8A8A;border-radius:4px;overflow:hidden;background:#fff}
+.seg button{width:34px;min-width:34px;height:32px;min-height:32px;padding:0;margin:0;border-radius:0;background:#fff;color:var(--tx2);display:inline-grid;place-items:center;font-weight:400;position:relative}
+.seg button+button{border-left:1px solid #8A8A8A}.seg button svg{display:block;width:18px;height:18px}
+.seg button:hover{background:var(--hov)}.seg button[aria-pressed=true]{background:var(--sel);color:var(--accd);box-shadow:inset 0 -3px 0 var(--acc)}
+.seg button:focus-visible{outline:2px solid var(--acc);outline-offset:-3px;z-index:1}
+.seg button[aria-disabled=true]{opacity:.5;cursor:default}.seg button[aria-disabled=true]:hover{background:#fff}
+.seg.z button.val{width:56px;min-width:56px;font-size:12px;font-weight:600;color:var(--tx)}
+.tbtn{min-height:28px;padding:0 8px;background:transparent;border:1px solid transparent;color:var(--accd);font-weight:600;font-size:13px}.tbtn:hover{background:var(--hov)}.tbtn:disabled{color:#757575;background:transparent;cursor:default;font-weight:400}
+#tip{position:fixed;z-index:20;max-width:320px;background:#424242;color:#fff;padding:4px 10px;border-radius:4px;font-size:12px;line-height:16px;pointer-events:none;display:none}
+#frame.panning,#frame.panning *{cursor:grabbing!important;user-select:none}
+#cvw{position:relative}#cv{transform-origin:0 0}
+#tr{position:absolute;left:0;top:0;right:0;bottom:0;pointer-events:none}#tr .nd,#tr .cap{pointer-events:auto}
+
+.lvl{position:absolute;z-index:6;width:22px;min-height:22px;height:22px;padding:0;border-radius:11px;border:1px solid var(--fh);background:#fff;font-size:11px;font-weight:600;color:var(--tx2);line-height:20px}.lvl[aria-pressed=true]{background:var(--acc);border-color:var(--acc);color:#fff}.lvl.inc{background:var(--sel);border-color:var(--acc)}
+.nd.sec{height:28px;border:0;border-bottom:1px solid var(--div);border-radius:0;background:transparent;font-weight:600;cursor:pointer;color:var(--lab)}.nd.sec .nm{color:var(--lab);font-weight:600}.nd.sec .cnt{margin-left:8px}
+.nd.v{line-height:16px;height:58px;flex-direction:column;align-items:flex-start;justify-content:center;gap:1px;padding:2px 8px}.nd.v .r1,.nd.v .r3{display:flex;align-items:center;gap:6px;max-width:100%}.nd.v .nm{max-width:100%}.nd.v .cnt0{font-size:11px;color:var(--lab)}.nd.v.chosen{padding:1px 7px}
+.kb{margin-top:8px;font-size:12px;color:var(--tx2)}.kb kbd{border:1px solid var(--fh);border-bottom-width:2px;border-radius:3px;padding:0 4px;background:#fff}
+
+/* rework 4: the level colour is on the card itself: 5 px left edge + 1.5 px outline + a light tint of the level colour (roles: primary.dark, success.main, deep orange 900, secondary/purple 700, text.secondary) */
+[data-lv]{--lc:#616161}
+[data-lv="1"]{--lc:#0C5598}[data-lv="2"]{--lc:#2E7D32}[data-lv="3"]{--lc:#BF360C}[data-lv="4"]{--lc:#7B1FA2}[data-lv="5"]{--lc:#616161}
+:root{--tx3:#4A4A4A}
+.nd[data-lv]{border:1.5px solid var(--lc);border-left:5px solid var(--lc);padding:0 8px 0 6px;background:color-mix(in srgb,var(--lc) 8%,#fff)}
+.nd[data-lv].ch:hover{background:color-mix(in srgb,var(--lc) 14%,#fff)}
+.nd[data-lv].dead{background:#EFEFEF;color:var(--tx3)}
+.nd .ty,.nd .key,.nd .cnt,.nd .cnt0,.nd .also{color:var(--tx3)}
+.nd.emph[data-lv]{background:color-mix(in srgb,var(--lc) 14%,#fff);box-shadow:0 0 0 2px var(--acc)}
+.nd.chosen[data-lv]{background:color-mix(in srgb,var(--lc) 18%,#fff);box-shadow:0 0 0 3px var(--acc);padding:0 8px 0 6px}
+.nd.hl[data-lv]{background:color-mix(in srgb,var(--lc) 18%,#fff);box-shadow:0 0 0 3px #0C5598,0 0 0 5px #fff}
+.nd.v[data-lv]{padding:2px 8px 2px 6px}
+.nd.hit[data-lv]{box-shadow:0 0 0 2px #FFB900}
+.nd .lv{background:var(--lc,var(--nav));color:#fff}
+.nd .also{font-size:11px;flex:none;border-left:1px solid var(--div);padding-left:6px;overflow:hidden;text-overflow:ellipsis;max-width:200px}
+.nd.v .also{border-left:0;padding-left:0;max-width:100%}
+.lvl{border:1.5px solid var(--lc);color:var(--lc);background:#fff}
+.lvl[aria-pressed=true]{background:var(--lc);border-color:var(--lc);color:#fff}
+.lvl.inc{background:#fff;box-shadow:inset 0 0 0 3px #fff,inset 0 0 0 11px color-mix(in srgb,var(--lc) 18%,#fff)}
+</style></head><body>
+<div id="ctl"><b>feat-049 prototype.</b> Scenarios (not part of the product):
+<div class="row" id="scn"></div>
+<div class="row"><span>Роль:</span><button data-role="admin" class="on">Администратор</button><button data-role="reader">Читатель</button>
+<span style="margin-left:12px">Окно:</span><button data-w="full" class="on">Широкое</button><button data-w="narrow">640 px</button>
+<span style="margin-left:12px">Повторить в «Предложения не загрузились» удаётся со второго раза.</span></div></div>
+<div id="bar">MUSTASK<span id="orgn">Организация «Демо»</span></div>
+<div id="shell"><div id="menu"><div>Обзор</div><div class="cur">Структура</div><div>Проекты</div><div>Команды</div><div>Участники</div></div>
+<div id="page"></div></div>
+<div id="toast" role="status"></div>
+<div class="sr" role="status" id="live"></div>
+<script>
+(function(){
+'use strict';
+/* ---------- design constants (§ 4.3 of design.md) ---------- */
+var LINE_LIMIT=150, EXPAND_ALL_LIMIT=100, ROW=40, RULER=22, CTL=0, IND=22, VW=156, VH=58, VGAP=12, BAND=88, SLIM=30, TEAMGAP=70, LABEL_W=40, VERT_NOTE_LIMIT=120, HIER_W=480, GUT=150, GAP=200, TEAM_W=220, PAD=16, HEAD=28;
+/* line styles: the legend samples and the canvas read the same table (R4-4) */
+var LN={nest:{c:'#616161',w:1.5,d:''},rel:{c:'#0C5598',w:2.5,d:'7 4'},copy:{c:'#424242',w:2.5,d:'9 4 2.5 4'},hid:{c:'#0C5598',w:2.5,d:'2.5 4'},grey:'#9E9E9E',emph:4};
+var ZMIN=.5,ZMAX=2,ZSTEP=.1;
+var TYPE={department:'Департамент',project:'Проект',area:'Область'};
+/* ---------- data ---------- */
+function node(id,parent,type,name,o){o=o||{};return {id:id,parentId:parent,type:type,name:name,projectId:o.pid||null,active:o.active===false?false:true,key:o.key||null}}
+function normal(){
+ var areas=[
+  node('d1',null,'department','Логистика'),
+  node('pA','d1','project','Складской портал',{pid:'A',key:'WH'}),
+  node('a1','pA','area','Склад',{pid:'A'}),node('a2','a1','area','Приёмка',{pid:'A'}),node('a3','a1','area','Отгрузка',{pid:'A'}),
+  node('pE','d1','project','Транспорт',{pid:'E',key:'TR'}),
+  node('d2',null,'department','Финансы'),
+  node('pB','d2','project','Биллинг',{pid:'B',key:'BIL'}),
+  node('pC','d2','project','Архив 2023',{pid:'C',active:false}),
+  node('a4','pC','area','Сверка',{pid:'C',active:false}),
+  node('pF',null,'project','Мобильное приложение',{pid:'F',key:'MOB'}),
+  node('a5','pF','area','Платежи',{pid:'F'})
+ ];
+ var offers={projects:{A:{teams:['MARS','VENUS']},E:{teams:['JUPITER']},B:{teams:['MARS','SATURN']},F:{teams:['JUPITER','ORION']}},
+  teams:[{id:'ATLAS',name:'ATLAS',depts:[]},{id:'JUPITER',name:'JUPITER',depts:['d1','d2']},{id:'MARS',name:'MARS',depts:['d1']},{id:'ORION',name:'ORION',depts:[]},{id:'SATURN',name:'SATURN',depts:['d2']},{id:'VENUS',name:'VENUS',depts:['d1']}]};
+ return {areas:areas,offers:offers};
+}
+function large(){
+ var areas=[],teams=[],offers={projects:{},teams:teams},t,i,j,k,d,p,c,tn=0;
+ for(i=1;i<=24;i++){teams.push({id:'T'+i,name:'Команда '+(i<10?'0':'')+i,depts:(i%4===0?['d'+(i%6+1)]:[]).concat(i%8===0?['d'+((i+2)%6+1)]:[])});}
+ for(d=1;d<=6;d++){areas.push(node('d'+d,null,'department','Департамент '+d));
+  for(p=1;p<=6;p++){var pid='p'+d+'_'+p;areas.push(node(pid,'d'+d,'project','Проект '+d+'.'+p,{pid:pid,key:'P'+d+p}));
+   var ts=[];for(k=0;k<5;k++){ts.push('T'+(((d*5+p*3+k*4)%24)+1));}offers.projects[pid]={teams:ts.filter(function(x,ix){return ts.indexOf(x)===ix;})};
+   for(j=1;j<=3;j++){areas.push(node(pid+'a'+j,pid,'area','Область '+j,{pid:pid}));if(j===1){areas.push(node(pid+'b',pid+'a'+j,'area','Подобласть',{pid:pid}));}}}}
+ for(i=1;i<=3;i++){areas.push(node('top'+i,null,'project','Проект верхнего уровня '+i,{pid:'top'+i,key:'TOP'+i}));offers.projects['top'+i]={teams:['T'+i,'T'+(i+4)]};}
+ teams.push({id:'T25',name:'Команда 25',depts:[]},{id:'T26',name:'Команда 26',depts:[]});
+ return {areas:areas,offers:offers};
+}
+var SCN=[
+ {id:'normal',label:'Обычная организация',make:normal},
+ {id:'large',label:'Большая организация (линии только для выбранного)',make:large},
+ {id:'offersFailed',label:'Предложения не загрузились',make:normal,offers:'failed'},
+ {id:'offersLoading',label:'Предложения загружаются',make:normal,offers:'loading'},
+ {id:'loading',label:'Загрузка',make:normal,tree:'loading'},
+ {id:'treeFailed',label:'Ошибка дерева',make:normal,tree:'failed'},
+ {id:'empty',label:'Пустая организация',make:function(){return {areas:[],offers:{projects:{},teams:[]}}}},
+ {id:'notFound',label:'Организация не найдена',make:normal,tree:'404'}
+];
+/* ---------- state ---------- */
+var S={mode:'dim',q:'',qi:-1,scn:SCN[0],data:null,view:'diagram',role:'admin',expanded:null,chosen:null,focusId:null,retried:false,offersState:'ok',layout:'h',lv:{set:{},mode:'only'},sec:{n:true,h:true},zoom:1};
+function $(sel,root){return (root||document).querySelector(sel)}
+function esc(s){return String(s).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]})}
+function ru(n,one,few,many){var m=n%10,h=n%100;return n+' '+(m===1&&h!==11?one:(m>=2&&m<=4&&(h<12||h>14)?few:many))}
+/* ---------- model: pure functions (lib/diagramModel.ts in the product) ---------- */
+function childrenOf(areas){var m={};areas.forEach(function(a){(m[a.parentId||'']=m[a.parentId||'']||[]).push(a)});return m}
+function initialExpansion(areas,ch){var s={};if(areas.length>EXPAND_ALL_LIMIT)return s;Object.keys(ch).forEach(function(k){if(k!=='')s[k]=1});return s}
+function model(){
+ var areas=S.data.areas,off=S.offersState==='ok'?S.data.offers:null,byId={},ch=childrenOf(areas);
+ areas.forEach(function(a){byId[a.id]=a});
+ var projNode={};areas.forEach(function(a){if(a.type==='project')projNode[a.projectId]=a});
+ var teams=off?off.teams.slice():[],teamById={},copies={},loose=[],teamsOf={},projsOf={},deptsOf={},teamsOfDept={},pairs=[];
+ teams.forEach(function(t){teamById[t.id]=t});
+ /* a team is a child of every department it is linked to (a copy per department); with none it is loose */
+ teams.forEach(function(t){
+  var ds=t.depts.filter(function(d){return byId[d]&&byId[d].type==='department'});
+  deptsOf[t.id]=ds.slice();
+  (ds.length?ds:[null]).forEach(function(d){
+   var n={id:'tm:'+t.id+'@'+(d||'-'),kind:'team',type:'team',teamId:t.id,name:t.name,parentId:d,active:true,projectId:null,t:t};
+   byId[n.id]=n;(copies[t.id]=copies[t.id]||[]).push(n);
+   if(d){(ch[d]=ch[d]||[]).push(n);(teamsOfDept[d]=teamsOfDept[d]||[]).push(t.id)}else loose.push(n)})});
+ if(off)Object.keys(off.projects).forEach(function(pid){var n=projNode[pid];if(!n||!n.active)return;
+  off.projects[pid].teams.forEach(function(tid){if(!teamById[tid])return;pairs.push({p:n.id,t:tid});(teamsOf[n.id]=teamsOf[n.id]||[]).push(tid);(projsOf[tid]=projsOf[tid]||[]).push(n.id)})});
+ var top=ch['']||[],roots={h:top.filter(function(a){return a.type==='department'}),n:top.filter(function(a){return a.type!=='department'}).concat(loose)};
+ var joins=0;Object.keys(copies).forEach(function(k){joins+=copies[k].length-1});
+ var M={areas:areas,byId:byId,ch:ch,off:off,teams:teams,teamById:teamById,copies:copies,pairs:pairs,roots:roots,teamsOf:teamsOf,projsOf:projsOf,deptsOf:deptsOf,teamsOfDept:teamsOfDept,projNode:projNode,linesTotal:pairs.length+joins,secMax:{n:0,h:0},maxLevel:1};
+ ['n','h'].forEach(function(k){(function walk(list,d){list.forEach(function(n){M.secMax[k]=Math.max(M.secMax[k],d);M.maxLevel=Math.max(M.maxLevel,d);walk(ch[n.id]||[],d+1)})})(roots[k],1)});
+ return M;
+}
+function baseOf(n){return n.kind==='team'?n.teamId:n.id}
+function chosable(M,base){var n=M.byId[base];if(n&&n.kind!=='team')return n.type==='department'||(n.type==='project'&&n.active);return !!M.teamById[base]}
+function descendants(M,id,out){(M.ch[id]||[]).forEach(function(c){if(c.kind!=='team'){out[c.id]=1;descendants(M,c.id,out)}})}
+function emphasis(M,base){
+ if(!base)return null;
+ var ids={},lines={},bA={},bT={};
+ if(M.teamById[base]){bT[base]=1;(M.deptsOf[base]||[]).forEach(function(d){ids[d]=1})}
+ else{bA[base]=1;descendants(M,base,bA);Object.keys(bA).forEach(function(a){if(M.byId[a].type==='department')(M.teamsOfDept[a]||[]).forEach(function(t){bT[t]=1})})}
+ Object.keys(bA).forEach(function(a){ids[a]=1});Object.keys(bT).forEach(function(t){ids[t]=1});
+ M.pairs.forEach(function(pr){if(bA[pr.p]||bT[pr.t]){ids[pr.p]=1;ids[pr.t]=1;lines[pr.p+'>'+pr.t]=1}});
+ Object.keys(ids).forEach(function(k){if(M.teamById[k])lines['copy:'+k]=1});
+ return {ids:ids,lines:lines,bA:bA,bT:bT};
+}
+function nm(M,id){return (M.teamById[id]||M.byId[id]).name}
+function summary(M,base){
+ var E=emphasis(M,base),names=function(a){return a.length?a.map(function(x){return nm(M,x)}).join(', '):'нет'},n=M.byId[base];
+ if(M.teamById[base])return 'Проекты команды: '+names(M.projsOf[base]||[])+'. Департаменты команды: '+names(M.deptsOf[base]||[]);
+ var pr=0,ar=0;Object.keys(E.bA).forEach(function(a){if(M.byId[a].type==='project')pr++;else if(M.byId[a].type==='area')ar++});
+ if(n.type==='department'){var out=Object.keys(E.ids).filter(function(k){return !E.bA[k]&&!E.bT[k]});
+  return 'Ветка департамента: проектов '+pr+', областей '+ar+', команд '+Object.keys(E.bT).length+'. Связано вне ветки: '+names(out)}
+ return 'Ветка проекта: областей '+ar+'. Команды проекта: '+names(M.teamsOf[base]||[]);
+}
+function ancestors(M,id){var r=[],c=M.byId[id];while(c&&c.parentId){r.push(c.parentId);c=M.byId[c.parentId]}return r}
+function secOfNode(M,id){var a=ancestors(M,id),top=a.length?a[a.length-1]:id;return M.byId[top]&&M.byId[top].type==='department'?'h':'n'}
+function secsOfBase(M,base){if(M.teamById[base])return M.copies[base].map(function(c){return c.parentId?'h':'n'});return [secOfNode(M,base)]}
+/* «Только связанные»: the branch, what it relates to, their ancestors, and the departments of related teams */
+function relatedFilter(M,E){
+ var keep={},teams={};Object.keys(E.ids).forEach(function(id){
+  if(M.teamById[id]){teams[id]=1;(M.deptsOf[id]||[]).forEach(function(d){keep[d]=1});return}
+  keep[id]=1;ancestors(M,id).forEach(function(a){keep[a]=1})});
+ return {keep:keep,teams:teams};
+}
+/* ---------- layout: a pure function of (model, expansion, options); two orientations ---------- */
+function levelOk(lv,l){var ks=Object.keys(lv.set).map(Number);if(!ks.length)return true;return lv.mode==='only'?!!lv.set[l]:l>=Math.min.apply(null,ks)}
+var SECT={n:'Без департамента',h:'Департаменты, проекты и области'};
+function layout(M,exp0,o){
+ var filt=o.filt,V=o.orient==='v',lv=o.lv,sec=o.sec,exp=exp0,pos={};
+ if(filt){exp={};Object.keys(exp0).forEach(function(k){exp[k]=1});Object.keys(filt.keep).forEach(function(id){ancestors(M,id).forEach(function(a){exp[a]=1})})}
+ function keepNode(n){if(!filt)return true;return n.kind==='team'?!!(filt.teams[n.teamId]&&(!n.parentId||filt.keep[n.parentId])):!!filt.keep[n.id]}
+ function kids(id){return (M.ch[id]||[]).filter(keepNode)}
+ var width=V?0:PAD+HIER_W+GUT+PAD,y=PAD,ctlY=y;y+=CTL;var rulerY=0;if(!V){rulerY=y;y+=RULER}
+ var all=[],secs=[],chips=[],lines=[],bandsBySec={},X0=PAD+(V?LABEL_W:0),firstHier=y,lastHier=y;
+ ['n','h'].forEach(function(key){
+  var roots=M.roots[key].filter(keepNode);if(!roots.length)return;
+  var seq=[];(function walk(list,d){list.forEach(function(n){seq.push({n:n,level:d});var k=kids(n.id);if(k.length&&exp[n.id])walk(k,d+1)})})(roots,1);
+  var total=0;(function cnt(list){list.forEach(function(n){total++;cnt(M.ch[n.id]||[])})})(M.roots[key]);
+  var head={id:'sec-'+key,kind:'section',key:key,title:SECT[key],count:total,expanded:sec[key],level:1,x:PAD,y:y,w:V?0:width-2*PAD};secs.push(head);pos[head.id]=head;all.push(head);y+=HEAD;
+  if(!sec[key]){y+=10;return}
+  var vis=seq.filter(function(s){return levelOk(lv,s.level)}),vs={};vis.forEach(function(s){vs[s.n.id]=s});
+  vis.forEach(function(s){var c=s.n.parentId;s.vp=null;while(c){if(vs[c]){s.vp=vs[c];break}c=M.byId[c].parentId}});
+  var items=[];
+  if(!V){
+   vis.forEach(function(s,k){items.push({id:s.n.id,kind:s.n.kind==='team'?'team':'node',n:s.n,level:s.level,aria:s.level+1,x:PAD+(s.level-1)*IND,y:y+k*ROW,w:HIER_W-(s.level-1)*IND,h:32,vp:s.vp?s.vp.n.id:null,gap:s.vp?s.level-s.vp.level>1:false,sec:key})});
+   y+=vis.length*ROW;
+  }else{
+   var vk={};vis.forEach(function(s){if(s.vp)(vk[s.vp.n.id]=vk[s.vp.n.id]||[]).push(s)});
+   var slot=0;(function place(s){var ks=vk[s.n.id]||[];if(!ks.length){s.cx=slot++*(VW+VGAP)+VW/2}else{ks.forEach(place);s.cx=(ks[0].cx+ks[ks.length-1].cx)/2}});
+   vis.filter(function(s){return !s.vp}).forEach(function place(s){var ks=vk[s.n.id]||[];if(!ks.length){s.cx=slot++*(VW+VGAP)+VW/2}else{ks.forEach(place);s.cx=(ks[0].cx+ks[ks.length-1].cx)/2}});
+   width=Math.max(width,X0+slot*(VW+VGAP)+PAD);
+   var has={};vis.forEach(function(s){has[s.level]=1});var by=y,bands=[];
+   for(var l=1;l<=M.secMax[key];l++){var bh=has[l]?BAND:SLIM;bands[l]={top:by,h:bh};chips.push({level:l,x:PAD,y:by+Math.max(2,(bh-24)/2)});by+=bh}
+   vis.forEach(function(s){items.push({id:s.n.id,kind:s.n.kind==='team'?'team':'node',n:s.n,level:s.level,aria:s.level+1,x:X0+s.cx-VW/2,y:bands[s.level].top,w:VW,h:VH,vp:s.vp?s.vp.n.id:null,gap:s.vp?s.level-s.vp.level>1:false,sec:key})});
+   y=by;
+  }
+  items.forEach(function(it){pos[it.id]=it;all.push(it)});y+=14;
+ });
+ if(V)secs.forEach(function(s){s.w=width-2*PAD});
+ if(!V)for(var l=1;l<=M.maxLevel;l++)chips.push({level:l,x:PAD+(l-1)*IND,y:rulerY});
+ /* relation lines: team <-> project run inside the tree; copies of one team are joined */
+ function resolve(id){var c=id;while(c){if(pos[c]&&pos[c].kind!=='section')return c;c=M.byId[c].parentId}return null}
+ var seen={};
+ M.pairs.forEach(function(pr){
+  var pN=M.byId[pr.p],ea=resolve(pr.p),best=null,score=9;
+  (M.copies[pr.t]||[]).forEach(function(c){var r=resolve(c.id);if(!r)return;var sc=(r===c.id?0:2)+(c.parentId===pN.parentId?0:1);if(sc<score){score=sc;best={r:r,hid:r!==c.id}}});
+  if(!ea||!best||ea===best.r)return;
+  var k=ea+'>'+best.r,d=seen[k];
+  if(!d){d=seen[k]={kind:'rel',a:ea,b:best.r,hidden:ea!==pr.p||best.hid,keys:[]};lines.push(d)}
+  d.keys.push(pr.p+'>'+pr.t)});
+ Object.keys(M.copies).forEach(function(tid){
+  var vc=M.copies[tid].filter(function(c){return pos[c.id]&&pos[c.id].kind!=='section'}).sort(function(p,q){return pos[p.id].y-pos[q.id].y||pos[p.id].x-pos[q.id].x});
+  for(var i=1;i<vc.length;i++)lines.push({kind:'copy',a:vc[i-1].id,b:vc[i].id,hidden:false,keys:['copy:'+tid]})});
+ var height=y+PAD;
+ return {orient:o.orient,secs:secs,all:all,pos:pos,exp:exp,kids:kids,width:Math.max(width,PAD*2+300),height:height,ctlY:ctlY,rulerY:rulerY,firstHier:firstHier,lastHier:y,chips:chips,lines:lines,filtered:!!filt,sec:sec,visCount:all.filter(function(i){return i.kind!=='section'}).length};
+}
+/* ---------- rendering ---------- */
+function setLive(t){var e=$('#live');clearTimeout(setLive.h);e.textContent='';if(t)setLive.h=setTimeout(function(){e.textContent=t},30)}
+function toast(t){var e=$('#toast');e.textContent=t;e.style.display='block';clearTimeout(toast.h);toast.h=setTimeout(function(){e.style.display='none'},2200)}
+var ICONS={
+ dim:'<g stroke="currentColor" stroke-width="1.8" fill="none"><path d="M8.6 10.6l6.8-3.4"/><circle cx="6" cy="12" r="3" fill="currentColor"/><circle cx="18" cy="6" r="3"/><circle cx="18" cy="18" r="3" opacity=".3"/></g>',
+ only:'<g stroke="currentColor" stroke-width="1.8" fill="none"><path d="M8.6 10.6l6.8-3.4"/><circle cx="6" cy="12" r="3" fill="currentColor"/><circle cx="18" cy="6" r="3"/><circle cx="18" cy="18" r="3" stroke-dasharray="2 2.4" opacity=".55"/><path d="M15.5 20.5l5-5" opacity=".55"/></g>',
+ hl:'<g stroke="currentColor" stroke-width="1.8" fill="none"><path d="M8.6 10.6l6.8-3.4" stroke-width="2.6"/><circle cx="6" cy="12" r="3" fill="currentColor"/><circle cx="18" cy="6" r="3" fill="currentColor"/><circle cx="18" cy="18" r="3"/></g>',
+ h:'<g fill="none" stroke="currentColor" stroke-width="1.8"><rect x="2.5" y="9.5" width="6" height="5"/><rect x="15.5" y="3.5" width="6" height="5"/><rect x="15.5" y="15.5" width="6" height="5"/><path d="M8.5 12H12V6h3.5M12 12v6h3.5"/></g>',
+ v:'<g fill="none" stroke="currentColor" stroke-width="1.8"><rect x="9.5" y="2.5" width="5" height="6"/><rect x="3.5" y="15.5" width="5" height="6"/><rect x="15.5" y="15.5" width="5" height="6"/><path d="M12 8.5V12H6V15.5M12 12h6v3.5"/></g>',
+ only_l:'<g stroke="currentColor" stroke-width="1.8" fill="none"><rect x="4" y="3.5" width="16" height="3.6" rx="1"/><rect x="4" y="10.2" width="16" height="3.6" rx="1" fill="currentColor"/><rect x="4" y="16.9" width="16" height="3.6" rx="1"/></g>',
+ from:'<g stroke="currentColor" stroke-width="1.8" fill="none"><rect x="4" y="3.5" width="16" height="3.6" rx="1"/><rect x="4" y="10.2" width="16" height="3.6" rx="1" fill="currentColor"/><rect x="4" y="16.9" width="16" height="3.6" rx="1" fill="currentColor"/></g>',
+ minus:'<path d="M5 11h14v2H5z"/>',plus:'<path d="M11 5h2v6h6v2h-6v6h-2v-6H5v-2h6z"/>'};
+function icon(k){return '<svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">'+ICONS[k]+'</svg>'}
+var MODES=[{id:'dim',ic:'dim',label:'Затемнение',hint:'Остальное приглушается'},{id:'only',ic:'only',label:'Только связанные',hint:'Показаны ветка выбранного узла и связанные с ней'},{id:'hl',ic:'hl',label:'Подсветка',hint:'Всё на месте, ветка и связанное выделены цветом'}];
+var LAYOUTS=[{id:'h',ic:'h',label:'Горизонтально',hint:'Иерархия слева направо'},{id:'v',ic:'v',label:'Вертикально',hint:'Департаменты сверху'}];
+var LVMODES=[{id:'only',ic:'only_l',label:'Только выбранные уровни',hint:'Показаны отмеченные уровни'},{id:'from',ic:'from',label:'Уровень и вложенные',hint:'Самый верхний из отмеченных и все более глубокие'}];
+var MENUS={mode:{label:'Показ при выборе',items:MODES,get:function(){return S.mode},set:function(v){S.mode=v;store('mustask.structure.mode.v1.demo',v)}},
+ layout:{label:'Раскладка',items:LAYOUTS,get:function(){return S.layout},set:function(v){S.layout=v;store('mustask.structure.layout.v1.demo',v)}},
+ lvm:{label:'Режим уровней',items:LVMODES,get:function(){return S.lv.mode},set:function(v){S.lv.mode=v}}};
+/* a segmented icon toggle (kit part IconToggleGroup over MUI ToggleButtonGroup): group name = the label, button name = the value, tooltip = label + value + hint */
+function segTip(id,x){return MENUS[id].label+': '+x.label+'. '+x.hint}
+function segHtml(id){var m=MENUS[id],c=m.get();return '<span class="seg" role="group" aria-label="'+m.label+'" id="sg-'+id+'">'+m.items.map(function(x){return '<button type="button" id="sg-'+id+'-'+x.id+'" data-sg="'+id+'" data-sv="'+x.id+'" aria-pressed="'+(x.id===c)+'" aria-label="'+esc(x.label)+'" data-tip="'+esc(segTip(id,x))+'">'+icon(x.ic)+'</button>'}).join('')+'</span>'}
+function zoomHtml(){return '<span class="seg z" role="group" aria-label="Масштаб"><button type="button" id="zout" data-z="out" aria-label="Уменьшить масштаб" data-tip="Уменьшить масштаб (Ctrl + колесо мыши)">'+icon('minus')+'</button><button type="button" class="val" id="zval" data-z="reset" aria-label="Масштаб" data-tip=""></button><button type="button" id="zin" data-z="in" aria-label="Увеличить масштаб" data-tip="Увеличить масштаб (Ctrl + колесо мыши)">'+icon('plus')+'</button></span>'}
+function stored(k,ok,def){try{var v=localStorage.getItem(k);return ok.indexOf(v)>=0?v:def}catch(e){return def}}
+function store(k,v){try{localStorage.setItem(k,v)}catch(e){}}
+function render(){
+ var sc=S.scn,h='',admin=S.role==='admin';
+ setLive('');
+ if(sc.tree==='404'){$('#page').innerHTML='<div class="state"><h2>Организация не найдена</h2><p>Возможно, она удалена или у вас нет к ней доступа.</p></div>';$('#page').className=S.narrow?'narrow':'';DG={};return}
+ var create=admin?'<button class="p" id="mk">＋ Создать департамент</button>':'';
+ h+='<div class="head"><h1>Структура</h1>'+create+'</div>';
+ var ready=sc.tree!=='loading'&&sc.tree!=='failed'&&S.data.areas.length;
+ h+='<div class="toolbar"><div role="tablist" aria-label="Вид структуры"><button role="tab" id="tb-tree" aria-selected="'+(S.view==='tree')+'" tabindex="'+(S.view==='tree'?0:-1)+'" data-v="tree">⌸ Дерево</button><button role="tab" id="tb-diagram" aria-selected="'+(S.view==='diagram')+'" tabindex="'+(S.view==='diagram'?0:-1)+'" data-v="diagram">⌖ Диаграмма</button></div>';
+ if(S.view==='diagram'&&ready){function lg(k,t){var l=LN[k];return '<span><svg width="34" height="12" aria-hidden="true"><path d="M1 6H33" stroke="'+l.c+'" stroke-width="'+l.w+'"'+(l.d?' stroke-dasharray="'+l.d+'"':'')+' fill="none"/></svg>'+t+'</span>'}
+  h+='<div class="legend">'+lg('nest','вложенность')+lg('rel','команда работает над проектом')+lg('copy','та же команда в другом департаменте')+lg('hid','связь через скрытый узел')+'</div>'}
+ h+='</div>';
+ if(S.view==='diagram'&&ready)h+='<div class="dtool" id="dtool"><input id="q" type="search" placeholder="Найти узел" aria-label="Найти узел" value="'+esc(S.q)+'"><span class="qc" id="qc" role="status"></span><button id="xall"></button><span class="dv"></span>'+segHtml('mode')+segHtml('layout')+'<span class="dv"></span><span style="display:inline-flex;align-items:center;gap:4px">'+segHtml('lvm')+'<button type="button" class="tbtn" id="lvreset" data-tip="Показать все уровни">Все уровни</button></span><span class="dv"></span>'+zoomHtml()+'<span class="cnts" id="cnts"></span></div>';
+ h+='<div id="body"></div>';
+ $('#page').innerHTML=h;$('#page').className=S.narrow?'narrow':'';
+ body();
+}
+function body(){
+ var sc=S.scn,b=$('#body'),areas=S.data.areas;
+ if(sc.tree==='loading'){b.innerHTML='<div class="card" role="status" aria-label="Загрузка данных"><div class="sk" style="width:60%"></div><div class="sk"></div><div class="sk" style="width:80%"></div><div class="sk"></div><div class="sk" style="width:70%"></div></div>';return}
+ if(sc.tree==='failed'){b.innerHTML='<div class="nt error" role="alert"><span>Не удалось загрузить структуру. Проверьте соединение и повторите.</span><button id="retry">Повторить</button></div>';$('#retry').onclick=function(){SCN.forEach(function(s){if(s.id==='normal')pick(s)})};return}
+ if(!areas.length){b.innerHTML='<div class="state card"><div style="font-size:32px">▭</div><h2>В организации пока нет областей</h2><p>'+(S.role==='admin'?'Создайте первый департамент: он объединяет проекты и команды.':'Департаменты создаёт администратор организации.')+'</p>'+(S.role==='admin'?'<button class="p">＋ Создать департамент</button>':'')+'</div>';return}
+ if(S.view==='tree'){treeView(b);return}
+ diagramView(b);
+}
+function treeView(b){
+ var ch=childrenOf(S.data.areas),rows='';
+ function walk(p,d){(ch[p||'']||[]).forEach(function(a){
+  rows+='<tr><td style="padding-left:'+(12+(d-1)*20)+'px">'+(ch[a.id]?'▾ ':'<span style="display:inline-block;width:12px"></span> ')+(a.active?'<a href="#" data-o="'+esc(a.name)+'">'+esc(a.name)+'</a>':esc(a.name)+'<span class="tag">деактивирован</span>')+'</td><td>'+TYPE[a.type]+'</td><td style="color:var(--tx2)"></td></tr>';
+  if(ch[a.id])walk(a.id,d+1)})}
+ walk(null,1);
+ b.innerHTML='<div style="margin-bottom:8px"><input placeholder="Найти область" aria-label="Найти область"> <button>Развернуть всё</button></div><div class="card"><table role="treegrid" aria-label="Структура"><tr><th>Название</th><th>Тип</th><th>Описание</th></tr>'+rows+'</table></div><div class="srv">Вид «Дерево»: фильтр и «Развернуть всё» относятся к дереву; у диаграммы свои.</div>';
+ b.querySelectorAll('a[data-o]').forEach(function(a){a.onclick=function(e){e.preventDefault();toast('Открывается страница: '+a.getAttribute('data-o'))}});
+}
+var DG={};
+function fold(x){return x.toLowerCase().replace(/ё/g,'е')}
+function matches(M,q){q=fold(q.trim());if(!q)return [];var r=[];M.areas.forEach(function(a){if(fold(a.name).indexOf(q)>=0)r.push(a.id)});M.teams.forEach(function(t){if(fold(t.name).indexOf(q)>=0)r.push(t.id)});return r}
+function nodeIdOf(M,base){return M.teamById[base]?M.copies[base][0].id:base}
+function diagramView(b){
+ var M=model(),exp=S.expanded||(S.expanded=initialExpansion(S.data.areas,M.ch));
+ var filt=null;if(S.mode==='only'&&S.chosen&&chosable(M,S.chosen))filt=relatedFilter(M,emphasis(M,S.chosen));
+ var L=layout(M,exp,{filt:filt,orient:S.layout,lv:S.lv,sec:S.sec});DG={M:M,L:L,exp:exp};
+ var many=M.linesTotal>LINE_LIMIT,sc=S.scn,pre='';
+ if(sc.offers==='failed'&&S.offersState!=='ok')pre='<div class="nt warning" role="status"><span>Команды и ключи проектов не загружены</span><button id="oretry">Повторить</button></div>';
+ if(sc.offers==='loading'&&S.offersState!=='ok')pre='<div class="nt warning" role="status"><span>Команды и ключи проектов не загружены</span></div>';
+ if(S.layout==='v'&&L.visCount>VERT_NOTE_LIMIT)pre+='<div class="nt info" role="status"><span>Вертикальная раскладка широкая: показано узлов — '+L.visCount+'. Сверните ветви, выберите уровни или переключитесь на горизонтальную.</span></div>';
+ pre+='<div id="sumbar"></div>';
+ b.innerHTML=pre+'<div id="frame" tabindex="-1"><div id="cvw"><div id="cv" style="width:'+L.width+'px;height:'+L.height+'px"></div></div></div><div class="kb"><kbd>Tab</kbd> входит в диаграмму один раз · <kbd>↑</kbd><kbd>↓</kbd> узлы · <kbd>←</kbd><kbd>→</kbd> свернуть и развернуть · <kbd>Пробел</kbd> выбрать · <kbd>Enter</kbd> открыть · <kbd>Esc</kbd> сбросить · <kbd>Ctrl</kbd> + колесо мыши — масштаб · средняя кнопка мыши, зажать и двигать — перемещение</div>';
+ var o=$('#oretry');if(o)o.onclick=function(){if(!S.retried){S.retried=true;toast('Не удалось загрузить предложения');}else{S.offersState='ok';S.retried=false;render()}};
+ DG.many=many;drawCanvas();paint();updateTool();applyZoom();
+}
+function updateTool(){
+ var M=DG.M,t=$('#dtool');if(!t)return;
+ var ex={};Object.keys(M.ch).forEach(function(k){if(k!==''&&(M.ch[k]||[]).length)ex[k]=1});var all=Object.keys(ex).every(function(k){return DG.exp[k]});
+ var x=$('#xall');x.textContent=all?'Свернуть всё':'Развернуть всё';x.disabled=!Object.keys(ex).length;
+ document.querySelectorAll('[data-sg]').forEach(function(bt){bt.setAttribute('aria-pressed',String(MENUS[bt.getAttribute('data-sg')].get()===bt.getAttribute('data-sv')))});
+ var rs=$('#lvreset');if(rs)rs.disabled=!Object.keys(S.lv.set).length;
+ var d=M.areas.filter(function(a){return a.type==='department'}).length,p=M.areas.filter(function(a){return a.type==='project'}).length,s=M.areas.filter(function(a){return a.type==='area'}).length;
+ $('#cnts').textContent='Департаментов: '+d+' · Проектов: '+p+' · Областей: '+s+(M.off?' · Команд: '+M.teams.length:'');
+ var q=S.q.trim(),m=matches(M,S.q);$('#qc').textContent=q?(m.length?'Найдено: '+m.length+'. Enter — к следующему':'Ничего не найдено'):'';
+}
+function alsoIn(M,n){if(n.kind!=='team')return '';var o=(M.deptsOf[n.teamId]||[]).filter(function(d){return d!==n.parentId}).map(function(d){return M.byId[d].name});return o.length?'ещё в: '+o.join(', '):''}
+function nameOf(M,it){
+ if(it.kind==='section')return 'Раздел «'+it.title+'», '+(it.expanded?'развёрнут':'свёрнут')+', узлов: '+it.count;
+ var n=it.n;
+ if(it.kind==='team'){var al=alsoIn(M,n);return 'Команда '+n.name+', проектов: '+(M.projsOf[n.teamId]||[]).length+(n.parentId?', в департаменте '+M.byId[n.parentId].name:', без департамента')+(al?', '+al:'')}
+ var p=n.parentId?M.byId[n.parentId]:null;
+ if(n.type==='department')return 'Департамент '+n.name+', команд: '+(M.teamsOfDept[n.id]||[]).length;
+ if(n.type==='project')return 'Проект '+n.name+(n.key?' ('+n.key+')':'')+(n.active?'':', деактивирован')+', '+(p?'в департаменте '+p.name:'без департамента')+(n.active&&M.off?', команд: '+(M.teamsOf[n.id]||[]).length:'');
+ return 'Область '+n.name+', в «'+p.name+'»'+(n.active?'':', деактивирована');
+}
+function lvTip(l,pressed){
+ var what=l===1?'департаменты, проекты верхнего уровня и команды без департамента':l===2?'проекты и команды под департаментом, области под проектом верхнего уровня':'области '+l+'-го уровня вложенности';
+ var act=pressed?'Нажмите, чтобы убрать уровень из выбранных':(S.lv.mode==='from'?'Нажмите, чтобы показать этот и более глубокие уровни':'Нажмите, чтобы показать только этот уровень');
+ return 'Уровень '+l+' — '+what+'. '+act}
+function lvlChips(L){
+ var lvs=S.lv,any=Object.keys(lvs.set).length,h='',inc=function(l){return !lvs.set[l]&&levelOk(lvs,l)&&any>0};
+ h+='<div role="group" aria-label="Уровни вложенности" style="position:absolute;left:0;top:0;z-index:7">';
+ L.chips.forEach(function(c){
+  h+='<button class="lvl'+(inc(c.level)?' inc':'')+'" data-lv="'+lvKey(c.level)+'" id="lvl-'+c.level+(L.orient==='v'?'-'+c.y:'')+'" data-l="'+c.level+'" aria-pressed="'+(!!lvs.set[c.level])+'" aria-label="Уровень '+c.level+'" data-tip="'+esc(lvTip(c.level,!!lvs.set[c.level]))+'" style="left:'+c.x+'px;top:'+c.y+'px">'+c.level+'</button>'});
+ return h+'</div>';
+}
+function lvKey(l){return l>5?5:l}
+function drawCanvas(){
+ var cv=$('#cv'),M=DG.M,L=DG.L,h='',hit={},exp=L.exp,V=L.orient==='v';
+ matches(M,S.q).forEach(function(id){hit[id]=1});
+ if(!L.all.some(function(i){return i.kind!=='section'}))h+='<div class="srv" style="position:absolute;left:'+PAD+'px;top:'+(L.firstHier+30)+'px">'+(Object.keys(S.lv.set).length?'Нет узлов на выбранных уровнях':'Нет связанных узлов')+'</div>';
+ var cur=S.focusId&&L.pos[S.focusId]?S.focusId:L.all[0].id;S.focusId=cur;
+ var tree='';
+ L.all.forEach(function(it){
+  var base=it.kind==='section'?it.id:baseOf(it.n),ch=it.kind!=='section'&&chosable(M,base),n=it.n,isTeam=it.kind==='team',dead=it.kind==='node'&&!n.active;
+  var cls='nd'+(V&&it.kind!=='section'?' v':'')+(ch?' ch':'')+(isTeam?' team':'')+(dead?' dead':'')+(hit[base]?' hit':'');
+  var attrs='role="treeitem" id="n-'+cssId(it.id)+'" data-id="'+esc(it.id)+'" data-base="'+esc(base)+'" tabindex="'+(it.id===cur?0:-1)+'" aria-level="'+(it.kind==='section'?1:it.aria)+'" aria-label="'+esc(nameOf(M,it))+'"'+(ch?' aria-selected="false"':'');
+  var inner='',style='left:'+it.x+'px;top:'+it.y+'px;width:'+it.w+'px'+(V&&it.kind!=='section'?';height:'+it.h+'px':'');
+  if(it.kind==='section'){cls='nd sec';attrs+=' aria-expanded="'+it.expanded+'"';
+   inner='<button class="sm tog" tabindex="-1" aria-hidden="true" data-s="'+it.key+'">'+(it.expanded?'▾':'▸')+'</button><span class="nm plain">'+esc(it.title)+'</span><span class="cnt">'+it.count+'</span>'}
+  else{
+   attrs+=' data-lv="'+lvKey(it.level)+'"';
+   var hasCh=L.kids(n.id).length>0;
+   if(hasCh)attrs+=' aria-expanded="'+(!!exp[n.id])+'"';
+   var tg=hasCh?'<button class="sm tog" tabindex="-1" aria-hidden="true" data-t="'+esc(n.id)+'">'+(exp[n.id]?'▾':'▸')+'</button>':(V?'':'<span class="sp"></span>');
+   var lvb='<span class="lv" aria-hidden="true">'+it.level+'</span>';
+   var nmh=n.active?'<a class="nm" href="#" tabindex="-1" data-o="'+esc(n.name)+'">'+esc(n.name)+'</a>':'<span class="nm plain">'+esc(n.name)+'</span>';
+   var key=(n.type==='project'&&n.active&&M.off&&n.key)?'<span class="key">'+esc(n.key)+'</span>':'';
+   var tag=dead?'<span class="tag tg">деактивирован</span>':'';
+   var al=alsoIn(M,n),alh=al?'<span class="also">'+esc(al)+'</span>':'';
+   var rc=isTeam?ru((M.projsOf[n.teamId]||[]).length,'проект','проекта','проектов'):(((n.type==='project'&&n.active)||n.type==='department')&&M.off?ru((M.teamsOf[n.id]||(M.teamsOfDept[n.id]||[])).length,'команда','команды','команд'):'');
+   var ty=isTeam?'Команда':TYPE[n.type];
+   if(V)inner='<span class="r1">'+tg+lvb+'<span class="ty">'+ty+'</span></span>'+nmh+'<span class="r3">'+key+tag+alh+(rc?'<span class="cnt0">'+rc+'</span>':'')+'</span>';
+   else inner=tg+lvb+'<span class="ty">'+ty+'</span>'+nmh+key+tag+alh+(rc?'<span class="cnt">'+rc+'</span>':'');
+  }
+  tree+='<div class="'+cls+'" '+attrs+' style="'+style+'">'+inner+'</div>';
+ });
+ cv.innerHTML='<svg id="ln" width="'+L.width+'" height="'+L.height+'" aria-hidden="true"></svg>'+lvlChips(L)+'<div role="tree" aria-label="Диаграмма структуры" id="tr">'+tree+'</div>';
+ drawLines();
+}
+function drawLines(){
+ var M=DG.M,L=DG.L,svg=$('#ln'),p='',PORT=PAD+HIER_W,V=L.orient==='v';
+ if(!V)for(var lv=1;lv<=M.maxLevel;lv++){var gx=PAD+(lv-1)*IND+.5;p+='<path d="M'+gx+' '+(L.rulerY+RULER)+'V'+(L.lastHier-14)+'" stroke="#E4E4E4" stroke-width="1" stroke-dasharray="1 3" fill="none"/>'}
+ L.all.forEach(function(it){if(it.kind==='section'||!it.vp)return;var pp=L.pos[it.vp],d;
+  if(!V){var x=pp.x+10,y1=pp.y+32,y2=it.y+16;d='M'+x+' '+y1+'V'+y2+'H'+it.x}
+  else{var x1=pp.x+pp.w/2,y1=pp.y+pp.h,x2=it.x+it.w/2,ym=it.y-14;d='M'+x1+' '+y1+'V'+ym+'H'+x2+'V'+it.y}
+  p+='<path d="'+d+'" stroke="'+LN.nest.c+'" stroke-width="'+LN.nest.w+'" fill="none"'+(it.gap?' stroke-dasharray="'+LN.hid.d+'"':'')+'/>'});
+ var rel='';
+ L.lines.forEach(function(ln,i){
+  var a=L.pos[ln.a],b=L.pos[ln.b],copy=ln.kind==='copy',d,dot;
+  if(!V){var y1=a.y+16,y2=b.y+16,bulge=copy?10:Math.min(GUT-14,24+Math.abs(y2-y1)/3);d='M'+PORT+' '+y1+'C'+(PORT+bulge)+' '+y1+' '+(PORT+bulge)+' '+y2+' '+PORT+' '+y2;dot=[PORT,y1]}
+  else{var xa=a.x+a.w/2,xb=b.x+b.w/2;
+   if(Math.abs(a.y-b.y)<5){var yb=a.y+a.h,dip=copy?14:22+Math.min(60,Math.abs(xb-xa)/6);d='M'+xa+' '+yb+'C'+xa+' '+(yb+dip)+' '+xb+' '+(yb+dip)+' '+xb+' '+yb;dot=[xa,yb]}
+   else{var u=a.y<b.y?a:b,l=a.y<b.y?b:a,xu=u.x+u.w/2,xl=l.x+l.w/2,yu=u.y+u.h,yl=l.y,dy=(yl-yu)/2;d='M'+xl+' '+yl+'C'+xl+' '+(yl-dy)+' '+xu+' '+(yu+dy)+' '+xu+' '+yu;dot=[xu,yu]}}
+  var st=copy?LN.copy:(ln.hidden?LN.hid:LN.rel),style='stroke="'+st.c+'" stroke-width="'+st.w+'" stroke-dasharray="'+st.d+'"';
+  rel+='<path class="rl" data-k="'+esc(ln.keys.join(' '))+'" data-c="'+(copy?1:0)+'" data-h="'+(ln.hidden?1:0)+'" d="'+d+'" fill="none" '+style+'/>';
+  if(!copy)rel+='<circle class="rd" data-k="'+esc(ln.keys.join(' '))+'" cx="'+dot[0]+'" cy="'+dot[1]+'" r="4" fill="'+LN.rel.c+'"/>'});
+ svg.innerHTML=p+'<g id="rels">'+rel+'</g>';
+}
+function paint(){
+ var M=DG.M,L=DG.L,E=emphasis(M,S.chosen),bar=$('#sumbar'),mode=S.mode;
+ L.all.forEach(function(it){if(it.kind==='section')return;var e=$('#n-'+cssId(it.id));if(!e)return;var b=baseOf(it.n);
+  e.classList.remove('dim','emph','chosen','hl');
+  if(E){if(b===S.chosen)e.classList.add('chosen');
+   else if(E.ids[b])e.classList.add(mode==='hl'?'hl':'emph');
+   else if(mode==='dim')e.classList.add('dim')}
+  if(chosable(M,b))e.setAttribute('aria-selected',String(b===S.chosen))});
+ document.querySelectorAll('#rels path,#rels circle').forEach(function(el){
+  var keys=el.getAttribute('data-k').split(' '),isE=!!E&&keys.some(function(k){return E.lines[k]}),on=true,copy=el.getAttribute('data-c')==='1';
+  if(DG.many&&(!E||!isE))on=false;
+  el.style.display=on?'':'none';
+  var hlGrey=(E&&!isE&&mode==='hl'),fade=(E&&!isE&&mode==='dim')?.15:1;
+  if(el.tagName==='path'){var ln0=el.getAttribute('data-c')==='1'?LN.copy:(el.getAttribute('data-h')==='1'?LN.hid:LN.rel);if(!copy)el.setAttribute('stroke',hlGrey?LN.grey:ln0.c);el.setAttribute('stroke-width',isE?LN.emph:ln0.w)}else el.setAttribute('fill',hlGrey?LN.grey:LN.rel.c);
+  el.style.opacity=fade});
+ if(E){bar.innerHTML='<div class="nt info" role="status"><span>'+esc(summary(M,S.chosen))+(mode==='only'?'<br><small>Показаны только ветка выбранного узла и связанные с ней.</small>':'')+'</span><button id="clr">Сбросить</button></div>';$('#clr').onclick=function(){choose(null)}}
+ else if(DG.many&&M.off){bar.innerHTML='<div class="nt info" role="status"><span>Линии связей показаны для выбранного узла</span></div>'}
+ else bar.innerHTML='';
+}
+function cssId(id){return String(id).replace(/[^\w-]/g,'_')}
+function rebuild(focus,sel){body();if(sel){var e=$(sel);if(e)e.focus()}else if(focus)focusItem(focus,true)}
+function choose(base){
+ var M=DG.M;
+ if(base&&S.chosen===base)base=null;
+ S.chosen=base;
+ var f=S.focusId,changed=false;
+ if(base&&S.mode!=='only'){var E=emphasis(M,base);Object.keys(E.ids).forEach(function(k){
+   (M.teamById[k]?M.copies[k].map(function(c){return c.id}):[k]).forEach(function(id){ancestors(M,id).forEach(function(a){if(!DG.exp[a]){DG.exp[a]=1;changed=true}})})});
+  if(changed)S.expanded=DG.exp}
+ if(base){var E2=emphasis(M,base);Object.keys(E2.ids).forEach(function(k){secsOfBase(M,k).forEach(function(s){if(!S.sec[s]){S.sec[s]=true;changed=true}})})}
+ if(changed||S.mode==='only')rebuild(f);else paint();
+ setLive(base?summary(M,base):'Выбор сброшен');
+}
+function focusItem(id,noScroll){
+ var e=$('#n-'+cssId(id));if(!e)return;
+ document.querySelectorAll('#cv [role=treeitem][tabindex="0"]').forEach(function(x){x.tabIndex=-1});
+ e.tabIndex=0;S.focusId=id;e.focus({preventScroll:!!noScroll});if(!noScroll)e.scrollIntoView({block:'nearest',inline:'nearest'});
+}
+function toggle(id,open){
+ var L=DG.L;if(!L.kids(id).length)return;
+ var was=!!L.exp[id];if(open===undefined)open=!was;if(open===was)return;
+ if(open)DG.exp[id]=1;else delete DG.exp[id];
+ S.expanded=DG.exp;rebuild(S.focusId);
+}
+function toggleSec(key,open){
+ var was=!!S.sec[key];if(open===undefined)open=!was;if(open===was)return;
+ S.sec[key]=open;rebuild('sec-'+key);setLive(SECT[key]+(open?': развёрнуто':': свёрнуто'));
+}
+function pickSeg(id,v){MENUS[id].set(v);if(DG.M)rebuild(S.focusId,'#sg-'+id+'-'+v)}
+function jump(){
+ var M=DG.M,m=matches(M,S.q);if(!m.length)return;
+ S.qi=(S.qi+1)%m.length;var base=m[S.qi],id=nodeIdOf(M,base),ch=false;
+ ancestors(M,id).forEach(function(a){if(!DG.exp[a]){DG.exp[a]=1;ch=true}});
+ secsOfBase(M,base).slice(0,1).forEach(function(s){if(!S.sec[s]){S.sec[s]=true;ch=true}});
+ if(ch){S.expanded=DG.exp;body()}
+ if(!DG.L.pos[id]){toast(S.mode==='only'&&S.chosen?'Узел скрыт режимом «Только связанные»':'Узел скрыт выбором уровней');return}
+ focusItem(id);
+}
+/* ---------- events ---------- */
+document.addEventListener('click',function(ev){
+ var t=ev.target;
+ var tab=t.closest&&t.closest('[role=tab]');
+ if(tab){setView(tab.getAttribute('data-v'));return}
+ var sg=t.closest&&t.closest('[data-sg]');if(sg){pickSeg(sg.getAttribute('data-sg'),sg.getAttribute('data-sv'));return}
+ var zb=t.closest&&t.closest('[data-z]');if(zb){var zk=zb.getAttribute('data-z');if(zb.getAttribute('aria-disabled')==='true')return;setZoom(zk==='reset'?1:zk==='in'?S.zoom+ZSTEP:S.zoom-ZSTEP,null,true);return}
+ var lb=t.closest&&t.closest('.lvl');if(lb){var l=Number(lb.getAttribute('data-l'));if(S.lv.set[l])delete S.lv.set[l];else S.lv.set[l]=1;rebuild(null,'.lvl[data-l="'+l+'"]');setLive(Object.keys(S.lv.set).length?'Показаны уровни: '+Object.keys(S.lv.set).sort().join(', ')+(S.lv.mode==='from'?' и более глубокие':''):'Показаны все уровни');return}
+ if(t.closest&&t.closest('#lvreset')){S.lv.set={};rebuild(null,'.lvl[data-l="1"]');setLive('Показаны все уровни');return}
+ if(t.id==='xall'){var M0=DG.M,ex={};Object.keys(M0.ch).forEach(function(k){if(k!==''&&(M0.ch[k]||[]).length)ex[k]=1});var all=Object.keys(ex).every(function(k){return DG.exp[k]});S.expanded=all?{}:ex;rebuild(S.focusId);return}
+ if(!$('#cv')||!$('#cv').contains(t))return;
+ var ts=t.closest('.tog');if(ts&&ts.hasAttribute('data-s')){toggleSec(ts.getAttribute('data-s'));return}
+ var tog=t.closest('.tog');if(tog){toggle(tog.getAttribute('data-t'));return}
+ var nmx=t.closest('a[data-o]');if(nmx){ev.preventDefault();toast('Открывается страница: '+nmx.getAttribute('data-o'));return}
+ var sc=t.closest('.sec');if(sc){toggleSec(sc.getAttribute('data-id').slice(4));return}
+ var nd=t.closest('.nd');if(nd&&chosable(DG.M,nd.getAttribute('data-base'))){S.focusId=nd.getAttribute('data-id');choose(nd.getAttribute('data-base'));focusItem(nd.getAttribute('data-id'),true)}
+});
+document.addEventListener('input',function(ev){if(ev.target.id==='q'){S.q=ev.target.value;S.qi=-1;if(DG.M){drawCanvas();paint();updateTool()}}});
+document.addEventListener('keydown',function(ev){
+ var tab=ev.target.closest&&ev.target.closest('[role=tab]');
+ if(tab){var o=tab.getAttribute('data-v')==='tree'?'diagram':'tree';
+  if(ev.key==='ArrowRight'||ev.key==='ArrowLeft'){ev.preventDefault();$('#tb-'+o).focus()}
+  if(ev.key==='Enter'||ev.key===' '){ev.preventDefault();setView(tab.getAttribute('data-v'));$('#tb-'+tab.getAttribute('data-v')).focus()}
+  return}
+ if(ev.target.id==='q'){if(ev.key==='Enter'){ev.preventDefault();jump()}return}
+ var nd=ev.target.closest&&ev.target.closest('.nd');if(!nd||!$('#cv'))return;
+ var id=nd.getAttribute('data-id'),base=nd.getAttribute('data-base'),all=DG.L.all,i=all.map(function(x){return x.id}).indexOf(id),it=all[i],k=ev.key,M=DG.M,L=DG.L;
+ function go(j){j=Math.max(0,Math.min(all.length-1,j));focusItem(all[j].id)}
+ if(k==='ArrowDown'){ev.preventDefault();go(i+1)}
+ else if(k==='ArrowUp'){ev.preventDefault();go(i-1)}
+ else if(k==='Home'){ev.preventDefault();go(0)}
+ else if(k==='End'){ev.preventDefault();go(all.length-1)}
+ else if(it.kind==='section'){var key=it.key;
+  if(k==='ArrowRight'){ev.preventDefault();if(!it.expanded)toggleSec(key,true);else go(i+1)}
+  else if(k==='ArrowLeft'){ev.preventDefault();if(it.expanded)toggleSec(key,false)}
+  else if(k===' '||k==='Enter'){ev.preventDefault();toggleSec(key)}}
+ else if(k==='ArrowRight'){ev.preventDefault();if(L.kids(id).length&&!L.exp[id])toggle(id,true);else if(L.kids(id).length)go(i+1)}
+ else if(k==='ArrowLeft'){ev.preventDefault();if(L.kids(id).length&&L.exp[id])toggle(id,false);else if(it.vp&&L.pos[it.vp])focusItem(it.vp);else focusItem('sec-'+it.sec)}
+ else if(k===' '){ev.preventDefault();if(chosable(M,base))choose(base);else setLive('Этот узел выбрать нельзя')}
+ else if(k==='Enter'){ev.preventDefault();var open=it.kind==='team'||it.n.active;if(open)toast('Открывается страница: '+it.n.name);else setLive('Узел деактивированного проекта ничего не открывает')}
+ else if(k==='Escape'&&S.chosen){ev.preventDefault();choose(null)}
+});
+/* ---------- canvas navigation (R4-5): zoom 50-200 %, not stored; Ctrl + wheel about the pointer; pan with the middle button ---------- */
+function round2(z){return Math.round(z*100)/100}
+function applyZoom(){
+ var z=S.zoom,f=$('#frame'),w=$('#cvw'),c=$('#cv');if(!f||!DG.L)return;
+ c.style.transform='scale('+z+')';w.style.width=Math.ceil(DG.L.width*z)+'px';w.style.height=Math.ceil(DG.L.height*z)+'px';
+ var v=$('#zval'),pct=Math.round(z*100)+'%';
+ if(v){v.textContent=pct;v.setAttribute('aria-label','Масштаб: '+pct+(z===1?'':'. Вернуть 100%'));v.setAttribute('data-tip','Масштаб: '+pct+(z===1?'':'. Нажмите, чтобы вернуть 100%'));v.setAttribute('aria-disabled',String(z===1));
+  $('#zout').setAttribute('aria-disabled',String(z<=ZMIN+1e-6));$('#zin').setAttribute('aria-disabled',String(z>=ZMAX-1e-6))}
+}
+function setZoom(z,pt,announce){
+ z=round2(Math.max(ZMIN,Math.min(ZMAX,z)));var f=$('#frame');if(!f||z===S.zoom){applyZoom();return}
+ var r=f.getBoundingClientRect(),px=pt?pt.x-r.left:f.clientWidth/2,py=pt?pt.y-r.top:f.clientHeight/2,o=S.zoom,cx=(f.scrollLeft+px)/o,cy=(f.scrollTop+py)/o;
+ S.zoom=z;applyZoom();f.scrollLeft=cx*z-px;f.scrollTop=cy*z-py;
+ if(announce)setLive('Масштаб: '+Math.round(z*100)+'%');
+}
+document.addEventListener('wheel',function(ev){
+ var f=ev.target.closest&&ev.target.closest('#frame');if(!f||!ev.ctrlKey)return;
+ ev.preventDefault();/* the page itself is not zoomed */
+ var dy=ev.deltaMode===1?ev.deltaY*33:ev.deltaY;setZoom(S.zoom*Math.exp(-dy*.001),{x:ev.clientX,y:ev.clientY});
+},{passive:false});
+var PAN=null;
+document.addEventListener('mousedown',function(ev){
+ if(ev.button!==1)return;var f=ev.target.closest&&ev.target.closest('#frame');if(!f)return;
+ ev.preventDefault();/* no browser autoscroll */
+ PAN={x:ev.clientX,y:ev.clientY,sl:f.scrollLeft,st:f.scrollTop,f:f};f.classList.add('panning');
+});
+document.addEventListener('mousemove',function(ev){if(!PAN)return;if(!(ev.buttons&4)){endPan();return}PAN.f.scrollLeft=PAN.sl-(ev.clientX-PAN.x);PAN.f.scrollTop=PAN.st-(ev.clientY-PAN.y)});
+function endPan(){if(PAN){PAN.f.classList.remove('panning');PAN=null}}
+document.addEventListener('mouseup',function(ev){if(ev.button===1)endPan()});
+document.addEventListener('auxclick',function(ev){if(ev.button===1&&ev.target.closest&&ev.target.closest('#frame'))ev.preventDefault()});
+window.addEventListener('blur',endPan);
+/* ---------- tooltips (MUI Tooltip in the product): hover or focus, Esc closes ---------- */
+var TIP=document.createElement('div');TIP.id='tip';TIP.setAttribute('role','tooltip');document.body.appendChild(TIP);
+function tipShow(el){var t=el.getAttribute('data-tip');if(!t){tipHide();return}TIP.textContent=t;TIP.style.display='block';var r=el.getBoundingClientRect(),w=TIP.offsetWidth,x=Math.max(8,Math.min(innerWidth-w-8,r.left+r.width/2-w/2)),y=r.bottom+6;if(y+TIP.offsetHeight>innerHeight-4)y=r.top-TIP.offsetHeight-6;TIP.style.left=x+'px';TIP.style.top=y+'px'}
+function tipHide(){TIP.style.display='none'}
+document.addEventListener('mouseover',function(ev){var el=ev.target.closest&&ev.target.closest('[data-tip]');if(el)tipShow(el);else tipHide()});
+document.addEventListener('focusin',function(ev){var el=ev.target.closest&&ev.target.closest('[data-tip]');if(el&&ev.target.matches(':focus-visible'))tipShow(el);else tipHide()});
+document.addEventListener('keydown',function(ev){if(ev.key==='Escape')tipHide()},true);
+document.addEventListener('click',function(){tipHide()},true);
+function setView(v){S.view=v;S.chosen=null;render()}
+/* ---------- scenario controls ---------- */
+function pick(sc){
+ S.scn=sc;S.data=sc.make();S.expanded=null;S.chosen=null;S.focusId=null;S.retried=false;S.q='';S.qi=-1;S.lv={set:{},mode:'only'};S.sec={n:true,h:true};S.zoom=1;S.offersState=sc.offers?'failed':'ok';
+ document.querySelectorAll('#scn button').forEach(function(b){b.classList.toggle('on',b.getAttribute('data-s')===sc.id)});
+ render();
+}
+SCN.forEach(function(sc){var b=document.createElement('button');b.textContent=sc.label;b.setAttribute('data-s',sc.id);b.onclick=function(){pick(sc)};$('#scn').appendChild(b)});
+document.querySelectorAll('[data-role]').forEach(function(b){b.onclick=function(){S.role=b.getAttribute('data-role');document.querySelectorAll('[data-role]').forEach(function(x){x.classList.toggle('on',x===b)});render()}});
+document.querySelectorAll('[data-w]').forEach(function(b){b.onclick=function(){S.narrow=b.getAttribute('data-w')==='narrow';document.querySelectorAll('[data-w]').forEach(function(x){x.classList.toggle('on',x===b)});render()}});
+S.mode=stored('mustask.structure.mode.v1.demo',['dim','only','hl'],'dim');
+S.layout=stored('mustask.structure.layout.v1.demo',['h','v'],'h');
+pick(SCN[0]);
+})();
+</script></body></html>

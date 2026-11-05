@@ -1,6 +1,6 @@
 # Backend plan — feat-018-work-item-rich-text
 
-Stage 04a, size L. Input: spec.md, US-1..US-7, ADR-0027 (accepted),
+Stage 04a, size L. Input: spec.md, US-1..US-7, ADR-0037 (accepted),
 `docs/conventions/backend.md`, the work-items slice as it stands. Output: this
 plan and [api-contract.md](api-contract.md) (fixed). No production code yet.
 
@@ -93,7 +93,7 @@ is stored**; Infrastructure owns **how html is reduced**.
 Mustask.Application/Abstractions/RichText/IRichTextReducer.cs
   RichTextReduction Reduce(string html, RichTextReductionLimits limits, CancellationToken ct);
   record RichTextReduction(bool Exceeded, string Html, int MarkupLength, int VisibleLength, bool HasContent);
-  record RichTextReductionLimits(int MaxMarkupCodePoints);   // a profile point for comments later (ADR-0027)
+  record RichTextReductionLimits(int MaxMarkupCodePoints);   // a profile point for comments later (ADR-0037)
 ```
 
 - **Synchronous and CPU-bound**: no I/O, so it is legitimately outside any
@@ -103,7 +103,7 @@ Mustask.Application/Abstractions/RichText/IRichTextReducer.cs
   stopped; `Html` is then empty and must not be read. The reducer never
   throws for a limit; it throws only for a defect (the platform's 500).
 - One parse yields markup length, visible length and "has content"
-  (ADR-0027 decision 5). The abstraction takes the **budget as a parameter**,
+  (ADR-0037 decision 5). The abstraction takes the **budget as a parameter**,
   so the reducer carries no Domain constant and the comments profile is a new
   argument, not a fork.
 - A fake `IRichTextReducer` in `Mustask.Application.Tests` returns fixed
@@ -190,7 +190,7 @@ Shape, fixed here because the panel imports the same file:
   unknown `markOrder` entry; like `ErrorCatalogLoader`).
 - **No token literal appears in server code.** An architecture/unit test
   greps `src/backend` for `rt-color-`, `rt-hl-`, `rt-size-`, `language-` and
-  fails on a hit outside tests; ADR-0027 decision 6 made the file the only
+  fails on a hit outside tests; ADR-0037 decision 6 made the file the only
   source.
 - **Drift tests** (`Mustask.Infrastructure.Tests/RichText/`):
   (a) the embedded bytes equal `contracts/rich-text/vocabularies.json` on
@@ -247,7 +247,7 @@ project, results written to `status.md` Log).** Question → what decides.
 
 **Decision rule.** S1 stays if Q1–Q5 are met by configuration and hooks with
 no second parse beyond the one Q2 shows, and Q6 meets the NFR. Otherwise the
-fallback of ADR-0027 (S2: AngleSharp alone with our walker) is taken **without
+fallback of ADR-0037 (S2: AngleSharp alone with our walker) is taken **without
 amending the ADR** (it names S2 as the fallback), `HtmlSanitizer` is not
 added, and the spike result is the Log line. Either way the canonical pass
 and writer are ours; the sanitizer's contribution is the parse, the
@@ -388,7 +388,7 @@ The handler gains `IRichTextReducer` (constructor). No other dependency.
 |---|---|
 | column `description_format` | `text` NOT NULL, max length 16, default `'Plain'`, string-converted enum (`HasConversion<string>()` per Named values rule 2: the DB stores the enum name, the wire key is lower case in `DescriptionFormats`) |
 | check `ck_work_items_description_format` | `description_format IN ('Plain','Html')` (built from `Enum.GetNames`, as `KeyCheck`) |
-| check `ck_work_items_description_length` (replaced) | `char_length(description) <= 1000000` — same name, widened. PostgreSQL's `char_length` counts characters, the application's unit for html (ADR-0027 decision 8) |
+| check `ck_work_items_description_length` (replaced) | `char_length(description) <= 1000000` — same name, widened. PostgreSQL's `char_length` counts characters, the application's unit for html (ADR-0037 decision 8) |
 | check `ck_work_items_plain_description_length` (new) | `description_format = 'Html' OR char_length(description) <= 100000` — plain keeps its bound in the database |
 | check `ck_work_items_empty_description_plain` (new) | `description_format = 'Plain' OR description <> ''` — the invariant of api-contract § 1.1 |
 
@@ -412,7 +412,7 @@ The handler gains `IRichTextReducer` (constructor). No other dependency.
   otherwise loses the marker, so rows previously html are then
   indistinguishable from plain text containing tags. The plan therefore
   recommends rolling **code** back and the migration **forward only**; the
-  marker stays so the release can be rolled forward again (ADR-0027
+  marker stays so the release can be rolled forward again (ADR-0037
   Consequences).
 - The model snapshot is regenerated, not edited; per conventions, if main
   brings migrations, this one is deleted and regenerated on the fresh
@@ -570,15 +570,15 @@ its own, which use the mock API (US-1 verification).
    are asserted by tests that run in the normal suite (a crash would take the
    test host down, which is the signal). Spike Q6 may find a library API
    that recurses; then the fallback is our walker, not a new reason.
-4. **Rollback runbook is owed and does not exist.** ADR-0027 and the spec
+4. **Rollback runbook is owed and does not exist.** ADR-0037 and the spec
    NFR say the rollback story is stated "with a runbook (design stage)";
    design.md has none. The plan's § 8 note is the content; it belongs in
    `docs/runbooks/` (suggested `rich-text-rollback.md`). Written in step 4 by
    the backend developer unless the orchestrator wants it elsewhere.
-5. **Documentation owed by ADR-0027 "on acceptance"** and not done yet:
+5. **Documentation owed by ADR-0037 "on acceptance"** and not done yet:
    `docs/conventions/backend.md` pointer to the reduction and
    `contracts/rich-text/`, `contracts/README.md` section, ADR-0007's index
-   entry "amended by ADR-0027". Backend conventions and contracts README are
+   entry "amended by ADR-0037". Backend conventions and contracts README are
    written in this task's step 2/6; the index entry is the orchestrator's.
 6. **Texts of the two new codes** (api-contract § 4) are proposals; the
    markup text is quoted by the spec; `description_format_unknown` and the

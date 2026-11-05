@@ -100,7 +100,7 @@ public sealed partial class PermissionClaimsTests
         {
             var token = KeycloakTestRealm.CreateToken(configure: t =>
             {
-                t.Permissions = null; // resource_access.mustask-api не пишется вовсе
+                t.Roles = null; // resource_access.mustask-api не пишется вовсе
                 t.RealmAccessRoles = ["admin", "member", "offline_access"];
                 t.ForeignClientPermissions = [permissionCode];
             });

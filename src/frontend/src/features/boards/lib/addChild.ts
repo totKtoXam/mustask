@@ -41,6 +41,14 @@ export function addEntriesOf(appearance: string, types: readonly ProcessType[]):
 }
 
 /**
+ * Whether a card of `appearance` offers a task as a child (feat-032 BR-C-9, by
+ * feat-027 BR-T-9): a story. By appearance, never by name.
+ */
+export function offersTask(appearance: string): boolean {
+  return CHILD_APPEARANCES[appearance]?.includes('task') ?? false;
+}
+
+/**
  * The accessible name of a row's «+»: one entry names the type (`Добавить:
  * Фича (MSK-EPIC-1)`), several open a menu (`Добавить дочерний элемент
  * (MSK-FEAT-6)`).

@@ -64,7 +64,7 @@ public sealed class SessionCookieContractTests
         var realisticIdToken = KeycloakTestRealm.CreateToken(configure: t =>
         {
             t.Audience = SessionOidcOptions.ClientId;
-            t.Permissions = null;
+            t.Roles = null;
             t.Sid = sid;
             t.Nonce = challenge.Nonce;
             t.PreferredUsername = "mustask";
@@ -76,7 +76,7 @@ public sealed class SessionCookieContractTests
             t.Groups =
             [
                 "/Администраторы",
-                "/Сотрудники/Участники",
+                "/Создатели организаций",
                 "/Администраторы справочников",
             ];
         });
@@ -85,7 +85,7 @@ public sealed class SessionCookieContractTests
         _testOutput.WriteLine($"calibrated id token: {realisticIdToken.Length} chars.");
 
         _factory.TokenResponder.OkResponseBodyFactory = () => KeycloakTokenEndpointResponder.BuildBody(
-            accessToken: KeycloakTestRealm.CreateToken(),
+            accessToken: KeycloakTestRealm.CreateToken(["dictionaries.languages.read"]),
             idToken: realisticIdToken,
             refreshToken: realisticRefreshToken,
             expiresIn: 300,

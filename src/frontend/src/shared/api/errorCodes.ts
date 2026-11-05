@@ -34,14 +34,78 @@ export const organizationErrorCodes = {
   projectKeyInvalid: 'organizations.project.key_invalid',
   projectKeyTaken: 'organizations.project.key_taken',
   teamNameTaken: 'organizations.team.name_taken',
+  // mod-017: the next four are deprecated in the catalog (the server no longer answers them; BR-OT-10, BR-OT-11).
+  // A retired code stays taken in the catalog and so here, one to one with it (the drift test); no screen uses them.
   teamDefaultAreaNotOwned: 'organizations.team.default_area_not_owned',
   teamFirstTeamDefaultFixed: 'organizations.team.first_team_default_fixed',
   teamFirstTeamCannotBeDeleted: 'organizations.team.first_team_cannot_be_deleted',
+  areaIsTeamDefault: 'organizations.area.is_team_default',
+  /**
+   * 409 (feat-028 api-contract § 0.3): an active team of the organization that is not linked to the project,
+   * named as an owner, a default or an unlink destination.
+   */
+  teamNotInProject: 'organizations.team.not_in_project',
+  /**
+   * Deprecated in the catalog by feat-028 (BR-OL-10): a project may have no team, so the server no longer
+   * answers it and no screen uses it; it stays taken, one to one with the catalog (the drift test).
+   */
+  teamLastTeamCannotBeDeleted: 'organizations.team.last_team_cannot_be_deleted',
+  /** A field reason of `validationFailed` under `description` (feat-028 api-contract § 0.2): over 2 000 characters. */
+  descriptionLength: 'organizations.description_length',
+  /** A field reason of `validationFailed` under `destination` (feat-028 api-contract § 2.4): an unlink without one. */
+  teamDestinationRequired: 'organizations.team.destination_required',
   areaNameTaken: 'organizations.area.name_taken',
   areaMoveIntoOwnSubtree: 'organizations.area.move_into_own_subtree',
-  areaIsTeamDefault: 'organizations.area.is_team_default',
   areaNotEmpty: 'organizations.area.not_empty',
+  /** mod-018 api-contract § 6: the tree is at most 10 levels deep (409). */
+  areaDepthExceeded: 'organizations.area.depth_exceeded',
   areaRootIsFixed: 'organizations.area.root_is_fixed',
+  /** mod-018 api-contract § 7 (ADR-0031): the type does not fit the place (409). */
+  areaTypeNotAllowed: 'organizations.area.type_not_allowed',
+  /** mod-018: a sub-area stays inside its own project (409). */
+  areaOutsideProject: 'organizations.area.outside_project',
+  /** mod-018: only a department takes a team link (409). */
+  areaLinkTypeNotAllowed: 'organizations.area.link_type_not_allowed',
+  // mod-016 api-contract § 5: the scoped check, the memberships and the team members.
+  // Where each shows is design § 9 (the screens of «Участники» and «Участники команды»,
+  // the dialogs and the notices of the existing pages).
+  /** 403: the one answer of the scoped check to a member whose role lacks the code, whatever the module of the route. */
+  accessForbidden: 'organizations.access.forbidden',
+  /** 409. */
+  membershipAlreadyMember: 'organizations.membership.already_member',
+  /** 409: the change would leave no known active administrator. */
+  membershipLastAdmin: 'organizations.membership.last_admin',
+  /** 409: the user is unknown to the projection or inactive. */
+  membershipUserUnavailable: 'organizations.membership.user_unavailable',
+  /** 404 to a member in the path: the list is read again. */
+  membershipNotFound: 'organizations.membership.not_found',
+  /** A field reason of `validationFailed`. */
+  membershipRoleInvalid: 'organizations.membership.role_invalid',
+  /** A field reason of `validationFailed`. */
+  membershipUserInvalid: 'organizations.membership.user_invalid',
+  /** 409. */
+  teamMemberExists: 'organizations.team.member_exists',
+  /** 409: only an active member of the organization joins a team. */
+  teamMemberNotInOrganization: 'organizations.team.member_not_in_organization',
+  /** 404 to a team member in the path. */
+  teamMemberNotFound: 'organizations.team.member_not_found',
+  // feat-033 api-contract § 3: the rescue routes (ADR-0035). Where each shows is design § 4.2 and § 5.
+  /** 403: the token lacks `organizations.organization.rescue`; the page becomes «Доступ ограничен» (DC-8). */
+  rescueForbidden: 'organizations.rescue.forbidden',
+  /** 409: not in the projection, or a pre-tech-025 inactive row. */
+  rescueUserUnavailable: 'organizations.rescue.user_unavailable',
+  /** 409. */
+  rescueSelfAppointment: 'organizations.rescue.self_appointment',
+  /** 409. */
+  rescueAlreadyAdmin: 'organizations.rescue.already_admin',
+  /** A field reason of `validationFailed` under `reason`. */
+  rescueReasonRequired: 'organizations.rescue.reason_required',
+  /** A field reason of `validationFailed` under `reason`. */
+  rescueReasonTooLong: 'organizations.rescue.reason_too_long',
+  /** A field reason of `validationFailed` under `reason` (an API caller only). */
+  rescueReasonInvalid: 'organizations.rescue.reason_invalid',
+  /** A field reason of `validationFailed` under `page`; the panel never sends a bad page. */
+  rescueInvalidPage: 'organizations.rescue.invalid_page',
 } as const;
 
 export type OrganizationErrorCode =
@@ -126,6 +190,12 @@ export const workItemErrorCodes = {
   textTooLong: 'workitems.workitem.text_too_long',
   /** A field the item's type does not have: a panel defect, the error `Alert` above the band. */
   fieldNotOnType: 'workitems.workitem.field_not_on_type',
+  // mod-005 api-contract § 4: the recycle bin. Where each shows is its design § 8 — the dialog closes, an
+  // error notice says the server's text and the card is read again.
+  /** 409: a write on an item in «Удалена» (a save, a second Delete), decided on the stored state. */
+  deleted: 'workitems.workitem.deleted',
+  /** 409: a Restore or a Purge of an item outside «Удалена». */
+  notDeleted: 'workitems.workitem.not_deleted',
 } as const;
 
 export type WorkItemErrorCode = (typeof workItemErrorCodes)[keyof typeof workItemErrorCodes];
@@ -147,6 +217,12 @@ export const boardErrorCodes = {
   validationFailed: 'boards.validation_failed',
   /** A field reason of `validationFailed`. */
   positionInvalid: 'boards.backlog.position_invalid',
+  /** 400: the aggregate read's cursor is stale or foreign; the group is read again from its start. */
+  invalidCursor: 'boards.invalid_cursor',
+  /** 400: the grouping is not offered at the level. */
+  invalidGrouping: 'boards.invalid_grouping',
+  /** 400: a query parameter has an invalid value. */
+  invalidParameter: 'boards.invalid_parameter',
 } as const;
 
 export type BoardErrorCode = (typeof boardErrorCodes)[keyof typeof boardErrorCodes];

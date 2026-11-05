@@ -34,21 +34,21 @@ export function TypeMark({
   const { icon: Icon, colour } = theme.workTracking.typeAppearance(appearance);
   return (
     <Icon
-      fontSize={compact ? 'inherit' : 'small'}
+      fontSize="inherit"
       aria-hidden="true"
       sx={{
         color: override ?? colour,
         flexShrink: 0,
-        ...(compact ? { fontSize: theme.layout.backlogTable.typeIcon } : {}),
+        fontSize: compact ? theme.layout.mark.typeIconCompact : theme.layout.mark.typeIcon,
       }}
     />
   );
 }
 
-function markerSx(code: string) {
+function markerSx(code: string, field: boolean) {
   return (theme: Theme) => {
     const colour = theme.workTracking.categoryColour(code);
-    const size = theme.layout.categoryDot;
+    const size = field ? theme.layout.mark.categoryDotField : theme.layout.categoryDot;
     const shape = {
       display: 'inline-block',
       width: size,
@@ -60,7 +60,7 @@ function markerSx(code: string) {
       ? {
           ...shape,
           boxSizing: 'border-box' as const,
-          border: `${theme.spacing(0.25)} solid ${colour}`,
+          border: `${theme.layout.frame.thick}px solid ${colour}`,
         }
       : { ...shape, backgroundColor: colour };
   };
@@ -71,14 +71,17 @@ function markerSx(code: string) {
  * colour, looked up by its code, a ring for `Removed`. `aria-hidden`: the
  * state name or category label beside it carries the meaning, so colour is
  * never the only carrier; an unknown code still gets a dot.
+ *
+ * `size`: `row` (default) is the table's 8 px dot, `field` the 10 px dot of the
+ * card's band (tech-015 design § 5.4).
  */
-export function CategoryMarker({ code }: { code: string }) {
+export function CategoryMarker({ code, size = 'row' }: { code: string; size?: 'row' | 'field' }) {
   return (
     <Box
       component="span"
       aria-hidden="true"
       className={CATEGORY_MARKER_CLASS}
-      sx={markerSx(code)}
+      sx={markerSx(code, size === 'field')}
     />
   );
 }

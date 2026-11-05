@@ -124,20 +124,17 @@ if [ "$prefix" = 'hot' ]; then
     # only). Next free number from three sources, scanning all branches:
     # branches, docs/features/<id>/, the queue files. Limiting to
     # refs/heads refs/remotes is deliberate — otherwise refs/stash gets in.
+    # All three are read by backlog.sh --ids, the one implementation of
+    # "which numbers are taken": a copy here named two of the queue files and
+    # missed any other under docs/backlog/ (tech-037), and walked the folders
+    # ref by ref (backlog.sh reads them per ref since tech-038).
     [ -n "$summary" ] || die "For hot the task summary is required (third argument): there is no queue line."
+    taken=$(sh "$(dirname "$0")/backlog.sh" --ids) \
+        || die "Could not read the taken numbers (scripts/backlog.sh --ids failed, see above), so no hot number is issued from a partial list."
     numbers=$(
         {
-            echo "$all_refs" | grep -oE "${prefix}/[0-9]{3}" | tr '/' '-' || true
-            for ref in $all_refs; do
-                git -C "$repo" ls-tree --name-only "$ref:docs/features" 2>/dev/null \
-                    | grep -oE "^${prefix}-[0-9]{3}" || true
-                git -C "$repo" show "$ref:docs/backlog.md" 2>/dev/null \
-                    | grep -oE "${prefix}-[0-9]{3}" || true
-                # withdrawn numbers are taken and never reused (the section
-                # lives in its own file)
-                git -C "$repo" show "$ref:docs/backlog/withdrawn.md" 2>/dev/null \
-                    grep -oE "${prefix}-[0-9]{3}" || true
-            done
+            printf '%s\n' "$taken" | grep -oE "^${prefix}-[0-9]{3}$" || true
+            # main's working copy: a folder there may not be committed yet
             ls "$repo/docs/features" 2>/dev/null | grep -oE "^${prefix}-[0-9]{3}" || true
         } | grep -oE '[0-9]{3}$' | sort -n
     )
@@ -322,13 +319,26 @@ ${summary:+Summary (from the queue line or an argument): $summary}
 STATUS
 
 printf '\nDone. Next:\n'
-printf '  1. Open an agent session with working directory %s\n' "$worktree"
-printf '  2. Review and commit docs/features/%s/status.md (on the task branch)\n' "$id"
 if [ "$prefix" = 'hot' ]; then
-    printf '  3. This task is outside the queue: ask the orchestrator to reflect it in\n'
-    printf '     the main queue after the fact\n'
+    printf '  1. The orchestrator records the confirmed route and size in status.md.\n'
 else
-    printf '  3. The orchestrator removes the task line from the queue with a separate\n'
-    printf '     commit to main that changes only docs/backlog.md — remind them\n'
+    printf '  1. The orchestrator records the confirmed route and size in status.md,\n'
+    printf '     then takes the queue line in its separate main-only commit.\n'
 fi
-printf '  4. When done: git worktree remove %s\n\n' "$worktree"
+printf '  2. Bind the actual implementation/orchestrator session to %s.\n' "$worktree"
+printf '     This script cannot rebind its parent session.\n'
+printf '  3. In that bound session, confirm its host/project root plus\n'
+printf '     git rev-parse --show-toplevel and git branch --show-current.\n'
+printf '     They must identify this worktree and %s.\n' "$branch"
+printf '  4. A shell cd or command-specific workdir is insufficient. If native\n'
+printf '     relocation is unavailable, prepare an interactive human handoff from\n'
+printf '     this worktree and stop the original session before continuing.\n'
+printf '  5. Review and commit docs/features/%s/status.md (on the task branch)\n' "$id"
+if [ "$prefix" = 'hot' ]; then
+    printf '  6. This task is outside the queue: ask the orchestrator to reflect it in\n'
+    printf '     the main queue after the fact.\n'
+else
+    printf '  6. The queue line was taken in step 1; do not continue task work until\n'
+    printf '     that separate main-only commit is complete.\n'
+fi
+printf '  7. When done: git worktree remove %s\n\n' "$worktree"

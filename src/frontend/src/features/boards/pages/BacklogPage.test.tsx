@@ -16,7 +16,7 @@ import {
   storiesDataset,
 } from '../testFixtures';
 import { chooseLevel, levelButton, levelMenu } from '../testLevels';
-import { backlogAddress, mskForm, renderBoards, teamPrefix } from '../testRender';
+import { backlogAddress, mskForm, renderBoards, teamContext, teamPrefix } from '../testRender';
 
 /** US-1's first scenario's items, with MSK-US-7 in «Отчёты», which has no owner of its own. */
 function membershipDataset() {
@@ -111,10 +111,9 @@ describe('US-1 Scenario: A row shows the item at a glance and opens it (feat-027
     const link = within(row).getByRole('link', { name: 'Падение при входе' });
     expect(link).toHaveAttribute('title', 'MSK-BUG-4: Падение при входе');
     expect(link).toHaveAccessibleDescription('MSK-BUG-4. Уровень вложенности: 1.');
-
-    await userEvent.click(link);
-
-    expect(screen.getByTestId('location')).toHaveTextContent(mskForm('MSK-BUG-4'));
+    // A plain click opens the card as a dialog (BacklogPage.card.test.tsx); the address stays
+    // the item's own page, for a new tab (feat-029 BR-C-1).
+    expect(link).toHaveAttribute('href', mskForm('MSK-BUG-4'));
   });
 
   it('shows no assignee on the row: «Исполнитель» is not a column here', async () => {
@@ -133,10 +132,10 @@ describe('US-1 Scenario: A row shows the item at a glance and opens it (feat-027
 describe('US-1 Scenario: The level is chosen by the level drop-down and kept in the address (feat-001 US-6)', () => {
   it('«Бэклоги» in the main navigation opens the team’s «Истории», and each level is its own address', async () => {
     serveBoards(storiesDataset());
-    renderBoards(mskForm('MSK-US-3'));
+    renderBoards(mskForm('MSK-US-3'), { context: teamContext({ projectId: undefined }) });
 
     const navigation = screen.getByRole('navigation', { name: 'Основное меню' });
-    const entry = within(navigation).getByRole('link', { name: 'Бэклоги' });
+    const entry = within(navigation).getByRole('link', { name: 'Бэклог' });
     expect(entry).toHaveAttribute('href', backlogAddress('stories'));
     await userEvent.click(entry);
 
@@ -162,7 +161,7 @@ describe('US-1 Scenario: The level is chosen by the level drop-down and kept in 
     await chooseLevel('Фичи');
     expect(screen.getByTestId('location')).toHaveTextContent(backlogAddress('features'));
     expect(levelButton()).toHaveAccessibleName('Уровень: Фичи');
-    expect(within(navigation).getByRole('link', { name: 'Бэклоги' })).toHaveAttribute(
+    expect(within(navigation).getByRole('link', { name: 'Бэклог' })).toHaveAttribute(
       'aria-current',
       'page',
     );
@@ -278,6 +277,8 @@ describe('spec § Page «Бэклоги», State Loading', () => {
       'Тип',
       'Заголовок',
       'Статус',
+      'Команда',
+      'Проект',
       'Трудоёмкость',
       'Бизнес-ценность',
       'Вид ценности',
@@ -297,25 +298,21 @@ describe('US-1 Scenario Outline: An address whose context is not found', () => {
   it.each([
     ['team id is malformed', 'Команда не найдена', teamPrefix('not-a-uuid')],
     ['team has been deleted', 'Команда не найдена', teamPrefix(ids.analyticsTeam)],
-    ['team belongs to another project', 'Команда не найдена', teamPrefix(ids.opsTeam)],
-    [
-      'project has been deactivated',
-      'Проект не найден',
-      `/organizations/${ids.example}/projects/${ids.ops}/teams/${ids.opsTeam}`,
-    ],
+    // feat-040 BR-TS-13: a team of another organization answers as an id that names nothing. The
+    // retired «project has been deactivated» case has no twin: a team's address has no project level
+    // (BR-TS-1), and a team whose projects are all deactivated shows empty views (BR-TS-2).
+    ['team belongs to another organization', 'Команда не найдена', teamPrefix(ids.saturnTeam)],
     [
       'organization id names no organization',
       'Организация не найдена',
-      `/organizations/e0000000-0000-4000-8000-0000000000ff/projects/${ids.msk}/teams/${ids.platformTeam}`,
+      `/organizations/e0000000-0000-4000-8000-0000000000ff/teams/${ids.platformTeam}`,
     ],
   ])('a backlog address whose %s shows «%s»', async (_part, frame, prefix) => {
     const data = storiesDataset();
     data.teams = data.teams.map((team) =>
       team.id === ids.analyticsTeam ? { ...team, active: false } : team,
     );
-    data.projects = data.projects.map((project) =>
-      project.id === ids.ops ? { ...project, active: false } : project,
-    );
+    data.teams.push({ id: ids.saturnTeam, projectId: ids.otherMsk, name: 'SATURN', active: true });
     serveBoards(data);
     renderBoards(`${prefix}/backlogs/stories`);
 

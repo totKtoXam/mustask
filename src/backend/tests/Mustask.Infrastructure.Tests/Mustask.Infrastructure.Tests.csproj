@@ -22,6 +22,11 @@
     <Using Include="Xunit" />
   </ItemGroup>
 
+  <!-- One PostgreSQL container per test assembly (tech-047). -->
+  <ItemGroup>
+    <Compile Include="..\Shared\SharedPostgres.cs" Link="Shared\SharedPostgres.cs" />
+  </ItemGroup>
+
   <ItemGroup>
     <ProjectReference Include="..\..\Mustask.Infrastructure\Mustask.Infrastructure.csproj" />
   </ItemGroup>

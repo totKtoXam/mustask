@@ -5,10 +5,23 @@ import { notFoundLevel } from './notFoundLevel';
 
 /**
  * A dialog's fields a refusal can land on (design § 4.4): «Название»,
- * «Ключ», «Область» (the default-area dialog) and «Новая родительская
- * область» (the move dialog).
+ * «Ключ», «Команда» (the default-team dialog, mod-017) and «Новая родительская
+ * область» (the move dialog); feat-028 adds «Описание», the unlink's destination
+ * («Передать рабочие элементы»), and the pickers «Команды», «Проекты» and «Участники»
+ * of the creation and link dialogs (feat-028 design § 13).
  */
-export type RefusalField = 'name' | 'key' | 'area' | 'parent';
+export type RefusalField =
+  | 'name'
+  | 'key'
+  | 'team'
+  | 'parent'
+  | 'description'
+  | 'destination'
+  | 'teams'
+  | 'projects'
+  | 'areas'
+  | 'location'
+  | 'members';
 
 /** Where a write's refusal shows in its dialog. */
 export interface PlacedRefusal {
@@ -28,7 +41,11 @@ export interface PlacedRefusal {
  * The fields each code is about, in order of preference: the first one the
  * dialog has takes it. «Область с таким названием уже есть на этом уровне»
  * is «Название» in a create or rename and «Новая родительская область» in a
- * move, which has no name field.
+ * move, which has no name field. A team that is not found is the chosen one
+ * where a dialog offers teams («Команда» of the default, «Передать рабочие
+ * элементы» of the unlink, «Команды» of a link or of a project's creation) and
+ * the page's own entity where it does not; a project that is not found is the
+ * chosen one in «Проекты» alone (feat-028 design §§ 5.1, 6.1, 6.2, 8).
  */
 const FIELDS_OF_CODE: Readonly<Record<string, readonly RefusalField[]>> = {
   [codes.organizationNameTaken]: ['name'],
@@ -36,13 +53,24 @@ const FIELDS_OF_CODE: Readonly<Record<string, readonly RefusalField[]>> = {
   [codes.projectNameTakenByDeactivated]: ['name'],
   [codes.projectKeyTaken]: ['key'],
   [codes.teamNameTaken]: ['name'],
-  [codes.areaNameTaken]: ['name', 'parent'],
-  [codes.areaMoveIntoOwnSubtree]: ['parent'],
-  [codes.teamDefaultAreaNotOwned]: ['area'],
+  [codes.areaNameTaken]: ['name', 'parent', 'location'],
+  [codes.areaMoveIntoOwnSubtree]: ['parent', 'location'],
+  // mod-018 design §§ 5.1, 5.3: the parent field of a create and of a move.
+  [codes.areaDepthExceeded]: ['parent', 'location'],
+  // mod-018 design §§ 5.2, 5.4, 6.1: the place a node cannot take, and a link a node cannot take.
+  [codes.areaTypeNotAllowed]: ['parent', 'location'],
+  [codes.areaOutsideProject]: ['parent'],
+  [codes.areaLinkTypeNotAllowed]: ['teams', 'areas'],
+  [codes.areaNotFound]: ['parent', 'location', 'areas'],
+  // mod-017 api-contract § 0.2: a team named in the default-team write is refused under «Команда».
+  [codes.teamNotFound]: ['team', 'destination', 'teams'],
+  [codes.teamNotInProject]: ['team', 'destination'],
+  [codes.projectNotFound]: ['projects'],
+  [codes.teamMemberNotInOrganization]: ['members'],
 };
 
-/** `validation_failed`'s field names (api-contract § 0.5). */
-const VALIDATED_FIELDS: readonly RefusalField[] = ['name', 'key'];
+/** `validation_failed`'s field names (api-contract § 0.5; feat-028 § 0.2, § 2.4). */
+const VALIDATED_FIELDS: readonly RefusalField[] = ['name', 'key', 'description', 'destination'];
 
 function alertOnly(error: unknown): PlacedRefusal {
   return { fields: {}, alert: apiErrorText(error), contextGone: notFoundLevel(error) !== null };

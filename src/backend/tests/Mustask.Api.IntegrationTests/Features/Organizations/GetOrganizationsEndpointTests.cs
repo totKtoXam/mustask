@@ -73,26 +73,61 @@ public sealed class GetOrganizationsEndpointTests(MustaskApiFactory factory)
         Assert.Equal($"{tag} Акме", item.GetProperty("name").GetString());
     }
 
-    // US-1 · "Every signed-in user sees every organization" (BR-M1-19, api-contract § 0.1): a user holding no right at all
-    // sees the organizations of other creators, and so does another user with the create right.
+    // mod-016 US-2 · "The organization list holds only the user's organizations" (BR-M1-7, api-contract § 4.1 row 1): a user who
+    // is a member of A and not of B sees A and not B — whoever created either, and whatever right the token carries.
     [Fact]
-    public async Task Get_UserWithoutRight_SeesOrganizationsOfOtherCreators()
+    public async Task Get_ListsOnlyTheOrganizationsTheCallerIsAMemberOf()
     {
         var tag = NewTag();
-        var first = await OrganizationsTestData.CreateOrganizationAsync(factory, $"{tag} Первая");
-        var second = await OrganizationsTestData.CreateOrganizationAsync(factory, $"{tag} Вторая");
-        var userWithoutRight = OrganizationsTokens.NewSubject();
-        Assert.NotEqual(OrganizationsTestData.Creator, userWithoutRight);
+        var a = await OrganizationsTestData.CreateOrganizationAsync(factory, $"{tag} A", founded: false);
+        var b = await OrganizationsTestData.CreateOrganizationAsync(factory, $"{tag} B", founded: false);
+        var user = await MembershipTestData.NewMemberAsync(factory, a.Id, Mustask.Domain.Identity.OrganizationRole.Member);
+        await MembershipTestData.NewMemberAsync(factory, b.Id, Mustask.Domain.Identity.OrganizationRole.Admin);
 
-        var plain = await GetAsync(OrganizationsTokens.SignedIn(userWithoutRight));
+        var answer = await GetAsync(user.Token);
+        var withCreateRight = await GetAsync(OrganizationsTokens.WithCreateRight(user.Id));
+
+        Assert.Equal(HttpStatusCode.OK, answer.Status);
+        Assert.Equal([$"{tag} A"], NamesWith(answer, tag));
+        Assert.Contains(a.Id, Ids(answer));
+        Assert.DoesNotContain(b.Id, Ids(answer));
+        Assert.Equal(NamesWith(answer, tag), NamesWith(withCreateRight, tag));
+    }
+
+    // mod-016 US-2 · "in any role": an admin, a member and a viewer of the same organization all see it.
+    [Theory]
+    [InlineData(Mustask.Domain.Identity.OrganizationRole.Admin)]
+    [InlineData(Mustask.Domain.Identity.OrganizationRole.Member)]
+    [InlineData(Mustask.Domain.Identity.OrganizationRole.Viewer)]
+    public async Task Get_TheCallersOrganization_IsListedInAnyRole(Mustask.Domain.Identity.OrganizationRole role)
+    {
+        var tag = NewTag();
+        var organization = await OrganizationsTestData.CreateOrganizationAsync(factory, $"{tag} Акме", founded: false);
+        var user = await MembershipTestData.NewMemberAsync(factory, organization.Id, role);
+
+        var answer = await GetAsync(user.Token);
+
+        Assert.Equal([organization.Id], Ids(answer).Where(id => id == organization.Id));
+        Assert.Equal([$"{tag} Акме"], NamesWith(answer, tag));
+    }
+
+    // mod-016 US-2 · "A user who belongs to no organization sees an explicit empty state" (backend half): an empty list — 200,
+    // not an error and not a 404 — for a user with no membership, with or without the create right, however many organizations
+    // others have; and an instance administrator is no exception (api-contract § 0.1).
+    [Fact]
+    public async Task Get_UserWithNoMembership_GetsAnEmptyList_WithOrWithoutTheCreateRight()
+    {
+        await OrganizationsTestData.CreateOrganizationAsync(factory, $"{NewTag()} Чужая");
+
+        var plain = await GetAsync(OrganizationsTokens.Stranger());
         var creator = await GetAsync(OrganizationsTokens.WithCreateRight());
+        var everything = await GetAsync(KeycloakTestRealm.CreateToken([.. Mustask.Domain.Identity.PermissionCatalog.AllCodes], options => options.Subject = OrganizationsTokens.NewSubject()));
 
-        Assert.Equal(HttpStatusCode.OK, plain.Status);
-        Assert.Equal([$"{tag} Вторая", $"{tag} Первая"], NamesWith(plain, tag));
-        Assert.Contains(first.Id, Ids(plain));
-        Assert.Contains(second.Id, Ids(plain));
-        Assert.Equal(HttpStatusCode.OK, creator.Status);
-        Assert.Equal(NamesWith(plain, tag), NamesWith(creator, tag));
+        foreach (var answer in new[] { plain, creator, everything })
+        {
+            Assert.Equal(HttpStatusCode.OK, answer.Status);
+            Assert.Equal(0, answer.Body.GetArrayLength());
+        }
     }
 
     // US-2 · "Deactivated ... listed separately": a deactivated organization leaves this list, and the restored one is back

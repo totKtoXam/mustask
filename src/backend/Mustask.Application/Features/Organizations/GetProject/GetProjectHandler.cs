@@ -32,7 +32,7 @@ public sealed class GetProjectHandler(IProjectReadModel projects)
 {
     public async Task<GetProjectResult> Handle(GetProjectQuery query, CancellationToken cancellationToken)
     {
-        // 1. The address, from the outermost level in. The organization-context filter has answered for the
+        // 1. The address, from the outermost level in. The scoped check has answered for the
         // organization already; the handler parses it again only to name the container of the project it reads.
         if (!AddressedId.TryParse(query.OrganizationId, out var organizationId))
         {
@@ -45,6 +45,6 @@ public sealed class GetProjectHandler(IProjectReadModel projects)
             throw new NotFoundException(OrganizationErrorCodes.ProjectNotFound);
         }
 
-        return new GetProjectResult(new ProjectResponse(project.Id, project.OrganizationId, project.Name, project.Key));
+        return new GetProjectResult(new ProjectResponse(project.Id, project.OrganizationId, project.Name, project.Key, project.Description));
     }
 }
