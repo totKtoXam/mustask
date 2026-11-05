@@ -331,6 +331,11 @@ classify() {
         # the page looks — after a Keycloak version bump it still needs a
         # look by eye on a running stand.
         deploy/keycloak/themes/*)                    echo dotnet ;;
+        # The VM kit (tech-058): scripts and config files the build copies
+        # into the release, read by systemd, nginx and install.sh, never by
+        # the .NET build. Its scripts get the shell checks; the kit as a
+        # whole is proven by a rehearsal on a Linux box, not by a test here.
+        deploy/vm/*)                                 echo shell ;;
         Directory.*.props|*.csproj|*.sln|global.json|.editorconfig|nuget.config)
                                                      echo dotnet ;;
         src/*)                                       echo dotnet ;;

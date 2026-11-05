@@ -11,17 +11,41 @@
 
 Схема: один домен, один reverse proxy с TLS. Прокси отдаёт собранную панель
 (статические файлы) и пересылает `/api/` в `Mustask.Api` на loopback-порт.
-PostgreSQL — отдельный сервис на этой же VM или на другом сервере.
+PostgreSQL работает на этой же VM.
 
 ```
 браузер ──https──> nginx (mustask.example.com)
-                     ├─ /        → /var/www/mustask (сборка панели)
+                     ├─ /        → /opt/mustask/current/panel (сборка панели)
                      └─ /api/    → http://127.0.0.1:5000 (Mustask.Api, systemd)
 Mustask.Api ──> PostgreSQL            Mustask.Api ──https──> общий Keycloak
 ```
 
 Ниже `mustask.example.com` означает ваш домен, `keycloak.example.com` — хост
 общего Keycloak.
+
+**Разделы 2–9 автоматизированы** китом в `deploy/vm/` репозитория: скрипт
+сборки, unit systemd, сайт nginx, шаблон env, скрипт установки/обновления и
+smoke-проверка. Весь путь, когда сторона Keycloak (раздел 1) готова:
+
+```bash
+# машина сборки (раздел 4)
+deploy/vm/build-release.sh v0.1.0 https://mustask.example.com
+scp out/mustask-v0.1.0.tar.gz <vm>:
+
+# VM, один раз (разделы 2, 3, 5, 7)
+tar -xzf mustask-v0.1.0.tar.gz
+sudo bash mustask-v0.1.0/kit/install.sh prepare --host mustask.example.com \
+    --keycloak-host keycloak.example.com --realm <realm> --install-packages --create-db
+sudo nano /etc/mustask/mustask.env        # Keycloak__ClientSecret
+sudo bash mustask-v0.1.0/kit/install.sh nginx --host mustask.example.com --cert <…> --key <…>
+
+# VM, каждый релиз (разделы 8, 9)
+sudo bash mustask-v0.1.0/kit/install.sh deploy mustask-v0.1.0
+sudo bash mustask-v0.1.0/kit/smoke.sh
+```
+
+Источник истины для unit, сайта и ключей env — файлы кита; разделы ниже
+объясняют, что делает каждый шаг и зачем.
 
 **MUSTASK должен занимать корень своего имени хоста.** Текущий релиз нельзя
 опубликовать под под-путём вроде `https://portal.example.com/mustask`: бандл
@@ -105,50 +129,60 @@ Evaluate. Выберите тестового пользователя, сген
 
 ## 2. VM
 
-Допущения (пути можно менять): Linux с systemd, служебный пользователь
-`mustask` без входа в систему, порты 80/443 открыты наружу, API слушает только
-`127.0.0.1:5000`.
+Допущения: Linux с systemd (кит отрепетирован на Ubuntu 24.04), root через
+`sudo`, порты 80/443 открыты наружу, API слушает только `127.0.0.1:5000`,
+PostgreSQL на этой же VM.
 
-Установить:
-
-- **ASP.NET Core runtime .NET 10** (SDK — на машине, где идёт сборка);
-- сам PostgreSQL, если он на этой VM, или клиентские утилиты, если он на
-  другом сервере;
-- nginx (любой reverse proxy настраивается так же) и сертификат для
-  `mustask.example.com` (например, через certbot).
-
-На Ubuntu 24.04 все три ставятся из штатного архива дистрибутива, без
-дополнительных репозиториев (на репетиции: ASP.NET Core 10.0.14,
-PostgreSQL 16, nginx 1.24); `dotnet` ставится в `/usr/lib/dotnet`, а
-`/usr/bin/dotnet` — ссылка на него, его и запускает unit из раздела 6:
+Распакуйте релиз (раздел 4) в любое место, например в домашний каталог, и один
+раз подготовьте машину:
 
 ```bash
-sudo apt-get install -y aspnetcore-runtime-10.0 postgresql nginx
+tar -xzf mustask-v0.1.0.tar.gz
+sudo bash mustask-v0.1.0/kit/install.sh prepare \
+    --host mustask.example.com --keycloak-host keycloak.example.com --realm <realm> \
+    --install-packages --create-db
 ```
+
+`prepare` создаёт служебного пользователя `mustask` без входа в систему
+(домашний каталог `/var/lib/mustask`), каталоги `/opt/mustask/releases/` и
+`/etc/mustask/` и пишет `/etc/mustask/mustask.env` из шаблона (раздел 5);
+существующий env-файл не трогается, поэтому `prepare` можно запускать
+повторно. Два флага — это то, что меняет машину, и каждый задаётся явно:
+
+- `--install-packages` ставит только недостающее из
+  `aspnetcore-runtime-10.0`, PostgreSQL, nginx и curl, через
+  `apt-get install --no-upgrade`: уже стоящие на VM PostgreSQL и nginx не
+  обновляются и не перезапускаются. На Ubuntu 24.04 всё это ставится из
+  штатного архива дистрибутива (на репетиции: ASP.NET Core 10.0.14, PostgreSQL 16,
+  nginx 1.24); unit запускает `/usr/bin/dotnet`. Не указывайте флаг, если
+  пакеты ставятся другим способом.
+- `--create-db`: раздел 3.
 
 **VM должна доверять сертификату хоста Keycloak.** API обращается к
 `keycloak.example.com` по HTTPS (discovery, ключи подписи, обмен токенов), и
 .NET проверяет сертификат по системному хранилищу. Если Keycloak компании
 использует внутренний CA, установите этот CA на VM (на Ubuntu: скопируйте его
 как `.crt` в `/usr/local/share/ca-certificates/` и выполните
-`sudo update-ca-certificates`) до первого запуска; иначе `/health` в разделе 8
-покажет realm недоступным.
-
-```bash
-sudo useradd --system --create-home --home-dir /var/lib/mustask --shell /usr/sbin/nologin mustask
-sudo mkdir -p /opt/mustask/api /var/www/mustask /etc/mustask
-```
+`sudo update-ca-certificates`) до первого deploy; иначе `deploy` остановится в
+ожидании `/health`, который покажет realm недоступным.
 
 `/var/lib/mustask` должен сохраняться между перезапусками и обновлениями: API
-шифрует cookie сессии ключами ASP.NET Core Data Protection, которые по
-умолчанию лежат в домашнем каталоге служебного пользователя. Если каталог
-очищен, все открытые сессии становятся недействительными, и пользователи входят
-заново.
+шифрует cookie сессии ключами ASP.NET Core Data Protection, которые лежат в
+домашнем каталоге служебного пользователя. Если каталог очищен, все открытые
+сессии становятся недействительными, и пользователи входят заново.
 
 ## 3. База данных
 
-Создайте пустую базу и владеющий ею логин (для PostgreSQL на самой VM:
-`sudo -u postgres psql`):
+С `--create-db` скрипт `prepare` создаёт на локальном PostgreSQL роль с
+логином и принадлежащую ей базу `mustask` под сгенерированным паролем, который
+сразу записывается в строку подключения в `mustask.env`. Пароль нигде не
+печатается, знать его никому не нужно. Существующая роль остаётся как есть,
+если её пароль уже записан в `mustask.env` (иначе `prepare` останавливается и
+говорит об этом); недостающая база создаётся. Существующая база `mustask`
+берётся как есть, кто бы ею ни владел: проверьте, что это именно она.
+
+Для PostgreSQL на другом сервере создайте их сами и впишите строку в
+`mustask.env` вручную:
 
 ```sql
 CREATE ROLE mustask LOGIN PASSWORD '<надёжный пароль>';
@@ -160,88 +194,73 @@ API читает строку подключения `ConnectionStrings__mustask
 `Host=127.0.0.1;Port=5432;Database=mustask;Username=mustask;Password=<…>`.
 
 Миграции **применяются явно и никогда — при старте API** (ADR-0002 в
-репозитории: `docs/adr/0002-explicit-database-migrations.md`; см. также
-`docs/runbooks/local-migrations.md`, раздел «External database»). Применяйте их
-с машины, где есть .NET 10 SDK, репозиторий на версии разворачиваемого релиза и
-сетевой доступ к базе:
+репозитории: `docs/adr/0002-explicit-database-migrations.md`). Это делает
+`install.sh deploy` бандлом миграций релиза (`efbundle`, собирается вместе с
+релизом в разделе 4) до переключения на новый код: на самой VM, со строкой
+подключения из `mustask.env`, без SDK, без checkout и без туннеля к базе.
+Бандл применяет только те миграции, которых в базе ещё нет, поэтому запуск на
+каждом deploy безопасен.
+
+Без кита то же делает `dotnet ef database update --project
+src/backend/Mustask.Infrastructure` из checkout на версии релиза; на свежем
+checkout сначала выполните `dotnet restore src/backend/Mustask.Infrastructure`,
+иначе `dotnet ef` остановится с `NETSDK1004`.
+
+## 4. Сборка
+
+На машине сборки (любая ОС с bash — на Windows подходит Git Bash — плюс git,
+.NET 10 SDK, `dotnet-ef` 10.x и Node.js с npm):
 
 ```bash
+git fetch --tags
 dotnet tool install --global dotnet-ef        # один раз на машину сборки
-dotnet restore src/backend/Mustask.Infrastructure
-export ConnectionStrings__mustask='Host=<хост БД>;Port=5432;Database=mustask;Username=mustask;Password=<…>'
-dotnet ef database update --project src/backend/Mustask.Infrastructure
+deploy/vm/build-release.sh v0.1.0 https://mustask.example.com
 ```
 
-`dotnet restore` на свежем checkout обязателен: без него `dotnet ef`
-останавливается с `NETSDK1004` (`project.assets.json` не найден), не дойдя до
-базы.
+Скрипт собирает **тег, а не рабочую копию**: он выкладывает тег во временный
+worktree, поэтому локальные правки на VM не попадают, и затем удаляет его.
+Второй аргумент — адрес сайта, корень хоста без пути и без слеша в конце; он
+вшивается в панель как `VITE_API_BASE_URL` (домен один, поэтому это адрес
+самого сайта). Результат — один файл `out/mustask-v0.1.0.tar.gz`:
 
-PostgreSQL, поставленный на VM из пакета, слушает только `127.0.0.1`, поэтому
-машина сборки напрямую до него не достаёт. Не открывайте его ради этого в сеть;
-пробросьте порт по SSH на время команды и направьте строку на локальный конец:
+| Внутри | Что |
+|---|---|
+| `api/` | `dotnet publish` проекта `Mustask.Api`, framework-dependent: на VM запускается через `dotnet` |
+| `panel/` | сборка панели |
+| `efbundle` | бандл миграций, linux-x64, self-contained |
+| `kit/` | `install.sh`, `smoke.sh`, unit, сайт nginx, шаблон env — из checkout, в котором запущен скрипт |
+| `VERSION` | тег, коммит, коммит кита, адрес сайта, время сборки |
+
+Скопируйте его на VM и распакуйте:
 
 ```bash
-ssh -N -L 15432:127.0.0.1:5432 <vm> &      # остановить после update
-export ConnectionStrings__mustask='Host=127.0.0.1;Port=15432;Database=mustask;Username=mustask;Password=<…>'
+scp out/mustask-v0.1.0.tar.gz <vm>:
+ssh <vm> tar -xzf mustask-v0.1.0.tar.gz
 ```
-
-Выполняйте это перед первым запуском и перед каждым релизом, в котором есть
-новая миграция. `dotnet ef migrations bundle` умеет собрать один исполняемый
-файл, который запускается на VM без SDK; сейчас репозиторий его не публикует,
-так что это вариант, который надо настроить, а не проверенный здесь способ.
-
-## 4. Сборка и установка
-
-На машине сборки, на версии разворачиваемого релиза:
-
-```bash
-# API
-dotnet publish src/backend/Mustask.Api -c Release -o publish/api
-
-# Панель: VITE_API_BASE_URL вшивается в бандл при сборке, без неё сборка
-# падает. Домен один, поэтому это адрес самого сайта (без слеша в конце).
-cd src/frontend
-npm ci
-VITE_API_BASE_URL=https://mustask.example.com npm run build   # результат: dist/
-```
-
-Скопируйте `publish/api/` в `/opt/mustask/api/`, а `src/frontend/dist/` — в
-`/var/www/mustask/` (старое содержимое заменить; каталог API — владелец root,
-доступен `mustask` на чтение). Машина сборки может быть на любой ОС: публикация
-framework-dependent, на VM `Mustask.Api.dll` запускается через `dotnet`.
-`publish/` не внесён в `.gitignore`; собирайте во временном checkout или
-удаляйте его после.
 
 ## 5. Конфигурация: переменные окружения
 
-Положите их в `/etc/mustask/mustask.env` (владелец root, права `0640`, группа
-`mustask`). `__` — так в переменных окружения записывается `:` ключа
-конфигурации.
+API настраивается только через `/etc/mustask/mustask.env` (владелец root,
+права `0640`, группа `mustask`), который `prepare` пишет из
+`deploy/vm/mustask.env.template`. `__` — так в переменных окружения
+записывается `:` ключа конфигурации. `prepare` заполняет адрес сайта, адреса
+Keycloak и, с `--create-db`, строку подключения. **Вам остаётся одно значение:
+`Keycloak__ClientSecret`** — секрет `mustask-panel` от администратора
+Keycloak. Правьте файл на VM (`sudo nano /etc/mustask/mustask.env`); никогда
+не вставляйте секрет в чат, тикет или репозиторий. `install.sh deploy`
+отказывается работать, пока в какой-то настройке остаётся `CHANGE_ME`.
 
-```ini
-ASPNETCORE_ENVIRONMENT=Production
-ASPNETCORE_URLS=http://127.0.0.1:5000
-# TLS завершается на прокси; без этого API видит http:// и строит адреса
-# возврата, не совпадающие с зарегистрированными в Keycloak.
-ASPNETCORE_FORWARDEDHEADERS_ENABLED=true
-
-ConnectionStrings__mustask=Host=127.0.0.1;Port=5432;Database=mustask;Username=mustask;Password=CHANGE_ME
-
-# Общий realm. Authority — адрес realm, без слеша в конце.
-Keycloak__Authority=https://keycloak.example.com/realms/<realm>
-Keycloak__Audience=mustask-api
-# Необязательно: по умолчанию равно Authority. Задавайте, только если в
-# токенах другой iss.
-Keycloak__Issuer=https://keycloak.example.com/realms/<realm>
-# Secret confidential-клиента mustask-panel (от администратора Keycloak).
-# Вне Development API не стартует, если он короче 32 символов или является
-# известной заглушкой.
-Keycloak__ClientSecret=CHANGE_ME_AT_LEAST_32_CHARACTERS
-
-# Абсолютный адрес панели, без слеша в конце. Каждый редирект после входа
-# строится как {PanelUrl}{returnUrl}.
-Session__PanelUrl=https://mustask.example.com
-```
+| Ключ | Значение |
+|---|---|
+| `ASPNETCORE_ENVIRONMENT` | `Production` |
+| `ASPNETCORE_URLS` | `http://127.0.0.1:5000`: только loopback, перед ним nginx. Порт не меняйте: его используют сайт nginx и `install.sh` |
+| `ASPNETCORE_FORWARDEDHEADERS_ENABLED` | `true`: TLS завершается на прокси; без этого API видит `http://` и строит адреса возврата, не совпадающие с зарегистрированными в Keycloak |
+| `ConnectionStrings__mustask` | раздел 3 |
+| `Keycloak__Authority` | `https://keycloak.example.com/realms/<realm>`, без слеша в конце |
+| `Keycloak__Audience` | `mustask-api` |
+| `Keycloak__Issuer` | необязательно, по умолчанию равно authority; задавайте, только если в токенах другой `iss` |
+| `Keycloak__ClientSecret` | секрет `mustask-panel`. Вне Development API не стартует, если он короче 32 символов или является известной заглушкой |
+| `Session__PanelUrl` | `https://mustask.example.com`, без слеша в конце. Каждый редирект после входа строится как `{PanelUrl}{returnUrl}` |
 
 Примечания:
 
@@ -251,153 +270,143 @@ Session__PanelUrl=https://mustask.example.com
   `Keycloak__RequireHttpsMetadata` вне Development по умолчанию включён;
   оставьте так.
 - **`Cors__AllowedOrigins__0` в этой схеме не нужен.** `Mustask.Api` включает
-  CORS только в Development; в Production CORS — забота развёртывания, а при
-  панели и API на одном домене междоменных запросов нет. Переменная в
-  Production ни на что не влияет. Если когда-нибудь панель будет на другом
-  origin, заголовки CORS должен ставить прокси.
+  CORS только в Development; при панели и API на одном домене междоменных
+  запросов нет. Если когда-нибудь панель будет на другом origin, заголовки
+  CORS должен ставить прокси.
+- Файл в формате systemd, а не shell: в значениях есть `;`. Не делайте ему
+  `source`.
 - Секреты хранятся только в этом файле (или в хранилище секретов, которое его
   наполняет), никогда — в репозитории или в `appsettings*.json`.
 
 ## 6. Unit systemd
 
-`/etc/systemd/system/mustask-api.service`:
-
-```ini
-[Unit]
-Description=MUSTASK API
-After=network-online.target postgresql.service
-Wants=network-online.target
-
-[Service]
-Type=exec
-User=mustask
-Group=mustask
-WorkingDirectory=/opt/mustask/api
-EnvironmentFile=/etc/mustask/mustask.env
-Environment=HOME=/var/lib/mustask
-Environment=DOTNET_PRINT_TELEMETRY_MESSAGE=false
-ExecStart=/usr/bin/dotnet /opt/mustask/api/Mustask.Api.dll
-Restart=on-failure
-RestartSec=5
-NoNewPrivileges=true
-PrivateTmp=true
-ProtectSystem=strict
-ProtectHome=true
-ReadWritePaths=/var/lib/mustask
-LimitNOFILE=65536
-
-[Install]
-WantedBy=multi-user.target
-```
+`deploy/vm/mustask-api.service`; `install.sh deploy` ставит его как
+`/etc/systemd/system/mustask-api.service` и включает. Он запускает
+`/usr/bin/dotnet /opt/mustask/current/api/Mustask.Api.dll` от `mustask`, с
+env-файлом из раздела 5, `ProtectSystem=strict` и `/var/lib/mustask` как
+единственным путём на запись (ключи Data Protection). Если `dotnet`
+установлен в другом месте, поправьте `ExecStart` в файле кита до сборки.
 
 ```bash
-sudo systemctl daemon-reload
-sudo systemctl enable --now mustask-api
 journalctl -u mustask-api -f       # структурированный JSON-лог в консоли
 ```
 
-Если `dotnet` установлен в другом месте, поправьте `ExecStart`.
-`ReadWritePaths` оставляет хранилище ключей Data Protection доступным на запись
-при `ProtectSystem=strict`.
-
 ## 7. Reverse proxy и TLS (nginx)
 
-`/etc/nginx/sites-available/mustask`:
-
-```nginx
-server {
-    listen 80;
-    server_name mustask.example.com;
-    return 301 https://$host$request_uri;
-}
-
-server {
-    # nginx 1.25.1 и новее: вместо этого `listen 443 ssl;` плюс `http2 on;`.
-    listen 443 ssl http2;
-    server_name mustask.example.com;
-
-    ssl_certificate     /etc/letsencrypt/live/mustask.example.com/fullchain.pem;
-    ssl_certificate_key /etc/letsencrypt/live/mustask.example.com/privkey.pem;
-
-    # API: наружу открыт только /api/. /health и /alive остаются внутренними.
-    location /api/ {
-        proxy_pass http://127.0.0.1:5000;
-        proxy_set_header Host              $host;
-        proxy_set_header X-Real-IP         $remote_addr;
-        proxy_set_header X-Forwarded-For   $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;
-        proxy_set_header X-Forwarded-Host  $host;
-        proxy_read_timeout 60s;
-        # Callback входа отвечает cookie сессии (зашифрованный тикет с
-        # токенами, ~3.5 КБ на пустом realm и больше с каждым claim общего
-        # realm) плюс очищаемыми OIDC-cookie. Стандартного буфера заголовков
-        # 4–8 КБ мало: nginx отвечает 502.
-        proxy_buffer_size 32k;
-        proxy_buffers 8 32k;
-        proxy_busy_buffers_size 64k;
-    }
-
-    # Панель: SPA, неизвестные пути отдают index.html.
-    root /var/www/mustask;
-    location / {
-        try_files $uri /index.html;
-    }
-}
-```
+Сайт — `deploy/vm/nginx-mustask.conf`: порт 80 перенаправляет на HTTPS; на
+443 `/api/` уходит на `127.0.0.1:5000` с forwarded-заголовками, всё остальное —
+панель из `/opt/mustask/current/panel` с возвратом к `index.html`. `/health` и
+`/alive` наружу не открыты. Сертификат ваш (компании или certbot); укажите
+скрипту его файлы:
 
 ```bash
-sudo ln -s /etc/nginx/sites-available/mustask /etc/nginx/sites-enabled/
-sudo nginx -t && sudo systemctl reload nginx
+sudo bash mustask-v0.1.0/kit/install.sh nginx --host mustask.example.com \
+    --cert /etc/letsencrypt/live/mustask.example.com/fullchain.pem \
+    --key  /etc/letsencrypt/live/mustask.example.com/privkey.pem
 ```
 
-`ssl http2` в строке `listen` — для nginx, который ставят Ubuntu 24.04 и
-Debian 12 (1.24 и 1.22): на `http2 on;` они останавливаются с `unknown
-directive "http2"`. На 1.25.1 и новее форма в `listen` тоже работает и только
-пишет предупреждение об устаревании.
+Скрипт пишет `/etc/nginx/sites-available/mustask`, включает сайт, выполняет
+`nginx -t` и перезагружает nginx. Если проверка не прошла, возвращается сайт
+предыдущего запуска (а при первом запуске новый выключается), так что
+сломанный сайт не остаётся включённым до следующей перезагрузки. Две вещи в
+сайте всё же касаются остальных сайтов этого nginx: на nginx до 1.25.1
+`http2` в строке `listen 443` включает HTTP/2 для всех серверов на этом
+порту, а если для 443 нет другого `default_server`, этот сайт отвечает на
+имена, которые никто не настраивал. Две настройки в файле стоят по причине,
+найденной на репетиции (tech-056):
+
+- `listen 443 ssl http2;` — для nginx, который ставят Ubuntu 24.04 и Debian 12
+  (1.24 и 1.22): на `http2 on;` они останавливаются с `unknown directive
+  "http2"`. На 1.25.1 и новее форма в `listen` тоже работает и только пишет
+  предупреждение об устаревании.
+- `proxy_buffer_size 32k` и две строки после неё: callback входа отвечает
+  cookie сессии (~3.5 КБ на пустом realm и больше с каждым claim общего realm)
+  плюс очищаемыми OIDC-cookie; со стандартным буфером заголовков nginx
+  4–8 КБ каждый вход получает 502.
 
 HTTPS обязателен: cookie сессии `mustask.session` — `Secure`, `HttpOnly`,
 `SameSite=Lax`, путь `/api/session`, и по обычному HTTP не отправляется
 никогда.
 
-## 8. Smoke-проверка
+## 8. Первый запуск и smoke-проверка
 
-1. На VM: `curl -fsS http://127.0.0.1:5000/health` отвечает healthy. Проверка
-   охватывает базу и доступность realm, поэтому сбой здесь — проблема
-   подключения к базе или к Keycloak (в логе видно, к чему).
-2. `https://mustask.example.com/` показывает панель; вход уводит на
+```bash
+sudo bash mustask-v0.1.0/kit/install.sh deploy mustask-v0.1.0
+sudo bash mustask-v0.1.0/kit/smoke.sh
+```
+
+`deploy` копирует релиз в `/opt/mustask/releases/v0.1.0`, применяет миграции
+(раздел 3), ставит unit, направляет `/opt/mustask/current` на релиз,
+перезапускает службу и до минуты ждёт `/health`. Если он так и не стал
+здоров, `deploy` печатает последние строки лога службы и останавливается; по
+логу видно, проблема в базе или в Keycloak.
+
+`smoke.sh` проверяет с VM: `/health` отвечает `Healthy` (проверка охватывает
+базу и доступность realm); `http://` перенаправляет на `https://`; панель
+отдаётся в корне сайта, а клиентский маршрут возвращает `index.html`; API
+отвечает через прокси (401 без токена); `/api/session/login` уводит на realm;
+`/health` через прокси недоступен. Пока DNS не указывает на VM, добавьте
+`--resolve-local`; `--insecure` принимает сертификат, которому VM не доверяет
+(только для репетиций).
+
+Остальное требует человека с браузером; `smoke.sh` печатает это списком:
+
+1. `https://mustask.example.com/` показывает панель; вход уводит на
    `keycloak.example.com` и после логина возвращает в панель.
-3. Пользователь с `user` входит и попадает в панель. Пользователь **без**
+2. Пользователь с `user` входит и попадает в панель. Пользователь **без**
    `user` возвращается с `authError=no_access`, и сессии у него нет.
-4. Роли работают: пользователь только с `user` открывает справочники, но
+3. Роли работают: пользователь только с `user` открывает справочники, но
    создать организацию ему отказано («Недостаточно прав»); первый
    администратор (все четыре роли, раздел 1) создаёт первую организацию. Если
    отказано и администратору, выполните для него проверку Evaluate из
    раздела 1: в `resource_access.mustask-api.roles` должны быть все четыре
    роли.
-5. После первого входа пользователь находится в поиске участников (справочник
+4. После первого входа пользователь находится в поиске участников (справочник
    заполняется при входе, импорта нет): создатель организации находит другого
    тестового пользователя по имени или e-mail при добавлении участника.
 
-## 9. Обновление
+## 9. Обновление и откат
 
-1. Соберите новый релиз, как в разделе 4.
-2. Примените новые миграции (раздел 3).
-3. Замените `/var/www/mustask/` и `/opt/mustask/api/`, затем
-   `sudo systemctl restart mustask-api`.
+Соберите новый тег (раздел 4), скопируйте на VM, затем:
 
-Откат кода — вернуть оба каталога; миграции автоматически не откатываются,
-поэтому релизу с разрушающей миграцией нужна своя инструкция по откату.
+```bash
+sudo bash mustask-v0.2.0/kit/install.sh deploy mustask-v0.2.0
+sudo bash mustask-v0.2.0/kit/smoke.sh
+```
+
+`deploy` применяет новые миграции, переключает `current` на новый релиз и
+сохраняет заменённый как `/opt/mustask/previous`, если тот хоть раз был
+здоров: deploy исправления поверх неудачного релиза оставляет целью отката
+последний хороший. Deploy уже установленного
+тега заменяет его на месте.
+
+```bash
+sudo bash mustask-v0.2.0/kit/install.sh rollback    # current <-> previous, перезапуск
+sudo bash mustask-v0.2.0/kit/install.sh status      # активный VERSION и состояние службы
+```
+
+**Откат не откатывает миграции.** Предыдущий код работает с более новой
+схемой, и это работает, пока миграции аддитивные; релизу с разрушающей
+миграцией нужна своя инструкция по откату. Старые релизы остаются в
+`/opt/mustask/releases/`; ненужные удаляйте вручную (никогда не `current` и не
+`previous`).
 
 ## 10. Диагностика
 
 | Симптом | Вероятная причина |
 |---|---|
+| `build-release: dotnet-ef is missing` | `dotnet tool install --global dotnet-ef` (раздел 4). |
+| `install: … still has CHANGE_ME on line(s) …` | В `mustask.env` осталось значение шаблона: обычно `Keycloak__ClientSecret` (раздел 5). |
+| `install: the release is built for … but Session__PanelUrl is …` | Архив собран для другого адреса сайта: пересоберите его с адресом этой VM (раздел 4). |
+| `install: nginx -t failed; the site is written but not enabled` | nginx не может загрузить файл сертификата или ключа; `nginx -t` выше называет строку. |
+| `install: cannot reach the local PostgreSQL` | PostgreSQL не запущен: `systemctl status postgresql`. |
+| `deploy` останавливается: `/health did not turn healthy in 60 s` | Причину называет лог, напечатанный выше: строка подключения к базе или realm (следующие строки). `install.sh rollback` возвращает предыдущий релиз, если он есть. |
 | API падает на старте, называя ключ `Keycloak:*` или `Session:PanelUrl` | В `mustask.env` нет переменной. |
 | API падает на старте из-за секрета «known placeholder or shorter than 32» | `Keycloak__ClientSecret` — не настоящий секрет `mustask-panel`. |
-| `nginx -t`: `unknown directive "http2"` | nginx старше 1.25.1: используйте `listen 443 ssl http2;` (раздел 7). |
+| `nginx -t`: `unknown directive "http2"` | nginx старше 1.25.1 и сайт правили вручную: оставьте `listen 443 ssl http2;` (раздел 7). |
 | После логина в Keycloak браузер получает **502** на `/api/session/callback`; в error-логе nginx «upstream sent too big header» | Нет буферов прокси из раздела 7: cookie сессии не помещается в стандартный буфер заголовков nginx. |
 | `/health` нездоров и называет realm; в логе ошибка TLS / сертификата | VM не доверяет CA сертификата Keycloak (раздел 2). |
-| `dotnet ef` падает с `NETSDK1004` | Сначала выполните `dotnet restore src/backend/Mustask.Infrastructure` (раздел 3). |
+| `dotnet ef` падает с `NETSDK1004` (без кита) | Сначала выполните `dotnet restore src/backend/Mustask.Infrastructure` (раздел 3). |
 | Keycloak показывает «Invalid redirect URI» | У `mustask-panel` нет `https://mustask.example.com/api/session/callback`, либо не задан `ASPNETCORE_FORWARDEDHEADERS_ENABLED`, и API отправил адрес `http://`. |
 | После входа каждый вызов API — 401 | В access token нет `aud = mustask-api`, или `Keycloak__Authority`/`Keycloak__Issuer` не совпадают с `iss` токена. |
 | Вход возвращается с `authError=no_access` | У пользователя нет роли клиента `mustask-api` `user` (назначьте напрямую). |
@@ -406,26 +415,28 @@ HTTPS обязателен: cookie сессии `mustask.session` — `Secure`, 
 
 ## Что этот runbook не проверяет
 
-Разделы 1–8 пройдены буквально 2026-11-05 (tech-056) на чистой Ubuntu 24.04 с
-systemd вместо VM, с развёртыванием `main` на `927cf1d7`, против отдельного
-Keycloak 26.4, realm которого настроен вручную ровно так, как просит раздел 1,
-и где от MUSTASK только два клиента и четыре роли клиента. Раздел 8 там прошёл,
-включая проверку Evaluate из раздела 1; найденные расхождения исправлены выше
-(запись — в `docs/features/tech-056-vm-runbook-rehearsal/status.md`).
+Разделы 1–8 впервые пройдены вручную 2026-11-05 (tech-056) на чистой Ubuntu
+24.04 с systemd вместо VM, против отдельного Keycloak 26.4, realm которого
+настроен ровно так, как просит раздел 1; та репетиция также входила скриптом
+через настоящую форму логина и проверила роли и первого администратора. В тот
+же день так же, на другой чистой Ubuntu 24.04, пройден кит (tech-058): релиз
+`v0.1.0` (`8aed774b`) собран на машине с Windows, затем `prepare` с обоими
+флагами, CA, секрет вручную, `nginx`, `deploy`, `smoke.sh` (прошёл), второй
+`deploy`, `rollback` и повторный deploy того же тега. Записи — в
+`docs/features/tech-056-vm-runbook-rehearsal/status.md` и
+`docs/features/tech-058-vm-deploy-kit/status.md`.
 
-Не проверено до сих пор, потому что на репетиции этого не было:
+Не проверено до сих пор, потому что на репетиции этого быть не может:
 
 - **Сеть и realm компании.** Настоящие DNS-имена, цепочка сертификатов
-  компании, межсетевые экраны между VM, PostgreSQL и Keycloak, и realm, где уже
-  есть собственные scopes, мапперы, политики, identity providers и required
+  компании, межсетевые экраны между VM и Keycloak, и realm, где уже есть
+  собственные scopes, мапперы, политики, identity providers и required
   actions компании. Любое из этого может изменить токен (и его размер — см.
   буферы прокси в разделе 7) или процесс входа.
-- **Вход через браузер.** Сертификаты репетиции были самоподписанными, поэтому
-  вход проходил через настоящую форму логина, callback и cookie сессии
-  скриптом, а не браузером; панель проверена на загрузку, но не прокликана.
-- **SSH-туннель для миграций** (раздел 3): на репетиции база была доступна
-  через временный проброс порта.
-- **Bundle миграций, обновление и откат** (разделы 3 и 9): не выполнялись.
+- **Вход через браузер.** Сертификаты репетиций были самоподписанными, поэтому
+  вход проходил через форму логина скриптом, а не браузером.
+- **Обновление с новой миграцией.** Обновление отрепетировано той же сборкой
+  под вторым тегом, так что её бандлу нечего было применять.
 - **Адрес под под-путём**: этим релизом не поддерживается (см. начало
   документа, tech-057).
 
