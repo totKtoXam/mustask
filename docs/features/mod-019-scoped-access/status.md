@@ -69,6 +69,7 @@ Plans: `plan-backend.md`, `plan-frontend.md`.
   contract. The prototype was clicked through by the orchestrator (create
   project, row menu, change role, revoke; no JS errors). gate-2 itself waits
   for the human's own look at the prototype
+- 2026-11-06 [task-executor] scoped roles renamed in spec.md (new OQ-10, Roles, Breaks), stories, design.md and the prototype by the human's decision in chat: department and project «Чтение»/«Изменение»/«Управление» → «Читатель»/«Участник»/«Менеджер»; team «Планирование»/«Управление» → «Участник»/«Менеджер» plus a new lowest team «Читатель» (lists the person only). Names only, rights unchanged; review.md left as the history of the rounds.
 
 ## Notes
 

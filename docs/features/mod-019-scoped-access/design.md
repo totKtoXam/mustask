@@ -29,9 +29,9 @@ Menus after this task: department «Обзор», «Проекты», «Кома
 (i) Здесь показан только выданный доступ. Роль в организации ...
 [ Найти участника ]
  Участник              Роль         Откуда                    Выдан               ⋮
- Ирина К.              Изменение    В проекте                 Анна С., 06.11.2026 ⋮
- Ольга П.              Чтение       От департамента «Логис…»  Анна С., 05.11.2026
- Вы  Кирилл Т.         Управление   В проекте                 Анна С., 06.11.2026 ⋮
+ Ирина К.              Участник     В проекте                 Анна С., 06.11.2026 ⋮
+ Ольга П.              Читатель     От департамента «Логис…»  Анна С., 05.11.2026
+ Вы  Кирилл Т.         Менеджер     В проекте                 Анна С., 06.11.2026 ⋮
 ```
 
 | Part | Component | Words |
@@ -44,7 +44,7 @@ Menus after this task: department «Обзор», «Проекты», «Кома
 | Inherited row (project) | the same row, muted | no menu: it is changed on the department. A user holding both a project grant and an inherited one has two rows |
 | Own row | | «Изменить роль» is absent (BR-SA-19); «Отозвать доступ» stays |
 
-Roles by scope (the select and the column use the same labels): department «Чтение», «Изменение», «Управление»; project the same; team «Планирование», «Управление». Rows are ordered by name.
+Roles by scope (the select and the column use the same labels; by decision OQ-10, 2026-11-06): department «Читатель», «Участник», «Менеджер»; project the same; team «Читатель», «Участник», «Менеджер». The select opens on the lowest role, «Читатель», on every scope including the team (D-7). Where a text could mix an organization role with a scoped one it is qualified. Rows are ordered by name.
 
 | State | The user sees |
 |---|---|
@@ -65,17 +65,18 @@ Team page: two `Section`s on one page, «Участники команды» (fe
 | Field | Component | Words and rules |
 |---|---|---|
 | «Участник организации» * | the slice's `UserSearchField` (mod-016 § 3.5), scope = this object | Candidates are active members of this organization who hold no grant on the object, never the caller (BR-SA-2, -19); the server leaves them out. Hint lines as mod-016, and for "nobody": «Пользователи не найдены. Себе доступ выдать нельзя; у кого он уже есть, тому роль меняется в списке.» ◆ |
-| «Роль» * | kit `InlineSelectField`, `frame="always"`, preselected with the lowest role | helper by the chosen role (below) |
+| «Роль» * | kit `InlineSelectField`, `frame="always"`, preselected with the lowest role, «Читатель», on every scope including the team | helper by the chosen role (below) |
 
 | Role | Helper under «Роль» ◆ |
 |---|---|
-| Департамент «Чтение» | Просматривает проекты департамента и их рабочие элементы. |
-| «Изменение» | Чтение, а также создание и изменение рабочих элементов проектов департамента. |
-| «Управление» | Изменение, а также управление департаментом, его проектами и областями: названия, доступ, связи, создание проектов. |
-| Проект «Чтение» / «Изменение» | Просматривает проект. / Чтение, а также рабочие элементы проекта и порядок его бэклога. |
-| Проект «Управление» | Изменение, а также настройки проекта, доступ, связи и области проекта. |
-| Команда «Планирование» | Упорядочивает бэклог команды. |
-| Команда «Управление» | Планирование, а также участники, название, связи команды и доступ к ней. |
+| Департамент «Читатель» | Просматривает проекты департамента и их рабочие элементы. |
+| Департамент «Участник» | Всё, что у «Читателя», а также создание и изменение рабочих элементов проектов департамента. |
+| Департамент «Менеджер» | Всё, что у «Участника», а также управление департаментом, его проектами и областями: названия, доступ, связи, создание проектов. |
+| Проект «Читатель» / «Участник» | Просматривает проект. / Всё, что у «Читателя», а также рабочие элементы проекта и порядок его бэклога. |
+| Проект «Менеджер» | Всё, что у «Участника», а также настройки проекта, доступ, связи и области проекта. |
+| Команда «Читатель» | Только числится в списке «Участники и доступ» команды; бэклог и спринты команды видят все, порядок и спринты не меняет. |
+| Команда «Участник» | Упорядочивает бэклог команды и ведёт её спринты. |
+| Команда «Менеджер» | Всё, что у «Участника», а также участники, название, связи команды и доступ к ней. |
 
 Refusals: `404 organizations.membership.not_found` — «Участник не найден.» under the picker, the chosen user cleared, the list re-read; the self-grant validation — «Нельзя выдать доступ самому себе.» ◆ under the picker (reachable only past the panel); a wrong scope or node type — the dialog's `InlineNotice` «Эту роль нельзя выдать на этом объекте.» ◆; `403 organizations.access.forbidden` — the dialog body becomes `InlineNotice` «Недостаточно прав» with only «Закрыть» (the page behind has dropped its controls); the object gone — the dialog closes onto `NotFound`. Success: the dialog closes, the list and the object's codes are re-read, notice «Пользователю «Олег Иванов» выдан доступ.» ◆, focus returns to «Выдать доступ».
 
@@ -85,8 +86,8 @@ Refusals: `404 organizations.membership.not_found` — «Участник не �
 
 | Row | Title | Text ◆ |
 |---|---|---|
-| Someone else | «Отозвать доступ?» | «Пользователь <имя> потеряет роль «Изменение» на объекте «A». Доступ, который он получает по роли в организации или от департамента, сохранится.» |
-| Oneself | «Отозвать свой доступ?» | «Вы потеряете роль «Управление» на объекте «A». Вернуть её сможет другой менеджер или администратор организации.» |
+| Someone else | «Отозвать доступ?» | «Пользователь <имя> потеряет роль «Участник» на объекте «A». Доступ, который он получает по роли в организации или от департамента, сохранится.» |
+| Oneself | «Отозвать свой доступ?» | «Вы потеряете роль «Менеджер» на объекте «A». Вернуть её сможет другой менеджер или администратор организации.» |
 
 Success: «Доступ пользователя «Олег Иванов» отозван.» ◆ / «Ваш доступ отозван.» ◆; focus on the next row's menu, else «Выдать доступ» (or the `h1` when the caller's own controls are gone).
 
@@ -121,7 +122,7 @@ On → immediate request, `Switch` busy while it runs, notice «Наследов
 (!) Вы входите в их число. После отключения вы потеряете управление этим ...
 Доступ в проекте, выданный этими пользователями (1):
   Кому          Роль         Кто выдал
-  Павел Р.      Управление   Ирина К.
+  Павел Р.      Менеджер     Ирина К.
   Он не прекратится при отключении. Отозвать его можно вручную ...
                                               [ Отмена ] [ Отключить ]
 ```

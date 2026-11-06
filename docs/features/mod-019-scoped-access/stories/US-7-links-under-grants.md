@@ -5,21 +5,21 @@
 - shippable: no — the link codes change hands with the grants of US-1
 - status: pending
 
-As a **holder of «Управление» on a project, a team or a department**, I want **to link and unlink the objects I manage, from my own page**, so that **the matrix is kept by the people who run its parts, and nobody gains power over the other end of a link (BR-SA-15; doc-012 BR-MX-6, US-3, US-10; ADR-0031 rule 4)**.
+As a **holder of «Менеджер» on a project, a team or a department**, I want **to link and unlink the objects I manage, from my own page**, so that **the matrix is kept by the people who run its parts, and nobody gains power over the other end of a link (BR-SA-15; doc-012 BR-MX-6, US-3, US-10; ADR-0031 rule 4)**.
 
 ## Acceptance criteria
 
-Fixture and users of US-1 (everyone a «Читатель» unless said). Only two link kinds exist under the typed tree: project–team and department–team. MARS and VENUS are linked to A; the team JUPITER is linked to nothing. Kirill holds «Управление» on A; Pavel on «Логистика»; Olga on MARS; Irina on VENUS and on A; Lena (also a «Читатель») on A and on MARS.
+Fixture and users of US-1 (everyone an organization «Читатель» unless said). Only two link kinds exist under the typed tree: project–team and department–team. MARS and VENUS are linked to A; the team JUPITER is linked to nothing. Kirill holds «Менеджер» on A; Pavel on «Логистика»; Olga on MARS; Irina on VENUS and on A; Lena (also an organization «Читатель») on A and on MARS.
 
 ```gherkin
 Scenario: Creating a link needs the link code on both ends
   When Kirill links A to the team JUPITER (no grant of his there)
   Then it answers 403 «Недостаточно прав» and creates nothing
-  When Irina, holding «Управление» on A and on VENUS, links VENUS to B (no grant of hers on B)
+  When Irina, holding «Менеджер» on A and on VENUS, links VENUS to B (no grant of hers on B)
   Then it answers 403; Lena, managing A and MARS, links MARS to B only after she also manages B
 
 Scenario: The multiselect offers only what the caller may link
-  Given Lena also holds «Управление» on B, and MARS is not linked to B
+  Given Lena also holds «Менеджер» on B, and MARS is not linked to B
   When Lena opens the command to add teams on B's «Команды»
   Then the multiselect offers MARS only: she holds the team link code on MARS, not on VENUS or JUPITER
   And typing narrows it, and Anna's multiselect offers every unlinked team
@@ -58,7 +58,7 @@ Scenario: The addressed end is judged before the other end (ADR-0029 § 7)
   Then Vera's answers 403 «Недостаточно прав», and Kirill's answers «Команда не найдена.»; a team of another organization answers as one that names nothing
 
 Scenario: Linking or unlinking changes no access
-  Given Pavel holds «Изменение» on «Логистика» and A is linked to MARS
+  Given Pavel holds «Участник» on «Логистика» and A is linked to MARS
   When the link is removed and made again
   Then no user's codes on A or on MARS change
 ```

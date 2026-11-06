@@ -9,7 +9,7 @@ As a **department manager or a project manager**, I want **to create projects in
 
 ## Acceptance criteria
 
-Fixture and users of US-1 (everyone a «Читатель» unless said). Pavel holds «Управление» on «Логистика»; Kirill holds the project role «Управление» on A; Olga holds «Изменение» on A. Departments do not nest and hold only project nodes; sub-areas stand only below a project node (mod-018 OQ-3, OQ-7); a project node is created, renamed and deleted with its project, and moved by the area move.
+Fixture and users of US-1 (everyone an organization «Читатель» unless said). Pavel holds «Менеджер» on «Логистика»; Kirill holds the project role «Менеджер» on A; Olga holds «Участник» on A. Departments do not nest and hold only project nodes; sub-areas stand only below a project node (mod-018 OQ-3, OQ-7); a project node is created, renamed and deleted with its project, and moved by the area move.
 
 ```gherkin
 Scenario: A department manager creates a project in the department (OQ-4 B)
@@ -20,8 +20,8 @@ Scenario: A department manager creates a project in the department (OQ-4 B)
   And Anna creates in any place, a top-level one included
 
 Scenario: A department manager runs the projects it reaches (OQ-8 A)
-  Given Pavel holds «Управление» on «Логистика» and has created the project E in it
-  When he renames E, sets its default team, links a team he also manages to E, and gives Irina «Изменение» on E
+  Given Pavel holds «Менеджер» on «Логистика» and has created the project E in it
+  When he renames E, sets its default team, links a team he also manages to E, and gives Irina «Участник» on E
   Then each is kept, and the same on A and B
   And the same on D (top level) answers 403
   When Anna switches A's node off
@@ -47,7 +47,7 @@ Scenario: A project manager manages the sub-areas of its project (OQ-3 B)
   When Kirill creates «Тесты» under A's node, renames «Платформа», moves «Тесты» under «Платформа» and deletes it
   Then each is kept
   And the same under B's node or on «Склад» answers 403
-  And Olga, holding «Изменение», gets 403 on each
+  And Olga, holding «Участник», gets 403 on each
 
 Scenario: A project manager's reach does not depend on the sub-areas' switches
   Given Anna switches «Платформа» off, cutting the department's grants from it
@@ -61,7 +61,7 @@ Scenario: A project manager cannot place or switch its own project
   And his rename of the project itself is kept
 
 Scenario: A department manager moves a project between departments they both manage (BR-MX-3)
-  Given Pavel also holds «Управление» on «Финансы»
+  Given Pavel also holds «Менеджер» on «Финансы»
   When he moves A's node from «Логистика» to «Финансы»
   Then it is kept, with his reach changing at his next request
   When he holds «Логистика» only and moves A's node to «Финансы» or to the top level
@@ -74,6 +74,6 @@ Scenario: A name taken at the destination is refused after the codes
   Then it is refused with «Область с таким названием уже есть на этом уровне»
 
 Scenario: Nobody else writes to the tree
-  When a «Читатель», a «Участник», and holders of «Изменение» on «Логистика» or on A, or of «Планирование» on MARS, create, rename, move, switch or delete a node
+  When an organization «Читатель», an organization «Участник», and holders of «Участник» on «Логистика» or on A, or of «Участник» on MARS, create, rename, move, switch or delete a node
   Then each is answered 403, on the page and by a direct request, and «Структура» shows them the tree with no such command
 ```
