@@ -1,3 +1,4 @@
+using Microsoft.Extensions.Logging;
 using Mustask.Application.Abstractions;
 using Mustask.Application.Abstractions.Organizations;
 using Mustask.Domain.Organizations;
@@ -11,7 +12,7 @@ namespace Mustask.Application.Features.Organizations.RevokeGrant;
 /// grant, never removing it). A grant that is not there answers 409 <c>grant.changed</c>: somebody else removed it first, and two
 /// managers removing each other's grants at once may both succeed (BR-SA-2).
 /// </summary>
-public sealed class RevokeGrantHandler(IGrantRepository grants, IUnitOfWork unitOfWork)
+public sealed class RevokeGrantHandler(IGrantRepository grants, ICurrentUser currentUser, IUnitOfWork unitOfWork, ILogger<RevokeGrantHandler> logger)
 {
     public async Task Handle(RevokeGrantCommand command, CancellationToken cancellationToken) =>
         await unitOfWork.ExecuteInTransactionAsync(
@@ -40,6 +41,10 @@ public sealed class RevokeGrantHandler(IGrantRepository grants, IUnitOfWork unit
                 {
                     throw new ConflictException(OrganizationErrorCodes.GrantChanged);
                 }
+
+                logger.LogInformation(
+                    "Grant revoked: {Scope} {ObjectId} in organization {OrganizationId}, user {UserId}, by {ActorId}.",
+                    command.Scope, objectId, organizationId, command.UserId, currentUser.SubjectId);
 
                 return true;
             },

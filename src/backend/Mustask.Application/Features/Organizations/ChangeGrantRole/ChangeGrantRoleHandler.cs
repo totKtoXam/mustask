@@ -1,3 +1,4 @@
+using Microsoft.Extensions.Logging;
 using Mustask.Application.Abstractions;
 using Mustask.Application.Abstractions.Organizations;
 using Mustask.Application.Abstractions.UserDirectory;
@@ -17,7 +18,8 @@ public sealed class ChangeGrantRoleHandler(
     IUserDirectory directory,
     ICurrentUser currentUser,
     IClock clock,
-    IUnitOfWork unitOfWork)
+    IUnitOfWork unitOfWork,
+    ILogger<ChangeGrantRoleHandler> logger)
 {
     public async Task<GrantRowView> Handle(ChangeGrantRoleCommand command, CancellationToken cancellationToken) =>
         await unitOfWork.ExecuteInTransactionAsync(
@@ -58,9 +60,14 @@ public sealed class ChangeGrantRoleHandler(
                     }
 
                     result = new GrantRecord(userId, role, actor, now);
+
+                    logger.LogInformation(
+                        "Grant changed: {Scope} {ObjectId} in organization {OrganizationId}, user {UserId} now {Role}, by {ActorId}.",
+                        command.Scope, objectId, organizationId, userId, role, actor);
                 }
 
                 var lookup = await UserDirectoryBatches.LookupAllAsync(directory, [result.UserId, result.GrantedBy], ct);
+
 
                 return GrantRows.Of(result, GrantOrigins.Held, null, lookup.Known);
             },

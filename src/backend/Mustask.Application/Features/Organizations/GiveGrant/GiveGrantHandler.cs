@@ -1,3 +1,4 @@
+using Microsoft.Extensions.Logging;
 using Mustask.Application.Abstractions;
 using Mustask.Application.Abstractions.Organizations;
 using Mustask.Application.Abstractions.UserDirectory;
@@ -25,7 +26,8 @@ public sealed class GiveGrantHandler(
     IUserDirectory directory,
     ICurrentUser currentUser,
     IClock clock,
-    IUnitOfWork unitOfWork)
+    IUnitOfWork unitOfWork,
+    ILogger<GiveGrantHandler> logger)
 {
     public async Task<GrantRowView> Handle(GiveGrantCommand command, CancellationToken cancellationToken) =>
         await unitOfWork.ExecuteInTransactionAsync(
@@ -82,6 +84,10 @@ public sealed class GiveGrantHandler(
                 {
                     known[entry.Key] = entry.Value;
                 }
+
+                logger.LogInformation(
+                    "Grant given: {Scope} {ObjectId} in organization {OrganizationId}, user {UserId} as {Role}, by {ActorId}.",
+                    command.Scope, objectId, organizationId, userId, role, actor);
 
                 return GrantRows.Of(new GrantRecord(userId, role, actor, now), GrantOrigins.Held, null, known);
             },
