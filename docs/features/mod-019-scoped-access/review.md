@@ -471,3 +471,35 @@ Carried as debts, not re-raised: QA D-5 and G-1..G-4; plan-frontend § 5 coarse 
 ### Verdict (round 1)
 
 **changes-requested.** 4 majors (C-1..C-4; C-3 and C-4 are prose-only, C-1 and C-2 touch runtime and tests), 4 minors (C-5..C-8, debts). No blocker; nothing waits on a decision unless the developer chooses to amend the NFR in C-1. ADR-0038 matches the code and is ready for acceptance at gate-3.
+
+## Round 2 — delta
+
+2026-11-10, the last delta read the L cap allows: `git diff f6b599e8..944722d2` only (22 files; e14bc370, bb454cff, 6735e5e7, d129ddc0, 1408a3af, 14dd760b, 944722d2). Suite results are the developer's (all backend projects green, integration 3370 passed, 3 skipped); nothing run here.
+
+| Finding | Status | Anchor |
+|---|---|---|
+| C-1 (major) | **closed** | `ScopedAccessReadModel.cs` `WalkAsync`: one recursive CTE, scoped by `organization_id` at each step, stops past a department or a node whose switch is off, bounded at depth 10. It keeps the old walk's semantics (the project grant is taken from the addressed node's `project_id`; department grants only when the chain's top is a department). `ScopedAccessStatementCountTests.TheAreaCheck_…AtDepthOneAndTen` pins 3 statements at depth 1 and 10 (project under a department: 4) and asserts that the deep node still reaches both grants. plan-backend § 6 reworded to match. |
+| C-2 (major) | **closed** | `RefusalLog.cs`: one line with route pattern, code, scope, `sub`, organization, reason and error code. Policy refusals go through `ForbiddenErrorCodeResultHandler`; 403s raised in handlers go through `BusinessExceptionHandler` from the resolved access, with no second line (`LoggedKey`). `RefusalLogTests` cover both paths and check that no token or body text is logged. |
+| C-3 (major) | **closed** | `OrganizationAccessInventoryTests.cs:63-81`: each reason now says that every organization role holds the code, that no grant adds anything there, and that hiding is owed to feat-041. |
+| C-4 (major) | **closed** | `src/backend/AGENTS.md:156-171`, `docs/conventions/backend.md:146-147`, `docs/conventions/frontend.md:84-95`, `plan-frontend.md:63-64` (O-1 closed, O-2 answered). Each now matches the code. |
+| C-5 (minor) | **reclassified: a spec gap for the human at gate-3, not a code defect** | BR-SA-7 ("holders of a project grant on their own excluded"), BR-SA-19 and US-2:79-81 ("the count leaves out holders of a project grant") exclude every project-grant holder with no role condition, and `SwitchImpactReadModel.cs:89-93` does exactly that. The spec is also inconsistent with itself: US-2:79-81 counts Pavel among the 2 and warns him, and the same scenario's example has Irina giving Pavel «Менеджер» on A. Under the rule as written, that would exclude him. For the human: should a project grant exclude its holder only when its bundle covers what the switch cuts (a project «Читатель» does not cover a department «Менеджер»'s `project.write/.link/.grant` or `area.write`)? Either answer is a small change; until then the code is correct against the spec. |
+| C-6 (minor) | **closed** | `plan-backend.md:15` P-7: generated, never edited by hand. |
+| C-7 (minor) | **closed** | `GiveGrantHandler`, `ChangeGrantRoleHandler` (only on an actual change), `RevokeGrantHandler`: information lines with scope, object, organization, grantee, role and actor, ids only. `GrantAuditLogTests` checks all three. |
+| C-8 (minor) | **closed** | `SetInheritsAccessHandler.cs:72-75` re-checks the node's own `area.write` after the lock; `SetInheritsAccessHandlerTests` covers it. |
+
+**New in the delta:** none that rises to a finding. A nit, not owed: `ChangeGrantRoleHandler.cs` gained a stray blank line before the `return`.
+
+### Claims checked (delta)
+- plan-backend § 6 statement counts → `ScopedAccessStatementCountTests` (3 / 4 / 4, area 3 at both depths): holds.
+- `RefusalLog` summary ("written once per refused request") → `LoggedKey` checked in `BusinessExceptionHandler`: holds.
+- AGENTS.md / conventions on generation and grants → `RoleBundlesContractTests.cs:25`, `OrganizationPermissionHandler.cs`, `objectAccess.ts`: holds.
+- status Log fix-round line → the commits listed above: holds; its C-5 reason matches US-2:79-81 and BR-SA-7.
+- Direction 2: the delta changes logging and the area walk's SQL only. Grepped `Organization access refused`, the old log message, under `docs/`, `.claude/` and the AGENTS.md files: no hits.
+
+### Verdict (round 2)
+
+**approved.** No blocker or major is open. Deliberately left open for the gate-3 summary:
+- C-5, a spec question for the human;
+- the earlier debts: QA D-5 (concurrency and the 500 ms seed; its refusal-log part is now covered), G-1..G-4, plan-frontend § 5's coarse team-backlog controls, plan-backend § 6 (a).
+
+ADR-0038 is ready to be accepted.
