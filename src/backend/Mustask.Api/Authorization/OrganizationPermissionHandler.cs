@@ -76,7 +76,7 @@ public sealed class OrganizationPermissionHandler(
 
         if (!AddressedId.TryParse(raw, out var organizationId))
         {
-            context.Fail(new OrganizationAccessFailure(this, OrganizationAccessFailureKind.OrganizationNotFound, "malformed", requirement.Code));
+            context.Fail(new OrganizationAccessFailure(this, OrganizationAccessFailureKind.OrganizationNotFound, "malformed", requirement.Code, requirement.Scope));
 
             return;
         }
@@ -93,7 +93,7 @@ public sealed class OrganizationPermissionHandler(
         if (row is not { Role: { } role } || !accepted)
         {
             context.Fail(new OrganizationAccessFailure(
-                this, OrganizationAccessFailureKind.OrganizationNotFound, organizationId.ToString(), requirement.Code));
+                this, OrganizationAccessFailureKind.OrganizationNotFound, organizationId.ToString(), requirement.Code, requirement.Scope));
 
             return;
         }
@@ -101,15 +101,17 @@ public sealed class OrganizationPermissionHandler(
         if (!requirement.MembershipOnly && !await HoldsAsync(httpContext, requirement, organizationId, role))
         {
             context.Fail(new OrganizationAccessFailure(
-                this, OrganizationAccessFailureKind.RoleLacksCode, organizationId.ToString(), requirement.Code));
+                this, OrganizationAccessFailureKind.RoleLacksCode, organizationId.ToString(), requirement.Code, requirement.Scope));
 
             return;
         }
 
-        httpContext.Items[HttpContextOrganizationAccess.ItemKey] = new ResolvedOrganizationAccess(organizationId, role);
+        httpContext.Items[HttpContextOrganizationAccess.ItemKey] = new ResolvedOrganizationAccess(
+            organizationId, role, requirement.Code, requirement.Scope, RefusalLog.RouteOf(httpContext));
         context.Succeed(requirement);
     }
 }
 
-/// <summary>What the scoped check resolved for one request: the organization of the address and the caller's role in it.</summary>
-internal sealed record ResolvedOrganizationAccess(Guid OrganizationId, OrganizationRole Role);
+/// <summary>What the scoped check resolved for one request: the organization, the caller's role in it, and the route's code and scope (for the refusal log).</summary>
+internal sealed record ResolvedOrganizationAccess(
+    Guid OrganizationId, OrganizationRole Role, string Code = "", ResourceScope Scope = ResourceScope.Organization, string Route = "unmatched");
