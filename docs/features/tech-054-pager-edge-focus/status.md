@@ -10,7 +10,7 @@
 
 ## Gates
 
-gate-3: approved 2026-11-09 (CR-1/CR-2 fixed first)
+gate-3: approved 2026-11-09 (CR-1/CR-2 fixed first) · PR https://github.com/totKtoXam/mustask/pull/110
 
 ## Plan
 
