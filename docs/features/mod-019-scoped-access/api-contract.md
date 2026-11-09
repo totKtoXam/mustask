@@ -74,7 +74,7 @@ Turning it off ends the actor's own inherited «Менеджер» there, and ta
 - `GET /organizations/{id}/access` (existing) keeps `{ role, codes }` with the **organization-scope codes only**.
 - `GET /areas/{id}`, `GET /projects/{id}`, `GET /teams/{id}` gain **`codes: string[]`**: the caller's effective codes on that object, in the catalog's order.
 - A multi-project read (`GET /projects`, the team's and department's project lists) gains `codes` on each project row **once per project**, never per work item.
-- `GET /areas` (the tree) gains `writableAreaIds: Guid[]`: the ids of the nodes where the caller holds `organizations.area.write`, once, computed as a set (the read's statement count and 2 s budget stay as pinned).
+- `GET /areas/writable-ids` (a sibling of the tree, declared `organizations.area.read`, because the tree is a bare array the panel already consumes) returns `Guid[]`: the ids of the nodes where the caller holds `organizations.area.write`, once, computed as a set (the read's statement count and 2 s budget stay as pinned).
 
 ## 6. Creating a project (BR-SA-17)
 

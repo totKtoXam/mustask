@@ -53,6 +53,16 @@ Three new tables, two composite foreign keys each, a plain index `(organization_
 - **ADR-0038** is `proposed`; its text is the authority for BR-SA-16/-17. The code in steps 1-4 does not depend on its acceptance beyond the bundle cells it names.
 - **No Keycloak change of any kind**; grants live in the MUSTASK database.
 
-## 6. Status at the end of this pass
+## 6. Refinements of the second pass (steps 4-6)
+
+- **Where each second code is decided.** A route is scoped when it names one object of the code's scope (`{areaId}`, `{projectId}` or `{teamId}`); the scoped policy resolves that object. A route whose object is the *place in the body* (`POST /projects`, `POST /areas`) or whose rule needs *either* end of a link (both `DELETE` department–team links) declares `RequiresOrganizationPermissionDecidedInHandler(code, reason)`: a membership-only policy, a stated reason, and the handler decides at step 0 through `IOrganizationAccess.HoldsOnAsync`. The inventory test lists these four routes exactly, both ways.
+- **Non-disclosure.** An unknown or malformed id is passed on as `Guid.Empty` (or the parsed guess), so a non-admin gets 403 and an administrator passes to the 404.
+- **Set form.** `IOrganizationAccess.SetAsync` loads the caller's grants and the tree once per request (`AccessSet`); per-row `canUnlink`, `codes` on a project, team or area read and the filtered pickers read it, never a statement per row.
+- **`boards.projectbacklog.reorder`** (Project scope) replaces `boards.backlog.reorder` on the project backlog reorder. Organization «Участник» and project «Менеджер» and «Участник» hold it, so nobody who could reorder loses it.
+- **`writableAreaIds`** cannot be added to the tree, which is a bare array the panel consumes; it is a sibling read `GET /areas/writable-ids` (declared `organizations.area.read`), an array of ids computed from the set form. api-contract § 5 says so.
+- **Deferred, with the reason.** (a) A department «Менеджер» creating a project and naming teams in the same request still needs the organization-level link codes (administrator only): the project is created, the link step stays with the administrator until a later change moves the team codes to the scoped form. (b) The per-card flag of a shared board (US-3, «moves only the cards the user may change») is not done in this pass: the card move is judged by the route's code on the project. The statement-count test at 10 and 10 000 grants is done (`ScopedAccessStatementCountTests`: the check takes 3 statements and the set form 4 at both sizes).
+- **Timing budget.** `UnlinkTeamVolumeTests` passed alone and in the full run after the scoped check (it failed once in pass 1 on a loaded machine, 5.6 s); its 5 s budget is unchanged. `AggregateViewVolumeTests` failed once under a parallel run (9.8 s against 2 s) and passed alone in 2 m 9 s, as it did in the full run; it is machine load, not the check.
+
+## 7. Status at the end of this pass
 
 See the Log in `status.md`: what is implemented, what waits for the next steps.

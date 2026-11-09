@@ -3,7 +3,7 @@
 - type: module
 - size: L
 - branch: mod/019-scoped-access
-- stage: 04-backend
+- stage: 05-frontend
 - epic: core/org-access
 - deps: mod-018,feat-043
 - gates: gate-1, gate-2, gate-3
@@ -73,6 +73,7 @@ Plans: `plan-backend.md`, `plan-frontend.md`.
   done; plan-backend owes the proposed ADR amending ADR-0029, OQ-D2's contract
   and the error codes
 - 2026-11-09 [backend-developer] stage 4 first pass: plan-backend.md, api-contract.md (grants, candidates, role-bundle contract), ADR-0038 (proposed, for gate-3) written; code done for the grant tables, the scoped check (resource scope on the requirement), the five grant slices on three scopes, four error codes and contracts/access/role-bundles.json. Deferred to the next backend pass: the switch and its impact read, scoped policy on the remaining routes, links under grants, create-by-place, served codes, tree ids. Gates untouched
+- 2026-11-09 [backend-developer] stage 4 second pass: the inherits-access switch and impact read, scoped policy on the remaining routes (boards.projectbacklog.reorder on the project backlog), canUnlink and linkableFor, create-by-place, served codes and writable-ids; ADR renumbered 0038. Tests: Domain 922, Application 857, Architecture 82, Contracts 232, Shared 53, Infrastructure 466, Api.IntegrationTests 3338 (3 skipped), 0 failed. Deferred: per-card flag on a shared board; stage → 05-frontend. Gates untouched
 
 ## Notes
 
