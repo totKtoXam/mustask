@@ -168,3 +168,54 @@ D-1, D-2, D-3: fixed. D-4: open, carried to the frontend plan. D-5: open as is (
 ### Verdict
 
 blockers: 0 · majors: 0 · minors open: 2 (D-4, D-5) · result: **pass** for the backend. The cycle ends: no blocker or major is open, and this was the first re-check. E2E: standing answer NO (paused).
+
+## Frontend
+
+Pass 1, 2026-11-10, HEAD 188fbde7. The plan was written from spec.md, stories, design.md and plan-frontend.md before any panel source was read. E2E: skipped by the human's standing decision (paused, answer NO); not asked, not run. The optional look at real screens was not done: the panel has no mocked dev mode, and the stand is off limits.
+
+### Coverage matrix
+
+| Criterion / screen | Check | Result |
+|---|---|---|
+| Scoped role names and helper texts (design § 3) | texts in `grantTexts.ts` against the design, string by string | match |
+| Project «Участник» with organization «Читатель» changes items (US-4, BR-SA-18, OQ-11) | new `WorkItemsPage.grantHolder.qa.test.tsx` (4): create command, card editable, assignee search carries `projectId`, other project and no-grant stay read-only | pass |
+| BR-SA-18 guard fails on a violation | a temporary file asking `workItemsPermissions.workItemWrite` of the organization answer made `scopeGuard.test.ts` fail; file removed | pass; bypass G-1 |
+| Grants sections: states, rows, own row, inherited rows, reader, 200 rows | developer tests `GrantsPages*.test.tsx`, read against design § 2 | covered; G-2 |
+| Give, role, revoke dialogs; refusals | `grantRefusals.test.ts`, `GrantsPages.test.tsx`, text match | covered |
+| Switch and read-only fact, per node type | `InheritAccess.test.tsx`; code read (`canSwitch`: node code and parent's code, top level `area.create`) | covered; G-4 |
+| Switch-off dialog: count and plural forms, zero, self-lockout, given grants, loading, error with retry | `InheritAccess.test.tsx`, `usersCount` table; texts match | covered; G-3 |
+| «Создать проект» by place (absent with no place, preset, admin top level) | `CreateProjectByPlace.test.tsx` | covered |
+| Per-row `canUnlink`, `linkableFor` pickers | code read: team, project, department link tables use `canUnlink ?? code`; pickers pass `linkableFor` | covered by existing page tests |
+| Organization answer is organization-scope only (188fbde7) | test doubles already serve org-scope codes only; every narrower code read from object codes (guard); `.codes` readers are object reads only; role floor comes from the contract, not the answer | no surface depends on the old bundle |
+| D-4 per-card move flag | `canMove` by the card's own project (`BoardColumns`, `AggregateBoardView`, `AggregateBacklogView`); codes once per project row | closed; O-2 relies on the backend serving `codes` on every active project row (backend contract § 5 says so) |
+
+### Judging what plan-frontend § 5 leaves open
+
+- Team backlog controls judged per backlog, not per row; the team-place project picker not narrowed: acceptable, minor. The server refuses, the refusal re-reads the codes (US-4 "the server decides"); the per-card move flag, the one control the spec names per row, is per card.
+- Grant holders under-offered on lists without codes (organization «Команды», link dialogs): acceptable. Nothing is offered that the role forbids, the object's own page offers the grant's controls, and link rows carry `canUnlink`. Minor, a debt.
+
+### Tests added
+
+`src/frontend/src/features/workitems/pages/WorkItemsPage.grantHolder.qa.test.tsx`, 4 tests, all green.
+
+### Runs
+
+| What | Result |
+|---|---|
+| `tsc -b` | 0 errors |
+| `eslint .` | 0 errors, 3 warnings (react-refresh, pre-existing files) |
+| `vitest run`, whole | 374 files, 5649 tests: 5641 passed, 6 skipped, 2 failed on timeouts (`WorkItemFormPage.landing`, `WorkItemsPage.assignee` 2 000-people test), run while another suite was running; both passed alone (28 tests) |
+| `vitest run` of the new file | 4 passed |
+
+With the new file: 375 files, 5653 tests.
+
+### Defects
+
+- **G-1 (minor): the guard is blind to destructuring.** `const { workItemWrite } = workItemsPermissions; access(workItemWrite, 'organization')` names no `x.y` and no `const a = b;` alias, so `narrowerCodesIn` finds nothing and the surface needs no registration. Fix: also match a destructuring of a permission-constants object.
+- **G-2 (minor): team grants section shows the info notice** «Здесь показан только выданный доступ. Роль в организации …» though design § 2 lists it for the project and the department.
+- **G-3 (minor): the switch-off dialog's given-grants table does not cap at 6 visible rows and scroll** (D-12, up to 50 rows); loading draws `LoadingBox`, not `FieldsSkeleton`.
+- **G-4 (minor, from reading the code, not run): the switch shows as the read-only fact** until the parent's read lands (`canSwitch` is false while `parentQuery` is pending), then turns into the switch.
+
+### Verdict
+
+blockers: 0 · majors: 0 · minors open: 4 (G-1..G-4, debts for gate-3) · result: **pass** for the frontend. E2E skipped by the human's standing decision.
