@@ -63,7 +63,7 @@ public sealed class ScopedRoutesQaTests(MustaskApiFactory factory)
     private string AreaPath(World w, Guid id) => $"{OrganizationsApi.Areas(w.Structure.OrganizationId)}/{id}";
 
     // US-3 table · «Менеджер» on A renames the project; «Участник» does not.
-    [Fact(Skip = "QA mod-019 D-1: project and team routes ignore grants; remove Skip when fixed")]
+    [Fact]
     public async Task AProjectManager_RenamesTheirProject_AProjectMemberDoesNot()
     {
         var w = await WorldAsync();
@@ -80,7 +80,7 @@ public sealed class ScopedRoutesQaTests(MustaskApiFactory factory)
     }
 
     // US-3 table, OQ-8 A · a department manager renames and describes the projects the department reaches, and not a top-level one.
-    [Fact(Skip = "QA mod-019 D-1: project and team routes ignore grants; remove Skip when fixed")]
+    [Fact]
     public async Task ADepartmentManager_RenamesAReachedProject_NotATopLevelOne()
     {
         var w = await WorldAsync();
@@ -112,7 +112,7 @@ public sealed class ScopedRoutesQaTests(MustaskApiFactory factory)
     }
 
     // US-1 / US-3 · «Менеджер» of a team renames it; «Участник» of the team does not.
-    [Fact(Skip = "QA mod-019 D-1: project and team routes ignore grants; remove Skip when fixed")]
+    [Fact]
     public async Task ATeamManager_RenamesTheTeam_ALowerTeamRoleDoesNot()
     {
         var w = await WorldAsync();
@@ -189,7 +189,7 @@ public sealed class ScopedRoutesQaTests(MustaskApiFactory factory)
     }
 
     // US-7 · linking a team to a project needs the link code on both ends.
-    [Fact(Skip = "QA mod-019 D-1: project and team routes ignore grants; remove Skip when fixed")]
+    [Fact]
     public async Task LinkingATeamToAProject_NeedsBothEnds()
     {
         var w = await WorldAsync();
@@ -207,7 +207,7 @@ public sealed class ScopedRoutesQaTests(MustaskApiFactory factory)
     }
 
     // US-7 · the addressed end's 403 comes before the other end's not-found.
-    [Fact(Skip = "QA mod-019 D-1: project and team routes ignore grants; remove Skip when fixed")]
+    [Fact]
     public async Task TheAddressedEnd_IsJudgedBeforeTheOtherEnd()
     {
         var w = await WorldAsync();

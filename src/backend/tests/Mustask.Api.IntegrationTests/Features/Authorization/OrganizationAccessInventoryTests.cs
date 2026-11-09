@@ -60,6 +60,28 @@ public sealed class OrganizationAccessInventoryTests(MustaskApiFactory factory)
         "POST /api/organizations/{organizationId}/projects",
     ];
 
+    /// <summary>
+    /// The routes that declare a code of a project, team or department scope <b>without</b> a scope, because they name no such object
+    /// (mod-019 QA D-1): a list or an aggregate read over the organization, whose handler narrows the rows by the caller's grants, or a
+    /// team-addressed read of a project-scoped code. A route that names the object of its code's scope must declare the scope. The list
+    /// is exact and asserted both ways.
+    /// </summary>
+    private static readonly IReadOnlyDictionary<string, string> OrganizationWideUseOfNarrowCodes = new Dictionary<string, string>(StringComparer.Ordinal)
+    {
+        ["GET /api/organizations/{organizationId}/projects"] = "A list over the organization; the rows are narrowed by the caller's grants in the handler.",
+        ["GET /api/organizations/{organizationId}/teams/{teamId}/backlogs/{level}"] = "Team-addressed read of a project-scoped code: the team is not the project; the rows are narrowed in the handler.",
+        ["GET /api/organizations/{organizationId}/teams/{teamId}/boards/{level}"] = "Team-addressed read of a project-scoped code: the team is not the project; the rows are narrowed in the handler.",
+        ["GET /api/organizations/{organizationId}/workitems/assignee-candidates"] = "Organization-level picker; mod-019 QA D-3 awaits a decision.",
+        ["GET /api/organizations/{organizationId}/backlogs/{level}/groups"] = "Aggregate read over the organization (feat-048); the rows are narrowed by the caller's access set.",
+        ["GET /api/organizations/{organizationId}/boards/{level}/groups"] = "Aggregate read over the organization (feat-048); the rows are narrowed by the caller's access set.",
+        ["GET /api/organizations/{organizationId}/workitems/groups"] = "Aggregate read over the organization (feat-048); the rows are narrowed by the caller's access set.",
+        ["GET /api/organizations/{organizationId}/backlogs/{level}/rows"] = "Aggregate read over the organization (feat-048); the rows are narrowed by the caller's access set.",
+        ["GET /api/organizations/{organizationId}/boards/{level}/cells"] = "Aggregate read over the organization (feat-048); the rows are narrowed by the caller's access set.",
+        ["GET /api/organizations/{organizationId}/workitems/rows"] = "Aggregate read over the organization (feat-048); the rows are narrowed by the caller's access set.",
+        ["GET /api/organizations/{organizationId}/workitems"] = "Aggregate read over the organization (feat-048); the rows are narrowed by the caller's access set.",
+        ["GET /api/organizations/{organizationId}/workitems/assignee-options"] = "Aggregate read over the organization (feat-048); the rows are narrowed by the caller's access set.",
+    };
+
     private static string KeyOf(RouteEndpoint endpoint)
     {
         var methods = endpoint.Metadata.GetMetadata<HttpMethodMetadata>()?.HttpMethods ?? [];
@@ -146,6 +168,27 @@ public sealed class OrganizationAccessInventoryTests(MustaskApiFactory factory)
                 && endpoint.RoutePattern.GetParameter(categories[0].Scope switch { ResourceScope.Area => "areaId", ResourceScope.Project => "projectId", _ => "teamId" }) is null)
             {
                 problems.Add($"{key}: is scoped {categories[0].Scope} but its address names no such object.");
+            }
+
+            // mod-019 QA D-1: a code of a narrower scope on a route that names that object, declared without the scope, would check the
+            // organization role alone and ignore every grant. Routes that name no such object are listed with their reason.
+            if (!decided && categories[0].Scope == ResourceScope.Organization && catalogScope != ResourceScope.Organization)
+            {
+                var idName = catalogScope switch { ResourceScope.Area => "areaId", ResourceScope.Project => "projectId", _ => "teamId" };
+                var listed = OrganizationWideUseOfNarrowCodes.ContainsKey(key);
+
+                if (endpoint.RoutePattern.GetParameter(idName) is not null)
+                {
+                    problems.Add($"{key}: declares {code} of scope {catalogScope} and names {{{idName}}}, but declares no scope, so grants are ignored.");
+                }
+                else if (!listed)
+                {
+                    problems.Add($"{key}: declares {code} of scope {catalogScope} without a scope and is not on the organization-wide list.");
+                }
+            }
+            else if (OrganizationWideUseOfNarrowCodes.ContainsKey(key))
+            {
+                problems.Add($"{key}: is on the organization-wide list but no longer declares a narrower code without a scope.");
             }
             var policies = endpoint.Metadata.GetOrderedMetadata<IAuthorizeData>().Select(data => data.Policy).ToList();
 

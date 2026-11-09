@@ -180,14 +180,14 @@ public static class OrganizationEndpoints
             .ProducesProblem(StatusCodes.Status409Conflict);
 
         projects.MapGet("/{projectId}", GetProjectAsync)
-            .RequiresOrganizationPermission(PermissionCatalog.OrganizationsProjectRead)
+            .RequiresOrganizationPermission(PermissionCatalog.OrganizationsProjectRead, ResourceScope.Project)
             .Produces<Application.Features.Organizations.GetProject.ProjectResponse>()
             .ProducesProblem(StatusCodes.Status401Unauthorized)
             .ProducesProblem(StatusCodes.Status403Forbidden)
             .ProducesProblem(StatusCodes.Status404NotFound);
 
         projects.MapPut("/{projectId}/name", RenameProjectAsync)
-            .RequiresOrganizationPermission(PermissionCatalog.OrganizationsProjectWrite)
+            .RequiresOrganizationPermission(PermissionCatalog.OrganizationsProjectWrite, ResourceScope.Project)
             .Produces<Application.Features.Organizations.RenameProject.ProjectResponse>()
             .ProducesProblem(StatusCodes.Status400BadRequest)
             .ProducesProblem(StatusCodes.Status401Unauthorized)
@@ -212,7 +212,7 @@ public static class OrganizationEndpoints
         // feat-028 api-contract § 2.4. Name the project's default team, or clear the setting (an empty body, {} and
         // { "teamId": null } all clear it); the team must be linked to the project. Declared project.write (mod-017 had team.write).
         projects.MapPut("/{projectId}/default-team", SetDefaultTeamAsync)
-            .RequiresOrganizationPermission(PermissionCatalog.OrganizationsProjectWrite)
+            .RequiresOrganizationPermission(PermissionCatalog.OrganizationsProjectWrite, ResourceScope.Project)
             .Produces(StatusCodes.Status204NoContent)
             .ProducesProblem(StatusCodes.Status401Unauthorized)
             .ProducesProblem(StatusCodes.Status403Forbidden)
@@ -221,7 +221,7 @@ public static class OrganizationEndpoints
 
         // feat-028 api-contract § 2.4. A project's description, kept as typed; the empty string and null clear it.
         projects.MapPut("/{projectId}/description", SetProjectDescriptionAsync)
-            .RequiresOrganizationPermission(PermissionCatalog.OrganizationsProjectWrite)
+            .RequiresOrganizationPermission(PermissionCatalog.OrganizationsProjectWrite, ResourceScope.Project)
             .Produces<Application.Features.Organizations.SetProjectDescription.ProjectResponse>()
             .ProducesProblem(StatusCodes.Status400BadRequest)
             .ProducesProblem(StatusCodes.Status401Unauthorized)
@@ -241,7 +241,7 @@ public static class OrganizationEndpoints
         // The old "add a team" path with another meaning: link teams to the project. The second code, organizations.team.link,
         // is asked by the handler first of all (D-7).
         projectTeams.MapPost("/", LinkTeamsToProjectAsync)
-            .RequiresOrganizationPermission(PermissionCatalog.OrganizationsProjectLink)
+            .RequiresOrganizationPermission(PermissionCatalog.OrganizationsProjectLink, ResourceScope.Project)
             .Produces(StatusCodes.Status204NoContent)
             .ProducesProblem(StatusCodes.Status401Unauthorized)
             .ProducesProblem(StatusCodes.Status403Forbidden)
@@ -250,7 +250,7 @@ public static class OrganizationEndpoints
         // SC-09. Take a team off the project, giving its items there to a destination (a POST: a body on a DELETE is dropped by
         // some proxies, D-6).
         projectTeams.MapPost("/{teamId}/unlink", UnlinkTeamAsync)
-            .RequiresOrganizationPermission(PermissionCatalog.OrganizationsProjectLink)
+            .RequiresOrganizationPermission(PermissionCatalog.OrganizationsProjectLink, ResourceScope.Project)
             .Produces(StatusCodes.Status204NoContent)
             .ProducesProblem(StatusCodes.Status400BadRequest)
             .ProducesProblem(StatusCodes.Status401Unauthorized)
@@ -260,7 +260,7 @@ public static class OrganizationEndpoints
 
         // What an unlink would reassign: the items the team owns in this project, in any state.
         projectTeams.MapGet("/{teamId}/unlink-count", GetTeamOwnedItemCountAsync)
-            .RequiresOrganizationPermission(PermissionCatalog.OrganizationsProjectLink)
+            .RequiresOrganizationPermission(PermissionCatalog.OrganizationsProjectLink, ResourceScope.Project)
             .Produces<GetTeamOwnedItemCountResult>()
             .ProducesProblem(StatusCodes.Status401Unauthorized)
             .ProducesProblem(StatusCodes.Status403Forbidden)
@@ -294,7 +294,7 @@ public static class OrganizationEndpoints
             .ProducesProblem(StatusCodes.Status404NotFound);
 
         teams.MapPut("/{teamId}/name", RenameTeamAsync)
-            .RequiresOrganizationPermission(PermissionCatalog.OrganizationsTeamWrite)
+            .RequiresOrganizationPermission(PermissionCatalog.OrganizationsTeamWrite, ResourceScope.Team)
             .Produces<Application.Features.Organizations.RenameTeam.TeamResponse>()
             .ProducesProblem(StatusCodes.Status400BadRequest)
             .ProducesProblem(StatusCodes.Status401Unauthorized)
@@ -303,7 +303,7 @@ public static class OrganizationEndpoints
             .ProducesProblem(StatusCodes.Status409Conflict);
 
         teams.MapPut("/{teamId}/description", SetTeamDescriptionAsync)
-            .RequiresOrganizationPermission(PermissionCatalog.OrganizationsTeamWrite)
+            .RequiresOrganizationPermission(PermissionCatalog.OrganizationsTeamWrite, ResourceScope.Team)
             .Produces<Application.Features.Organizations.SetTeamDescription.TeamResponse>()
             .ProducesProblem(StatusCodes.Status400BadRequest)
             .ProducesProblem(StatusCodes.Status401Unauthorized)
@@ -334,7 +334,7 @@ public static class OrganizationEndpoints
 
         // The team's end of a link; the second code, organizations.project.link, is asked by the handler first of all (D-7).
         teams.MapPost("/{teamId}/projects", LinkProjectsToTeamAsync)
-            .RequiresOrganizationPermission(PermissionCatalog.OrganizationsTeamLink)
+            .RequiresOrganizationPermission(PermissionCatalog.OrganizationsTeamLink, ResourceScope.Team)
             .Produces(StatusCodes.Status204NoContent)
             .ProducesProblem(StatusCodes.Status401Unauthorized)
             .ProducesProblem(StatusCodes.Status403Forbidden)

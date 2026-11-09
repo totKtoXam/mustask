@@ -16,8 +16,8 @@ namespace Mustask.Application.Features.Organizations.LinkTeamsToProject;
 /// <remarks>
 /// <para>
 /// <b>The order of answers</b> (api-contract § 0.1, § 0.5): the second code (<c>organizations.team.link</c>; the route declared
-/// <c>organizations.project.link</c>) <b>first of all</b>, before any id is looked at (D-7); the project (404); the team entries
-/// (404 <c>team.not_found</c>, each of: malformed, unknown, foreign, deleted); an absent or empty list is a no-op 204 (D-14).
+/// <c>organizations.project.link</c>) after the project (404) and the team entries
+/// (404 <c>team.not_found</c>, each of: malformed, unknown, foreign, deleted) <b>and then</b> the second code (mod-019 BR-SA-9, US-7); an absent or empty list is a no-op 204 (D-14).
 /// </para>
 /// <para>
 /// <b>Locks</b> (plan-backend § 7.2, C-10, C-11, C-17): every team named <c>FOR SHARE</c> in <b>one statement ordered by id</b> (step 2,
@@ -40,12 +40,6 @@ public sealed class LinkTeamsToProjectHandler(
 {
     public async Task Handle(LinkTeamsToProjectCommand command, CancellationToken cancellationToken)
     {
-        // 0. The second code, first of all (D-7).
-        if (!await ScopedCodes.HoldsOnAllAsync(access, PermissionCatalog.OrganizationsTeamLink, command.TeamIds, cancellationToken))
-        {
-            throw new ForbiddenException(OrganizationErrorCodes.AccessForbidden);
-        }
-
         // The unit of work returns a result; this use case has none (204), so it returns a flag nobody reads.
         _ = await unitOfWork.ExecuteInTransactionAsync(
             async ct =>
@@ -77,7 +71,12 @@ public sealed class LinkTeamsToProjectHandler(
 
                 if (teamIds.Count == 0)
                 {
-                    // Nothing to link and nothing to refuse (D-14).
+                    // Nothing to link and nothing to refuse (D-14); the role alone is judged for an empty list.
+                    if (!await ScopedCodes.HoldsOnAllAsync(access, PermissionCatalog.OrganizationsTeamLink, command.TeamIds, ct))
+                    {
+                        throw new ForbiddenException(OrganizationErrorCodes.AccessForbidden);
+                    }
+
                     return false;
                 }
 
@@ -88,6 +87,13 @@ public sealed class LinkTeamsToProjectHandler(
                 if (locked.Count != teamIds.Count || locked.Any(team => !team.IsActive))
                 {
                     throw new NotFoundException(OrganizationErrorCodes.TeamNotFound);
+                }
+
+                // The second code, after the team entries are known to name active teams of the organization (BR-SA-9, US-7: the
+                // addressed end's 403 first, then the other end's not-found, then the other end's code).
+                if (!await ScopedCodes.HoldsOnAllAsync(access, PermissionCatalog.OrganizationsTeamLink, command.TeamIds, ct))
+                {
+                    throw new ForbiddenException(OrganizationErrorCodes.AccessForbidden);
                 }
 
                 // 4. One statement for all the pairs; a pair already linked is left as it is.
