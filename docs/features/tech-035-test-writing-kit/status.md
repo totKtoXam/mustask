@@ -3,7 +3,7 @@
 - type: tech
 - size: M
 - branch: tech/035-test-writing-kit
-- stage: 06-code-review
+- stage: gate-3
 - epic: platform/tests
 - deps: -
 - gates: gate-3
@@ -30,6 +30,9 @@ gate-3: pending
 - 2026-11-09 [backend-developer] stage 4 done (a2086ae3, 67e5fbe6, f3957318): kit, testing.md sections 1–2, four reference tests, 16 KitAssertionsTests; build green, affected suites green (full Api/Infrastructure suites not run). The developer created `src/backend/tests/Directory.Build.props` itself to keep the kit commit buildable; the orchestrator reviewed and accepts it.
 - 2026-11-09 [frontend-developer] frontend stage done (8d9232f3, 51d12637, 8e59da70): `src/test/` api.ts, fixtures.ts, renderPage.tsx, 16 kit tests; reference tests: page `routes.access.test.tsx`, component `DefaultLanguageDialog.test.tsx` (unit layer needs no helper); testing.md section 3. tsc and ESLint clean; full Vitest 5602 passed, 1 load timeout (`BacklogPage.qa.test.tsx`, passes alone).
 - 2026-11-09 [qa-engineer] single QA pass on dfe77af6 (49658f18, `qa.md`): ready, 2 minors (ProblemAssert skips params when none expected; Race/World/ApiClient lack own failure tests) and an open question for gate-3 (`AggregateViewVolumeTests` 2 s budget fails on this machine, untouched by the diff). E2E: no (standing answer). Minor 1 goes into the review fix pass.
+- 2026-11-09 [code-reviewer] round 1 (Opus, be9197f3): changes requested, 3 major (testing.md example 403 not 400; ProblemAssert params guarantee; testing.md unlinked) and 2 minor (Creator divergence; problemText unfilled placeholder).
+- 2026-11-09 [task-executor] F1–F5 fixed (5efef878): build green, kit tests 30/30 backend, 576 frontend.
+- 2026-11-09 [code-reviewer] delta read (b9f82574): approve, F1–F5 closed. Carried to gate-3: QA minor 2 (Race/World/ApiClient lack own failure tests, phase 2) and `AggregateViewVolumeTests` 2 s budget on this machine (untouched by the diff).
 
 ## Notes
 
