@@ -16,7 +16,7 @@ namespace Mustask.Api.Features.Organizations;
 /// The grant routes of mod-019 (api-contract § 2): the same five routes under a department, a project and a team. Reads of an
 /// area and a team declare an organization-wide read code (every member holds it); the writes, the candidate search and the
 /// project's read declare their code <b>on the addressed object</b>, so a grant that reaches the object counts
-/// (ADR-0029 § 6, as amended by ADR-0037).
+/// (ADR-0029 § 6, as amended by ADR-0038).
 /// </summary>
 public static class GrantEndpoints
 {

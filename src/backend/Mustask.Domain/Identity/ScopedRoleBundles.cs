@@ -1,7 +1,7 @@
 namespace Mustask.Domain.Identity;
 
 /// <summary>
-/// The codes each grant role holds, per the scope it is granted on (ADR-0029 § 4 as amended by ADR-0037, spec § Roles).
+/// The codes each grant role holds, per the scope it is granted on (ADR-0029 § 4 as amended by ADR-0038, spec § Roles).
 /// The bundles are explicit sets over <b>registered</b> codes; a code joins them in the change that first checks it
 /// (<c>boards.projectbacklog.reorder</c> and <c>organizations.visibility.write</c> are not registered yet). A bundle holds
 /// codes of several resource scopes: a code applies to an object only where its resource scope is the object's, and where

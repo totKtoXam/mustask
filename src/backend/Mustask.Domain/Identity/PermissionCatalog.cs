@@ -188,7 +188,7 @@ public static class PermissionCatalog
     /// <exception cref="ArgumentException">The code is not in the catalog.</exception>
     public static PermissionSource SourceOf(string code) => DefinitionOf(code).Source;
 
-    /// <summary>The kind of object an organization code is checked on (ADR-0029 § 2, ADR-0037).</summary>
+    /// <summary>The kind of object an organization code is checked on (ADR-0029 § 2, ADR-0038).</summary>
     /// <exception cref="ArgumentException">The code is not in the catalog, or is an instance code (no resource scope).</exception>
     public static ResourceScope ResourceScopeOf(string code) =>
         DefinitionOf(code).Resource

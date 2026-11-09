@@ -1,4 +1,4 @@
-# ADR-0037: Let the place decide who creates a project, let a project's manager run its subtree, and let a department's manager run the department's projects
+# ADR-0038: Let the place decide who creates a project, let a project's manager run its subtree, and let a department's manager run the department's projects
 
 - Status: proposed (written at mod-019 stage 4; only the human sets `accepted`, at mod-019 gate-3, as ADR-0031 was)
 - Date: 2026-11-09
@@ -72,4 +72,4 @@ Matrix rows after this ADR (only the cells that change; `R`, `M`, `G` are reader
 - **Widens:** every department «Менеджер» grant already given now holds `project.write`, `.link` and `.grant` on the projects it reaches. mod-019's `status.md` and the owners' of mod-016, feat-028 and feat-043 get a note when it merges (spec § Breaks): their "administrator only" wording for project settings and links no longer holds.
 - **Locked in:** the three stored role names; the place as the decision of creation; the project grant's subtree path. A grant on a project node or a sub-area stays impossible (OQ-1 A).
 - **Revisit when:** a project manager must also move its own node (it would need the area code on the department), or per-code grants are asked for (ADR-0029 Option 4).
-- **Index:** when accepted, ADR-0029's index line gets "amended by ADR-0037".
+- **Index:** when accepted, ADR-0029's index line gets "amended by ADR-0038".

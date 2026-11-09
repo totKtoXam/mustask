@@ -4,12 +4,12 @@ namespace Mustask.Domain.Identity;
 public readonly record struct ReachingGrant(ResourceScope GrantScope, GrantRole Role);
 
 /// <summary>
-/// The single form of the effective-permissions rule (ADR-0029 § 6 steps 2 and 4, as amended by ADR-0037), a pure function:
+/// The single form of the effective-permissions rule (ADR-0029 § 6 steps 2 and 4, as amended by ADR-0038), a pure function:
 /// the codes of the target's resource scope held by the organization role, plus those held by every grant that reaches the
 /// target. The union is additive: no deny, no precedence, so the answer is the same in any order of the grants and with a
 /// grant repeated (BR-SA-8). Which grants reach the target is the read model's question (a statement over the caller's grants
 /// and the object's chain); a project grant also reaches its project's node and sub-areas, where only its codes of resource
-/// scope <see cref="ResourceScope.Area"/> apply (ADR-0037 § 2), which this function gets by filtering on the target.
+/// scope <see cref="ResourceScope.Area"/> apply (ADR-0038 § 2), which this function gets by filtering on the target.
 /// </summary>
 public static class EffectivePermissions
 {

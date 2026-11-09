@@ -3,7 +3,7 @@ using Mustask.Domain.Organizations;
 
 namespace Mustask.Domain.Tests.Identity;
 
-// mod-019 BR-SA-8 / ADR-0029 § 6 as amended by ADR-0037: the effective permissions are an additive union filtered by the target's scope.
+// mod-019 BR-SA-8 / ADR-0029 § 6 as amended by ADR-0038: the effective permissions are an additive union filtered by the target's scope.
 public sealed class EffectivePermissionsTests
 {
     private static readonly GrantRole[] Roles = [GrantRole.Reader, GrantRole.Member, GrantRole.Manager];

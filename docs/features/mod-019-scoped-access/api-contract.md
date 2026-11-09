@@ -1,6 +1,6 @@
 # API contract: scoped access (mod-019)
 
-Fixed at stage 04 (backend plan), 2026-11-09. Reads: spec BR-SA-1..19, stories US-1..US-8, design D-1..D-13 and OQ-D1/OQ-D2 as answered, ADR-0029 as amended by ADR-0037 (`proposed`). This file is the interface the frontend reads. A change after this point is a commit of its own and a line in `status.md`; once the frontend stage has started it is escalated to the orchestrator. JSON is camelCase; ids are GUID strings (a user's id is the Keycloak subject string); errors are ProblemDetails with `errorCode` (registry `docs/error-codes.md`; texts in `contracts/errors/organizations.json`). Conventions of mod-016 §§ 0.4-0.5 (`UserRef`, display-name order, 2-character minimum, 20 results, `moreMatched`) and mod-018 § 1 apply unchanged.
+Fixed at stage 04 (backend plan), 2026-11-09. Reads: spec BR-SA-1..19, stories US-1..US-8, design D-1..D-13 and OQ-D1/OQ-D2 as answered, ADR-0029 as amended by ADR-0038 (`proposed`). This file is the interface the frontend reads. A change after this point is a commit of its own and a line in `status.md`; once the frontend stage has started it is escalated to the orchestrator. JSON is camelCase; ids are GUID strings (a user's id is the Keycloak subject string); errors are ProblemDetails with `errorCode` (registry `docs/error-codes.md`; texts in `contracts/errors/organizations.json`). Conventions of mod-016 §§ 0.4-0.5 (`UserRef`, display-name order, 2-character minimum, 20 results, `moreMatched`) and mod-018 § 1 apply unchanged.
 
 ## 0. The model in six lines
 

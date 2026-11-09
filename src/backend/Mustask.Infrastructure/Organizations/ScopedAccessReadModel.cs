@@ -6,7 +6,7 @@ using Microsoft.EntityFrameworkCore;
 namespace Mustask.Infrastructure.Organizations;
 
 /// <summary>
-/// The grants that reach an object, for the caller (ADR-0029 § 6, Reach, as ADR-0031 rule 7 and ADR-0037 § 2 read it), by the
+/// The grants that reach an object, for the caller (ADR-0029 § 6, Reach, as ADR-0031 rule 7 and ADR-0038 § 2 read it), by the
 /// caller's grants alone: a few indexed statements, each over tens of rows among thousands, nothing cached beyond the request.
 /// </summary>
 /// <remarks>
@@ -69,7 +69,7 @@ internal sealed class ScopedAccessReadModel(MustaskDbContext context) : IScopedA
 
                 var reaching = new List<ReachingGrant>();
 
-                // A project grant reaches its node and every sub-area, whatever the switches (ADR-0037 § 2).
+                // A project grant reaches its node and every sub-area, whatever the switches (ADR-0038 § 2).
                 if (start.ProjectId is { } projectId)
                 {
                     reaching.AddRange(await ProjectGrantsAsync(projectId, userId, cancellationToken));

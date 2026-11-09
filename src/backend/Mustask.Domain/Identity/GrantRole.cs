@@ -1,7 +1,7 @@
 namespace Mustask.Domain.Identity;
 
 /// <summary>
-/// The role of a grant on a department, a project or a team (mod-019 OQ-10, ADR-0037 § 1): the same three in every scope, so
+/// The role of a grant on a department, a project or a team (mod-019 OQ-10, ADR-0038 § 1): the same three in every scope, so
 /// the table decides the scope and not the role. UI names «Читатель», «Участник», «Менеджер». Bundles:
 /// <see cref="ScopedRoleBundles"/>.
 /// </summary>

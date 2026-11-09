@@ -58,7 +58,7 @@ public interface IGrantRepository
 }
 
 /// <summary>
-/// The grants that reach an object for the scoped check (ADR-0029 § 6, Reach, as ADR-0031 and ADR-0037 read it): one read for the
+/// The grants that reach an object for the scoped check (ADR-0029 § 6, Reach, as ADR-0031 and ADR-0038 read it): one read for the
 /// caller. <c>null</c> when the object is not in the organization, so the check judges the organization bundle alone.
 /// </summary>
 public interface IScopedAccessReadModel
