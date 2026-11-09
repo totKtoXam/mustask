@@ -38,10 +38,10 @@ After `gate-3: approved` — or, under standing approval (AGENTS.md,
    per tree"), a real full run after a rebase changed the tree. Run something
    targeted only if the rebase actually touched the code — regenerated
    migrations, a resolved conflict — and even then only over what moved.
-2. **Complete goes into the squash itself, it does not catch up with it.**
+2. **Complete goes into the merge itself, it does not catch up with it.**
    Before the push, already after `gate-3: approved`, `stage: complete` is set
    in the task branch — and that state arrives in `main` together with
-   everything else in a single squash commit. A separate "mark complete after
+   everything else in the branch's commits. A separate "mark complete after
    merge" commit in `main` is not made: `pre-commit` lets only merges into
    `main`, and such commits either broke through the hook by bypassing it or
    would require an exception for it — both options are worse than the
@@ -89,18 +89,19 @@ rakes `glab auth login` steps on.
 #    tests by itself; every test run (VERIFY_FULL=1) is CI's check on the MR.
 git push -u origin <branch>
 
-# 2. MR from the branch. The title is English — it also becomes the squash commit.
-glab mr create     --source-branch <branch>     --target-branch main     --title "feat|fix|tech(<scope>): <essence> (<short id>)"     --description-file <description file>     --squash-before-merge     --yes
+# 2. PR from the branch. The title is English — it also becomes the merge
+#    commit's title, so it carries the short id.
+gh pr create --base main --head <branch> --title "feat|fix|tech(<scope>): <essence> (<short id>)" --body-file <description file>
 ```
 
-- **`--squash-before-merge` is mandatory.** One task — one commit in `main`.
-  Check after creation: `glab mr view <iid>` (or the API field `squash`) — the
-  push option `merge_request.squash` with `git push -o` is silently not
-  applied, we have already been burned by this.
-- **Do NOT delete the branch after the merge** — neither with the
-  `--remove-source-branch` flag, nor with the checkbox in the MR. The task
-  branch stays on the server: it is what the fine-grained history, collapsed by
-  the squash into one commit, is restored from.
+- **The merge method is a merge commit, not squash** (2026-11-09): the
+  branch keeps its commits in `main`, which is what a human and an agent search
+  by. The agent does not merge and does not enable auto-merge; the human picks
+  "Create a merge commit" on the Merge button. Queue PRs from
+  `scripts/queue.sh` stay squash.
+- **Do NOT delete the branch after the merge** — neither with
+  `--delete-branch`, nor with the button in the PR. The task
+  branch stays on the server as the pointer to the task's commits.
 - **The description goes as a file**, not as a string:
   `git push -o merge_request.description` and `--description` do not accept
   line breaks. The file is placed in the session's temporary directory, not in
@@ -158,7 +159,8 @@ one — a check that the next does not conflict with the updated `main`.
 Filling rules:
 
 - **Count other people's commits separately.** A branch cut not from `main`
-  drags someone else's work along — the squash will haul it into `main` whole.
+  drags someone else's work along — the merge will haul those commits into
+  `main` whole.
   If K > 0, first rebase onto `main`, and only then push and MR.
 - Name skipped tests explicitly. "Not run because of Docker" is an honest
   result; the same run presented as green is a reason not to trust the whole
@@ -168,8 +170,8 @@ Filling rules:
 
 ### The gate-3 verdict and the MR link
 
-The merge happens in GitLab, and `status.md` goes into `main` with the same
-squash commit — that is, **at the moment Merge is pressed the file still says
+The merge happens on the server, and `status.md` goes into `main` with the same
+merge — that is, **at the moment Merge is pressed the file still says
 `pending`**, and that is how it stays in the history. The file starts lying:
 the task is accepted, but the record says "waiting". Hence a rule of two
 halves.
@@ -194,7 +196,7 @@ And it is the link that turns `pending` from a lost verdict into one click.
 | `pending` | Check whether the task is merged. Merged — bring the record in order via the F route |
 | `rejected: <findings>` | The work is not finished, the MR is not merged |
 
-Checking mergedness is **local, without the API**: the squash commit carries
+Checking mergedness is **local, without the API**: the merge commit carries
 the short id in the title, so `git log origin/main --grep '(tech-004)'` is
 enough. The MR link is already in `status.md` itself, there is no point pulling
 `glab`.

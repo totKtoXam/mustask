@@ -93,5 +93,5 @@ down — otherwise F becomes a way to bypass the process.
 - [ ] `scripts/verify.sh` is green; the command and the exit code are written
       into `## Log`
 - [ ] Observable behaviour has not changed
-- [ ] The branch is pushed, the MR is opened (squash on, branch deletion off),
+- [ ] The branch is pushed, the PR is opened (merge commit, branch deletion off),
       the link is sent to the human; the Merge button and `gate-3` stay theirs

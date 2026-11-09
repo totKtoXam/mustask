@@ -21,9 +21,9 @@ Feature: $ARGUMENTS
    status.md.
 4. After `gate-3: approved`: rebase on main, a final run of
    tests/linters, `stage: complete` in status.md (goes out in the same
-   squash commit), push the branch and open an MR via `glab` per the
-   "Opening the MR" section of the stage instructions — squash on, branch
-   deletion OFF. In chat — a short notification with the link, then stop:
+   merge), push the branch and open a PR via `gh` per the
+   "Opening the MR" section of the stage instructions — merge commit (no
+   squash, no auto-merge), branch deletion OFF. In chat — a short notification with the link, then stop:
    the human presses Merge.
 5. After the human merges: `git fetch origin && git switch main && git
    merge --ff-only origin/main`, `git worktree remove <path>`. New tasks
