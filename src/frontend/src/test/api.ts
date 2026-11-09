@@ -53,10 +53,13 @@ function entryOf(code: string): CatalogEntry {
 
 /** The catalog's Russian text of `code` with its `{param}`s filled in: what the screen shows. */
 export function problemText(code: string, params: Record<string, string> = {}): string {
-  return entryOf(code).ru.replace(
-    /\{(\w+)\}/g,
-    (_match, name: string) => params[name] ?? `{${name}}`,
-  );
+  return entryOf(code).ru.replace(/\{(\w+)\}/g, (_match, name: string) => {
+    const value = params[name];
+    if (value === undefined) {
+      throw new Error(`The test gave no value for {${name}} of ${code}.`);
+    }
+    return value;
+  });
 }
 
 /** A problem body as the API answers it (api-contract § 0.5). */

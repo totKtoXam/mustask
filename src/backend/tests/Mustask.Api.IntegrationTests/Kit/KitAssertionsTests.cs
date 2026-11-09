@@ -59,6 +59,25 @@ public sealed class KitAssertionsTests
         Assert.ThrowsAny<XunitException>(() => ProblemAssert.Problem(
             NameTaken("Название «Альфа» уже занято", "number"), HttpStatusCode.Conflict, "organizations.organization.name_taken", ("name", "Альфа")));
 
+    [Fact]
+    public void Problem_UnexpectedParams_Fails() =>
+        Assert.ThrowsAny<XunitException>(() => ProblemAssert.Problem(
+            AnswerOf(
+                HttpStatusCode.BadRequest,
+                """{ "errorCode": "organizations.validation_failed", "detail": "Проверьте правильность заполнения полей.", "params": { "x": { "value": "y", "type": "string" } } }"""),
+            HttpStatusCode.BadRequest, "organizations.validation_failed"));
+
+    [Fact]
+    public void Problem_NumberOfAnotherValue_Fails()
+    {
+        var answer = AnswerOf(
+            HttpStatusCode.BadRequest,
+            """{ "errorCode": "organizations.validation_failed", "detail": "Проверьте правильность заполнения полей.", "params": { "limit": { "value": 5, "type": "number" } } }""");
+
+        Assert.ThrowsAny<XunitException>(() => ProblemAssert.Problem(
+            answer, HttpStatusCode.BadRequest, "organizations.validation_failed", ("limit", 6)));
+    }
+
     private static Answer LengthRefusal(string reasonCode, string detail) => AnswerOf(
         HttpStatusCode.BadRequest,
         $$"""{ "errorCode": "organizations.validation_failed", "detail": "Проверьте правильность заполнения полей.", "errors": { "name": [ { "code": {{Quoted(reasonCode)}}, "detail": {{Quoted(detail)}} } ] } }""");

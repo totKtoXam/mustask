@@ -18,7 +18,7 @@ namespace Mustask.Api.IntegrationTests.Features.Organizations;
 /// </summary>
 public static class OrganizationsTestData
 {
-    public const string Creator = "1c9e2b7d-0000-4000-8000-00000000c0de";
+    public const string Creator = Mustask.Testing.TestData.Creator;
 
     public static readonly DateTimeOffset Now = new(2026, 10, 2, 12, 0, 0, TimeSpan.Zero);
 

@@ -1,6 +1,7 @@
 using Mustask.Api.IntegrationTests.Features.Organizations;
 using System.Globalization;
 using System.Net;
+using System.Text.Json;
 using Mustask.Shared.Errors;
 
 namespace Mustask.Api.IntegrationTests.Kit;
@@ -14,7 +15,7 @@ public static class ProblemAssert
 {
     /// <summary>
     /// The answer is a problem: the status, the <c>errorCode</c>, the <c>detail</c> the catalog renders for the code with the given
-    /// parameters, and exactly those parameters in <c>params</c>, each with the type the value implies. A parameter value is a
+    /// parameters, and exactly those parameters in <c>params</c>, (none expected: none sent), each with the type the value implies and its value. A parameter value is a
     /// string, a number, a <see cref="DateOnly"/> or a <see cref="DateTimeOffset"/>.
     /// </summary>
     public static void Problem(Answer answer, HttpStatusCode status, string code, params (string Name, object Value)[] parameters)
@@ -25,6 +26,12 @@ public static class ProblemAssert
 
         if (parameters.Length == 0)
         {
+            // The server omits "params" when there are none; an empty object is tolerated, anything in it is not.
+            if (answer.Body.TryGetProperty("params", out var unexpected) && unexpected.ValueKind != JsonValueKind.Null)
+            {
+                Assert.Empty(unexpected.EnumerateObject());
+            }
+
             return;
         }
 
@@ -36,9 +43,24 @@ public static class ProblemAssert
             var parameter = sent.GetProperty(name);
             Assert.Equal(expected, parameter.GetProperty("type").GetString());
 
-            if (value is string text)
+            var sentValue = parameter.GetProperty("value");
+
+            switch (value)
             {
-                Assert.Equal(text, parameter.GetProperty("value").GetString());
+                case string text:
+                    Assert.Equal(text, sentValue.GetString());
+                    break;
+                case DateOnly date:
+                    Assert.Equal(date, DateOnly.ParseExact(sentValue.GetString()!, "yyyy-MM-dd", CultureInfo.InvariantCulture));
+                    break;
+                case DateTimeOffset moment:
+                    Assert.Equal(
+                        moment.ToUniversalTime(),
+                        DateTimeOffset.Parse(sentValue.GetString()!, CultureInfo.InvariantCulture, DateTimeStyles.AssumeUniversal).ToUniversalTime());
+                    break;
+                default:
+                    Assert.Equal(Convert.ToDecimal(value, CultureInfo.InvariantCulture), sentValue.GetDecimal());
+                    break;
             }
         }
 

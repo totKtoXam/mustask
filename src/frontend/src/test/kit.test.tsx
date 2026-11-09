@@ -39,6 +39,10 @@ describe('problem', () => {
     );
     expect(() => problemText('nope')).toThrow();
   });
+
+  it('refuses a text whose parameter the test did not fill, so no placeholder is expected as wording', () => {
+    expect(() => problemText('organizations.organization.name_taken')).toThrow(/no value for {name}/);
+  });
 });
 
 describe('serveProblem', () => {

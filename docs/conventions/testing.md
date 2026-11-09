@@ -63,7 +63,7 @@ its own, no NuGet dependency). Namespace `Mustask.Testing`, `internal`.
 
 | Helper | Use |
 |---|---|
-| `TestData.Creator` | The user a test organization is founded by (its only admin). |
+| `TestData.Creator` | The user a test organization is founded by (its only admin) in the Api tests; the other fixtures converge on it in phase 2. |
 | `TestData.Now` | A fixed moment for code that takes the time as an argument. |
 | `TestData.UniqueName(prefix)` | A name nobody else uses (prefix + 32 hex digits). |
 | `TestData.Name(string)` | A valid `EntityName`, or throws (the test is wrong). Not in `Mustask.Shared.Tests` (no domain). |
@@ -87,8 +87,8 @@ Namespace `Mustask.Api.IntegrationTests.Kit`. A test class is, as before,
 The shape of a new endpoint test:
 
 ```csharp
-var world = await World.With(factory).Member("vera", OrganizationRole.Viewer).BuildAsync();
-var answer = await world.As("vera").PutAsync($"{OrganizationsApi.Organization(world.Organization.Id)}/name", new { name = "" });
+var world = await World.With(factory).BuildAsync();
+var answer = await world.Admin.PutAsync($"{OrganizationsApi.Organization(world.Organization.Id)}/name", new { name = "" });
 ProblemAssert.Validation(answer, "organizations.validation_failed", "name", "organizations.name_length");
 ```
 
