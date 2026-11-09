@@ -6,10 +6,16 @@ import { act, useEffect, useState, type ReactNode } from 'react';
 import { expect, vi } from 'vitest';
 import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { useQueryClient } from '@tanstack/react-query';
 import { HttpResponse, http } from 'msw';
 import { server } from '../../../../test/mocks/server';
 import { renderWithProviders } from '../../../../test/renderWithProviders';
-import { checkFor, type TestRole } from '../../../../test/organizationRoles';
+import {
+  checkFor,
+  codesOf,
+  servedObjectCodes,
+  type TestRole,
+} from '../../../../test/organizationRoles';
 import { AccessCheckContext } from '../../../../shared/lib/access';
 import { workItemsPermissions } from '../../permissions';
 import { serveWorkItems, type WorkItemsTestApi } from '../../testApi';
@@ -27,9 +33,15 @@ let changeRole: (role: TestRole) => void = () => {};
 
 function ServedAccess({ initial, children }: { initial: TestRole; children: ReactNode }) {
   const [role, setRole] = useState(initial);
+  const queryClient = useQueryClient();
   useEffect(() => {
-    changeRole = setRole;
-  }, []);
+    changeRole = (next) => {
+      servedObjectCodes.current = codesOf(next);
+      setRole(next);
+      // What the access watcher does in the product: the project rows are read again for the new codes.
+      void queryClient.invalidateQueries();
+    };
+  }, [queryClient]);
   return (
     <AccessCheckContext.Provider value={checkFor(role)}>{children}</AccessCheckContext.Provider>
   );
@@ -53,7 +65,9 @@ export async function openAs(
   const api = serveWorkItems(data);
   options.prepare?.(data, api);
   const role = options.role ?? 'admin';
-  const access = checkFor(role);
+  // The work-item codes are the project's (mod-019 BR-SA-18): the doubles serve them as its `codes`.
+  servedObjectCodes.current = codesOf(role);
+  const access = (code: string, _scope: string) => codesOf(role).includes(code);
   const notify = vi.fn();
   const onGone = vi.fn();
   const onChanged = vi.fn();

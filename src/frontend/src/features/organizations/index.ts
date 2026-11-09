@@ -70,7 +70,16 @@ export {
 } from './paths';
 export { organizationsPermissions } from './permissions';
 // feat-043: the shell's selectors read the active organizations and `selector-offers`.
-export { useOrganizations, useProjects, useTeamProjects, useTeams } from './hooks/queries';
+export {
+  useOrganizations,
+  useProject,
+  useProjects,
+  useTeam,
+  useTeamProjects,
+  useTeams,
+} from './hooks/queries';
+// mod-019 (BR-SA-18, F-6): the work-item and board surfaces ask each project's served codes.
+export { useProjectCodes, type ProjectCodes } from './hooks/projectCodes';
 export { useSelectorOffers } from './hooks/navigationQueries';
 export { useObjectLink } from './hooks/useObjectLink';
 // The shell resolves `areas/:id` against the offers (a project's node or a sub-area).

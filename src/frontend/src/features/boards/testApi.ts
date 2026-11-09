@@ -18,12 +18,14 @@
 // not every rule of the backend.
 import { HttpResponse, http, type HttpHandler } from 'msw';
 import { server } from '../../test/mocks/server';
+import { servedObjectCodes } from '../../test/organizationRoles';
 import type { WorkItemType } from '../process';
 import type { BacklogTreeItem } from './api/boardsApi';
 import {
   AREAS_URL,
   PARENT_CANDIDATES_URL,
   PROCESS_URL,
+  PROJECT_URL,
   TEAMS_URL,
   WORK_ITEMS_URL,
   WORK_ITEM_PARENT_URL,
@@ -44,6 +46,7 @@ import {
   PROJECT_REORDER_URL,
   REORDER_URL,
   TEAM_PROJECTS_URL,
+  TEAM_URL,
   boardsDataset,
   problem,
   type BoardsDataset,
@@ -1036,10 +1039,48 @@ export class BoardsTestApi {
               ORG_PROJECTS_URL,
               answer((p) => {
                 const organization = this.organization(one(p, 'organizationId'));
-                return this.data.projects
-                  .filter((project) => project.active && project.organizationId === organization.id)
-                  .sort((a, b) => a.name.localeCompare(b.name, 'ru', { sensitivity: 'base' }))
-                  .map(({ id, name, key }) => ({ id, name, key }));
+                return (
+                  this.data.projects
+                    .filter(
+                      (project) => project.active && project.organizationId === organization.id,
+                    )
+                    .sort((a, b) => a.name.localeCompare(b.name, 'ru', { sensitivity: 'base' }))
+                    // Each row carries the caller's codes on the project, once (mod-019 api-contract § 5).
+                    .map(({ id, name, key }) => ({
+                      id,
+                      name,
+                      key,
+                      codes: [...servedObjectCodes.current],
+                    }))
+                );
+              }),
+            ),
+            // The team's own read: its codes decide the team backlog's reorder (mod-019 BR-SA-18).
+            http.get(
+              TEAM_URL,
+              answer((p) => {
+                const found = this.team(one(p, 'organizationId'), one(p, 'teamId'));
+                return {
+                  id: found.id,
+                  name: found.name,
+                  description: null,
+                  codes: [...servedObjectCodes.current],
+                };
+              }),
+            ),
+            // The project's own read, which the shell makes for its «Параметры» entry (mod-019 BR-SA-18).
+            http.get(
+              PROJECT_URL,
+              answer((p) => {
+                const found = this.data.projects.find(
+                  (project) => project.id === one(p, 'projectId'),
+                );
+                return {
+                  id: found?.id ?? one(p, 'projectId'),
+                  name: found?.name ?? '',
+                  key: found?.key ?? '',
+                  codes: [...servedObjectCodes.current],
+                };
               }),
             ),
           ]),

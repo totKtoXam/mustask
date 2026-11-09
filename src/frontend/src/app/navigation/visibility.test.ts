@@ -459,9 +459,9 @@ describe('The menu of a team: «Канбан» and «Бэклог», whose level
   const projectModel = buildNavigationModel(team);
   const prefix = '/organizations/org-1/projects/prj-1';
 
-  it('declares workitems.workitem.read and lands on the stories level', () => {
+  it('declares the organization read every member holds (BR-SA-18) and lands on the stories level', () => {
     for (const id of ['project-boards', 'project-backlogs']) {
-      expect(entryIn(projectModel, id).permission).toBe('workitems.workitem.read');
+      expect(entryIn(projectModel, id).permission).toBe('organizations.organization.read');
     }
     expect(entryIn(projectModel, 'project-boards').landing(team)).toBe(
       `${prefix}/boards/stories?teamId=team-1`,

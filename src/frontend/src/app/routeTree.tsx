@@ -21,7 +21,6 @@ import {
   ProjectWorkItemsRoute,
   TeamBacklogRoute,
   TeamBoardRoute,
-  boardsPermissions,
 } from '../features/boards';
 import { LanguageFormPage, LanguagesRegistryPage } from '../features/dictionaries';
 import { HomePage } from '../features/home/HomePage';
@@ -76,18 +75,21 @@ import {
   processPermissions,
 } from '../features/process';
 import { UI_KIT_PATH, UiKitShowcasePage } from '../features/uikit';
-import {
-  WORK_ITEMS_ROUTE,
-  WORK_ITEM_ROUTE,
-  WorkItemFormPage,
-  workItemsPermissions,
-} from '../features/workitems';
+import { WORK_ITEMS_ROUTE, WORK_ITEM_ROUTE, WorkItemFormPage } from '../features/workitems';
 import { HOME_PATH } from '../shared/config/paths';
 import { NotFound } from '../shared/ui/StateFrame';
 import { AppLayout } from './AppLayout';
 import { KIND_ROUTE_PREFIX, menuFor, type MenuKind } from './navigation/addressModel';
 
 const permissions = organizationsPermissions;
+
+/**
+ * The code of an entry to a section whose own code is decided at a project or a team (the work items, the
+ * boards, the projects): the organization answer does not carry such a code (BR-SA-11, BR-SA-18), and every
+ * member reads those lists (mod-019 design § 3: "the entries are present for everyone"). The entry asks the
+ * organization read every member holds; the object's own page and the server decide the rest.
+ */
+const SECTION_ENTRY = permissions.organizationRead;
 
 /**
  * A bare object address opens the first entry of the object's menu, replacing the history entry
@@ -109,7 +111,7 @@ function ProjectsRoute() {
   const deactivated = params.get('status') === 'deactivated';
   return (
     <OrganizationPage
-      code={deactivated ? permissions.projectDeactivate : permissions.projectRead}
+      code={deactivated ? permissions.projectDeactivate : SECTION_ENTRY}
       title="Проекты"
       skeleton="registry"
       columns={deactivated ? ['Название', 'Ключ', ''] : ['Название', 'Ключ']}
@@ -278,7 +280,7 @@ export const routeTree = (
             <Route
               path={PROJECT_GENERAL_ROUTE}
               element={
-                <OrganizationPage code={permissions.projectRead} title="Общие" skeleton="form">
+                <OrganizationPage code={SECTION_ENTRY} title="Общие" skeleton="form">
                   <ProjectGeneralPage />
                 </OrganizationPage>
               }
@@ -300,7 +302,7 @@ export const routeTree = (
               path={PROJECT_ACCESS_ROUTE}
               element={
                 <OrganizationPage
-                  code={permissions.projectRead}
+                  code={SECTION_ENTRY}
                   title="Участники и доступ"
                   skeleton="registry"
                 >
@@ -311,7 +313,7 @@ export const routeTree = (
             <Route
               path={PROJECT_SETTINGS_ROUTE}
               element={
-                <OrganizationPage code={permissions.projectRead} title="Общие" skeleton="form">
+                <OrganizationPage code={SECTION_ENTRY} title="Общие" skeleton="form">
                   <ProjectGeneralPage />
                 </OrganizationPage>
               }
@@ -352,11 +354,7 @@ export const routeTree = (
           <Route
             path={WORK_ITEMS_ROUTE}
             element={
-              <OrganizationPage
-                code={workItemsPermissions.workItemRead}
-                title="Рабочие элементы"
-                skeleton="registry"
-              >
+              <OrganizationPage code={SECTION_ENTRY} title="Рабочие элементы" skeleton="registry">
                 <ProjectWorkItemsRoute />
               </OrganizationPage>
             }
@@ -364,11 +362,7 @@ export const routeTree = (
           <Route
             path={WORK_ITEM_ROUTE}
             element={
-              <OrganizationPage
-                code={workItemsPermissions.workItemRead}
-                title="Рабочий элемент"
-                skeleton="form"
-              >
+              <OrganizationPage code={SECTION_ENTRY} title="Рабочий элемент" skeleton="form">
                 <WorkItemFormPage />
               </OrganizationPage>
             }
@@ -376,11 +370,7 @@ export const routeTree = (
           <Route
             path={BOARD_ROUTE}
             element={
-              <OrganizationPage
-                code={boardsPermissions.workItemRead}
-                title="Канбан"
-                skeleton="registry"
-              >
+              <OrganizationPage code={SECTION_ENTRY} title="Канбан" skeleton="registry">
                 <TeamBoardRoute />
               </OrganizationPage>
             }
@@ -388,11 +378,7 @@ export const routeTree = (
           <Route
             path={BACKLOG_ROUTE}
             element={
-              <OrganizationPage
-                code={boardsPermissions.workItemRead}
-                title="Бэклоги"
-                skeleton="registry"
-              >
+              <OrganizationPage code={SECTION_ENTRY} title="Бэклоги" skeleton="registry">
                 <TeamBacklogRoute />
               </OrganizationPage>
             }
@@ -401,11 +387,7 @@ export const routeTree = (
           <Route
             path={ORGANIZATION_BOARD_ROUTE}
             element={
-              <OrganizationPage
-                code={boardsPermissions.workItemRead}
-                title="Канбан"
-                skeleton="registry"
-              >
+              <OrganizationPage code={SECTION_ENTRY} title="Канбан" skeleton="registry">
                 <AggregateBoardPage />
               </OrganizationPage>
             }
@@ -413,11 +395,7 @@ export const routeTree = (
           <Route
             path={ORGANIZATION_BACKLOG_ROUTE}
             element={
-              <OrganizationPage
-                code={boardsPermissions.workItemRead}
-                title="Бэклог"
-                skeleton="registry"
-              >
+              <OrganizationPage code={SECTION_ENTRY} title="Бэклог" skeleton="registry">
                 <AggregateBacklogPage />
               </OrganizationPage>
             }
@@ -425,11 +403,7 @@ export const routeTree = (
           <Route
             path={ORGANIZATION_WORK_ITEMS_ROUTE}
             element={
-              <OrganizationPage
-                code={workItemsPermissions.workItemRead}
-                title="Рабочие элементы"
-                skeleton="registry"
-              >
+              <OrganizationPage code={SECTION_ENTRY} title="Рабочие элементы" skeleton="registry">
                 <AggregateWorkItemsPage />
               </OrganizationPage>
             }
@@ -437,11 +411,7 @@ export const routeTree = (
           <Route
             path={DEPARTMENT_BOARD_ROUTE}
             element={
-              <OrganizationPage
-                code={boardsPermissions.workItemRead}
-                title="Канбан"
-                skeleton="registry"
-              >
+              <OrganizationPage code={SECTION_ENTRY} title="Канбан" skeleton="registry">
                 <AggregateBoardPage />
               </OrganizationPage>
             }
@@ -449,11 +419,7 @@ export const routeTree = (
           <Route
             path={DEPARTMENT_BACKLOG_ROUTE}
             element={
-              <OrganizationPage
-                code={boardsPermissions.workItemRead}
-                title="Бэклог"
-                skeleton="registry"
-              >
+              <OrganizationPage code={SECTION_ENTRY} title="Бэклог" skeleton="registry">
                 <AggregateBacklogPage />
               </OrganizationPage>
             }
@@ -461,11 +427,7 @@ export const routeTree = (
           <Route
             path={DEPARTMENT_WORK_ITEMS_ROUTE}
             element={
-              <OrganizationPage
-                code={workItemsPermissions.workItemRead}
-                title="Рабочие элементы"
-                skeleton="registry"
-              >
+              <OrganizationPage code={SECTION_ENTRY} title="Рабочие элементы" skeleton="registry">
                 <AggregateWorkItemsPage />
               </OrganizationPage>
             }
@@ -473,11 +435,7 @@ export const routeTree = (
           <Route
             path={TEAM_WORK_ITEMS_ROUTE}
             element={
-              <OrganizationPage
-                code={workItemsPermissions.workItemRead}
-                title="Рабочие элементы"
-                skeleton="registry"
-              >
+              <OrganizationPage code={SECTION_ENTRY} title="Рабочие элементы" skeleton="registry">
                 <AggregateWorkItemsPage />
               </OrganizationPage>
             }
@@ -486,11 +444,7 @@ export const routeTree = (
           <Route
             path={PROJECT_BOARD_ROUTE}
             element={
-              <OrganizationPage
-                code={boardsPermissions.workItemRead}
-                title="Канбан"
-                skeleton="registry"
-              >
+              <OrganizationPage code={SECTION_ENTRY} title="Канбан" skeleton="registry">
                 <ProjectBoardRoute />
               </OrganizationPage>
             }
@@ -498,11 +452,7 @@ export const routeTree = (
           <Route
             path={PROJECT_BACKLOG_ROUTE}
             element={
-              <OrganizationPage
-                code={boardsPermissions.workItemRead}
-                title="Бэклоги"
-                skeleton="registry"
-              >
+              <OrganizationPage code={SECTION_ENTRY} title="Бэклоги" skeleton="registry">
                 <ProjectBacklogRoute />
               </OrganizationPage>
             }

@@ -1,4 +1,4 @@
-import { useEffect, useId, useRef, useState } from 'react';
+import { useEffect, useId, useMemo, useRef, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import AddIcon from '@mui/icons-material/Add';
 import FilterListOffIcon from '@mui/icons-material/FilterListOff';
@@ -7,6 +7,7 @@ import UnfoldLessIcon from '@mui/icons-material/UnfoldLess';
 import UnfoldMoreIcon from '@mui/icons-material/UnfoldMore';
 import Box from '@mui/material/Box';
 import { useAccessCheck } from '../../../shared/lib/access';
+import { ObjectAccess } from '../../../shared/lib/objectAccessProvider';
 import { BoxedTabPanel, BoxedTabs, Tag, TruncatedText } from '../../../shared/ui';
 import { PageHeader, type Command } from '../../../shared/ui/PageHeader';
 import { NotFound, StateFrame } from '../../../shared/ui/StateFrame';
@@ -25,7 +26,8 @@ import { AreaTypeMark, commandIcon } from '../components/AreaTypeMark';
 import { DiagramLegend } from '../components/DiagramLines';
 import { ListFilter } from '../components/ListFilter';
 import { StructureDiagram } from '../components/StructureDiagram';
-import { useAreaTree } from '../hooks/queries';
+import { useRoleFloor } from '../access/useRoleFloor';
+import { useAreaTree, useWritableAreaIds } from '../hooks/queries';
 import { useSelectorOffers } from '../hooks/navigationQueries';
 import { useAreaRowLink } from '../hooks/useAreaRowLink';
 import { useDiagramView } from '../hooks/useDiagramView';
@@ -60,11 +62,17 @@ export function AreasPage() {
   // The offers are read only for the diagram (feat-049 BR-SD-3): the tree needs none.
   const offers = useSelectorOffers(organizationId, { enabled: showDiagram });
   const access = useAccessCheck();
-  const canWrite = access(organizationsPermissions.areaWrite, 'organization');
+  // `area.write` is decided per node (mod-019 BR-SA-11, X-4): the tree read's sibling serves, once, the ids
+  // where the caller holds it, and the row commands and the dialogs' lock follow those ids. The link of
+  // teams asks the role's floor, the tree carrying no codes of its own (BR-SA-18).
+  const writable = useWritableAreaIds(organizationId);
+  const writableIds = useMemo(() => new Set(writable.data ?? []), [writable.data]);
+  const canWrite = writableIds.size > 0;
   const canCreate = access(organizationsPermissions.areaCreate, 'organization');
+  const floor = useRoleFloor(organizationId);
   const canLinkTeams =
-    access(organizationsPermissions.areaLink, 'organization') &&
-    access(organizationsPermissions.teamLink, 'organization');
+    (floor?.includes(organizationsPermissions.areaLink) ?? false) &&
+    (floor?.includes(organizationsPermissions.teamLink) ?? false);
   const treeRef = useRef<TreeRegistryHandle>(null);
   const [dialog, setDialog] = useState<NodeDialog>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -142,7 +150,7 @@ export function AreasPage() {
   }
 
   function actions(area: AreaNode): TreeRegistryAction[] {
-    return commandKinds(area, { canWrite, canCreate }).map((kind) => ({
+    return commandKinds(area, { canWrite: writableIds.has(area.id), canCreate }).map((kind) => ({
       label: commandLabel(kind, area.type),
       icon: commandIcon(kind, true),
       destructive: kind === 'delete',
@@ -179,6 +187,17 @@ export function AreasPage() {
         ]
       : [];
   const createDepartment = () => setDialog({ kind: 'createDepartment' });
+  // The open dialog's lock: the write code is held where the node (or the parent of a new sub-area) is writable.
+  const dialogNodeId =
+    dialog === null || dialog.kind === 'createDepartment'
+      ? null
+      : dialog.kind === 'createSub'
+        ? dialog.parentId
+        : dialog.node.id;
+  const dialogCodes =
+    dialogNodeId !== null && writableIds.has(dialogNodeId)
+      ? [organizationsPermissions.areaWrite]
+      : [];
 
   return (
     <>
@@ -296,14 +315,16 @@ export function AreasPage() {
           )}
         </>
       )}
-      <AreaNodeDialogs
-        organizationId={organizationId}
-        dialog={dialog}
-        canCreate={canCreate}
-        canLinkTeams={canLinkTeams}
-        onDone={done}
-        onClose={closeDialog}
-      />
+      <ObjectAccess codes={dialogCodes}>
+        <AreaNodeDialogs
+          organizationId={organizationId}
+          dialog={dialog}
+          canCreate={canCreate}
+          canLinkTeams={canLinkTeams}
+          onDone={done}
+          onClose={closeDialog}
+        />
+      </ObjectAccess>
     </>
   );
 }

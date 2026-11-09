@@ -137,10 +137,15 @@ export function useOrganizationTeams(
   });
 }
 
-export function useTeam(organizationId: string, teamId: string) {
+export function useTeam(
+  organizationId: string,
+  teamId: string,
+  options: { enabled?: boolean } = {},
+) {
   return useQuery({
     queryKey: organizationsKeys.team(organizationId, teamId),
     queryFn: () => getTeam(organizationId, teamId),
+    enabled: options.enabled ?? true,
   });
 }
 

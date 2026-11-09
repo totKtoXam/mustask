@@ -7,17 +7,14 @@
 // (`Dataset.teams`, `Dataset.links`); the routes follow its api-contract.
 import { HttpResponse, http, type HttpHandler } from 'msw';
 import { server } from '../../test/mocks/server';
-import { ADMIN_CODES, codesOf, servedFor } from '../../test/organizationRoles';
+import { codesOf, servedFor, servedObjectCodes, servedRole } from '../../test/organizationRoles';
 
 /**
  * The codes the object reads serve as the caller's own on the object (mod-019 api-contract § 5). The pages ask
  * the object's `codes`, not the organization answer, for a code decided at that object (BR-SA-18); the render
  * helper sets this from the test's role, so the old role-driven tests keep their meaning.
  */
-export const servedObjectCodes: { current: readonly string[]; pinned: boolean } = {
-  current: ADMIN_CODES,
-  pinned: false,
-};
+export { servedObjectCodes };
 import type { Overview, SelectorOffers } from './api/navigationApi';
 import type {
   Area,
@@ -1240,7 +1237,7 @@ export class OrganizationsTestApi {
         `${ORGANIZATION_URL}/access`,
         answer(200, (p) => {
           this.organization(o(p));
-          return servedFor('admin');
+          return servedFor(servedRole.current);
         }),
       ),
       http.put(

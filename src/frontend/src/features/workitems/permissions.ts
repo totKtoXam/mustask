@@ -1,9 +1,8 @@
 // The slice's codes (api-contract § 0.1, BR-M3-27; mod-016 api-contract
-// § 0.2). All are organization-scoped and in no token: the panel reads them
-// from `GET …/access` and a page asks them through `useAccessCheck()`, bound
-// to the organization in its address by the organization gate (ADR-0027). The
-// navigation entry declares the read; the pages ask the write codes, and a
-// non-member never reaches a page — the gate answers «Организация не найдена».
+// § 0.2). None is in a token. Since mod-019 (ADR-0038, BR-SA-18) they are decided at a project, so the panel
+// reads them from the project's served `codes` (`ProjectAccess`, the project rows), never from `GET …/access`,
+// which carries the organization-scope codes only; a page asks them through `useAccessCheck()` below a host
+// that provides them. A non-member never reaches a page — the gate answers «Организация не найдена».
 export const workItemsPermissions = {
   workItemRead: 'workitems.workitem.read',
   workItemWrite: 'workitems.workitem.write',

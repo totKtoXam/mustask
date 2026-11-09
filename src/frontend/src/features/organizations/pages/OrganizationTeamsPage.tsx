@@ -24,6 +24,7 @@ import { CreateTeamDialog } from '../components/CreateTeamDialog';
 import { ListFilter } from '../components/ListFilter';
 import { useNotify } from '../components/notice';
 import { TeamDialogs, type TeamDialog } from '../components/TeamDialogs';
+import { RoleFloorAccess } from '../access/RoleFloorAccess';
 import { useCreateTeam } from '../hooks/mutations';
 import { useOrganizationTeams } from '../hooks/queries';
 import { useObjectLink } from '../hooks/useObjectLink';
@@ -43,6 +44,16 @@ import { organizationsPermissions } from '../permissions';
  */
 export function OrganizationTeamsPage() {
   const { organizationId = '' } = useParams<{ organizationId: string }>();
+  // The team rows carry no codes: a team's, project's and department's code is asked of the role's floor
+  // (BR-SA-18); a team's own page offers what its grant gives.
+  return (
+    <RoleFloorAccess organizationId={organizationId}>
+      <OrganizationTeams organizationId={organizationId} />
+    </RoleFloorAccess>
+  );
+}
+
+function OrganizationTeams({ organizationId }: { organizationId: string }) {
   const query = useOrganizationTeams(organizationId);
   const create = useCreateTeam(organizationId);
   const notify = useNotify();

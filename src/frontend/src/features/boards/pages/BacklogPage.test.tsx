@@ -175,7 +175,8 @@ describe('US-1 Scenario: The level is chosen by the level drop-down and kept in 
     expect(
       await screen.findByRole('heading', { level: 1, name: 'Страница не найдена' }),
     ).toBeInTheDocument();
-    expect(api.requests).toEqual([]);
+    // Nothing of the view: the shell reads the chosen team for its «Параметры» entry (mod-019 BR-SA-18), no more.
+    expect(api.requests.filter((request) => !/\/teams\/[^/]+$/.test(request.path))).toEqual([]);
   });
 });
 

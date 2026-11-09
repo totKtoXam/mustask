@@ -35,9 +35,9 @@ export function pageAt(organizationId: string): string {
   return `/organizations/${organizationId}/settings/things`;
 }
 
-/** The code the stub page needs, and one it only uses for a control. */
-export const READ_CODE = 'organizations.project.read';
-export const WRITE_CODE = 'organizations.project.write';
+/** The code the stub page needs, and one it only uses for a control: both are organization-scope codes (the organization answer carries no other, BR-SA-18). */
+export const READ_CODE = 'organizations.organization.read';
+export const WRITE_CODE = 'organizations.team.create';
 
 /** Serves `GET …/organizations/:id/access` from `answer`, or a 404/403 body. */
 export function serveAccess(

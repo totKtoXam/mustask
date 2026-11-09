@@ -28,6 +28,7 @@ import { useNotify } from '../components/notice';
 import { RestoreButton } from '../components/RestoreButton';
 import { useCreateProject, useDeactivateProject, useRestoreProject } from '../hooks/mutations';
 import { useSelectorOffers } from '../hooks/navigationQueries';
+import { RoleFloorAccess } from '../access/RoleFloorAccess';
 import { useProjects, useWritableAreaIds } from '../hooks/queries';
 import { useObjectLink } from '../hooks/useObjectLink';
 import { projectsList } from '../lib/navigationTexts';
@@ -85,6 +86,15 @@ function DeactivateProject({
  */
 export function ProjectListPage({ view }: { view: ListView }) {
   const { organizationId = '' } = useParams<{ organizationId: string }>();
+  // The list's rows carry each project's codes; the link dialog's two ends ask the role's floor (BR-SA-18).
+  return (
+    <RoleFloorAccess organizationId={organizationId}>
+      <ProjectList view={view} organizationId={organizationId} />
+    </RoleFloorAccess>
+  );
+}
+
+function ProjectList({ view, organizationId }: { view: ListView; organizationId: string }) {
   const offers = useSelectorOffers(organizationId, { enabled: view === 'active' });
   const deactivated = useProjects(organizationId, 'deactivated', {
     enabled: view === 'deactivated',

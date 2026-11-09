@@ -1,7 +1,6 @@
 import { type ReactNode } from 'react';
 import Box from '@mui/material/Box';
 import InboxOutlinedIcon from '@mui/icons-material/InboxOutlined';
-import { useAccessCheck } from '../../../shared/lib/access';
 import {
   InlineNotice,
   MoreActionsMenu,
@@ -11,6 +10,7 @@ import {
   type MenuEntry,
 } from '../../../shared/ui';
 import { ApiError } from '../../../shared/api/httpClient';
+import { useProjectCodes } from '../../organizations';
 import { getRows, type AggregateRow, type GroupHeader } from '../api/aggregateApi';
 import { reorderProjectBacklog } from '../api/boardsApi';
 import { useAnnouncement } from '../hooks/useAnnouncement';
@@ -178,12 +178,15 @@ function groupName(header: GroupHeader, grouping: AggregateViewState['grouping']
 
 /** «Бэклог» at the organization, department and team level (BR-AV-6, design § 3, § 5). */
 export function AggregateBacklogView({ v }: { v: AggregateViewState }) {
-  const access = useAccessCheck();
+  // A group is one project's: the reorder is judged on that project's served codes (plan F-6, BR-SA-18).
+  const { codes: projectCodes } = useProjectCodes(v.organizationId);
   const { announcement, announce } = useAnnouncement(v.grouping);
   const narrowedTag = useNarrowedTag(v.organizationId, v.selectors);
-  const canMove =
-    backlogCanMove(v.grouping, v.selectors, false) &&
-    access(boardsPermissions.backlogReorder, 'organization');
+  const movable = backlogCanMove(v.grouping, v.selectors, false);
+  const canMoveIn = (header: GroupHeader) =>
+    movable &&
+    (projectCodes?.get(groupIdOf(header))?.includes(boardsPermissions.projectBacklogReorder) ??
+      false);
   const hint = backlogHint(v.grouping, v.selectors, false);
   const groups = v.groups;
 
@@ -211,7 +214,13 @@ export function AggregateBacklogView({ v }: { v: AggregateViewState }) {
     body = only && (
       <Surface variant="card" padding="dense">
         <Box sx={{ mb: 1 }}>{streamCountText(only.count, only.total)}</Box>
-        <BacklogGroupBody v={v} header={only} stream canMove={canMove} announce={announce} />
+        <BacklogGroupBody
+          v={v}
+          header={only}
+          stream
+          canMove={canMoveIn(only)}
+          announce={announce}
+        />
       </Surface>
     );
   } else {
@@ -233,7 +242,7 @@ export function AggregateBacklogView({ v }: { v: AggregateViewState }) {
                 v={v}
                 header={header}
                 stream={false}
-                canMove={canMove}
+                canMove={canMoveIn(header)}
                 announce={announce}
               />
             </ViewGroup>

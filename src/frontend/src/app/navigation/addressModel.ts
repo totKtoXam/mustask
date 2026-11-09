@@ -1,5 +1,4 @@
 import { matchPath } from 'react-router-dom';
-import { boardsPermissions } from '../../features/boards';
 import { organizationsPermissions } from '../../features/organizations';
 
 /**
@@ -44,54 +43,63 @@ export interface MenuRow {
 
 const read = organizationsPermissions;
 
+/**
+ * The code of an entry whose section is decided at a project or a team (projects, work items, boards,
+ * backlogs, a project's pages): the organization answer does not carry such a code (BR-SA-11, BR-SA-18) and
+ * every member reads those lists (mod-019 design § 3), so the entry asks the organization read every member
+ * holds. The object's own page and the server decide the rest.
+ */
+export const SECTION_ENTRY_CODE = read.organizationRead;
+const ENTRY = SECTION_ENTRY_CODE;
+
 /** The table of ADR-0032 § 2, rows in menu order. «Настройки» is not a row: the shell derives it. */
 export const MENU_TABLE: Record<MenuKind, readonly MenuRow[]> = {
   organization: [
     { id: 'overview', label: 'Обзор', segment: 'overview', code: read.organizationRead },
     { id: 'areas', label: 'Структура', segment: 'areas', code: read.areaRead },
-    { id: 'projects', label: 'Проекты', segment: 'projects', code: read.projectRead },
+    { id: 'projects', label: 'Проекты', segment: 'projects', code: ENTRY },
     { id: 'teams', label: 'Команды', segment: 'teams', code: read.teamRead },
     {
       id: 'workitems',
       label: 'Рабочие элементы',
       segment: 'workitems',
-      code: boardsPermissions.workItemRead,
+      code: ENTRY,
     },
     {
       id: 'boards',
       label: 'Канбан',
       segment: 'boards/:level',
-      code: boardsPermissions.workItemRead,
+      code: ENTRY,
     },
     {
       id: 'backlogs',
       label: 'Бэклог',
       segment: 'backlogs/:level',
-      code: boardsPermissions.workItemRead,
+      code: ENTRY,
     },
     { id: 'members', label: 'Участники', segment: 'members', code: read.membershipRead },
   ],
   department: [
     { id: 'overview', label: 'Обзор', segment: 'overview', code: read.areaRead },
-    { id: 'projects', label: 'Проекты', segment: 'projects', code: read.projectRead },
+    { id: 'projects', label: 'Проекты', segment: 'projects', code: ENTRY },
     { id: 'teams', label: 'Команды', segment: 'teams', code: read.teamRead },
     {
       id: 'workitems',
       label: 'Рабочие элементы',
       segment: 'workitems',
-      code: boardsPermissions.workItemRead,
+      code: ENTRY,
     },
     {
       id: 'boards',
       label: 'Канбан',
       segment: 'boards/:level',
-      code: boardsPermissions.workItemRead,
+      code: ENTRY,
     },
     {
       id: 'backlogs',
       label: 'Бэклог',
       segment: 'backlogs/:level',
-      code: boardsPermissions.workItemRead,
+      code: ENTRY,
     },
     { id: 'members', label: 'Участники', segment: 'members', code: read.areaRead },
   ],
@@ -101,46 +109,46 @@ export const MENU_TABLE: Record<MenuKind, readonly MenuRow[]> = {
       id: 'boards',
       label: 'Канбан',
       segment: 'boards/:level',
-      code: boardsPermissions.workItemRead,
+      code: ENTRY,
     },
     {
       id: 'backlogs',
       label: 'Бэклог',
       segment: 'backlogs/:level',
-      code: boardsPermissions.workItemRead,
+      code: ENTRY,
     },
     {
       id: 'workitems',
       label: 'Рабочие элементы',
       segment: 'workitems',
-      code: boardsPermissions.workItemRead,
+      code: ENTRY,
     },
-    { id: 'projects', label: 'Проекты', segment: 'projects', code: read.projectRead },
+    { id: 'projects', label: 'Проекты', segment: 'projects', code: ENTRY },
     { id: 'members', label: 'Участники и доступ', segment: 'members', code: read.teamRead },
   ],
   project: [
-    { id: 'general', label: 'Общие', segment: 'general', code: read.projectRead },
+    { id: 'general', label: 'Общие', segment: 'general', code: ENTRY },
     { id: 'structure', label: 'Структура', segment: 'areas/:areaId/overview', code: read.areaRead },
     {
       id: 'workitems',
       label: 'Рабочие элементы',
       segment: 'workitems',
-      code: boardsPermissions.workItemRead,
+      code: ENTRY,
     },
     {
       id: 'boards',
       label: 'Канбан',
       segment: 'boards/:level',
-      code: boardsPermissions.workItemRead,
+      code: ENTRY,
     },
     {
       id: 'backlogs',
       label: 'Бэклог',
       segment: 'backlogs/:level',
-      code: boardsPermissions.workItemRead,
+      code: ENTRY,
     },
     { id: 'teams', label: 'Команды', segment: 'teams', code: read.teamRead },
-    { id: 'access', label: 'Участники и доступ', segment: 'access', code: read.projectRead },
+    { id: 'access', label: 'Участники и доступ', segment: 'access', code: ENTRY },
   ],
 };
 

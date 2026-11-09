@@ -3,10 +3,12 @@ import type { AccessCheck } from '../../shared/lib/access';
 import type { WorkContextSelection } from '../../shared/lib/workContext';
 import type { TrailSegment } from '../../shared/ui/pageChrome';
 import { SETTINGS_LABEL } from './model';
+import { SECTION_ENTRY_CODE } from './addressModel';
 import type {
   MainNavigationEntry,
   NavigationEntry,
   NavigationModel,
+  NavigationObject,
   NavigationScope,
   SettingsSection,
 } from './types';
@@ -24,6 +26,11 @@ export interface NavigationContext {
    * (design § 6.1).
    */
   skipServedCodes?: boolean;
+  /**
+   * The served `codes` of the chosen objects, once read (mod-019 BR-SA-18): an entry that names its `object`
+   * is asked of these. An object that is not read yet answers "no" (unknown is not granted).
+   */
+  objectCodes?: Partial<Record<NavigationObject, readonly string[] | undefined>>;
 }
 
 export interface VisibleSettingsSection {
@@ -71,12 +78,17 @@ export function isEntryVisible(
   context: NavigationContext,
 ): boolean {
   const skipCode = context.skipServedCodes === true && entry.scope !== 'instance';
-  if (
-    entry.permission !== undefined &&
-    !skipCode &&
-    !access(entry.permission, entry.scope, context.selection.organizationId)
-  ) {
-    return false;
+  if (entry.permission !== undefined && !skipCode) {
+    const granted =
+      entry.object === undefined
+        ? access(entry.permission, entry.scope, context.selection.organizationId)
+        : // An object's codes count only while the organization answers for its member (mod-019 BR-SA-18): a
+          // member who lost the organization keeps no entry from codes read before.
+          access(SECTION_ENTRY_CODE, 'organization', context.selection.organizationId) &&
+          (context.objectCodes?.[entry.object]?.includes(entry.permission) ?? false);
+    if (!granted) {
+      return false;
+    }
   }
   if (entry.scope === 'instance') {
     return true;

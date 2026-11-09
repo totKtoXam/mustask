@@ -9,7 +9,13 @@ import { AccessCheckContext, type AccessCheck } from '../../shared/lib/access';
 import { NoticeProvider } from '../../shared/ui';
 import { AuthContext, type AuthContextValue } from '../auth/AuthContext';
 import { WorkContextContext, type WorkContextSource } from '../../shared/lib/workContext';
-import { checkFor, checkForCodes, codesOf, type TestRole } from '../../test/organizationRoles';
+import {
+  checkFor,
+  checkForCodes,
+  codesOf,
+  servedRole,
+  type TestRole,
+} from '../../test/organizationRoles';
 import { organizationsKeys } from './api/queryKeys';
 import { servedObjectCodes } from './testApi';
 import { OrganizationsSection } from './components/OrganizationsSection';
@@ -154,6 +160,7 @@ export function renderPage({
   ) {
     servedObjectCodes.current = orgCodes ?? codesOf(role);
     servedObjectCodes.pinned = orgCodes !== undefined;
+    servedRole.current = role;
     const access: AccessCheck = orgCodes
       ? checkForCodes(orgCodes, currentPermissions)
       : checkFor(role, currentPermissions);

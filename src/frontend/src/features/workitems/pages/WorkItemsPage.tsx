@@ -27,6 +27,7 @@ import { WORK_ITEMS_PAGE_SIZE } from '../api/workItemsApi';
 import { AssigneeFilter } from '../components/AssigneeFilter';
 import { CreateWorkItemDialog } from '../components/CreateWorkItemDialog';
 import { KeywordFilter } from '../components/KeywordFilter';
+import { ProjectAccess } from '../components/ProjectAccess';
 import { MarkedAssigneeName, StateName, TypeName } from '../components/Marks';
 import { StateFilter } from '../components/StateFilter';
 import { NoTeamFilter } from '../components/NoTeamFilter';
@@ -72,12 +73,14 @@ export function WorkItemsPage({ headerExtra }: { headerExtra?: ReactNode } = {})
     projectId: string;
   }>();
   return (
-    <WorkItemsList
-      key={`${organizationId}/${projectId}`}
-      organizationId={organizationId}
-      projectId={projectId}
-      headerExtra={headerExtra}
-    />
+    <ProjectAccess organizationId={organizationId} projectId={projectId}>
+      <WorkItemsList
+        key={`${organizationId}/${projectId}`}
+        organizationId={organizationId}
+        projectId={projectId}
+        headerExtra={headerExtra}
+      />
+    </ProjectAccess>
   );
 }
 

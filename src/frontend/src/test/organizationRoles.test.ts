@@ -67,7 +67,12 @@ describe('the role bundles, read from contracts/access/role-bundles.json', () =>
       const served = servedFor(role);
       expect(served.role).toBe(role);
       expect(served.permissions).toEqual([...served.permissions].sort());
-      expect(served.permissions).toHaveLength(codesCount(role));
+      // The organization answer carries the organization-scope codes only (BR-SA-11); the rest is the objects'.
+      expect(served.permissions).toEqual(
+        roleBundles.organizationRoles[role].filter(isOrganizationScope).sort(),
+      );
+      expect(served.objectCodes).toHaveLength(codesCount(role));
+      expect(served.permissions.every((code) => isOrganizationScope(code))).toBe(true);
     }
   });
 
@@ -75,9 +80,13 @@ describe('the role bundles, read from contracts/access/role-bundles.json', () =>
     expect(withoutCodes('member', 'boards.backlog.reorder').permissions).not.toContain(
       'boards.backlog.reorder',
     );
+    expect(withoutCodes('member', 'boards.backlog.reorder').objectCodes).not.toContain(
+      'boards.backlog.reorder',
+    );
 
     const member = checkFor('member', ['dictionaries.languages.read']);
-    expect(member('workitems.workitem.write', 'organization')).toBe(true);
+    expect(member('workitems.workitem.write', 'organization')).toBe(false);
+    expect(member('organizations.organization.read', 'organization')).toBe(true);
     expect(member('organizations.project.write', 'organization')).toBe(false);
     expect(member('dictionaries.languages.read', 'instance')).toBe(true);
     expect(member('dictionaries.languages.write', 'instance')).toBe(false);

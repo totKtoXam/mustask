@@ -8,6 +8,7 @@ import { serveWorkItems, type WorkItemsTestApi } from '../../testApi';
 import { hierarchyDataset, ids, recordOf, type Dataset } from '../../testFixtures';
 import type { CardFrameProps } from './cardFrame';
 import { PageFrame } from './KitFrames';
+import { ProjectAccess } from '../ProjectAccess';
 import { WorkItemCard, type WorkItemCardProps } from './WorkItemCard';
 
 /** The page's frame, as the page hosts the card. */
@@ -30,7 +31,9 @@ export function CardHost({
     return <p>Чтение…</p>;
   }
   return (
-    <WorkItemCard organizationId={ids.example} projectId={ids.msk} item={query.data} {...card} />
+    <ProjectAccess organizationId={ids.example} projectId={ids.msk} pending={<p>Чтение…</p>}>
+      <WorkItemCard organizationId={ids.example} projectId={ids.msk} item={query.data} {...card} />
+    </ProjectAccess>
   );
 }
 
