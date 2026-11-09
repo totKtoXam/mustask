@@ -3,7 +3,7 @@
 - type: module
 - size: L
 - branch: mod/019-scoped-access
-- stage: 05-frontend
+- stage: 06-code-review
 - epic: core/org-access
 - deps: mod-018,feat-043
 - gates: gate-1, gate-2, gate-3
@@ -78,6 +78,7 @@ Plans: `plan-backend.md`, `plan-frontend.md`.
 - 2026-11-09 [backend-developer] backend fix round 1: D-1 fixed (ten project/team routes now declare ResourceScope.Project/Team; inventory fails on a narrower code without scope on a route that names that object, with an exact organization-wide exception list); D-2 fixed (DeleteTeamHandler ends the team grants via IGrantRepository.RemoveAllAsync); US-7 order restored on project-team link (404 for an unknown team, then the second code). D-3, D-4, D-5 untouched. api-contract.md unchanged. Tests: Domain 922, Application 858, Architecture 82, Contracts 232, Shared 53, Infrastructure 466, Api.IntegrationTests 3361 (4 skipped), 0 failed. qa.md left to QA. Gates and stage untouched
 - 2026-11-09 [backend-developer] backend fix round 1 continued: D-3 decided by the human (OQ-11): assignee-candidates takes an optional projectId and is judged on the project (decided in the handler); api-contract § 10 records the optional parameter (backward compatible; no frontend caller in src yet). Second-code order (not-found first, then 403) applied to LinkAreasToTeam, LinkProjectsToTeam, LinkTeamsToArea, UnlinkTeam, GetTeamOwnedItemCount, with tests. Gates and stage untouched
 - 2026-11-09 [qa-engineer] backend QA pass 2 in qa.md: D-1, D-2, D-3 verified fixed (tests un-skipped, green; two edge tests added: another organization's projectId and malformed id, the not-found-before-second-code order on unlink and team-side links); 0 blockers, 0 majors, minors open D-4 (frontend plan) and D-5. Timing: AggregateViewVolumeTests failed once alone on HEAD (12.8 s outlier), then passed (1 m 48 s) with per-grouping times at or below the merge base's; ProjectBacklogVolumeTests passed alone: not caused by mod-019. Totals: Api.IntegrationTests 3365 passed, 3 skipped, 0 failed; Domain 922, Application 858, Architecture 82, Contracts 232, Shared 53, Infrastructure 466. E2E: standing answer NO. Gates and stage untouched
+- 2026-11-09 [frontend-dev] stage 6 done, stage → 06-code-review: plan-frontend.md; the panel reads contracts/access/role-bundles.json (tokenClaims.ts and test/organizationRoles.ts switched, drift test rewritten); pages ask object `codes` (BR-SA-18); grants section on a department («Участники»), a project («Участники и доступ») and a team (two sections, «Роль в команде»); give/change/revoke dialogs; «Наследовать доступ» switch with the switch-off confirmation; «Создать проект» by writable ids on org and department «Проекты»; per-row canUnlink and linkableFor pickers; assignee projectId (OQ-11); codes-changed notice. D-4: no backend field owed (plan-frontend F-6). Open: O-1 (contract says organization answer is organization-scope only, the handler still serves the full bundle), O-2 (GET /projects rows carry codes for every row?). Deferred X-1..X-5 in plan-frontend § 5 (work-item/board object codes and the per-card canMove, access-watcher invalidation, BR-SA-18 source guard, AreasPage writable rows, 200-row test). tsc clean, ESLint 0 errors (3 old warnings), Vitest full run 372 files, 5628 tests green after the last fix. No E2E, no stand, no processes left
 
 ## Notes
 

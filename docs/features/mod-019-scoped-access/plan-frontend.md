@@ -41,9 +41,17 @@ Stage 6a, L, 2026-11-09. Read: `spec.md` (BR-SA-1..19, OQ-1..11), US-1..US-8, `d
 
 1. This plan. 2. Bundle switch-over and error codes. 3. API layer and hooks. 4. `objectAccess` and the existing pages moved to object codes. 5. Grants section, dialogs, pages, routes, menus, team page. 6. Switch control and dialog. 7. Create project by place, `canUnlink`, `linkableFor`. 8. Assignee `projectId`. 9. `status.md` Log.
 
-## 5. Deferred (stated at the end of the stage in the Log and the report)
+## 5. Deferred (not done in this pass, with the reason)
 
-Anything not marked done in the Log is deferred; the report names each item and the reason.
+| # | Item | Why |
+|---|---|---|
+| X-1 | **Work-item and board surfaces read object codes** (BR-SA-18 beyond the organization pages): `BacklogPage`, `cardAccess` and `WorkItemFormPage` still ask the organization answer for `workitems.*` codes, and the per-card `canMove` of F-6 (D-4) is not wired. | Their suites (`BacklogPage.gating`, `cardAccess`, `WorkItemFormPage.readOnly`) pin organization-served codes; moving them needs the project read's `codes` in each page and a rewrite of those fixtures. A slice of its own, after O-1 and O-2 are settled. |
+| X-2 | `useAccessWatcher` invalidates the object on a scoped 403/404 (F-5). | The grant and switch writes already re-read the object and its lists, and the codes notice (done) reacts to any re-read; the watcher extension touches shared session code and waits for X-1. |
+| X-3 | The BR-SA-18 source-scan guard (F-1: a test that fails when a panel file asks the organization answer for a non-organization code). | The organization pages are moved; the guard would flag X-1's files, so it lands with X-1. |
+| X-4 | `AreasPage` row commands limited to the writable ids. | The area tree page keeps the organization-wide code; the department pages and the creation dialogs use the ids. |
+| X-5 | A 200-row grants list test. | The list is one `DataTable` over a client-side filter; no paging is specified. |
+
+Done in this pass: F-1 (organization pages), F-2..F-4, F-5 (re-read on writes, the codes notice, refocus by the client default), F-7, F-8, F-9, and steps 1-9 of section 4 except the items above.
 
 ## 6. Open items for the orchestrator or backend
 

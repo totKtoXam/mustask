@@ -290,11 +290,14 @@ describe('mod-018 api-contract § 5: the codes each control asks for', () => {
     expect(api.writes()[0]?.body).toEqual({ name: 'Ядро', key: 'CORE' });
   });
 
-  it('«Новый проект»: neither code draws «Расположение»', async () => {
-    const { dialog } = await openNewProject([]);
+  it('«Новый проект»: with neither code the caller has no place, and the command is absent (mod-019 BR-SA-17)', async () => {
+    serveOrganizations();
+    renderPage({
+      path: ALFA_PROJECTS,
+      orgCodes: [...READS, 'organizations.project.write'],
+    });
+    await screen.findByRole('table', { name: 'Проекты' });
 
-    expect(
-      within(dialog).queryByRole('combobox', { name: /Расположение/ }),
-    ).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Создать проект' })).not.toBeInTheDocument();
   });
 });
