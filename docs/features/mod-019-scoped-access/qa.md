@@ -100,18 +100,18 @@ Concurrency scenarios of US-1/US-2/US-3 (a membership removal racing a grant, a 
 - Expected (US-1 "Kirill renames A, sets its default team, renames MARS"; US-3 table; US-7; US-8 OQ-8 A): 200/204.
 - Actual: 403 `organizations.access.forbidden`. These routes use the `RequiresOrganizationPermission` overload without a resource scope, so `OrganizationPermissionHandler.HoldsAsync` checks the organization role's bundle alone. Reproduced by the five skipped tests in `ScopedRoutesQaTests` (they failed on the first run).
 - Why the inventory is silent: `OrganizationAccessInventoryTests` compares a declared scope with the code's, but a project- or team-scope code declared with no scope passes. Fix both: declare `ResourceScope.Project` or `Team` on these routes, and make the inventory fail on a code whose resource scope is not the organization when the route declares none (US-6 fault list).
-- Status: open
+- Status: fixed (pass 2, 1c442797): ten routes declare the scope; the five tests are un-skipped and green; the inventory now fails on the fault (see pass 2)
 
 #### D-2: Deleting a team does not end its grants (minor)
 
 - Steps: seed a team grant, `DELETE /teams/{id}` (204), read the grant through `IGrantRepository.FindAsync`.
 - Expected (BR-SA-3, US-1, api-contract section 2 Lifecycle): gone in the same transaction. Actual: the row stays; the comment in `GrantConfigurations.cs` says the handler ends them, `DeleteTeamHandler` does not. No API read shows it (the team answers not found). Skipped test `DeletingATeamEndsItsGrants_...`.
-- Status: open (debt unless fixed with D-1)
+- Status: fixed (pass 2, 76f2a690): DeleteTeamHandler ends the grants; the test is un-skipped and green
 
 #### D-3: Organization-level pickers check the organization role only (minor, needs a decision)
 
 - Steps: a project «Участник» (organization «Читатель») opens `GET /workitems/assignee-candidates`. Actual: 403, though the same user may change items of that project, so the item form's picker is unreachable. The spec is silent on org-level pickers. Skipped test `AProjectMember_OpensTheAssigneePicker`.
-- Status: open
+- Status: fixed (pass 2, decision OQ-11, 2cefbafc): the picker is judged on the optional `projectId`; the test is un-skipped and green
 
 #### D-4: No per-card flag on shared boards (minor, deferral b)
 
@@ -128,6 +128,43 @@ Concurrency scenarios of US-1/US-2/US-3 (a membership removal racing a grant, a 
 - `givenAt` in the POST answer differs from the stored value below one millisecond (in-memory ticks versus microseconds).
 - `grant-candidates?text=` of 300 characters answers 400 while the contract says no 400 of its own; same rule as the directory search.
 
+### Pass 2
+
+2026-11-09, HEAD e7f404f3: the re-check of fix round 1 (1c442797, 76f2a690, 17dae47d, 2cefbafc, 4517a519, e7f404f3) and what it could have broken. E2E: standing answer NO; not asked, not run.
+
+- **D-1 fixed.** `OrganizationAccessInventoryTests` now fails a narrower code (area, project, team scope) declared without a scope on a route that names `{areaId}`, `{projectId}` or `{teamId}`, and fails a code on no list when the route names none. `OrganizationWideUseOfNarrowCodes` holds 11 routes (a project list, two team-addressed reads, eight feat-048 aggregate reads), each with a reason, asserted both ways. The reasons are sound: each is a list or aggregate whose rows the handler narrows by the access set. The five un-skipped D-1 tests pass.
+- **D-2 fixed.** `DeleteTeamHandler` calls `IGrantRepository.RemoveAllAsync` in the same unit of work; the test passes, plus a handler unit test.
+- **D-3 fixed, per OQ-11.** `projectId` is optional; with it the code is judged on that project through the role or a reaching grant; without it, or with an id naming no project of the organization, by the role alone. The route is on the decided-in-handler list. Probed: a reader of the project, a member grant on another project, no `projectId` (all 403 for a viewer); a project of another organization, a malformed id and an unknown id: 403 for a grant holder (the grant lookup is organization-bound, so nothing leaks), 200 for an organization «Участник» (role alone). One note, not a defect: the fallback is by contract; the frontend must pass the real project id.
+- **Order (BR-SA-9, US-7).** The six handlers judge not-found before the second code. Probed beyond the developer's tests: unlink and unlink-count with an unknown team are 404 for a project manager; a known team without a team grant is 403; a viewer is 403 first; `POST /teams/{id}/projects` and `/areas` with an unknown other end are 404 for a team manager. An empty `teamIds` list on project-team link still judges the role alone (kept, D-14).
+- **Regression.** Nothing in what pass 1 covered failed; no handler outside the listed ones changed.
+
+Tests added in pass 2 (`ScopedRoutesQaTests`, +2): `TheAssigneePicker_ANamedProjectOfAnotherOrganizationOrAMalformedId_FallsBackToTheRole`, `TheLinkRoutes_AnswerNotFoundBeforeTheSecondCode`; the class is 17 tests, all green, none skipped (with `GrantsQaTests`: 25 + 2 = 27 across the two classes).
+
+### Timing (the developer's two failures)
+
+| Run | Result |
+|---|---|
+| HEAD, `ProjectBacklogVolumeTests` alone | passed, 12 s total |
+| HEAD, `AggregateViewVolumeTests` alone, first run | failed: board groups by project 12.8 s, backlog rows (no team) 2.1 s (budget 2 s) |
+| 72e630a1 (merge base of origin/main; temporary worktree, removed), same test alone | passed, 4 m 41 s with the build |
+| HEAD, same test alone, second run (hypothesis: noise) | passed, 1 m 48 s; groups 324-387 ms, «no team» 744 ms, keyword 1137 ms |
+| HEAD, full integration run | passed, including both volume tests |
+
+Per-grouping times at HEAD are the same as or below the merge base's (e.g. «backlog rows, no team» 744 ms against 1019 ms; the flat list 222 ms against 339 ms). The one failure was a single 12.8 s outlier on a loaded machine, not a slowdown by mod-019. No timing defect.
+
+### Runs (pass 2)
+
+| What | Result |
+|---|---|
+| `Mustask.Api.IntegrationTests`, whole | 3365 passed, 3 skipped, 0 failed (6 m 40 s) |
+| Domain / Application / Architecture / Contracts / Shared / Infrastructure | 922 / 858 / 82 / 232 / 53 / 466 passed, 0 failed |
+
+Remaining skips: two `LiveRealmImportTests` (need `MUSTASK_KEYCLOAK_LIVE_TESTS=1`, the verify keycloak bucket) and `WorkItemFilterQaTests.Search_ADecomposedYo_IsStillYo` (an older feature's open minor, D-B1).
+
+### Defects after pass 2
+
+D-1, D-2, D-3: fixed. D-4: open, carried to the frontend plan. D-5: open as is (concurrency, log line and the 500 ms seed unexercised; a minor, a debt for gate-3).
+
 ### Verdict
 
-blockers: 0 · majors: 1 (D-1) · minors: 4 · result: **fail** until D-1 is fixed and the five D-1 tests are un-skipped and green. E2E: standing answer NO (paused); not asked, not run.
+blockers: 0 · majors: 0 · minors open: 2 (D-4, D-5) · result: **pass** for the backend. The cycle ends: no blocker or major is open, and this was the first re-check. E2E: standing answer NO (paused).
