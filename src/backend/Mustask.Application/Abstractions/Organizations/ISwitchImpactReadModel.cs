@@ -10,7 +10,7 @@ public sealed record GivenGrantRecord(string UserId, GrantRole Role, string Give
 /// <param name="Type">The node's type.</param>
 /// <param name="ParentId">The node's parent; <c>null</c> at the top level.</param>
 /// <param name="InheritsAccess">The node's current value.</param>
-/// <param name="AffectedUserIds">Distinct users who hold a grant that reaches the node now and would not after; administrators and holders of a project grant on their own excluded.</param>
+/// <param name="AffectedUserIds">Distinct users who hold a grant that reaches the node now and would not after; administrators and holders of a project grant that covers what the switch takes excluded.</param>
 /// <param name="GivenGrants">The owning project's held grants given by those users, at most <see cref="SwitchImpactLimits.GivenGrantsListed"/>.</param>
 /// <param name="GivenGrantsTotal">The count behind <paramref name="GivenGrants"/>.</param>
 public sealed record SwitchImpactData(

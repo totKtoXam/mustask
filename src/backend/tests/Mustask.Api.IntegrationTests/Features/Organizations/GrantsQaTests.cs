@@ -185,7 +185,7 @@ public sealed class GrantsQaTests(MustaskApiFactory factory)
         Assert.Equal((HttpStatusCode.NotFound, "organizations.team.not_found"), (team.Status, team.ErrorCode));
     }
 
-    // US-2 / OQ-6 · the impact of a department, of an already-off node, and with admins and project-grant holders left out.
+    // US-2 / OQ-6 / OQ-12 · the impact of a department, of an already-off node, and with admins and covering project-grant holders left out.
     [Fact]
     public async Task TheImpact_LeavesOutAdminsAndProjectHolders_AndIsEmptyWhenAlreadyOff()
     {
@@ -202,13 +202,15 @@ public sealed class GrantsQaTests(MustaskApiFactory factory)
         });
         var plain = await UserAsync(s, "Обычный");
         var holder = await UserAsync(s, "Держатель");
+        var reader = await UserAsync(s, "Читатель проекта");
         var adminUser = await UserAsync(s, "Админ", OrganizationRole.Admin);
-        foreach (var user in new[] { plain, holder, adminUser })
+        foreach (var user in new[] { plain, holder, reader, adminUser })
         {
             await SeedAsync(ResourceScope.Area, s.OrganizationId, department.Id, user, GrantRole.Member);
         }
 
-        await SeedAsync(ResourceScope.Project, s.OrganizationId, created.Project.Id, holder, GrantRole.Reader);
+        await SeedAsync(ResourceScope.Project, s.OrganizationId, created.Project.Id, holder, GrantRole.Member);
+        await SeedAsync(ResourceScope.Project, s.OrganizationId, created.Project.Id, reader, GrantRole.Reader);
         var impact = $"{OrganizationsApi.Areas(s.OrganizationId)}/{created.Root.Id}/inherits-access/impact";
 
         var before = await SendAsync(HttpMethod.Get, impact, null, admin.Token);
@@ -216,9 +218,40 @@ public sealed class GrantsQaTests(MustaskApiFactory factory)
         var after = await SendAsync(HttpMethod.Get, impact, null, admin.Token);
         var onDepartment = await SendAsync(HttpMethod.Get, $"{OrganizationsApi.Areas(s.OrganizationId)}/{department.Id}/inherits-access/impact", null, admin.Token);
 
-        Assert.Equal(1, before.Body.GetProperty("holderCount").GetInt32());
+        // «Участник» on the department who holds project «Участник» loses nothing; one who holds only project «Читатель» loses writes.
+        Assert.Equal(2, before.Body.GetProperty("holderCount").GetInt32());
         Assert.Equal(0, after.Body.GetProperty("holderCount").GetInt32());
         Assert.Equal((HttpStatusCode.Conflict, "organizations.area.type_not_allowed"), (onDepartment.Status, onDepartment.ErrorCode));
+    }
+
+    // US-2 / OQ-12 · Pavel (department «Менеджер», holding project «Читатель» too) is counted and is warned; Irina («Участник» with project «Участник») is not.
+    [Fact]
+    public async Task TheImpact_CountsAManagerWhoseProjectGrantDoesNotCoverWhatTheSwitchTakes()
+    {
+        var (s, _) = await WorldAsync();
+        var department = await OrganizationsTestData.AddDepartmentAsync(factory, s.OrganizationId, "Логистика");
+        var created = await OrganizationsTestData.InUnitOfWorkAsync(factory, async (services, ct) =>
+        {
+            var projects = services.GetRequiredService<IProjectRepository>();
+            var project = Project.Create(s.OrganizationId, OrganizationsTestData.Name("Под отделом"), "DPT", OrganizationsTestData.Now, "seed", parentAreaId: department.Id);
+            projects.Add(project);
+            await projects.SaveAsync(ct);
+
+            return project;
+        });
+        var pavel = await MembershipTestData.NewMemberAsync(factory, s.OrganizationId, OrganizationRole.Viewer);
+        var irina = await UserAsync(s, "Ирина");
+        await SeedAsync(ResourceScope.Area, s.OrganizationId, department.Id, pavel.Id, GrantRole.Manager);
+        await SeedAsync(ResourceScope.Area, s.OrganizationId, department.Id, irina, GrantRole.Member);
+        await SeedAsync(ResourceScope.Project, s.OrganizationId, created.Project.Id, pavel.Id, GrantRole.Reader);
+        await SeedAsync(ResourceScope.Project, s.OrganizationId, created.Project.Id, irina, GrantRole.Member);
+        var impact = $"{OrganizationsApi.Areas(s.OrganizationId)}/{created.Root.Id}/inherits-access/impact";
+
+        var answer = await SendAsync(HttpMethod.Get, impact, null, pavel.Token);
+
+        Assert.Equal(HttpStatusCode.OK, answer.Status);
+        Assert.Equal(1, answer.Body.GetProperty("holderCount").GetInt32());
+        Assert.True(answer.Body.GetProperty("callerIncluded").GetBoolean());
     }
 
     // Reach · a department Reader does not stop at the sub-area switch; a project grant is held whatever the node's switch says.

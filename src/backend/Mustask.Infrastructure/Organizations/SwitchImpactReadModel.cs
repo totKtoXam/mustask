@@ -10,7 +10,8 @@ namespace Mustask.Infrastructure.Organizations;
 /// reach a project node while its switch is on, and a sub-area through its parent while each switch up to the department is on; the users
 /// who stop being reached are the department's grantees whose role holds a code that applies on the node, its project or sub-area
 /// (a department «Читатель» holds no area-scope code, so a sub-area switch does not touch it), minus the organization administrators and the
-/// holders of a project grant on the owning project, which the switch does not cut.
+/// holders of a project grant on the owning project whose bundle covers every code the switch takes from them (OQ-12; a department
+/// «Менеджер» who holds project «Читатель» still loses the project's settings and grants, so is counted).
 /// </summary>
 internal sealed class SwitchImpactReadModel(MustaskDbContext context) : ISwitchImpactReadModel
 {
@@ -69,13 +70,19 @@ internal sealed class SwitchImpactReadModel(MustaskDbContext context) : ISwitchI
             .ToListAsync(cancellationToken);
 
         // A project node's switch cuts the department's codes on the project and on the node; a sub-area's cuts its area-scope codes only.
-        var candidates = grants
-            .Where(grant => ScopedRoleBundles.CodesOf(ResourceScope.Area, grant.Role).Any(code =>
-                PermissionCatalog.ResourceScopeOf(code) == ResourceScope.Area
-                || (node.Type == AreaType.Project && PermissionCatalog.ResourceScopeOf(code) == ResourceScope.Project)))
-            .Select(grant => grant.UserId)
-            .Distinct(StringComparer.Ordinal)
+        bool Taken(string code) => PermissionCatalog.ResourceScopeOf(code) == ResourceScope.Area
+            || (node.Type == AreaType.Project && PermissionCatalog.ResourceScopeOf(code) == ResourceScope.Project);
+
+        var takenBy = grants
+            .GroupBy(grant => grant.UserId, StringComparer.Ordinal)
+            .Select(group => new
+            {
+                UserId = group.Key,
+                Codes = group.SelectMany(grant => ScopedRoleBundles.CodesOf(ResourceScope.Area, grant.Role)).Where(Taken).ToHashSet(StringComparer.Ordinal),
+            })
+            .Where(user => user.Codes.Count > 0)
             .ToList();
+        var candidates = takenBy.Select(user => user.UserId).ToList();
 
         if (candidates.Count == 0)
         {
@@ -86,11 +93,19 @@ internal sealed class SwitchImpactReadModel(MustaskDbContext context) : ISwitchI
             .Where(membership => membership.OrganizationId == organizationId && membership.Role == OrganizationRole.Admin && candidates.Contains(membership.UserId))
             .Select(membership => membership.UserId)
             .ToListAsync(cancellationToken);
-        var projectHolders = await context.ProjectGrants.AsNoTracking()
-            .Where(grant => grant.ObjectId == projectId)
-            .Select(grant => grant.UserId)
+        var projectGrants = await context.ProjectGrants.AsNoTracking()
+            .Where(grant => grant.ObjectId == projectId && candidates.Contains(grant.UserId))
+            .Select(grant => new { grant.UserId, grant.Role })
             .ToListAsync(cancellationToken);
-        var affected = candidates.Except(administrators, StringComparer.Ordinal).Except(projectHolders, StringComparer.Ordinal).ToList();
+
+        // A project grant spares its holder only when its bundle holds everything the switch takes from them (OQ-12).
+        var covered = takenBy
+            .Where(user => projectGrants.Where(grant => grant.UserId == user.UserId)
+                .SelectMany(grant => ScopedRoleBundles.CodesOf(ResourceScope.Project, grant.Role))
+                .ToHashSet(StringComparer.Ordinal)
+                .IsSupersetOf(user.Codes))
+            .Select(user => user.UserId);
+        var affected = candidates.Except(administrators, StringComparer.Ordinal).Except(covered, StringComparer.Ordinal).ToList();
 
         var given = context.ProjectGrants.AsNoTracking().Where(grant => grant.ObjectId == projectId && affected.Contains(grant.GrantedBy));
         var total = await given.CountAsync(cancellationToken);
