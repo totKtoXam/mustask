@@ -17,6 +17,7 @@ import { serveOrganizations } from '../features/organizations/testApi';
 import { serveMemberships } from '../features/organizations/testMembership';
 import { recordAppearances } from '../test/appearances';
 import { server } from '../test/mocks/server';
+import { renderPage } from '../test/renderPage';
 import { servedFor, withoutCodes } from '../test/organizationRoles';
 import { authValue, LANGUAGES_READ, LocationProbe } from '../test/renderShell';
 import { AppRoutes } from './routes';
@@ -102,10 +103,8 @@ describe('mod-016 US-2 Scenario: a non-member meets «Организация н�
 
 describe('mod-016 US-4 Scenario: a page by address without its code', () => {
   it('«Деактивированные» проекты are «Доступ ограничен» for a member, who holds no project.deactivate', async () => {
-    serveOrganizations();
-    answerAccess(() => HttpResponse.json(servedFor('member')));
-
-    renderApp(`/organizations/${ORG}/projects?status=deactivated`);
+    // The reference page test of the kit (tech-035): a path and a role, nothing to assemble.
+    renderPage(`/organizations/${ORG}/projects?status=deactivated`, { role: 'member' });
 
     expect(
       await screen.findByRole('heading', { level: 1, name: 'Доступ ограничен' }),

@@ -150,6 +150,8 @@ does not pass QA.
   `src/test/testingLibrary.tsx`, so every `render` and `renderHook` runs
   under the app theme; `src/test/viewport.ts` sets the window width and
   reduced motion that `useMediaQuery` reads (1440 px by default).
+- New tests: the layer ownership, the kit and the anti-patterns are in
+  [testing.md](testing.md).
 - E2E happy path of the feature — Playwright (`src/frontend/e2e/`,
   `npm run e2e`), at the QA stage and only if the human answered yes to the
   E2E question there (`docs/ai-workflow/stages/05-frontend.md`). Not part of

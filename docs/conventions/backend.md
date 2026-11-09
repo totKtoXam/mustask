@@ -338,6 +338,8 @@ change — the developer or a ministry employee?"
 - Every endpoint — an integration test through WebApplicationFactory +
   Testcontainers (a real Postgres). External integrations — stubs.
 - Naming: `Method_Scenario_ExpectedResult`.
+- New tests: the layer ownership, the kit and the anti-patterns are in
+  [testing.md](testing.md).
 
 ## Miscellaneous
 
