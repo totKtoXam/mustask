@@ -98,3 +98,32 @@ holds for the assertions) and QA item 3 (`AggregateViewVolumeTests` budget), bot
 - Direction 2, the convention set: grepped `testing.md` in `backend.md`, `frontend.md`, `docs/ai-workflow/`, the
   agents and the `AGENTS.md` files. No hits → F3.
 - Not swept: the slices' own `testRender`/`testApi`/`testFixtures` prose (their behaviour is unchanged by this diff).
+
+## Round 2 (delta)
+
+Delta read of `5efef878` (fixes F1–F5), the one delta read M allows. Targeted runs:
+`KitAssertionsTests` 17/17 green; Vitest `kit.test.tsx` + `DefaultLanguageDialog.test.tsx` 24/24 green.
+
+**Verdict: approve.** No finding open.
+
+- **F1 closed.** `testing.md:90-92` now builds `World.With(factory).BuildAsync()` and renames as `world.Admin`.
+  The admin holds the write code, so the request reaches the handler's validation.
+- **F2 closed.** `ProblemAssert.cs:27-35`: with no parameters expected, a non-empty `params` fails. The server
+  omits the key (`BusinessExceptionHandler.cs:225-228`), so an absent or empty `params` passes.
+  `ProblemAssert.cs:46-64`: values are compared for every type (date `yyyy-MM-dd`, moment in UTC, number as decimal).
+  This matches what the server writes (`BusinessExceptionHandler.cs:257-265`). New tests
+  `Problem_UnexpectedParams_Fails` and `Problem_NumberOfAnotherValue_Fails` fail on the value check, not
+  earlier: `organizations.validation_failed` has no `{param}`, so the detail still matches.
+- **F3 closed.** `backend.md:341-342` and `frontend.md:153-154` point to `testing.md`. Stages 04 and 05 assign
+  both files, so a developer is put in front of it.
+- **F4 closed.** `OrganizationsTestData.cs:21` is now `= Mustask.Testing.TestData.Creator`, and `testing.md:66`
+  is narrowed to the Api tests.
+- **F5 closed.** `api.ts:55-63` throws on an unfilled `{param}`, covered by `kit.test.tsx:43-45`. The only
+  callers of the kit's `problem`/`problemText` pass every parameter: `kit.test.tsx`, `DefaultLanguageDialog.test.tsx`
+  and `renderPage.tsx` (which imports only `apiUrl`).
+
+Nothing new broke. The fix touches only test code and docs, and the claims list of round 1 still holds with
+the anchors above. Direction 2: the changed behaviours are the `problemText` throw and the strict `params`
+check. Grepping the kit's import path finds only the three callers named above. Grepping `ProblemAssert`
+outside `Kit/` finds only the race reference test, which passes a string parameter, a path the fix leaves unchanged.
+The race test itself was not re-run (Docker); QA minor 2 and item 3 stay carried to gate-3.
