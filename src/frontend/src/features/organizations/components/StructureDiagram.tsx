@@ -20,6 +20,7 @@ import type { DiagramViewPatch, DiagramViewState } from '../hooks/useDiagramView
 import type { DisplayMode, LayoutOrientation } from '../hooks/useStructureSettings';
 import { structureDiagram as texts } from '../lib/areaTexts';
 import {
+  CHIP_SIZE,
   layoutDiagram,
   RELATION_LINE_LIMIT,
   VERTICAL_NOTE_LIMIT,
@@ -484,7 +485,12 @@ export function StructureDiagram({
           ? texts.levels.noRelated
           : null
       : null;
-  const emptyTop = sectionItems.reduce((max, item) => Math.max(max, item.y + item.h), 0) + 12;
+  // Below the last header and, in the vertical layout, below the last chip of a slim band.
+  const emptyTop =
+    Math.max(
+      sectionItems.reduce((max, item) => Math.max(max, item.y + item.h), 0),
+      layout.chips.reduce((max, chip) => Math.max(max, chip.y + CHIP_SIZE), 0),
+    ) + 12;
 
   async function retryOffers() {
     await onRetryOffers();
