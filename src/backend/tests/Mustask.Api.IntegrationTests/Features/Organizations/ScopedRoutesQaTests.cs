@@ -313,14 +313,33 @@ public sealed class ScopedRoutesQaTests(MustaskApiFactory factory)
     private string Org(World w) => OrganizationsApi.Organization(w.Structure.OrganizationId);
 
     // US-4 / US-3 · the assignee picker belongs to the item form: a project «Участник» who may change items may open it.
-    [Fact(Skip = "QA mod-019 D-3: the assignee picker checks the organization role alone; remove Skip when decided")]
+    [Fact]
     public async Task AProjectMember_OpensTheAssigneePicker()
     {
         var w = await WorldAsync();
         var member = await HolderAsync(w, ResourceScope.Project, w.Structure.ProjectId, GrantRole.Member);
 
-        var answer = await SendAsync(HttpMethod.Get, $"{Org(w)}/workitems/assignee-candidates", null, member.Token);
+        var answer = await SendAsync(HttpMethod.Get, $"{Org(w)}/workitems/assignee-candidates?projectId={w.Structure.ProjectId}", null, member.Token);
 
         Assert.True(answer.Status == HttpStatusCode.OK, $"{answer.Status} {answer.ErrorCode}");
+    }
+
+    // mod-019 OQ-11 · the picker is judged on the project the request names: a reader, a grant on another project and no project at all
+    // (the organization role alone, a viewer's) are refused.
+    [Fact]
+    public async Task TheAssigneePicker_IsJudgedOnTheNamedProject()
+    {
+        var w = await WorldAsync();
+        var reader = await HolderAsync(w, ResourceScope.Project, w.Structure.ProjectId, GrantRole.Reader);
+        var member = await HolderAsync(w, ResourceScope.Project, w.Structure.ProjectId, GrantRole.Member);
+        var path = $"{Org(w)}/workitems/assignee-candidates";
+
+        var byReader = await SendAsync(HttpMethod.Get, $"{path}?projectId={w.Structure.ProjectId}", null, reader.Token);
+        var onAnother = await SendAsync(HttpMethod.Get, $"{path}?projectId={w.InDepartment.Id}", null, member.Token);
+        var withoutProject = await SendAsync(HttpMethod.Get, path, null, member.Token);
+
+        Assert.Equal(HttpStatusCode.Forbidden, byReader.Status);
+        Assert.Equal(HttpStatusCode.Forbidden, onAnother.Status);
+        Assert.Equal(HttpStatusCode.Forbidden, withoutProject.Status);
     }
 }

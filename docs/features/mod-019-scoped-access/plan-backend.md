@@ -66,3 +66,9 @@ Three new tables, two composite foreign keys each, a plain index `(organization_
 ## 7. Status at the end of this pass
 
 See the Log in `status.md`: what is implemented, what waits for the next steps.
+
+## 8. Decisions after backend QA (fix round 1, 2026-11-09)
+
+- **D-3 / OQ-11 (the human, 2026-11-09):** the assignee picker is checked per project. `assignee-candidates` takes an optional query `projectId`; its handler judges `workitems.workitem.write` on that project (organization role or reaching grant), or on the role alone without it. The route is in the inventory's decided-in-handler list with its reason, because the object is a query value and the route-level policy would refuse a project «Участник» whose organization role is «Читатель». See api-contract § 10.
+- **Order of the second code (BR-SA-9, US-7):** not-found first, then the second code, in `LinkTeamsToProject`, `LinkProjectsToTeam`, `LinkAreasToTeam`, `LinkTeamsToArea`, `UnlinkTeam` and `GetTeamOwnedItemCount`. This replaces feat-028 D-7 ("second code first of all"), which BR-SA-9 supersedes for body and address ids.
+- **Inventory guard (D-1):** a narrower-scope code declared without a scope fails when the route names that object; routes that do not are on an exact, reasoned list.

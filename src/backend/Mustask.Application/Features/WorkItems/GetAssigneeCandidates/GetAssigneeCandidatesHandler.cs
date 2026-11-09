@@ -1,5 +1,6 @@
 using Mustask.Application.Abstractions.Organizations;
 using Mustask.Application.Abstractions.UserDirectory;
+using Mustask.Domain.Identity;
 using Mustask.Domain.Organizations;
 using Mustask.Shared.Exceptions;
 
@@ -17,13 +18,25 @@ namespace Mustask.Application.Features.WorkItems.GetAssigneeCandidates;
 /// batches and merged (<see cref="UserDirectoryBatches"/>, BR-UP-17): an organization of 501 members still answers. It
 /// reads the memberships and the projection only, so it works with Keycloak stopped.
 /// </remarks>
-public sealed class GetAssigneeCandidatesHandler(IUserDirectory directory, IMemberReadModel members)
+public sealed class GetAssigneeCandidatesHandler(IUserDirectory directory, IMemberReadModel members, IOrganizationAccess access)
 {
     public async Task<AssigneeCandidatesResponse> Handle(GetAssigneeCandidatesQuery query, CancellationToken cancellationToken)
     {
         if (!AddressedId.TryParse(query.OrganizationId, out var organizationId))
         {
             throw new NotFoundException(OrganizationErrorCodes.OrganizationNotFound);
+        }
+
+        // mod-019 OQ-11 (QA D-3): who may change the project's work items may read its candidates. The route proves a membership; the
+        // code is decided here, on the project the request names, or on the organization role alone when it names none. An id that
+        // names no project of the organization is judged by the role alone (the check treats it as an object nobody holds a grant on).
+        var allowed = query.ProjectId is null
+            ? access.Holds(PermissionCatalog.WorkItemsWorkItemWrite)
+            : await access.HoldsOnAsync(PermissionCatalog.WorkItemsWorkItemWrite, AddressedId.TryParse(query.ProjectId, out var projectId) ? projectId : Guid.Empty, cancellationToken);
+
+        if (!allowed)
+        {
+            throw new ForbiddenException(OrganizationErrorCodes.AccessForbidden);
         }
 
         var memberIds = await members.ListMemberIdsAsync(organizationId, cancellationToken);

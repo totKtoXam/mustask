@@ -58,6 +58,7 @@ public sealed class OrganizationAccessInventoryTests(MustaskApiFactory factory)
         "DELETE /api/organizations/{organizationId}/teams/{teamId}/areas/{areaId}",
         "POST /api/organizations/{organizationId}/areas",
         "POST /api/organizations/{organizationId}/projects",
+        "GET /api/organizations/{organizationId}/workitems/assignee-candidates",
     ];
 
     /// <summary>
@@ -71,7 +72,6 @@ public sealed class OrganizationAccessInventoryTests(MustaskApiFactory factory)
         ["GET /api/organizations/{organizationId}/projects"] = "A list over the organization; the rows are narrowed by the caller's grants in the handler.",
         ["GET /api/organizations/{organizationId}/teams/{teamId}/backlogs/{level}"] = "Team-addressed read of a project-scoped code: the team is not the project; the rows are narrowed in the handler.",
         ["GET /api/organizations/{organizationId}/teams/{teamId}/boards/{level}"] = "Team-addressed read of a project-scoped code: the team is not the project; the rows are narrowed in the handler.",
-        ["GET /api/organizations/{organizationId}/workitems/assignee-candidates"] = "Organization-level picker; mod-019 QA D-3 awaits a decision.",
         ["GET /api/organizations/{organizationId}/backlogs/{level}/groups"] = "Aggregate read over the organization (feat-048); the rows are narrowed by the caller's access set.",
         ["GET /api/organizations/{organizationId}/boards/{level}/groups"] = "Aggregate read over the organization (feat-048); the rows are narrowed by the caller's access set.",
         ["GET /api/organizations/{organizationId}/workitems/groups"] = "Aggregate read over the organization (feat-048); the rows are narrowed by the caller's access set.",

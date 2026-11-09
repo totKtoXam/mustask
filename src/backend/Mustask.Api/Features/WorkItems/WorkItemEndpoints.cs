@@ -32,6 +32,8 @@ public static class WorkItemEndpoints
 {
     private const string Tag = "WorkItems";
 
+    private const string PickerOfAProject = "the picker is judged on the project the request names (`projectId`, mod-019 OQ-11), or on the organization role when it names none; decided in the handler";
+
     public static IEndpointRouteBuilder MapWorkItemEndpoints(this IEndpointRouteBuilder app)
     {
         var workItems = app.MapGroup("/api/organizations/{organizationId}/projects/{projectId}/workitems").WithTags(Tag);
@@ -135,12 +137,12 @@ public static class WorkItemEndpoints
             .ProducesProblem(StatusCodes.Status403Forbidden)
             .ProducesProblem(StatusCodes.Status404NotFound);
 
-        // § 2.5. The assignee picker: organization-level, narrowed to the organization's active members (mod-016
+        // § 2.5. The assignee picker (mod-019 OQ-11: judged on `projectId` when given): organization-level, narrowed to the organization's active members (mod-016
         // BR-M1-26). A GET with a write code is legitimate: the picker is a write control, so a viewer is refused
         // (api-contract § 4.2 row 34).
         app.MapGet("/api/organizations/{organizationId}/workitems/assignee-candidates", GetAssigneeCandidatesAsync)
             .WithTags(Tag)
-            .RequiresOrganizationPermission(PermissionCatalog.WorkItemsWorkItemWrite)
+            .RequiresOrganizationPermissionDecidedInHandler(PermissionCatalog.WorkItemsWorkItemWrite, PickerOfAProject)
             .Produces<AssigneeCandidatesResponse>()
             .ProducesProblem(StatusCodes.Status400BadRequest)
             .ProducesProblem(StatusCodes.Status401Unauthorized)
@@ -303,8 +305,8 @@ public static class WorkItemEndpoints
             cancellationToken));
 
     private static async Task<IResult> GetAssigneeCandidatesAsync(
-        string organizationId, string? text, GetAssigneeCandidatesHandler handler, CancellationToken cancellationToken) =>
-        Results.Ok(await handler.Handle(new GetAssigneeCandidatesQuery(organizationId, text), cancellationToken));
+        string organizationId, string? text, string? projectId, GetAssigneeCandidatesHandler handler, CancellationToken cancellationToken) =>
+        Results.Ok(await handler.Handle(new GetAssigneeCandidatesQuery(organizationId, text, projectId), cancellationToken));
 
     // --- Request bodies: every field nullable, so a missing one reaches the handler as a validation answer -----
 

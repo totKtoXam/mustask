@@ -100,3 +100,9 @@ The grants take effect on a route when that route declares its resource scope. T
 ## 9. The role-bundle contract
 
 `contracts/access/role-bundles.json` carries, machine-readable: the instance table (the four client roles of `mustask-api` and the codes each gives, ADR-0033), the organization bundles, the scoped bundles per grant scope and role, and the catalog with each code's source and resource scope. `Mustask.Contracts.Tests` compares it with the domain. The panel imports it at build time in place of `src/frontend/src/test/organizationRoles.ts` and `src/frontend/src/shared/api/tokenClaims.ts` (stage 6).
+
+## 10. Addendum after backend QA D-3 (2026-11-09, OQ-11)
+
+`GET /api/organizations/{organizationId}/workitems/assignee-candidates?text=&projectId=` takes one new **optional** query parameter, `projectId` (a project id of the organization). Backward compatible: without it the answer is as before (the organization role's `workitems.workitem.write`, otherwise 403 `organizations.access.forbidden`). With it, the code is held on that project through the organization role or a grant that reaches the project. An id that names no project of the organization is judged by the organization role alone. The route declares the organization code in the inventory's decided-in-handler list (the object is a query value). Answers are unchanged: 200 `{ users, moreMatched }`, 400, 401, 403, 404. The frontend passes the project of the item form.
+
+Also, no contract change but a fixed order (BR-SA-9, US-7): on the link and unlink routes the second code is judged after the ids of the body or address are found (404 first, then 403): `POST /projects/{id}/teams`, `POST /teams/{id}/projects`, `POST /teams/{id}/areas`, `POST /areas/{id}/teams`, `POST /projects/{id}/teams/{t}/unlink`, `GET /projects/{id}/teams/{t}/unlink-count`.
