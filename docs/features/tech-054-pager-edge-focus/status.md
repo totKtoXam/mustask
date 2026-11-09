@@ -3,14 +3,14 @@
 - type: tech
 - size: S
 - branch: tech/054-pager-edge-focus
-- stage: 09-gate-3
+- stage: complete
 - epic: platform/ui
 - deps: -
 - gates: gate-3
 
 ## Gates
 
-gate-3: pending
+gate-3: approved 2026-11-09 (CR-1/CR-2 fixed first)
 
 ## Plan
 
@@ -51,6 +51,11 @@ gate-3: pending
   today; CR-2 focus assertions cannot fail in jsdom, add toBeEnabled). Targeted Vitest (table
   + AllOrganizationsPage) 191/191 green.
 - 2026-11-09 [orchestrator] gate-3 requested.
+- 2026-11-09 [human] gate-3: approved, on condition that CR-1 and CR-2 are fixed before the PR.
+- 2026-11-09 [task-executor] 6a25ac82: CR-1 direction guard + test (page past lastPage still
+  pages back), CR-2 `toBeEnabled()` in both focus tests. `npx vitest run src/shared/ui/table
+  src/features/organizations/pages/AllOrganizationsPage` → exit 0 (192/192); `npm run lint` →
+  exit 0. Full suite left to CI on the PR.
 - 2026-11-09 [new-task] task started, worktree C:/Users/khamb/Workspace/devex/internal_products/mustask/.claude/worktrees/tech-054-pager-edge-focus
 
 ## Notes
