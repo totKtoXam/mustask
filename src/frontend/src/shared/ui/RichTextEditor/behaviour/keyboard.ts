@@ -97,6 +97,12 @@ function indentCode(view: EditorView, outdent: boolean): void {
   if (tr.docChanged) view.dispatch(tr.scrollIntoView());
 }
 
+/** The caret is in a code block or a table cell: the blocks "Esc then Tab" leaves. */
+function inCodeOrTable(view: EditorView): boolean {
+  const { $from } = view.state.selection;
+  return $from.parent.type.name === 'codeBlock' || inCell($from);
+}
+
 /**
  * Enter in a code block (BR-RT-16, F-9): a line feed; at the end of the block,
  * with the text already ending in one, the trailing line feeds are removed and
@@ -147,7 +153,16 @@ export const RtKeyboard = Extension.create({
           handleKeyDown: (view, event) => {
             if (MODIFIER_KEYS.has(event.key)) return false;
             if (event.key === 'Escape') {
+              // The rule: inside a code block or a table the arming Esc is the editor's
+              // (BR-RT-16, BR-RT-17: "Esc then Tab"), so it must not also close a dialog the
+              // editor lives in. It is consumed once; a second Esc (already armed), or an Esc
+              // in ordinary text, bubbles to the host. An Esc that closes a popup never gets here.
+              const wasArmed = armed;
               armed = true;
+              if (!wasArmed && editor.isEditable && inCodeOrTable(view)) {
+                event.stopPropagation();
+                return true;
+              }
               return false;
             }
             const wasArmed = armed;

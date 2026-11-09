@@ -19,6 +19,7 @@ import { formatDateTime } from '../../../../shared/lib/format';
 import type { WorkItem } from '../../api/workItemsApi';
 import { deletionMutationKey } from '../../hooks/mutations';
 import { useGuardedLeave } from '../../hooks/useGuardedLeave';
+import { useLiveDirty } from '../../hooks/useLiveDirty';
 import { useWorkItemEdits } from '../../hooks/useWorkItemEdits';
 import {
   cardTexts,
@@ -181,7 +182,9 @@ export function WorkItemCard({
     onRefreshed,
   });
   const [confirmingUndo, setConfirmingUndo] = useState(false);
-  const leave = useGuardedLeave(state.isDirty);
+  // A keyboard leave within the editor's report delay would read a stale `isDirty`: ask live.
+  const dirtyNow = useLiveDirty(flushDescription, item, state.edits, state.isDirty);
+  const leave = useGuardedLeave(state.isDirty, dirtyNow);
   // The mode follows the read (mod-005 design § 4): a state in the Removed category makes the
   // card read-only, whatever the role holds; the role decides only what it may do about it.
   const deleted = isDeleted(item);
@@ -553,6 +556,7 @@ export function WorkItemCard({
     extra,
     busy: saving,
     dirty: state.isDirty,
+    dirtyNow,
     pagePath: workItemPath(organizationId, projectId, item.identifier),
   };
 

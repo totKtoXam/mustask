@@ -92,6 +92,7 @@ export function DialogFrame({
       expanded={expanded}
       guard={{
         dirty: frame?.dirty ?? false,
+        isDirty: frame?.dirtyNow,
         title: guard.title,
         text: guard.text,
         discardLabel: guard.confirmLabel,

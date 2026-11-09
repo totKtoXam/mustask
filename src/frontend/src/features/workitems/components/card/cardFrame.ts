@@ -74,6 +74,8 @@ export interface CardFrameProps {
   busy: boolean;
   /** Edits are unsaved: the dialog's `guard.dirty`. */
   dirty: boolean;
+  /** The same question asked live: flushes the description editor first (the dialog's guard uses it). */
+  dirtyNow?: () => boolean;
   /** The item's own page: where the dialog's type line leads, in a new tab. */
   pagePath: string;
 }
