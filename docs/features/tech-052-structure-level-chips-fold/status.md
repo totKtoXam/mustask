@@ -3,7 +3,7 @@
 - type: tech
 - size: S
 - branch: tech/052-structure-level-chips-fold
-- stage: 07-qa-frontend
+- stage: 08-review
 - epic: platform/ui
 - deps: feat-049
 - gates: gate-3
@@ -43,6 +43,10 @@ gate-3: pending
   new test unpresses a chip of a folded section by keyboard. `npx vitest run
   src/features/organizations/lib src/features/organizations/pages/AreasPage.diagram` → exit 0
   (277/277); `npm run lint` → 0 errors; `npx tsc -b` → ok. verify.sh not run (left to QA).
+- 2026-11-09 [qa-engineer] 3fba4f85: frontend QA (S, light) at 4c0a2ebd — no blocker or
+  major; 2 minors (QA-1 empty-text vs chip band position untested; QA-2 resetLevels fallback
+  now near-dead). `bash scripts/verify.sh` → exit 0, green (the affected step ran all 163
+  frontend files, 2356 tests, plus 14 guard files, 604 tests). E2E: no (standing answer).
 - 2026-11-09 [new-task] task started, worktree C:/Users/khamb/Workspace/devex/internal_products/mustask/.claude/worktrees/tech-052-structure-level-chips-fold
 
 ## Notes
