@@ -33,6 +33,13 @@ import {
   searchAppointeeCandidates,
 } from '../api/rescueApi';
 import { organizationsKeys } from '../api/queryKeys';
+import {
+  getGrants,
+  getSwitchImpact,
+  getWritableAreaIds,
+  searchGrantCandidates,
+  type GrantScope,
+} from '../api/grantsApi';
 
 // One query hook per read (api-contract § 1–§ 4), on the keys the selectors
 // shares (plan-frontend § 3.3).
@@ -354,5 +361,47 @@ export function useAppointments(organizationId: string, host: AppointmentsHost) 
         : getOrganizationAppointments(organizationId),
     gcTime: 0,
     retry: false,
+  });
+}
+
+// mod-019: the grants, the switch's impact and the tree's writable ids (api-contract §§ 2, 3, 5).
+
+export function useGrants(organizationId: string, scope: GrantScope, objectId: string) {
+  return useQuery({
+    queryKey: organizationsKeys.grants(organizationId, scope, objectId),
+    queryFn: () => getGrants(organizationId, scope, objectId),
+  });
+}
+
+export function useGrantCandidates(
+  organizationId: string,
+  scope: GrantScope,
+  objectId: string,
+  text: string,
+  enabled: boolean,
+) {
+  return useQuery({
+    queryKey: organizationsKeys.grantCandidates(organizationId, scope, objectId, text),
+    queryFn: () => searchGrantCandidates(organizationId, scope, objectId, text),
+    enabled,
+  });
+}
+
+/** Read each time the dialog opens and never re-judged at confirm (§ 3): no cache between openings. */
+export function useSwitchImpact(organizationId: string, areaId: string) {
+  return useQuery({
+    queryKey: organizationsKeys.switchImpact(organizationId, areaId),
+    queryFn: () => getSwitchImpact(organizationId, areaId),
+    gcTime: 0,
+    staleTime: 0,
+    refetchOnWindowFocus: false,
+  });
+}
+
+export function useWritableAreaIds(organizationId: string, options: { enabled?: boolean } = {}) {
+  return useQuery({
+    queryKey: organizationsKeys.writableAreaIds(organizationId),
+    queryFn: () => getWritableAreaIds(organizationId),
+    enabled: options.enabled ?? true,
   });
 }

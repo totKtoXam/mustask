@@ -74,6 +74,19 @@ export const organizationsKeys = {
   access: (organizationId: string) => [ROOT, 'access', organizationId] as const,
   /** Every access entry, for the watcher's cache subscription. */
   accesses: [ROOT, 'access'] as const,
+  /** The grants of one object (mod-019 api-contract § 2); `scope` is department, project or team. */
+  grants: (organizationId: string, scope: string, objectId: string) =>
+    [ROOT, 'grants', organizationId, scope, objectId] as const,
+  /** Every grants list of an organization. */
+  grantLists: (organizationId: string) => [ROOT, 'grants', organizationId] as const,
+  /** The object-aware grantee search (§ 2): one entry per text. */
+  grantCandidates: (organizationId: string, scope: string, objectId: string, text: string) =>
+    [ROOT, 'grant-candidates', organizationId, scope, objectId, text] as const,
+  /** What turning a node's switch off would do (§ 3); read each time the dialog opens. */
+  switchImpact: (organizationId: string, areaId: string) =>
+    [ROOT, 'switch-impact', organizationId, areaId] as const,
+  /** The ids of the nodes the caller may write (§ 5). */
+  writableAreaIds: (organizationId: string) => [ROOT, 'writable-area-ids', organizationId] as const,
   /** The members of an organization (api-contract § 1.2). */
   members: (organizationId: string) => [ROOT, 'members', organizationId] as const,
   /** The add-member search (§ 1.3): one entry per text. */

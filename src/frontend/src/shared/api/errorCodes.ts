@@ -66,6 +66,15 @@ export const organizationErrorCodes = {
   areaOutsideProject: 'organizations.area.outside_project',
   /** mod-018: only a department takes a team link (409). */
   areaLinkTypeNotAllowed: 'organizations.area.link_type_not_allowed',
+  // mod-019 api-contract § 7: grants on departments, projects and teams.
+  /** 400 under `userId`: a grantee is never the giver (BR-SA-19); reachable only past the panel. */
+  grantSelfGrant: 'organizations.grant.self_grant',
+  /** 400 under `role`. */
+  grantRoleInvalid: 'organizations.grant.role_invalid',
+  /** 409: a grant on a project node or a sub-area, which hold none (OQ-1 A). */
+  grantScopeNotAllowed: 'organizations.grant.scope_not_allowed',
+  /** 409: a grant already held, or already gone — the list is read again. */
+  grantChanged: 'organizations.grant.changed',
   // mod-016 api-contract § 5: the scoped check, the memberships and the team members.
   // Where each shows is design § 9 (the screens of «Участники» and «Участники команды»,
   // the dialogs and the notices of the existing pages).

@@ -52,6 +52,11 @@ const CONTRACT_TABLE: readonly (readonly [string, number, readonly string[]])[] 
   ['organizations.area.type_not_allowed', 409, []],
   ['organizations.area.outside_project', 409, []],
   ['organizations.area.link_type_not_allowed', 409, []],
+  // mod-019 api-contract § 7: the grants.
+  ['organizations.grant.self_grant', 400, []],
+  ['organizations.grant.role_invalid', 400, []],
+  ['organizations.grant.scope_not_allowed', 409, []],
+  ['organizations.grant.changed', 409, []],
   // mod-016 api-contract § 5: the scoped check, the memberships and the team members.
   ['organizations.access.forbidden', 403, []],
   ['organizations.membership.already_member', 409, []],

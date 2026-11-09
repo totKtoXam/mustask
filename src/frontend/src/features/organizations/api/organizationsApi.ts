@@ -25,6 +25,11 @@ export interface ProjectListItem {
   id: string;
   name: string;
   key: string;
+  /**
+   * mod-019 api-contract § 5: the caller's effective codes on this object, never the organization's. `undefined`/`null`
+   * until the server serves them; the panel reads every non-organization code from here (BR-SA-18).
+   */
+  codes?: string[] | null;
 }
 
 /** § 2.3 and feat-028 § 1.4: one project; `description` is `null` when there is none. */
@@ -34,6 +39,15 @@ export interface Project {
   name: string;
   key: string;
   description: string | null;
+  /**
+   * mod-019 api-contract § 5: the caller's effective codes on this object, never the organization's. `undefined`/`null`
+   * until the server serves them; the panel reads every non-organization code from here (BR-SA-18).
+   */
+  codes?: string[] | null;
+  /** mod-019 api-contract § 3: the department above a project node; `null` at the top level. */
+  department?: { id: string; name: string } | null;
+  /** mod-019 api-contract § 3: the node's «Наследовать доступ»; `null` for a department and for a project with no department. */
+  inheritsAccess?: boolean | null;
 }
 
 /**
@@ -49,6 +63,11 @@ export interface Team {
   name: string;
   /** `null` when there is none. */
   description: string | null;
+  /**
+   * mod-019 api-contract § 5: the caller's effective codes on this object, never the organization's. `undefined`/`null`
+   * until the server serves them; the panel reads every non-organization code from here (BR-SA-18).
+   */
+  codes?: string[] | null;
 }
 
 /** feat-028 api-contract § 1.2: a project in the organization's list of teams (active projects only). */
@@ -71,6 +90,8 @@ export interface TeamProject {
   id: string;
   name: string;
   key: string;
+  /** mod-019 api-contract § 4: whether the caller holds what the unlink needs; the unlink route decides. */
+  canUnlink?: boolean;
 }
 
 /**
@@ -82,12 +103,16 @@ export interface ProjectTeam {
   name: string;
   defaultMark: DefaultMark | null;
   isMember: boolean;
+  /** mod-019 api-contract § 4: whether the caller holds what the unlink needs; the unlink route decides. */
+  canUnlink?: boolean;
 }
 
 /** mod-018 api-contract: one row of the read-only team list of a project. */
 export interface TeamLink {
   id: string;
   name: string;
+  /** mod-019 api-contract § 4: whether the caller holds what the unlink needs; the unlink route decides. */
+  canUnlink?: boolean;
 }
 
 /** feat-028 api-contract § 1.5: what a team owns in one linked project, deactivated ones included. */
@@ -146,6 +171,8 @@ export interface AreaNode {
   path: string;
   /** 1 at the top level. */
   depth: number;
+  /** mod-019 api-contract § 3: `null` for a department. */
+  inheritsAccess?: boolean | null;
 }
 
 /** mod-018 api-contract § 2: what create, rename, describe and move return. */
@@ -164,6 +191,8 @@ export interface TeamArea {
   id: string;
   name: string;
   path: string;
+  /** mod-019 api-contract § 4: whether the caller holds what the unlink needs; the unlink route decides. */
+  canUnlink?: boolean;
 }
 
 /** mod-018 api-contract § 2: a node's own page: its parent and its direct children. */
@@ -177,6 +206,15 @@ export interface AreaPage {
   description: string | null;
   path: string;
   parent: { id: string; name: string; path: string } | null;
+  /**
+   * mod-019 api-contract § 5: the caller's effective codes on this object, never the organization's. `undefined`/`null`
+   * until the server serves them; the panel reads every non-organization code from here (BR-SA-18).
+   */
+  codes?: string[] | null;
+  /** mod-019 api-contract § 3: the department above a project node; `null` at the top level. */
+  department?: { id: string; name: string } | null;
+  /** mod-019 api-contract § 3: the node's «Наследовать доступ»; `null` for a department and for a project with no department. */
+  inheritsAccess?: boolean | null;
   children: {
     id: string;
     type: AreaType;
@@ -191,6 +229,8 @@ export interface AreaPage {
 export interface LinkedTeam {
   id: string;
   name: string;
+  /** mod-019 api-contract § 4: whether the caller holds what the unlink needs; the unlink route decides. */
+  canUnlink?: boolean;
 }
 
 /** mod-018 api-contract § 2: what a department's deletion would end. */
@@ -269,11 +309,16 @@ export function restoreOrganization(organizationId: string): Promise<Organizatio
 
 // § 2 Projects
 
+/** mod-019 api-contract § 4: `linkableFor=team` keeps the projects whose link code the caller holds. */
+export type LinkableFor = 'team' | 'project' | 'area';
+
 export function getProjects(
   organizationId: string,
   view: ListView = 'active',
+  linkableFor?: LinkableFor,
 ): Promise<ProjectListItem[]> {
-  return apiFetch(`${organizationApiPath(organizationId)}/projects${listSuffix(view)}`);
+  const query = linkableFor ? `?linkableFor=${linkableFor}` : '';
+  return apiFetch(`${organizationApiPath(organizationId)}/projects${listSuffix(view)}${query}`);
 }
 
 /** feat-028 § 2.4: creates no team; `teamIds` links the chosen ones in the same operation. */
@@ -319,8 +364,12 @@ export function restoreProject(organizationId: string, projectId: string): Promi
 // feat-028 §§ 2.1–2.4 Teams, their projects and their links
 
 /** § 2.1: the organization's active teams by name, with their active projects; `[]` is the first state. */
-export function getOrganizationTeams(organizationId: string): Promise<TeamListItem[]> {
-  return apiFetch(`${organizationApiPath(organizationId)}/teams`);
+export function getOrganizationTeams(
+  organizationId: string,
+  linkableFor?: LinkableFor,
+): Promise<TeamListItem[]> {
+  const query = linkableFor ? `?linkableFor=${linkableFor}` : '';
+  return apiFetch(`${organizationApiPath(organizationId)}/teams${query}`);
 }
 
 /** § 2.1: one transaction — the team, its members and its links; nothing is created on a refusal. */
@@ -440,8 +489,12 @@ export function setDefaultTeam(
 // mod-018 The organization's areas (api-contract §§ 3-5)
 
 /** § 3: the whole tree in pre-order, siblings by name. */
-export function getAreaTree(organizationId: string): Promise<AreaNode[]> {
-  return apiFetch(`${organizationApiPath(organizationId)}/areas`);
+export function getAreaTree(
+  organizationId: string,
+  linkableFor?: LinkableFor,
+): Promise<AreaNode[]> {
+  const query = linkableFor ? `?linkableFor=${linkableFor}` : '';
+  return apiFetch(`${organizationApiPath(organizationId)}/areas${query}`);
 }
 
 /** § 4: the project's node and the sub-areas below it, with the organization tree's own paths. */
