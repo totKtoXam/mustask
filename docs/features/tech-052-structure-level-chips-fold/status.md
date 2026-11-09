@@ -3,14 +3,14 @@
 - type: tech
 - size: S
 - branch: tech/052-structure-level-chips-fold
-- stage: 09-gate-3
+- stage: complete
 - epic: platform/ui
 - deps: feat-049
 - gates: gate-3
 
 ## Gates
 
-gate-3: pending
+gate-3: approved 2026-11-09 (CR-1/CR-2 fixed first)
 
 ## Plan
 
@@ -51,6 +51,9 @@ gate-3: pending
   approved; 0 blocker/major, 2 minors (CR-1 stale resetLevels comment, CR-2 feat-049
   design.md:165 "header only"); targeted vitest 277/277.
 - 2026-11-09 [orchestrator] gate-3 requested.
+- 2026-11-09 [human] gate-3: approved, on condition that CR-1 and CR-2 are fixed before the PR.
+- 2026-11-09 [orchestrator] CR-1: `resetLevels` comment no longer claims folded sections draw
+  no chips; CR-2: feat-049 design.md state table names the slim chip band. Prose only.
 - 2026-11-09 [new-task] task started, worktree C:/Users/khamb/Workspace/devex/internal_products/mustask/.claude/worktrees/tech-052-structure-level-chips-fold
 
 ## Notes
