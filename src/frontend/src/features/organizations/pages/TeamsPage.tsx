@@ -3,7 +3,8 @@ import { useParams } from 'react-router-dom';
 import AddIcon from '@mui/icons-material/Add';
 import InboxOutlinedIcon from '@mui/icons-material/InboxOutlined';
 import LinkOffOutlinedIcon from '@mui/icons-material/LinkOffOutlined';
-import { useAccessCheck } from '../../../shared/lib/access';
+import { ObjectAccess } from '../../../shared/lib/objectAccessProvider';
+import { useObjectAccess } from '../../../shared/lib/objectAccess';
 import { apiErrorText } from '../../../shared/lib/apiErrorText';
 import { useWorkContext } from '../../../shared/lib/workContext';
 import {
@@ -51,10 +52,9 @@ export function TeamsPage() {
   const objectLink = useObjectLink(organizationId);
   const notify = useNotify();
   const context = useWorkContext();
-  const access = useAccessCheck();
-  const canLink =
-    access(organizationsPermissions.teamLink, 'organization') &&
-    access(organizationsPermissions.projectLink, 'organization');
+  const access = useObjectAccess(project.data?.codes);
+  // The project's end; the team's end is the picker's filter and each row's `canUnlink` (api-contract § 4).
+  const canLink = access(organizationsPermissions.projectLink, 'organization');
   const [dialog, setDialog] = useState<Dialog>(null);
 
   const level = query.isError ? notFoundLevel(query.error) : null;
@@ -97,31 +97,32 @@ export function TeamsPage() {
       },
     },
   ];
-  if (canLink) {
+  if (canLink || (query.data ?? []).some((team) => team.canUnlink)) {
     columns.push({
       key: 'actions',
       header: '',
       align: 'right',
       width: 48,
-      render: (team) => (
-        <MoreActionsMenu
-          label={projectTeamsPage.rowMenu(team.name)}
-          size="row"
-          items={[
-            {
-              label: projectTeamsPage.unlink,
-              icon: <LinkOffOutlinedIcon />,
-              onSelect: () => setDialog({ kind: 'unlink', team }),
-              destructive: true,
-            },
-          ]}
-        />
-      ),
+      render: (team) =>
+        (team.canUnlink ?? canLink) ? (
+          <MoreActionsMenu
+            label={projectTeamsPage.rowMenu(team.name)}
+            size="row"
+            items={[
+              {
+                label: projectTeamsPage.unlink,
+                icon: <LinkOffOutlinedIcon />,
+                onSelect: () => setDialog({ kind: 'unlink', team }),
+                destructive: true,
+              },
+            ]}
+          />
+        ) : null,
     });
   }
 
   return (
-    <>
+    <ObjectAccess codes={project.data?.codes}>
       <PageHeader
         title={projectTeamsPage.title}
         primaryAction={
@@ -191,6 +192,6 @@ export function TeamsPage() {
           />
         </RequiresOrganizationCode>
       )}
-    </>
+    </ObjectAccess>
   );
 }

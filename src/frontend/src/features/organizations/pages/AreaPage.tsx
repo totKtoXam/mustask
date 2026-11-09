@@ -5,7 +5,8 @@ import Link from '@mui/material/Link';
 import DriveFileMoveOutlinedIcon from '@mui/icons-material/DriveFileMoveOutlined';
 import FolderOpenOutlinedIcon from '@mui/icons-material/FolderOpenOutlined';
 import LinkOffOutlinedIcon from '@mui/icons-material/LinkOffOutlined';
-import { useAccessCheck } from '../../../shared/lib/access';
+import { ObjectAccess } from '../../../shared/lib/objectAccessProvider';
+import { useObjectAccess } from '../../../shared/lib/objectAccess';
 import { useWorkContext } from '../../../shared/lib/workContext';
 import { apiErrorText } from '../../../shared/lib/apiErrorText';
 import {
@@ -24,7 +25,7 @@ import { ErrorBanner } from '../../../shared/ui/ErrorBanner';
 import { FormSkeleton } from '../../../shared/ui/FormSkeleton';
 import { PageHeader, type Command } from '../../../shared/ui/PageHeader';
 import { RequiresOrganizationCode } from '../../../shared/ui/RequiresOrganizationCode';
-import { NotFound } from '../../../shared/ui/StateFrame';
+import { AccessDenied, NotFound } from '../../../shared/ui/StateFrame';
 import type { AreaPage as AreaPageData, LinkedTeam } from '../api/organizationsApi';
 import { AreaLinkDialog, AreaUnlinkDialog } from '../components/AreaLinkDialog';
 import {
@@ -205,12 +206,13 @@ export function AreaPage() {
   const moveArea = useMoveArea(organizationId);
   const navigate = useNavigate();
   const notify = useNotify();
-  const access = useAccessCheck();
+  const access = useObjectAccess(query.data?.codes);
   const context = useWorkContext();
   const canWrite = access(organizationsPermissions.areaWrite, 'organization');
   const canCreate = access(organizationsPermissions.areaCreate, 'organization');
   const canLink = access(organizationsPermissions.areaLink, 'organization');
-  const canLinkTeams = canLink && access(organizationsPermissions.teamLink, 'organization');
+  // The department's end; the team's end is the picker's filter and each row's `canUnlink` (api-contract § 4).
+  const canLinkTeams = canLink;
   const [dialog, setDialog] = useState<PageDialog>(null);
   const section = useLocation().pathname.split('/').filter(Boolean).pop() ?? 'overview';
 
@@ -221,6 +223,10 @@ export function AreaPage() {
   // A deactivated project's node and sub-areas open nothing (BR-NV-13; OQ-3 A).
   if (area?.projectActive === false) {
     return <NotFound level="project" keepNavigation />;
+  }
+
+  if (section === 'settings' && query.isSuccess && !canWrite) {
+    return <AccessDenied />;
   }
 
   const loading = query.isPending || (query.isError && query.isFetching);
@@ -366,26 +372,27 @@ export function AreaPage() {
     },
   ];
   // The department-end unlink is `area.link` alone (api-contract § 5, DELETE /areas/{a}/teams/{t}).
-  if (canLink) {
+  if (canLink || teamRows.some((team) => team.canUnlink)) {
     teamColumns.push({
       key: 'actions',
       header: '',
       align: 'right',
       width: 48,
-      render: (team) => (
-        <MoreActionsMenu
-          label={areaPage.rowMenu(team.name)}
-          size="row"
-          items={[
-            {
-              label: areaPage.teams.unlink,
-              icon: <LinkOffOutlinedIcon />,
-              onSelect: () => setDialog({ kind: 'unlinkTeam', team }),
-              destructive: true,
-            },
-          ]}
-        />
-      ),
+      render: (team) =>
+        (team.canUnlink ?? canLink) ? (
+          <MoreActionsMenu
+            label={areaPage.rowMenu(team.name)}
+            size="row"
+            items={[
+              {
+                label: areaPage.teams.unlink,
+                icon: <LinkOffOutlinedIcon />,
+                onSelect: () => setDialog({ kind: 'unlinkTeam', team }),
+                destructive: true,
+              },
+            ]}
+          />
+        ) : null,
     });
   }
 
@@ -457,7 +464,7 @@ export function AreaPage() {
   );
 
   return (
-    <>
+    <ObjectAccess codes={query.data?.codes}>
       <PageHeader
         title={area ? areaPage.title(area.type, area.name) : areaPage.titleLoading}
         commands={commands}
@@ -618,6 +625,6 @@ export function AreaPage() {
           />
         </RequiresOrganizationCode>
       )}
-    </>
+    </ObjectAccess>
   );
 }

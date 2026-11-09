@@ -233,7 +233,7 @@ export const routeTree = (
             <Route
               path={AREA_SETTINGS_ROUTE}
               element={
-                <OrganizationPage code={permissions.areaWrite} title="Область" skeleton="form">
+                <OrganizationPage code={permissions.areaRead} title="Область" skeleton="form">
                   <AreaPage />
                 </OrganizationPage>
               }
@@ -255,7 +255,7 @@ export const routeTree = (
             <Route
               path={TEAM_SETTINGS_ROUTE}
               element={
-                <OrganizationPage code={permissions.teamWrite} title="Команда" skeleton="form">
+                <OrganizationPage code={permissions.teamRead} title="Команда" skeleton="form">
                   <TeamPage />
                 </OrganizationPage>
               }
@@ -287,7 +287,7 @@ export const routeTree = (
             <Route
               path={PROJECT_SETTINGS_ROUTE}
               element={
-                <OrganizationPage code={permissions.projectWrite} title="Общие" skeleton="form">
+                <OrganizationPage code={permissions.projectRead} title="Общие" skeleton="form">
                   <ProjectGeneralPage />
                 </OrganizationPage>
               }

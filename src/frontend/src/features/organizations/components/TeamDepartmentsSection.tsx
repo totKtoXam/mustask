@@ -47,11 +47,11 @@ export function TeamDepartmentsSection({
   const notify = useNotify();
   const access = useAccessCheck();
   const context = useWorkContext();
-  const canLink =
-    access(organizationsPermissions.areaLink, 'organization') &&
-    access(organizationsPermissions.teamLink, 'organization');
-  // The team-end unlink is `team.link` alone (api-contract § 5, BR-MX-6: no second code).
-  const canUnlink = access(organizationsPermissions.teamLink, 'organization');
+  // The team's end; the department end is the picker's filter (`linkableFor`, api-contract § 4). A department-team
+  // link is removed from either end (BR-SA-15), so each row says whether the caller may: `canUnlink`.
+  const canLink = access(organizationsPermissions.teamLink, 'organization');
+  const holdsTeamLink = canLink;
+  const mayUnlink = (row: TeamArea) => row.canUnlink ?? holdsTeamLink;
   const [linking, setLinking] = useState(false);
   const [unlinking, setUnlinking] = useState<TeamArea | null>(null);
   const rows = query.data ?? [];
@@ -72,26 +72,27 @@ export function TeamDepartmentsSection({
       },
     },
   ];
-  if (canUnlink) {
+  if (rows.some(mayUnlink)) {
     columns.push({
       key: 'actions',
       header: '',
       align: 'right',
       width: 48,
-      render: (department) => (
-        <MoreActionsMenu
-          label={teamDepartmentsSection.rowMenu(department.name)}
-          size="row"
-          items={[
-            {
-              label: teamDepartmentsSection.unlink,
-              icon: <LinkOffOutlinedIcon />,
-              onSelect: () => setUnlinking(department),
-              destructive: true,
-            },
-          ]}
-        />
-      ),
+      render: (department) =>
+        mayUnlink(department) ? (
+          <MoreActionsMenu
+            label={teamDepartmentsSection.rowMenu(department.name)}
+            size="row"
+            items={[
+              {
+                label: teamDepartmentsSection.unlink,
+                icon: <LinkOffOutlinedIcon />,
+                onSelect: () => setUnlinking(department),
+                destructive: true,
+              },
+            ]}
+          />
+        ) : null,
     });
   }
 

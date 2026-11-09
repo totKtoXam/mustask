@@ -5,7 +5,8 @@ import DeleteOutlineOutlinedIcon from '@mui/icons-material/DeleteOutlineOutlined
 import EditOutlinedIcon from '@mui/icons-material/EditOutlined';
 import LinkOffOutlinedIcon from '@mui/icons-material/LinkOffOutlined';
 import NotesOutlinedIcon from '@mui/icons-material/NotesOutlined';
-import { useAccessCheck } from '../../../shared/lib/access';
+import { ObjectAccess } from '../../../shared/lib/objectAccessProvider';
+import { useObjectAccess } from '../../../shared/lib/objectAccess';
 import { apiErrorText } from '../../../shared/lib/apiErrorText';
 import { useWorkContext } from '../../../shared/lib/workContext';
 import {
@@ -22,7 +23,7 @@ import { ErrorBanner } from '../../../shared/ui/ErrorBanner';
 import { FormSkeleton } from '../../../shared/ui/FormSkeleton';
 import { PageHeader, type Command } from '../../../shared/ui/PageHeader';
 import { RequiresOrganizationCode } from '../../../shared/ui/RequiresOrganizationCode';
-import { NotFound } from '../../../shared/ui/StateFrame';
+import { AccessDenied, NotFound } from '../../../shared/ui/StateFrame';
 import type { TeamProject } from '../api/organizationsApi';
 import { TeamDepartmentsSection } from '../components/TeamDepartmentsSection';
 import { FactsPanel } from '../components/FactsPanel';
@@ -65,12 +66,11 @@ export function TeamPage() {
   const navigate = useNavigate();
   const notify = useNotify();
   const context = useWorkContext();
-  const access = useAccessCheck();
+  const access = useObjectAccess(query.data?.codes);
   const canWrite = access(organizationsPermissions.teamWrite, 'organization');
   const canDelete = access(organizationsPermissions.teamDelete, 'organization');
-  const canLink =
-    access(organizationsPermissions.teamLink, 'organization') &&
-    access(organizationsPermissions.projectLink, 'organization');
+  // The team's end of a link; the other end's code is the picker's filter (`linkableFor`, api-contract § 4).
+  const canLink = access(organizationsPermissions.teamLink, 'organization');
   const [dialog, setDialog] = useState<TeamDialog>(null);
   const [linking, setLinking] = useState(false);
   const [unlinking, setUnlinking] = useState<TeamProject | null>(null);
@@ -78,6 +78,9 @@ export function TeamPage() {
   const level = query.isError ? notFoundLevel(query.error) : null;
   if (level) {
     return <NotFound level={level} keepNavigation={level === 'team'} />;
+  }
+  if (section === 'settings' && query.isSuccess && !canWrite && !canDelete) {
+    return <AccessDenied />;
   }
 
   const loading = query.isPending || (query.isError && query.isFetching);
@@ -150,26 +153,27 @@ export function TeamPage() {
       ),
     },
   ];
-  if (canLink) {
+  if (rows.some((project) => project.canUnlink ?? canLink)) {
     columns.push({
       key: 'actions',
       header: '',
       align: 'right',
       width: 48,
-      render: (project) => (
-        <MoreActionsMenu
-          label={teamPage.projects.rowMenu(project.name)}
-          size="row"
-          items={[
-            {
-              label: teamPage.projects.unlink,
-              icon: <LinkOffOutlinedIcon />,
-              onSelect: () => setUnlinking(project),
-              destructive: true,
-            },
-          ]}
-        />
-      ),
+      render: (project) =>
+        (project.canUnlink ?? canLink) ? (
+          <MoreActionsMenu
+            label={teamPage.projects.rowMenu(project.name)}
+            size="row"
+            items={[
+              {
+                label: teamPage.projects.unlink,
+                icon: <LinkOffOutlinedIcon />,
+                onSelect: () => setUnlinking(project),
+                destructive: true,
+              },
+            ]}
+          />
+        ) : null,
     });
   }
 
@@ -207,7 +211,7 @@ export function TeamPage() {
         ];
 
   return (
-    <>
+    <ObjectAccess codes={query.data?.codes}>
       <PageHeader
         title={team ? teamPage.title(team.name) : teamPage.titleLoading}
         commands={commands}
@@ -331,6 +335,6 @@ export function TeamPage() {
           />
         </RequiresOrganizationCode>
       )}
-    </>
+    </ObjectAccess>
   );
 }

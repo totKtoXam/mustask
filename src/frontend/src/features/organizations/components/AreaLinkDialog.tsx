@@ -56,8 +56,13 @@ export function AreaLinkDialog({
   const teams = useOrganizationTeams(organizationId, {
     enabled: end === 'departmentTeams',
     fresh: true,
+    linkableFor: 'area',
   });
-  const areas = useAreaTree(organizationId, { enabled: end === 'teamDepartments', fresh: true });
+  const areas = useAreaTree(organizationId, {
+    enabled: end === 'teamDepartments',
+    fresh: true,
+    linkableFor: 'team',
+  });
   const query = end === 'departmentTeams' ? teams : areas;
   const [chosen, setChosen] = useState<AreaLinkOption[]>([]);
   const [fieldError, setFieldError] = useState<string | undefined>(undefined);

@@ -17,6 +17,7 @@ import {
   getTeamLinks,
   getTeams,
   getUnlinkCount,
+  type LinkableFor,
   type ListView,
 } from '../api/organizationsApi';
 import {
@@ -67,11 +68,11 @@ export function useOrganization(organizationId: string, options: { enabled?: boo
 export function useProjects(
   organizationId: string,
   view: ListView,
-  options: { enabled?: boolean; fresh?: boolean } = {},
+  options: { enabled?: boolean; fresh?: boolean; linkableFor?: LinkableFor } = {},
 ) {
   return useQuery({
-    queryKey: organizationsKeys.projects(organizationId, view),
-    queryFn: () => getProjects(organizationId, view),
+    queryKey: [...organizationsKeys.projects(organizationId, view), options.linkableFor ?? 'all'],
+    queryFn: () => getProjects(organizationId, view, options.linkableFor),
     enabled: options.enabled ?? true,
     refetchOnMount: options.fresh ? 'always' : true,
   });
@@ -126,11 +127,11 @@ export function useTeamLinks(
  */
 export function useOrganizationTeams(
   organizationId: string,
-  options: { enabled?: boolean; fresh?: boolean } = {},
+  options: { enabled?: boolean; fresh?: boolean; linkableFor?: LinkableFor } = {},
 ) {
   return useQuery({
-    queryKey: organizationsKeys.orgTeams(organizationId),
-    queryFn: () => getOrganizationTeams(organizationId),
+    queryKey: [...organizationsKeys.orgTeams(organizationId), options.linkableFor ?? 'all'],
+    queryFn: () => getOrganizationTeams(organizationId, options.linkableFor),
     enabled: options.enabled ?? true,
     refetchOnMount: options.fresh ? 'always' : true,
   });
@@ -191,11 +192,11 @@ export function useUnlinkCount(organizationId: string, projectId: string, teamId
  */
 export function useAreaTree(
   organizationId: string,
-  options: { enabled?: boolean; fresh?: boolean } = {},
+  options: { enabled?: boolean; fresh?: boolean; linkableFor?: LinkableFor } = {},
 ) {
   return useQuery({
-    queryKey: organizationsKeys.areas(organizationId),
-    queryFn: () => getAreaTree(organizationId),
+    queryKey: [...organizationsKeys.areas(organizationId), options.linkableFor ?? 'all'],
+    queryFn: () => getAreaTree(organizationId, options.linkableFor),
     enabled: options.enabled ?? true,
     refetchOnMount: options.fresh ? 'always' : true,
   });

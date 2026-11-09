@@ -7,7 +7,14 @@
 // (`Dataset.teams`, `Dataset.links`); the routes follow its api-contract.
 import { HttpResponse, http, type HttpHandler } from 'msw';
 import { server } from '../../test/mocks/server';
-import { servedFor } from '../../test/organizationRoles';
+import { ADMIN_CODES, servedFor } from '../../test/organizationRoles';
+
+/**
+ * The codes the object reads serve as the caller's own on the object (mod-019 api-contract § 5). The pages ask
+ * the object's `codes`, not the organization answer, for a code decided at that object (BR-SA-18); the render
+ * helper sets this from the test's role, so the old role-driven tests keep their meaning.
+ */
+export const servedObjectCodes: { current: readonly string[] } = { current: ADMIN_CODES };
 import type { Overview, SelectorOffers } from './api/navigationApi';
 import type {
   Area,
@@ -355,11 +362,17 @@ export class OrganizationsTestApi {
       name: project.name,
       key: project.key,
       description: project.description ?? null,
+      codes: [...servedObjectCodes.current],
     };
   }
 
   private teamAnswer(team: TeamRecord): Team {
-    return { id: team.id, name: team.name, description: team.description ?? null };
+    return {
+      id: team.id,
+      name: team.name,
+      description: team.description ?? null,
+      codes: [...servedObjectCodes.current],
+    };
   }
 
   /** The active projects a team is linked to, by name (feat-028 § 1.2). */
@@ -555,6 +568,7 @@ export class OrganizationsTestApi {
     const parent = area.parentId ? this.data.areas.find((c) => c.id === area.parentId) : undefined;
     return {
       ...this.areaAnswer(area),
+      codes: [...servedObjectCodes.current],
       projectActive: this.projectActive(area),
       parent: parent
         ? { id: parent.id, name: this.nodeName(parent), path: this.pathOf(parent) }

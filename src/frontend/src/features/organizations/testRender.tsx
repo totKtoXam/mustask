@@ -9,7 +9,9 @@ import { AccessCheckContext, type AccessCheck } from '../../shared/lib/access';
 import { NoticeProvider } from '../../shared/ui';
 import { AuthContext, type AuthContextValue } from '../auth/AuthContext';
 import { WorkContextContext, type WorkContextSource } from '../../shared/lib/workContext';
-import { checkFor, checkForCodes, type TestRole } from '../../test/organizationRoles';
+import { checkFor, checkForCodes, codesOf, type TestRole } from '../../test/organizationRoles';
+import { organizationsKeys } from './api/queryKeys';
+import { servedObjectCodes } from './testApi';
 import { OrganizationsSection } from './components/OrganizationsSection';
 import { OrganizationGeneralPage } from './pages/OrganizationGeneralPage';
 import { OrganizationOverviewPage } from './pages/OrganizationOverviewPage';
@@ -146,6 +148,7 @@ export function renderPage({
     currentContext: WorkContextSource,
     role: TestRole,
   ) {
+    servedObjectCodes.current = orgCodes ?? codesOf(role);
     const access: AccessCheck = orgCodes
       ? checkForCodes(orgCodes, currentPermissions)
       : checkFor(role, currentPermissions);
@@ -233,6 +236,8 @@ export function renderPage({
       currentPermissions = next.permissions ?? currentPermissions;
       currentContext = next.context ?? currentContext;
       result.rerender(tree(currentPermissions, currentContext, currentRole));
+      // The object reads carry the codes: a role change shows at their next read.
+      void queryClient.invalidateQueries({ queryKey: organizationsKeys.all });
     },
   };
 }

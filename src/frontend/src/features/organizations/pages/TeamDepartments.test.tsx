@@ -218,7 +218,7 @@ const READS = [
 ];
 
 describe('mod-018 api-contract § 5: the codes each control asks for', () => {
-  it('team page: `team.link` alone unlinks a department; the add stays out without `area.link`', async () => {
+  it('team page: `team.link` unlinks a department and offers the add (the department end is the picker’s filter, mod-019 api-contract § 4)', async () => {
     serveOrganizations();
     renderPage({ path: PLATFORM_TEAM, orgCodes: [...READS, 'organizations.team.link'] });
     const table = await screen.findByRole('table', { name: 'Департаменты команды' });
@@ -226,7 +226,7 @@ describe('mod-018 api-contract § 5: the codes each control asks for', () => {
     expect(
       within(table).getByRole('button', { name: 'Ещё действия: Платформа' }),
     ).toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: 'Добавить департамент' })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Добавить департамент' })).toBeInTheDocument();
   });
 
   it('team page: `area.link` without `team.link` draws no unlink', async () => {
