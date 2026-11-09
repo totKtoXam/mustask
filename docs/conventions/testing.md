@@ -106,10 +106,74 @@ Application fakes, a kit for Infrastructure fixtures.
 
 ## 3. Frontend
 
-<!-- TODO(tech-035 frontend stage): fill in. Cover: renderPage(path, {role, data}),
-src/test/api.ts (apiUrl, problem, serveProblem, recordRequests, hold), fixture
-factories with one id scheme, which layer owns which check on the frontend
-(unit / component / page / e2e), and the frontend anti-patterns. Keep the general
-rules of section 1 as they are. -->
+Commands: `src/frontend/AGENTS.md`; the stack rules: [frontend.md](frontend.md)
+§ Tests. Vitest + Testing Library + MSW; the API is always MSW, never a mocked
+`fetch` or a mocked module. The kit lives in `src/frontend/src/test/` and each
+helper is the only copy. The slices keep their own `testRender`/`testApi`/
+`testFixtures` until phase 2; a new test uses the kit and does not copy from them.
 
-*To be written by the frontend stage of tech-035.*
+### 3.1 Which layer owns which check
+
+| Check | Owner | Not here |
+|---|---|---|
+| A pure rule (a validator, a formatter, a mapping, a reducer) | Unit test, no render, no MSW | component, page |
+| One component or hook: its states (default, loading, empty, error), keyboard, what it calls on the callbacks it is given | Component test with `renderWithProviders`; the API through the kit's `api.ts` | page |
+| A page or route: it is mounted at its address, reads its data, and the role decides what it shows (open, «Доступ ограничен», «не найдено») | Page test with `renderPage` | component |
+| The wording of a refusal | The catalog: `problemText(code, params)` | a string typed in the test |
+| Cross-layer happy path against a live stand | E2E (Playwright) at QA, only when the human answered yes; not `npm test` | everything above |
+
+The rule of section 1 holds: a rule is asserted at the lowest layer that sees
+it. A page test proves the wiring (route, role, data, one refusal), not each edge
+of a validator.
+
+### 3.2 The kit
+
+| Helper | Use |
+|---|---|
+| `renderPage(path, { role, data, permissions, subject })` (`renderPage.tsx`) | Mounts the **real route table** (`AppRoutes`) at `path` under a router, a fresh `QueryClient` without retries and a signed-in session; serves `data` (default: the stories' example) and the access of `role` (`admin` by default). Returns the Testing Library result plus `queryClient` and `api` (the recording test API of the organizations slice). The address is `screen.getByTestId('location')`. |
+| `apiUrl(route)` (`api.ts`) | The URL of an endpoint as MSW matches it (`/api/organizations/:id/access`); the base comes from the test env, never typed. |
+| `problem(code, params?, status?)` / `problemText(code, params?)` | A problem body / the Russian text, **from `contracts/errors/*.json`** with the parameters filled in. An unknown code throws, so a retired code fails the test that names it. |
+| `serveProblem(method, route, code, params?, { once, status })` | Answers `method route` with that problem and the problem content type; returns the body. |
+| `recordRequests(method, route, answer?)` | Serves the route (204 by default) and keeps `{ method, path, search, body }` of every request. Assert `toEqual([...])` for «this was sent» and `toEqual([])` for «nothing was sent». |
+| `hold(method, route, body?)` | Keeps the answer pending: `await reached`, assert the loading state, then `release()`. Every test that holds one releases it. |
+| `fixtureId(kind, n)`, `organizationOf`, `projectOf`, `teamOf`, `datasetOf` (`fixtures.ts`) | Records with **one id scheme**: `<kind letter>0000000-0000-4000-8000-<n>` (organization `a`, project `b`, team `c`, area `d`, user `e`), the scheme `ids` of the organizations slice already follows. Ask for the n-th thing; give only the fields the test is about. `datasetOf` leaves everything else empty. |
+
+The role bundles (`organizationRoles.ts`: `servedFor`, `checkFor`) and the shell
+helpers (`renderShell.tsx`) are shared test code too; `renderPage` uses them.
+
+Reference tests (one per layer, moved onto the kit in tech-035): page
+`app/routes.access.test.tsx` ««Деактивированные» проекты are «Доступ ограничен»
+for a member»; component `DefaultLanguageDialog.test.tsx` «отказ 409 (язык
+неактивен)…». The kit's own logic is tested in `src/test/kit.test.tsx`.
+
+The shape of a new page test:
+
+```tsx
+renderPage(`/organizations/${organization.id}/projects?status=deactivated`, {
+  role: 'member',
+  data: datasetOf({ organizations: [organization] }),
+});
+expect(await screen.findByRole('heading', { level: 1, name: 'Доступ ограничен' })).toBeInTheDocument();
+```
+
+### 3.3 Frontend anti-patterns
+
+- Hand-assembling `QueryClientProvider` + `AuthContext` + `MemoryRouter` +
+  `AppRoutes` in a test file: call `renderPage`.
+- A Russian refusal text pasted into `findByText`: use `problemText`. Interface
+  copy that is not an API message (headings, buttons) is typed as in `design.md`.
+- A fixed delay (`setTimeout(…, 20)`) in a handler to "see the spinner": use `hold`.
+- Counting requests through a `vi.fn()` inside a handler, or a request log built
+  by hand: use `recordRequests`.
+- A raw id string or `id-1` in a new fixture: use `fixtureId` / the factories.
+- Mocking a module (`vi.mock`) to fake the API: the API is MSW. Modules shared by
+  the files of a worker may be mocked by one file only (`mockRegistry.test.ts`).
+- Asserting the same rule in the component, the page and E2E.
+- Tests that depend on each other's data: every test builds its arrangement and
+  `setup.ts` resets handlers, session and DOM after it.
+- A helper that passes with its assertion deleted: the kit's tests show each
+  helper fails when it should (`kit.test.tsx`).
+
+Not in the kit yet (phase 2): migrating the existing slice helpers and their
+tests, a `renderPage` for pages outside the organizations dataset (dictionaries,
+boards, work items serve their own data today), E2E fixtures (tech-036).
