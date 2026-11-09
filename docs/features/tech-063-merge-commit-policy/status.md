@@ -25,6 +25,7 @@ Task PRs are merged with a merge commit, not squash: the branch keeps its commit
 - 2026-11-09 [orchestrator] `bash scripts/verify.sh` exit 0, RESULT: green; light cycle, docs/.claude only, no QA and no review session.
 - 2026-11-09 [orchestrator] route confirmed by the human: "⭐ S, лёгкий цикл". Reason for the change, in the human's words: «я специально поставил мердж, т.к. по большим коммитам будет сложнее искать изменения и человеку и агенту, плюс к этому будет тратиться много токенов».
 - 2026-11-09 [orchestrator] queue line by `scripts/queue.sh add` (PR #107, merged); taken by `queue.sh take` (PR #108). Binding: new-task.sh's worktree was removed and the task branch checked out in the session's own worktree, as for tech-055.
+- 2026-11-09 [orchestrator] CI red on PR #109: touching `.claude/hooks/README.md` made verify.sh run the hook test tables on the Linux runner for the first time (the folder had not changed since bootstrap); 6 home-directory cases and the Windows-only PowerShell adapter fail there. Unrelated to this task, so the one-word README edit ("squash merges" → "merge commits") is reverted; the stale word stays until the hook tests are made runner-portable.
 
 ## Notes
 

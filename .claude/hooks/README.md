@@ -194,7 +194,7 @@ prefix; anything else goes through the normal permission flow.
 Two boundaries hold this list in place:
 
 - **Nothing in it writes to git.** No `commit`, `merge`, `push`, `reset`,
-  `checkout`, `stash push`. The rules about `main`, merge commits and who
+  `checkout`, `stash push`. The rules about `main`, squash merges and who
   presses Merge are enforced by the `.githooks` and by AGENTS.md, and an
   allow list is not the place to soften them.
 - **Nothing in it searches the filesystem.** No `find`, `grep`, `rg`, `ls`,
