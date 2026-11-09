@@ -3,7 +3,7 @@
 - type: tech
 - size: M
 - branch: tech/035-test-writing-kit
-- stage: 05-frontend
+- stage: 06-code-review
 - epic: platform/tests
 - deps: -
 - gates: gate-3
@@ -29,6 +29,7 @@ gate-3: pending
 - 2026-11-09 [orchestrator] queue take: PR #100.
 - 2026-11-09 [backend-developer] stage 4 done (a2086ae3, 67e5fbe6, f3957318): kit, testing.md sections 1–2, four reference tests, 16 KitAssertionsTests; build green, affected suites green (full Api/Infrastructure suites not run). The developer created `src/backend/tests/Directory.Build.props` itself to keep the kit commit buildable; the orchestrator reviewed and accepts it.
 - 2026-11-09 [frontend-developer] frontend stage done (8d9232f3, 51d12637, 8e59da70): `src/test/` api.ts, fixtures.ts, renderPage.tsx, 16 kit tests; reference tests: page `routes.access.test.tsx`, component `DefaultLanguageDialog.test.tsx` (unit layer needs no helper); testing.md section 3. tsc and ESLint clean; full Vitest 5602 passed, 1 load timeout (`BacklogPage.qa.test.tsx`, passes alone).
+- 2026-11-09 [qa-engineer] single QA pass on dfe77af6 (49658f18, `qa.md`): ready, 2 minors (ProblemAssert skips params when none expected; Race/World/ApiClient lack own failure tests) and an open question for gate-3 (`AggregateViewVolumeTests` 2 s budget fails on this machine, untouched by the diff). E2E: no (standing answer). Minor 1 goes into the review fix pass.
 
 ## Notes
 
