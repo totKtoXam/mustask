@@ -72,6 +72,7 @@ Plans: `plan-backend.md`, `plan-frontend.md`.
   Held before stage 4 by the doc-012 orchestrator until the v0.2.0 deploy is
   done; plan-backend owes the proposed ADR amending ADR-0029, OQ-D2's contract
   and the error codes
+- 2026-11-09 [backend-developer] stage 4 first pass: plan-backend.md, api-contract.md (grants, candidates, role-bundle contract), ADR-0037 (proposed, for gate-3) written; code done for the grant tables, the scoped check (resource scope on the requirement), the five grant slices on three scopes, four error codes and contracts/access/role-bundles.json. Deferred to the next backend pass: the switch and its impact read, scoped policy on the remaining routes, links under grants, create-by-place, served codes, tree ids. Gates untouched
 
 ## Notes
 

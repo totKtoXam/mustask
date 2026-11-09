@@ -84,3 +84,13 @@ not a translator: the auto-check guarantees a translation exists and is not
 copied from the Russian, but not its quality — proofreading by a native
 speaker is a separate step. After proofreading, the field is removed
 together with the text fix, in the same commit.
+
+## contracts/access/ — the role bundles
+
+`access/role-bundles.json` (mod-019, api-contract § 9) carries the instance
+table (the four client roles of `mustask-api`), the organization bundles, the
+scoped bundles per grant scope and role, and the catalog with each code's
+source and resource scope. It is generated from `Mustask.Domain.Identity` and
+committed; `Mustask.Contracts.Tests` fails on a drift. Regenerate with
+`MUSTASK_UPDATE_ROLE_BUNDLES=1 dotnet test src/backend/tests/Mustask.Contracts.Tests`.
+The panel imports it in place of its hand-kept mirrors (stage 6).
