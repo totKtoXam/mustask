@@ -76,9 +76,9 @@ Scenario: The switch route decides on the locked row (BR-SA-13; mod-018 m-2 kept
 Scenario: A switch off counts who stops being reached and warns the actor (OQ-6)
   Given Irina holds «Участник» on «Логистика», Pavel holds «Менеджер» on it, Anna and Kirill (project role on A) are unaffected
   When Pavel turns the switch off on A's node
-  Then a confirmation says that 2 holders of grants stop being reached (Irina and Pavel), counting distinct users, organization admins and project-role holders excluded
+  Then a confirmation says that 2 holders of grants stop being reached (Irina and Pavel), counting distinct users, organization admins and holders of a project grant that covers what the switch takes excluded (OQ-12)
   And because Pavel is among them it adds a line that he will lose the management of this node (copy is the design's)
-  And the count leaves out holders of a project grant, which is held on the project and is not cut by the switch (BR-SA-19)
+  And the count leaves out holders of a project grant that covers what the switch takes from them (department «Участник» with project «Участник» loses nothing), but not a department «Менеджер» holding only project «Читатель», who loses the project settings and grants (BR-SA-19, OQ-12)
   And the confirmation also lists, apart from the count, the project grants on A given by Irina or Pavel (say Irina gave Pavel «Менеджер» on A), each with holder, role and giver
   And it only lists them: confirming the switch ends none, and they are ended by hand from A's «Участники и доступ»
   And nothing changes until it is confirmed

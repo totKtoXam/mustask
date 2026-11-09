@@ -85,6 +85,7 @@ Plans: `plan-backend.md`, `plan-frontend.md`.
 - 2026-11-10 [code-reviewer] code review round 1 (standard + L security pass) in review.md: changes-requested, 4 majors open (C-1..C-4), 4 minors as debts (C-5..C-8). Gates and stage untouched
 - 2026-11-10 [backend-dev] code-review fix round 1: C-1 (area walk in one recursive statement, count equal at depth 1 and 10, pinned), C-2 (one refusal line with route, code, scope, user id; handler 403s too), C-3, C-4, C-6 (prose), C-7 (grant give/change/revoke log lines), C-8 (node own code re-checked after the lock) fixed with tests; C-5 left: spec BR-SA-7, BR-SA-19 and US-2 all exclude every project-grant holder, so counting a department Manager who holds project Reader needs a BA/human decision. Gates and stage untouched
 - 2026-11-10 [code-reviewer] code review round 2 (delta) in review.md: approved; C-1..C-4, C-6..C-8 closed, 0 majors open; C-5 reclassified as a spec question for the human at gate-3 (US-2 scenario contradicts the unconditional exclusion). Gates and stage untouched
+- 2026-11-10 [backend-dev] C-5 decided by the human (OQ-12): the switch-off impact (SwitchImpact count, callerIncluded, givenGrants) spares a project-grant holder only when that bundle covers every code the switch takes from them; api-contract § 1, § 3 text updated (response shape unchanged), spec BR-SA-7, BR-SA-19, US-2 and OQ-12 reworded; SwitchImpactReadModel and integration tests changed; Application 863, Infrastructure 467, Organizations/Authorization integration 1933 green. Gates and stage untouched
 
 ## Notes
 
