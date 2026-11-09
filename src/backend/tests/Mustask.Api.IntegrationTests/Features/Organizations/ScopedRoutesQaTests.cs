@@ -342,4 +342,58 @@ public sealed class ScopedRoutesQaTests(MustaskApiFactory factory)
         Assert.Equal(HttpStatusCode.Forbidden, onAnother.Status);
         Assert.Equal(HttpStatusCode.Forbidden, withoutProject.Status);
     }
+
+    // QA pass 2 · a project of another organization, a malformed id and an unknown id are judged by the organization role alone.
+    [Fact]
+    public async Task TheAssigneePicker_ANamedProjectOfAnotherOrganizationOrAMalformedId_FallsBackToTheRole()
+    {
+        var w = await WorldAsync();
+        var foreign = await OrganizationsTestData.CreateStructureAsync(factory);
+        var member = await HolderAsync(w, ResourceScope.Project, w.Structure.ProjectId, GrantRole.Member);
+        var orgMember = await MembershipTestData.NewMemberAsync(factory, w.Structure.OrganizationId, OrganizationRole.Member);
+        var path = $"{Org(w)}/workitems/assignee-candidates";
+
+        var holderForeign = await SendAsync(HttpMethod.Get, $"{path}?projectId={foreign.ProjectId}", null, member.Token);
+        var holderMalformed = await SendAsync(HttpMethod.Get, $"{path}?projectId=not-an-id", null, member.Token);
+        var holderUnknown = await SendAsync(HttpMethod.Get, $"{path}?projectId={Guid.CreateVersion7()}", null, member.Token);
+        var roleForeign = await SendAsync(HttpMethod.Get, $"{path}?projectId={foreign.ProjectId}", null, orgMember.Token);
+        var roleMalformed = await SendAsync(HttpMethod.Get, $"{path}?projectId=not-an-id", null, orgMember.Token);
+
+        Assert.Equal(HttpStatusCode.Forbidden, holderForeign.Status);
+        Assert.Equal(HttpStatusCode.Forbidden, holderMalformed.Status);
+        Assert.Equal(HttpStatusCode.Forbidden, holderUnknown.Status);
+        Assert.Equal(HttpStatusCode.OK, roleForeign.Status);
+        Assert.Equal(HttpStatusCode.OK, roleMalformed.Status);
+    }
+
+    // QA pass 2 · BR-SA-9 / US-7 on the other link routes: an unknown other end is 404 for a holder of the addressed end's code; a known
+    // one without the second code is 403; a caller without the addressed end's code is 403 first.
+    [Fact]
+    public async Task TheLinkRoutes_AnswerNotFoundBeforeTheSecondCode()
+    {
+        var w = await WorldAsync();
+        var jupiter = await OrganizationsTestData.AddUnlinkedTeamAsync(factory, w.Structure.OrganizationId, "Юпитер");
+        var kirill = await HolderAsync(w, ResourceScope.Project, w.InDepartment.Id, GrantRole.Manager);
+        var teamManager = await HolderAsync(w, ResourceScope.Team, jupiter.Id, GrantRole.Manager);
+        var viewer = await MembershipTestData.NewMemberAsync(factory, w.Structure.OrganizationId, OrganizationRole.Viewer);
+        var ghost = Guid.CreateVersion7().ToString();
+        var teams = OrganizationsApi.OrgTeams(w.Structure.OrganizationId);
+        var unlink = $"{UnderProject(w)}/teams/{ghost}/unlink";
+        var count = $"{UnderProject(w)}/teams/{ghost}/unlink-count";
+        var known = $"{UnderProject(w)}/teams/{jupiter.Id}/unlink";
+
+        var ghostUnlink = await SendAsync(HttpMethod.Post, unlink, new { destination = new { teamId = (string?)null } }, kirill.Token);
+        var ghostCount = await SendAsync(HttpMethod.Get, count, null, kirill.Token);
+        var knownUnlink = await SendAsync(HttpMethod.Post, known, new { destination = new { teamId = (string?)null } }, kirill.Token);
+        var viewerGhost = await SendAsync(HttpMethod.Post, unlink, new { destination = new { teamId = (string?)null } }, viewer.Token);
+        var reverseGhost = await SendAsync(HttpMethod.Post, $"{teams}/{jupiter.Id}/projects", new { projectIds = new[] { Guid.CreateVersion7().ToString() } }, teamManager.Token);
+        var reverseGhostAreas = await SendAsync(HttpMethod.Post, $"{teams}/{jupiter.Id}/areas", new { areaIds = new[] { Guid.CreateVersion7().ToString() } }, teamManager.Token);
+
+        Assert.Equal((HttpStatusCode.NotFound, "organizations.team.not_found"), (ghostUnlink.Status, ghostUnlink.ErrorCode));
+        Assert.Equal(HttpStatusCode.NotFound, ghostCount.Status);
+        Assert.Equal(HttpStatusCode.Forbidden, knownUnlink.Status);
+        Assert.Equal(HttpStatusCode.Forbidden, viewerGhost.Status);
+        Assert.Equal(HttpStatusCode.NotFound, reverseGhost.Status);
+        Assert.Equal(HttpStatusCode.NotFound, reverseGhostAreas.Status);
+    }
 }
