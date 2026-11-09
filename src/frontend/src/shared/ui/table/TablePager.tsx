@@ -28,16 +28,22 @@ export function TablePager({
   onPageChange,
   disabled = false,
 }: TablePagerProps) {
-  const arrow = disabled
-    ? {
-        'aria-disabled': true,
-        sx: (theme: Theme) => ({
-          color: theme.palette.action.disabled,
-          cursor: 'default',
-          '&:hover': { backgroundColor: 'transparent' },
-        }),
-      }
-    : {};
+  const lastPage = Math.max(0, Math.ceil(count / rowsPerPage) - 1);
+  // An inert arrow (`disabled`, or no page to go to) stays in the Tab order, marked
+  // `aria-disabled`, rather than natively `disabled`: a focused button that turns `disabled`
+  // drops focus to the page (tech-054). `disabled: false` overrides MUI's own edge-page flag.
+  const arrow = (inert: boolean) =>
+    inert
+      ? {
+          disabled: false,
+          'aria-disabled': true,
+          sx: (theme: Theme) => ({
+            color: theme.palette.action.disabled,
+            cursor: 'default',
+            '&:hover': { backgroundColor: 'transparent' },
+          }),
+        }
+      : {};
   return (
     <TablePagination
       component="div"
@@ -46,11 +52,16 @@ export function TablePager({
       rowsPerPage={rowsPerPage}
       rowsPerPageOptions={[]}
       onPageChange={(_event, next) => {
-        if (!disabled) {
+        if (!disabled && next >= 0 && next <= lastPage) {
           onPageChange(next);
         }
       }}
-      slotProps={{ actions: { previousButton: arrow, nextButton: arrow } }}
+      slotProps={{
+        actions: {
+          previousButton: arrow(disabled || page <= 0),
+          nextButton: arrow(disabled || page >= lastPage),
+        },
+      }}
       sx={(theme) => ({
         borderTop: `${theme.layout.dividerWidth}px solid ${theme.palette.divider}`,
       })}
