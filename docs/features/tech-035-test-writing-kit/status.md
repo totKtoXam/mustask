@@ -3,14 +3,14 @@
 - type: tech
 - size: M
 - branch: tech/035-test-writing-kit
-- stage: gate-3
+- stage: complete
 - epic: platform/tests
 - deps: -
 - gates: gate-3
 
 ## Gates
 
-gate-3: pending
+gate-3: approved 2026-11-09
 
 ## Plan
 
@@ -33,6 +33,7 @@ gate-3: pending
 - 2026-11-09 [code-reviewer] round 1 (Opus, be9197f3): changes requested, 3 major (testing.md example 403 not 400; ProblemAssert params guarantee; testing.md unlinked) and 2 minor (Creator divergence; problemText unfilled placeholder).
 - 2026-11-09 [task-executor] F1–F5 fixed (5efef878): build green, kit tests 30/30 backend, 576 frontend.
 - 2026-11-09 [code-reviewer] delta read (b9f82574): approve, F1–F5 closed. Carried to gate-3: QA minor 2 (Race/World/ApiClient lack own failure tests, phase 2) and `AggregateViewVolumeTests` 2 s budget on this machine (untouched by the diff).
+- 2026-11-09 [orchestrator] gate-3: the human chose «⭐ Одобрить, открыть PR»; Race/World/ApiClient failure tests carried to phase 2.
 
 ## Notes
 

@@ -44,7 +44,7 @@ item 6 because the guarantee is not there.
   are never put in front of the developer. New tests will keep copying `PropertyNames`/`Name`/`Now`, which is what
   the task exists to stop.
 - Fix: add one line to `backend.md` § Tests and one to `frontend.md` § Tests, along the lines of «New tests: the
-  layer ownership, the kit and the anti-patterns are in [testing.md](testing.md)». Stages 04 and 05 already assign
+  layer ownership, the kit and the anti-patterns are in `testing.md`». Stages 04 and 05 already assign
   those files (`04-backend.md:6`, `05-frontend.md:6`), so that is the anchor. It is the weakest kind (an
   instruction plus the stage that assigns it).
 
