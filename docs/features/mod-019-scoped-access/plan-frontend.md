@@ -11,7 +11,7 @@ Stage 6a, L, 2026-11-09. Read: `spec.md` (BR-SA-1..19, OQ-1..11), US-1..US-8, `d
 | F-3 | **Dialog lock** (`RequiresOrganizationCode`) gets a sibling `RequiresCode holds={…}` for object codes; a refused write still re-reads the object (F-5). |
 | F-4 | **Bundle switch-over (tech-026 OP-7, ADR-0033/0038).** `src/test/organizationRoles.ts` and `shared/api/tokenClaims.ts` read `contracts/access/role-bundles.json` by a Vite JSON import (Vite resolves it outside the root; `resolveJsonModule` is on in `tsconfig.app.json` through `moduleResolution: bundler`). `organizationRoles.test.ts` is rewritten to compare with the JSON instead of the markdown tables. Public names (`ADMIN_CODES`, `checkFor`, `servedFor`, …) are kept so the ~40 test files keep compiling. |
 | F-5 | **Re-read (design § 7).** Object codes live in the object's own query (`project`, `team`, `area` reads), so a re-read is an invalidation. A grant/switch write invalidates the object and its lists; a 403/404 under an object invalidates that object (extension of `useAccessWatcher`'s scoped-failure path); window refocus re-reads by the query client's default. One notice per object when the served codes differ from the last seen ones (`useObjectCodesNotice`). |
-| F-6 | **D-4, the per-card flag on a shared board: no backend field is owed.** A card carries its project; `GET /projects` rows carry `codes` once per project (api-contract § 5). The board/backlog views derive `canMove` per card from the project list: `projectCodes.get(card.projectId)?.includes('workitems.workitem.write')`. See § 5 (the part not done in this pass). |
+| F-6 | **D-4, the per-card flag on a shared board: no backend field is owed.** A card carries its project; `GET /projects` rows carry `codes` once per project (api-contract § 5). The board/backlog views derive `canMove` per card from the project list: `projectCodes.get(card.projectId)?.includes('workitems.workitem.write')`. Done in the second pass (§ 5). |
 | F-7 | **Assignee picker (OQ-11).** `assignee-candidates` takes the optional `projectId`; the item form passes the item's project (the new-item form: the chosen project). |
 | F-8 | **Grant candidates → `UserSearchField`.** `GrantCandidates.items: UserRef[]` is mapped to the field's `UserCandidate` shape in the API layer; the field is reused unchanged (new `UserSearchScope` kind `grant`). |
 | F-9 | **No `shared/ui` part.** A plain MUI `Switch` + `FormControlLabel` is allowed (ui-kit § 10). Dialogs use `FormDialog`, `ConfirmDialog`, `InlineSelectField`; tables `Section` + `DataTable`. |
@@ -41,17 +41,22 @@ Stage 6a, L, 2026-11-09. Read: `spec.md` (BR-SA-1..19, OQ-1..11), US-1..US-8, `d
 
 1. This plan. 2. Bundle switch-over and error codes. 3. API layer and hooks. 4. `objectAccess` and the existing pages moved to object codes. 5. Grants section, dialogs, pages, routes, menus, team page. 6. Switch control and dialog. 7. Create project by place, `canUnlink`, `linkableFor`. 8. Assignee `projectId`. 9. `status.md` Log.
 
-## 5. Deferred (not done in this pass, with the reason)
+## 5. Second pass (the items first deferred) and what stays open
 
-| # | Item | Why |
+| # | Item | Done in the second pass |
 |---|---|---|
-| X-1 | **Work-item and board surfaces read object codes** (BR-SA-18 beyond the organization pages): `BacklogPage`, `cardAccess` and `WorkItemFormPage` still ask the organization answer for `workitems.*` codes, and the per-card `canMove` of F-6 (D-4) is not wired. | Their suites (`BacklogPage.gating`, `cardAccess`, `WorkItemFormPage.readOnly`) pin organization-served codes; moving them needs the project read's `codes` in each page and a rewrite of those fixtures. A slice of its own, after O-1 and O-2 are settled. |
-| X-2 | `useAccessWatcher` invalidates the object on a scoped 403/404 (F-5). | The grant and switch writes already re-read the object and its lists, and the codes notice (done) reacts to any re-read; the watcher extension touches shared session code and waits for X-1. |
-| X-3 | The BR-SA-18 source-scan guard (F-1: a test that fails when a panel file asks the organization answer for a non-organization code). | The organization pages are moved; the guard would flag X-1's files, so it lands with X-1. |
-| X-4 | `AreasPage` row commands limited to the writable ids. | The area tree page keeps the organization-wide code; the department pages and the creation dialogs use the ids. |
-| X-5 | A 200-row grants list test. | The list is one `DataTable` over a client-side filter; no paging is specified. |
+| X-1 | **Work-item and board surfaces read object codes.** | `useProjectCodes` (organizations barrel) turns `GET /projects` into a map from project id to codes. `ProjectAccess` (workitems) provides one project's codes to the work-item list, the item form and the card dialog, and holds the page on its skeleton until the rows are read. Boards: `useBoardAccess` (write and link: any shown project holds the code; reorder: the project's `boards.projectbacklog.reorder`, or the team read's `boards.backlog.reorder`). The per-card `canMove` of F-6 (D-4) is judged by the card's own project in `BoardColumns`, `AggregateBoardView` and, per group, `AggregateBacklogView`. The section entries and the route gates of the projects, work items, boards and backlogs ask the organization read every member holds (design § 3: the entries are present for everyone); the shell's «Параметры» entries read the chosen object's codes (`useObjectCodes`, `NavigationEntry.object`) and need the organization read too. Pages whose rows carry no codes (the organization's teams, the project list's link dialog, the tree's link of teams) ask the role floor (`RoleFloorAccess`, from `role-bundles.json`). The test doubles serve the organization answer with the organization-scope codes only, and the caller's codes on the project rows, the team read and the area read (`servedObjectCodes`). |
+| X-2 | `useAccessWatcher` invalidates the object on a scoped 403/404 (F-5). | `scopedFailureOf` names the object (project, team or area, and whether the call was its own read); the watcher reads that object and the project rows again (`rereadObject`), except for the object's own failed read, which would loop. A role change also reads the project rows again: they were read under the old role. |
+| X-3 | The BR-SA-18 guard. | `src/test/scopeGuard.test.ts` scans the production sources: a file that names a code whose catalog `resourceScope` is not organization must be registered with the file that provides the object's codes, and a stale entry fails too; negative fixtures prove it fails. |
+| X-4 | `AreasPage` row commands limited to the writable ids. | The row commands and the dialogs' lock ask `useWritableAreaIds` per row. |
+| X-5 | A 200-row grants list test. | `GrantsPages.volume.test.tsx`: 200 grants on a project, every row drawn, the filter narrows to 10, the row menu works. |
 
-Done in this pass: F-1 (organization pages), F-2..F-4, F-5 (re-read on writes, the codes notice, refocus by the client default), F-7, F-8, F-9, and steps 1-9 of section 4 except the items above.
+Still open, and why:
+
+- **The team backlog table and the team-place project picker are coarse.** A team's backlog holds rows of several projects: the table's controls (write, link, reorder by drag) show when any shown project allows them, not per row, and the project picker of `CreateWorkItemDialog` on a team place is not narrowed to the projects the caller can write in. The server refuses what the caller may not do, and the refusal re-reads the codes (F-5). A per-row flag needs the row's project codes in the row model; it is a follow-up for the team views, not a correctness gap.
+- **A holder of a grant on a single object** is under-offered on lists whose rows carry no codes (the role floor); the object's own page offers the grant's controls.
+
+Done: F-1..F-9, X-1..X-5, and steps 1-9 of section 4.
 
 ## 6. Open items for the orchestrator or backend
 
