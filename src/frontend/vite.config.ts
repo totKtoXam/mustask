@@ -57,6 +57,8 @@ export default defineConfig(({ command, mode }) => {
       // allowedHosts не нужен: проверка Host в Vite пропускает localhost и
       // любые IP-адреса, а по имени этот стенд не открывают.
       host: true,
+      // contracts/access/role-bundles.json lives beside the backend, above the project root (mod-019).
+      fs: { allow: ['../..'] },
     },
     test: {
       environment: './src/test/sharedJsdom.ts',
