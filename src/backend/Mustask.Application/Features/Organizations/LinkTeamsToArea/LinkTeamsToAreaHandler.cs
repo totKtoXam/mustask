@@ -31,12 +31,6 @@ public sealed class LinkTeamsToAreaHandler(
 {
     public async Task Handle(LinkTeamsToAreaCommand command, CancellationToken cancellationToken)
     {
-        // 0. The second code, first of all (D-7).
-        if (!await ScopedCodes.HoldsOnAllAsync(access, PermissionCatalog.OrganizationsTeamLink, command.TeamIds, cancellationToken))
-        {
-            throw new ForbiddenException(OrganizationErrorCodes.AccessForbidden);
-        }
-
         _ = await unitOfWork.ExecuteInTransactionAsync(
             async ct =>
             {
@@ -65,6 +59,12 @@ public sealed class LinkTeamsToAreaHandler(
 
                 if (teamIds.Count == 0)
                 {
+                    // The second code, after the ids are known to name objects of the organization (BR-SA-9, US-7: not-found first).
+                    if (!await ScopedCodes.HoldsOnAllAsync(access, PermissionCatalog.OrganizationsTeamLink, command.TeamIds, ct))
+                    {
+                        throw new ForbiddenException(OrganizationErrorCodes.AccessForbidden);
+                    }
+
                     return false;
                 }
 
@@ -73,6 +73,12 @@ public sealed class LinkTeamsToAreaHandler(
                 if (locked.Count != teamIds.Count || locked.Any(team => !team.IsActive))
                 {
                     throw new NotFoundException(OrganizationErrorCodes.TeamNotFound);
+                }
+
+                // The second code, after the ids are known to name objects of the organization (BR-SA-9, US-7: not-found first).
+                if (!await ScopedCodes.HoldsOnAllAsync(access, PermissionCatalog.OrganizationsTeamLink, command.TeamIds, ct))
+                {
+                    throw new ForbiddenException(OrganizationErrorCodes.AccessForbidden);
                 }
 
                 await areaLinks.LinkTeamsAsync(

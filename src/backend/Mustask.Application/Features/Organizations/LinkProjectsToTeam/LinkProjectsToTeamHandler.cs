@@ -36,12 +36,6 @@ public sealed class LinkProjectsToTeamHandler(
 {
     public async Task Handle(LinkProjectsToTeamCommand command, CancellationToken cancellationToken)
     {
-        // 0. The second code, first of all (D-7).
-        if (!await ScopedCodes.HoldsOnAllAsync(access, PermissionCatalog.OrganizationsProjectLink, command.ProjectIds, cancellationToken))
-        {
-            throw new ForbiddenException(OrganizationErrorCodes.AccessForbidden);
-        }
-
         // The unit of work returns a result; this use case has none (204), so it returns a flag nobody reads.
         _ = await unitOfWork.ExecuteInTransactionAsync(
             async ct =>
@@ -77,6 +71,12 @@ public sealed class LinkProjectsToTeamHandler(
                 if (projectIds.Count == 0)
                 {
                     // Nothing to link and nothing to refuse (D-14).
+                    // The second code, after the ids are known to name objects of the organization (BR-SA-9, US-7: not-found first).
+                    if (!await ScopedCodes.HoldsOnAllAsync(access, PermissionCatalog.OrganizationsProjectLink, command.ProjectIds, ct))
+                    {
+                        throw new ForbiddenException(OrganizationErrorCodes.AccessForbidden);
+                    }
+
                     return false;
                 }
 
@@ -84,6 +84,12 @@ public sealed class LinkProjectsToTeamHandler(
                 if (await projects.CountReachableAsync(organizationId, projectIds, ct) != projectIds.Count)
                 {
                     throw new NotFoundException(OrganizationErrorCodes.ProjectNotFound);
+                }
+
+                // The second code, after the ids are known to name objects of the organization (BR-SA-9, US-7: not-found first).
+                if (!await ScopedCodes.HoldsOnAllAsync(access, PermissionCatalog.OrganizationsProjectLink, command.ProjectIds, ct))
+                {
+                    throw new ForbiddenException(OrganizationErrorCodes.AccessForbidden);
                 }
 
                 // 4. One statement for all the pairs; a pair already linked is left as it is.

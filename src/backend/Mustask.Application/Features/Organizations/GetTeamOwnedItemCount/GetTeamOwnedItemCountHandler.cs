@@ -14,10 +14,10 @@ namespace Mustask.Application.Features.Organizations.GetTeamOwnedItemCount;
 /// to a role that may do the unlink.
 /// </summary>
 /// <remarks>
-/// The order of answers (api-contract § 0.5): the second code (403) before any id is looked at; then the address from the outside
+/// The order of answers (api-contract § 0.5, mod-019 BR-SA-9): the address from the outside
 /// in — organization, project, team, each through the reachability specification — where <b>a team that is not linked to the project
 /// is <see cref="OrganizationErrorCodes.TeamNotFound"/></b> (api-contract § 0.3), the same as a deleted team, a team of another
-/// organization and a malformed id. One statement for the count, no lock and no transaction: it is a read.
+/// organization and a malformed id; then the second code (403). One statement for the count, no lock and no transaction: it is a read.
 /// </remarks>
 public sealed class GetTeamOwnedItemCountHandler(
     IProjectReadModel projects,
@@ -27,12 +27,6 @@ public sealed class GetTeamOwnedItemCountHandler(
 {
     public async Task<GetTeamOwnedItemCountResult> Handle(GetTeamOwnedItemCountQuery query, CancellationToken cancellationToken)
     {
-        // 0. The second code (D-7), first of all: a role without it learns nothing about any id.
-        if (!await access.HoldsOnAsync(PermissionCatalog.OrganizationsTeamLink, ScopedCodes.Guess(query.TeamId), cancellationToken))
-        {
-            throw new ForbiddenException(OrganizationErrorCodes.AccessForbidden);
-        }
-
         if (!AddressedId.TryParse(query.OrganizationId, out var organizationId))
         {
             throw new NotFoundException(OrganizationErrorCodes.OrganizationNotFound);
@@ -48,6 +42,12 @@ public sealed class GetTeamOwnedItemCountHandler(
             || await teams.FindLinkedAsync(organizationId, projectId, teamId, cancellationToken) is null)
         {
             throw new NotFoundException(OrganizationErrorCodes.TeamNotFound);
+        }
+
+        // The second code, after the address names a team of the project (BR-SA-9, US-7: not-found first, then the other end's code).
+        if (!await access.HoldsOnAsync(PermissionCatalog.OrganizationsTeamLink, teamId, cancellationToken))
+        {
+            throw new ForbiddenException(OrganizationErrorCodes.AccessForbidden);
         }
 
         return new GetTeamOwnedItemCountResult(await ownership.CountOwnedAsync(projectId, teamId, cancellationToken));

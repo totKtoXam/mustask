@@ -20,10 +20,9 @@ namespace Mustask.Application.Features.Organizations.UnlinkTeam;
 /// </summary>
 /// <remarks>
 /// <para>
-/// <b>The order of answers</b> (api-contract § 0.5, BR-OL-14): the second code (<c>organizations.team.link</c>; the route declared
-/// <c>organizations.project.link</c>) <b>first of all</b>, before any id is looked at (D-7); the project (404); the team of the
+/// <b>The order of answers</b> (api-contract § 0.5, BR-OL-14; mod-019 BR-SA-9): the project (404); the team of the
 /// address — an active team of the organization, a deleted, unknown or foreign one is <c>team.not_found</c>, one not linked to this
-/// project is <i>not</i> a not-found here; the <c>destination</c> wrapper (400 <c>destination_required</c>, D-8); the destination, an
+/// project is <i>not</i> a not-found here; then the second code (<c>organizations.team.link</c>, 403; the route declared <c>organizations.project.link</c>); the <c>destination</c> wrapper (400 <c>destination_required</c>, D-8); the destination, an
 /// active team of the organization (404); then, under the locks, the 204 of an unlinked pair and the 409 of a destination that is the
 /// team itself or is not linked.
 /// </para>
@@ -71,12 +70,6 @@ public sealed class UnlinkTeamHandler(
 {
     public async Task Handle(UnlinkTeamCommand command, CancellationToken cancellationToken)
     {
-        // 0. The second code, first of all (D-7): a role without it learns nothing about any id, and nothing changes.
-        if (!await access.HoldsOnAsync(PermissionCatalog.OrganizationsTeamLink, ScopedCodes.Guess(command.TeamId), cancellationToken))
-        {
-            throw new ForbiddenException(OrganizationErrorCodes.AccessForbidden);
-        }
-
         // The unit of work returns a result; this use case has none (204), so it returns a flag nobody reads.
         _ = await unitOfWork.ExecuteInTransactionAsync(
             async ct =>
@@ -98,6 +91,12 @@ public sealed class UnlinkTeamHandler(
                     || await structure.FindTeamAsync(organizationId, teamId, ct) is not { Status: TeamStatus.Active })
                 {
                     throw new NotFoundException(OrganizationErrorCodes.TeamNotFound);
+                }
+
+                // The second code, after the address names an active team (BR-SA-9, US-7: not-found first, then the other end's code).
+                if (!await access.HoldsOnAsync(PermissionCatalog.OrganizationsTeamLink, teamId, ct))
+                {
+                    throw new ForbiddenException(OrganizationErrorCodes.AccessForbidden);
                 }
 
                 // 2. The destination wrapper (D-8): its teamId key must be present, a string for a team or null for «Без команды».
