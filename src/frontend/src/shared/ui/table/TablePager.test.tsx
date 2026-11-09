@@ -59,14 +59,95 @@ describe('tech-015 Scenario: TablePager (design § 5.11)', () => {
     expect(onPageChange).toHaveBeenCalledExactlyOnceWith(0);
   });
 
-  it('disables the arrow that has nowhere to go: back on the first page, forward on the last', () => {
+  it('marks the arrow that has nowhere to go aria-disabled, not natively disabled: back on the first page, forward on the last', () => {
     const first = renderPager();
-    expect(screen.getByRole('button', { name: /предыдущ/i })).toBeDisabled();
-    expect(screen.getByRole('button', { name: /следующ/i })).toBeEnabled();
+    const back = screen.getByRole('button', { name: /предыдущ/i });
+    expect(back).toHaveAttribute('aria-disabled', 'true');
+    expect(back).toBeEnabled();
+    expect(screen.getByRole('button', { name: /следующ/i })).not.toHaveAttribute('aria-disabled');
     first.unmount();
     renderPager({ page: 2 });
-    expect(screen.getByRole('button', { name: /следующ/i })).toBeDisabled();
-    expect(screen.getByRole('button', { name: /предыдущ/i })).toBeEnabled();
+    const forward = screen.getByRole('button', { name: /следующ/i });
+    expect(forward).toHaveAttribute('aria-disabled', 'true');
+    expect(forward).toBeEnabled();
+    expect(screen.getByRole('button', { name: /предыдущ/i })).not.toHaveAttribute('aria-disabled');
+  });
+
+  it('keeps focus on the next arrow after paging to the last page; a further click is a no-op (tech-054)', async () => {
+    const user = userEvent.setup();
+    const onPageChange = vi.fn();
+    function Host() {
+      const [page, setPage] = useState(1);
+      return (
+        <TablePager
+          page={page}
+          rowsPerPage={10}
+          count={25}
+          onPageChange={(to) => {
+            onPageChange(to);
+            setPage(to);
+          }}
+        />
+      );
+    }
+    render(<Host />);
+    const next = screen.getByRole('button', { name: /следующ/i });
+    await user.tab();
+    await user.tab();
+    expect(next).toHaveFocus();
+    await user.keyboard('{Enter}');
+    expect(screen.getByText('21–25 из 25')).toBeInTheDocument();
+    expect(next).toHaveAttribute('aria-disabled', 'true');
+    // jsdom keeps focus on a natively disabled button, so focus alone cannot fail; not `disabled` is the pin.
+    expect(next).toBeEnabled();
+    expect(next).toHaveFocus();
+    await user.keyboard('{Enter}');
+    await user.click(next);
+    expect(onPageChange).toHaveBeenCalledExactlyOnceWith(2);
+    expect(screen.getByText('21–25 из 25')).toBeInTheDocument();
+    expect(next).toHaveFocus();
+  });
+
+  it('keeps focus on the previous arrow after paging to the first page; a further click is a no-op (tech-054)', async () => {
+    const user = userEvent.setup();
+    const onPageChange = vi.fn();
+    function Host() {
+      const [page, setPage] = useState(1);
+      return (
+        <TablePager
+          page={page}
+          rowsPerPage={10}
+          count={25}
+          onPageChange={(to) => {
+            onPageChange(to);
+            setPage(to);
+          }}
+        />
+      );
+    }
+    render(<Host />);
+    const back = screen.getByRole('button', { name: /предыдущ/i });
+    await user.tab();
+    expect(back).toHaveFocus();
+    await user.keyboard('{Enter}');
+    expect(screen.getByText('1–10 из 25')).toBeInTheDocument();
+    expect(back).toHaveAttribute('aria-disabled', 'true');
+    // jsdom keeps focus on a natively disabled button, so focus alone cannot fail; not `disabled` is the pin.
+    expect(back).toBeEnabled();
+    expect(back).toHaveFocus();
+    await user.keyboard('{Enter}');
+    await user.click(back);
+    expect(onPageChange).toHaveBeenCalledExactlyOnceWith(0);
+    expect(screen.getByText('1–10 из 25')).toBeInTheDocument();
+    expect(back).toHaveFocus();
+  });
+
+  it('still pages back when the page is beyond the last page (count shrank)', async () => {
+    const user = userEvent.setup();
+    const onPageChange = vi.fn();
+    renderPager({ page: 5, count: 25, onPageChange });
+    await user.click(screen.getByRole('button', { name: /предыдущ/i }));
+    expect(onPageChange).toHaveBeenCalledExactlyOnceWith(4);
   });
 
   it('marks both arrows aria-disabled while `disabled`, even in the middle of the range, and ignores clicks', () => {
