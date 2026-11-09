@@ -328,3 +328,58 @@ Added `ReducerTextWorkRecheck3QaTests` (66 attack shapes at 1 000 000 units, acc
 | `Mustask.Infrastructure.Tests ~RichText` | 2450: 2443 passed, 7 failed, all wall-time: 6 in `ReducerBoundCostTests` / `ReducerRulesTests` (`depth-150-with-142000-paragraphs` 3.4 to 5.4 s, `tags-350000-b`, `table-span-bomb`, `depth-150-*` 2.4 to 2.7 s against a 2.5 s budget; `HostileDeepNesting(table)`, `SpanBomb`); a different set each run and the counters are 0 for all, so the D-10 scan adds nothing (known intermittent under load, also before the merge); 1 mine (`<a>x<a>y` 3.9 s under load, 0.7 s unloaded, ratio linear: threshold raised to 9 s) |
 
 No new defect. D-10 closed. Verdict (re-check 3): **pass**. Not run: E2E (standing NO), frontend, `verify.sh` (pause).
+
+## Frontend
+
+Plan written from spec, US-1..US-7 and design.md before the code was read.
+E2E: skipped by the human's standing decision (NO), no Playwright. Stand not
+started. Levels: U unit, C jsdom component, M manual (owed to the human).
+
+### Test plan (criterion -> check)
+
+| Area | Checks planned | Boundary / negative |
+|---|---|---|
+| US-1 toolbar | roles and Russian names, subset only, one tab stop, roving arrows/Home/End | no H1/H2/image/free colour; disabled states per design table |
+| US-1 lists, keys | indent/outdent buttons, Tab leaves, level 3 disabled; Ctrl+B/I/Z/Y | Tab never indents |
+| US-1 paste | h1->h3, h4-6->h4, bold/underline kept, colour/size/img dropped, `font-weight:normal` wrapper, plain paste, Ctrl+Shift+V | hostile html (script, onerror, javascript:) |
+| US-1 files, limits | file/image drop+paste notice; 100 000 ok / 100 001 refused (code points, emoji); markup 1 000 001 message wins | lone surrogate; counter from 90 000 |
+| US-1 save loop | server refusal keeps input; server value after save; disabled while saving; flush before 150 ms debounce | description_markup_too_large / format_unknown copy |
+| US-3 | legacy conversion (CRLF, spaces, `<b>`), not dirty on open, other field sends no description, shared fixtures client==server | hostile stored value not rendered; no dangerouslySetInnerHTML |
+| US-5 | palettes closed and named, marks order, code wins, heading no size, clear formatting, emoji pick/count, link prompt + refusals, auto-link reach/exclusions, first undo | `javascript:`, `//host`, `example.org`, `setup.py` |
+| US-6 | table ops enabled/disabled, Tab cells, Esc+Tab arm, Ctrl+Enter, spreadsheet rule, pasted table rectangular; code: language list, Tab/Shift+Tab, exits, copy + failure message, IDE paste, highlight cap | ragged tabs, <3 lines, nested table/code in cell |
+| US-4/7 client half | error copy for the two codes; palette classes only, no inline style | |
+| Chunk | skeleton, error + retry | |
+| M (owed) | see end of section | |
+
+### Coverage found (code read after the plan)
+
+Every row of the plan has a test naming its story (US-1 in 99 test files, US-3 61, US-4 39, US-5 35, US-6 22, US-7 18 by grep). Located: toolbar roles/roving arrows/Home/End `toolbar.test.tsx`, `a11y.test.tsx`; paste `paste.test.tsx`, `pasteReduce.test.ts`; limits and counter `states.test.tsx`, `limits.test.ts`; flush before the 150 ms delay `core.test.tsx` + `WorkItemFormPage.description.test.tsx`; dirty/baseline, legacy, hostile stored value `WorkItemFormPage.description.test.tsx`, `canonical.parity.test.ts`; fixtures client==server `fixtures.test.ts`; copy of the two error codes `refusals.test.ts`, `errorCodes.workitems.test.ts`; `«Не удалось скопировать код.»` `code.test.tsx`; chunk failure + retry `emoji.failure.test.tsx`; no raw HTML `test/noRawHtml.test.ts` + ESLint selectors; tables `table.test.tsx`; links `link.test.tsx`, `autolink*.test.*`. The editor has exactly one `role=status` (the notice line, `RichTextEditor.tsx`); copy success/failure and the Tab hints share it, so no duplicate live region.
+
+Gap closed: `src/shared/lib/richText/limits.boundary.test.ts` (5 tests): 100 000 vs 100 001 emoji at the limit, ZWJ sequence counts 5, lone surrogate -> U+FFFD and counts 1, list-item container line feeds, hostile class/style dropped. All green at once (client already matched the spec).
+
+### Runs (light cycle, `--maxWorkers=2..4`)
+
+- `vitest run src/shared/ui/RichTextEditor src/shared/lib/richText src/shared/api src/shared/ui/FormDialog`: 33 files, 771 passed.
+- `src/features/workitems` (description page test, hooks, lib, api, readOnly): 24 files, 436 passed. A first run of the whole `src/features/workitems` tree under CPU load: `WorkItemFormPage.description.test.tsx` "shows each line of a stored plain text..." timed out at 24 s on the lazy editor chunk (known load flake), then the pool died with `Channel closed`; the same file alone is 14/14 green. The other workitems page files were not re-run to completion (light cycle).
+- Not run: E2E (standing NO), full suite, `verify.sh` (pause), stand.
+
+### Defects
+
+#### FD-1 (minor, known, re-confirmed): no read-only surface
+A reader, or a deleted card, gets the editor greyed and disabled (`aria-disabled`, `editable:false`): the text cannot be focused, selected or copied by keyboard, and its links cannot be opened. design.md "Read-only. Not built" assumed no such role; the card has both. Repro: open a deleted work item with a formatted description, press Tab: focus skips the body. Carried to gate-3; the type-fields follow-up owns a renderer.
+
+No blocker or major found; parity, limits, paste, a11y and copy checks all hold in tests.
+
+### Owed to the human (plan-frontend §15.3, real browser, not run)
+
+1. `npm run dev` with the stand: open a card, check the toolbar wraps to two rows at 640 px, light look (dark theme does not exist yet).
+2. Real copy from a web page, a spreadsheet and an IDE pasted into the editor (heading, colour, merged cells, tabs).
+3. macOS Cmd shortcuts (B, I, U, K, ], [, Z).
+4. Screen reader (NVDA): Tab hints, copy message, counter name, toolbar roving.
+5. ArrowDown on a wrapped last line of a code block leaves it; drop an image file on the editor: browser does not navigate.
+6. Editor opening speed with a 100 000-character description (observation only); colour emoji rendering.
+7. Open a link by Ctrl+click and by «Открыть в новой вкладке»: new tab opens, panel keeps state.
+
+### Verdict (frontend)
+
+**PASS**: no blocker or major open; one minor (FD-1) carried to gate-3.
