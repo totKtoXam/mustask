@@ -7,7 +7,7 @@ namespace Mustask.Api.IntegrationTests.Features.Organizations;
 
 /// <summary>
 /// <c>GET /api/organizations/{organizationId}/access</c> (mod-016 api-contract § 1.1; US-4 "Mustask.Api serves the role and the
-/// codes of one organization"; BR-M1-31): the caller's role in the organization and exactly its bundle of organization codes, read
+/// codes of one organization"; BR-M1-31): the caller's role in the organization and the organization-scope codes of its bundle, read
 /// from the membership at the moment of the request, never cached, never an instance code.
 /// </summary>
 [Trait("Category", "Integration")]
@@ -20,12 +20,37 @@ public sealed class GetOrganizationAccessEndpointTests(MustaskApiFactory factory
     private static List<string> Permissions(JsonElement body) =>
         body.GetProperty("permissions").EnumerateArray().Select(code => code.GetString()!).ToList();
 
-    // US-4 · the answer holds the role and EXACTLY the role's bundle of the spec's matrix, in ordinal order — for each role.
+    private static readonly string[] OrganizationScopeReads =
+    [
+        "organizations.organization.read",
+        "organizations.membership.read",
+        "organizations.team.read",
+        "organizations.area.read",
+        "process.definition.read",
+    ];
+
+    private static readonly string[] AdminServed =
+    [
+        "organizations.organization.read",
+        "organizations.organization.write",
+        "organizations.organization.deactivate",
+        "organizations.membership.read",
+        "organizations.membership.write",
+        "organizations.project.deactivate",
+        "organizations.team.read",
+        "organizations.team.create",
+        "organizations.team.delete",
+        "organizations.area.read",
+        "organizations.area.create",
+        "process.definition.read",
+    ];
+
+    // BR-SA-11 · the answer holds the role and the codes of its bundle decided at the organization, in catalog order — for each role.
     [Theory]
     [InlineData(OrganizationRole.Admin, "admin")]
     [InlineData(OrganizationRole.Member, "member")]
     [InlineData(OrganizationRole.Viewer, "viewer")]
-    public async Task Get_AMember_AnswersTheirRoleAndExactlyTheRolesBundle_Sorted(OrganizationRole role, string name)
+    public async Task Get_AMember_AnswersTheirRoleAndTheOrganizationScopeCodesOfTheBundle_InCatalogOrder(OrganizationRole role, string name)
     {
         var organization = await OrganizationsTestData.CreateOrganizationAsync(factory);
         var caller = await MembershipTestData.NewMemberAsync(factory, organization.Id, role);
@@ -36,34 +61,26 @@ public sealed class GetOrganizationAccessEndpointTests(MustaskApiFactory factory
         Assert.Equal("application/json", answer.MediaType);
         Assert.Equal(["permissions", "role"], answer.Body.EnumerateObject().Select(property => property.Name).Order(StringComparer.Ordinal));
         Assert.Equal(name, answer.Body.GetProperty("role").GetString());
-        Assert.Equal(OrganizationRoleBundles.CodesOf(role).Order(StringComparer.Ordinal), Permissions(answer.Body));
+        Assert.Equal(
+            PermissionCatalog.All
+                .Where(definition => definition.Resource == ResourceScope.Organization && OrganizationRoleBundles.Holds(role, definition.Code))
+                .Select(definition => definition.Code),
+            Permissions(answer.Body));
     }
 
-    // US-4 · the spec's matrix, spelled out in the test too, so a change of a bundle fails here and in the domain's matrix test.
-    [Fact]
-    public async Task Get_TheMemberBundle_IsTheSevenReadsAndTheFourNonAdminWrites()
+    // BR-SA-11 · the exact served set of each role, spelled out: no project, team or area code, no work-item or board code.
+    [Theory]
+    [InlineData(OrganizationRole.Admin)]
+    [InlineData(OrganizationRole.Member)]
+    [InlineData(OrganizationRole.Viewer)]
+    public async Task Get_EachRole_ServesExactlyItsOrganizationScopeSet(OrganizationRole role)
     {
         var organization = await OrganizationsTestData.CreateOrganizationAsync(factory);
-        var caller = await MembershipTestData.NewMemberAsync(factory, organization.Id, OrganizationRole.Member);
+        var caller = await MembershipTestData.NewMemberAsync(factory, organization.Id, role);
 
         var answer = await OrganizationsApi.SendAsync(factory, HttpMethod.Get, Path(organization.Id), token: caller.Token);
 
-        Assert.Equal(
-            [
-                "boards.backlog.reorder",
-                "boards.projectbacklog.reorder",
-                "organizations.area.read",
-                "organizations.membership.read",
-                "organizations.organization.read",
-                "organizations.project.read",
-                "organizations.team.read",
-                "process.definition.read",
-                "workitems.link.write",
-                "workitems.workitem.delete",
-                "workitems.workitem.read",
-                "workitems.workitem.write",
-            ],
-            Permissions(answer.Body));
+        Assert.Equal(role == OrganizationRole.Admin ? AdminServed : OrganizationScopeReads, Permissions(answer.Body));
     }
 
     // US-4 · "it holds no instance code — those stay in the token": whatever the token carries, the answer lists none of the three.
@@ -127,7 +144,7 @@ public sealed class GetOrganizationAccessEndpointTests(MustaskApiFactory factory
         Assert.Equal("member", first.Body.GetProperty("role").GetString());
         Assert.Equal(HttpStatusCode.NotFound, removed.Status);
         Assert.Equal("viewer", readded.Body.GetProperty("role").GetString());
-        Assert.Equal(7, Permissions(readded.Body).Count);
+        Assert.Equal(OrganizationScopeReads, Permissions(readded.Body));
     }
 
     // US-4 · "Instance codes still come from the token": a user with the create right and no membership still creates an
