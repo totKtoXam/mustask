@@ -46,3 +46,29 @@ export function forgetAccess(client: QueryClient, organizationId: string): void 
   client.removeQueries({ queryKey: organizationsKeys.access(organizationId) });
   forgetRole(client, organizationId);
 }
+
+/**
+ * A call under an object (a project, a team, a department) answered 403 or 404: the caller's codes on it
+ * may have changed (mod-019 ADR-0029 § 10, F-5), so the object's own read and the project lists that carry
+ * each project's codes are read again, in the background; what is held stays until the answer. Several
+ * failures at once ask for one read.
+ */
+export function rereadObject(
+  client: QueryClient,
+  organizationId: string,
+  object: { kind: 'project' | 'team' | 'area'; id: string },
+): Promise<void> {
+  const key =
+    object.kind === 'project'
+      ? organizationsKeys.project(organizationId, object.id)
+      : object.kind === 'team'
+        ? organizationsKeys.team(organizationId, object.id)
+        : organizationsKeys.area(organizationId, object.id);
+  return Promise.all([
+    client.invalidateQueries({ queryKey: key }, { cancelRefetch: false }),
+    client.invalidateQueries(
+      { queryKey: organizationsKeys.projectLists(organizationId) },
+      { cancelRefetch: false },
+    ),
+  ]).then(() => undefined);
+}
