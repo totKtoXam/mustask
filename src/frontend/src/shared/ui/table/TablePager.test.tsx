@@ -98,6 +98,8 @@ describe('tech-015 Scenario: TablePager (design § 5.11)', () => {
     await user.keyboard('{Enter}');
     expect(screen.getByText('21–25 из 25')).toBeInTheDocument();
     expect(next).toHaveAttribute('aria-disabled', 'true');
+    // jsdom keeps focus on a natively disabled button, so focus alone cannot fail; not `disabled` is the pin.
+    expect(next).toBeEnabled();
     expect(next).toHaveFocus();
     await user.keyboard('{Enter}');
     await user.click(next);
@@ -130,12 +132,22 @@ describe('tech-015 Scenario: TablePager (design § 5.11)', () => {
     await user.keyboard('{Enter}');
     expect(screen.getByText('1–10 из 25')).toBeInTheDocument();
     expect(back).toHaveAttribute('aria-disabled', 'true');
+    // jsdom keeps focus on a natively disabled button, so focus alone cannot fail; not `disabled` is the pin.
+    expect(back).toBeEnabled();
     expect(back).toHaveFocus();
     await user.keyboard('{Enter}');
     await user.click(back);
     expect(onPageChange).toHaveBeenCalledExactlyOnceWith(0);
     expect(screen.getByText('1–10 из 25')).toBeInTheDocument();
     expect(back).toHaveFocus();
+  });
+
+  it('still pages back when the page is beyond the last page (count shrank)', async () => {
+    const user = userEvent.setup();
+    const onPageChange = vi.fn();
+    renderPager({ page: 5, count: 25, onPageChange });
+    await user.click(screen.getByRole('button', { name: /предыдущ/i }));
+    expect(onPageChange).toHaveBeenCalledExactlyOnceWith(4);
   });
 
   it('marks both arrows aria-disabled while `disabled`, even in the middle of the range, and ignores clicks', () => {

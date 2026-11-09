@@ -52,7 +52,9 @@ export function TablePager({
       rowsPerPage={rowsPerPage}
       rowsPerPageOptions={[]}
       onPageChange={(_event, next) => {
-        if (!disabled && next >= 0 && next <= lastPage) {
+        // Guard by direction, not range: a back click must still work when the count shrank
+        // under the page (`page > lastPage`).
+        if (!disabled && (next < page ? page > 0 : page < lastPage)) {
           onPageChange(next);
         }
       }}
