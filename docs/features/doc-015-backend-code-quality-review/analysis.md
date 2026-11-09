@@ -19,7 +19,8 @@
 - **Process:**
   1. Seven analysts, one per criterion.
   2. Consolidation: duplicates merged, every blocker and major spot-checked against the cited lines, ids assigned.
-  3. A clean-context review of this document.
+  3. A clean-context review of this document (done, round 1).
+- **Review:** [review.md](review.md) corrected this analysis. Nearly every cited line was confirmed; the corrections are mostly severity, plus three canon-sanctioned patterns that had been reported as defects. Seven severities changed, ASY-4 went up, and three misses were added (ARC-11, the ADR-0031 inconsistency merged into ARC-3, the refresh-retry hazard in ASY-4). Each corrected finding closes with a `Review:` line.
 - **mod-019 overlap:** at consolidation, `origin/mod/019-scoped-access` changes 13 files under `docs/features/mod-019-scoped-access/` and no code. "In flight" marks are therefore judged against its spec and ADR-0029, not against a diff.
 - **Severity scale:**
   - blocker: a defect that must be fixed before further work.
@@ -31,14 +32,14 @@
 
 | Criterion | blocker | major | minor | info |
 |---|---|---|---|---|
-| ARC | 0 | 2 | 6 | 2 |
+| ARC | 0 | 0 | 6 | 5 |
 | SEC | 0 | 2 | 2 | 2 |
 | TXN | 0 | 0 | 3 | 2 |
-| EFC | 0 | 0 | 3 | 3 |
-| ERR | 0 | 0 | 3 | 3 |
-| ASY | 0 | 0 | 3 | 3 |
-| DEP | 0 | 0 | 5 | 1 |
-| **Total** | **0** | **4** | **25** | **16** |
+| EFC | 0 | 0 | 2 | 4 |
+| ERR | 0 | 0 | 1 | 5 |
+| ASY | 0 | 0 | 2 | 4 |
+| DEP | 0 | 0 | 2 | 4 |
+| **Total** | **0** | **2** | **18** | **26** |
 
 The backend is in good structural health:
 - Onion references are enforced.
@@ -48,32 +49,34 @@ The backend is in good structural health:
 - Cancellation tokens reach every EF terminal.
 - Error codes come from a tested registry.
 
-No blocker was found.
+No blocker was found. Verdict after review: needs a human decision.
 
-The two security majors carry the highest risk, because both widen who can obtain a working MUSTASK token:
-- **SEC-1:** the bearer path accepts any realm token whose audience is `mustask-api` (no `azp` check), and the `user` role gates only the panel session.
-- **SEC-2:** the shared-origin deployment under `portal.devexpert.kz/mustask` lets any same-origin script call `/api/session/token`, which voids the premise of ADR-0022.
+The two majors are security findings, and both widen who can obtain a working MUSTASK token:
+- **SEC-1:** the bearer path accepts any realm token whose audience is `mustask-api`, with no `azp` check. The `azp` half is a defect. Whether the `user` role should also gate bearer requests is a policy question, because ADR-0033 rule 2 keeps organization rights.
+- **SEC-2:** under the shared origin `portal.devexpert.kz/mustask`, any same-origin script can call `/api/session/token` and mint short-lived access tokens. The refresh token stays unreadable, so ADR-0022's core protection holds; what grows is the set of scripts able to mint access tokens.
 
-The two architecture majors are structural:
-- **ARC-1:** area-tree type rules live in handlers, and the "department only" link rule is repeated in four of them.
-- **ARC-2:** a third home for shared code has grown at the module root of `Application/Features`, where `VerticalSliceRules` cannot see it.
+Human decisions for gate-1:
+1. SEC-2: record a risk acceptance for the shared origin, or give MUSTASK its own origin.
+2. SEC-1: the user-gate policy on bearer requests. The `azp` allow-list needs no decision, but it must admit `mustask-e2e`.
+3. ARC-11: accept or revise the proposed ADRs 0021, 0022, 0033, 0034 and 0036. They are implemented and cited as canon but still `Status: proposed`.
+
+The architecture findings are bounded. ARC-1 (a link rule repeated in four handlers) and ARC-2 (two shared helpers at the module root) are minor. ARC-3 and ARC-5 conform to accepted ADR-0031 and to backend.md's bulk-SQL allowance.
 
 The recurring theme across criteria is canon rules held by discipline rather than by tests. These include:
 - `ProducesProblem` (ARC-6)
-- enum-as-string storage (ARC-3)
 - reachability in one place (ARC-4)
 - `CancellationToken` forwarding (ASY-1)
 - `.editorconfig` severities (DEP-3)
 - throw-site code rules (ERR-2)
 - the xmin convention on the real model (TXN-4)
 
-One likely real defect is EFC-1: a far page of the rescue list overflows to a negative OFFSET.
+One likely real defect is EFC-1: a far page of the rescue list overflows to a negative OFFSET. ASY-4 is a latent one: a retried refresh POST can end the user's session.
 
 ## Findings
 
 ### ARC — Architecture and ADR conformance
 
-#### ARC-1 · major · Area-tree type rules are enforced in handlers, not in Domain; the link rule exists only in four handlers
+#### ARC-1 · minor · Area-tree type rules are enforced in handlers, not in Domain; the link rule exists only in four handlers
 - **Evidence:**
   - `src/backend/Mustask.Domain/Organizations/AreaLinks.cs:35-40`: `AreaTeam.Link` takes a bare `Guid areaId` and checks only well-formedness.
   - The "department only" link rule is repeated in four handlers:
@@ -83,39 +86,37 @@ One likely real defect is EFC-1: a far page of the rescue list overflows to a ne
     - `src/backend/Mustask.Application/Features/Organizations/LinkAreasToTeam/LinkAreasToTeamHandler.cs:71-74`
   - `src/backend/Mustask.Domain/Organizations/Area.cs:109-125`: `CreateProjectNode(Guid? parentId)` never checks that the parent is a department.
   - `src/backend/Mustask.Application/Features/Organizations/CreateProject/CreateProjectHandler.cs:122-128`: the handler checks the department rule on creation. The same rule for a move lives in `Area.cs:190-195` (`MoveUnder`).
-  - `CreateAreaHandler.cs:129-132` repeats the check that `Area.CreateSubArea` already makes (`Area.cs:140-143`).
+  - `CreateAreaHandler.cs:129-132` overlaps the check that `Area.CreateSubArea` already makes (`Area.cs:140-143`), but it also fixes the order of answers ahead of the link check at `:134`, so it is not a pure duplicate.
 - **Rule:** `docs/conventions/backend.md:44-46` (domain rules live in Domain; the handler orchestrates, the domain decides) and `:50-52`.
 - **Impact:**
-  - Every new write path that creates an `area_teams` row (for example the ADR-0029 grants) must remember to copy the rule. Nothing fails if it is forgotten: neither the raw bulk insert (ARC-5) nor the check constraint covers it.
+  - A new write path that creates an `area_teams` row must remember to copy the rule. ADR-0031 rule 4 keeps area-team links for departments only, and neither the raw bulk insert (ARC-5) nor the check constraint covers the rule. ADR-0029 grants are a separate concept and do not create `area_teams` rows.
   - The project-node rule is split between the domain (move) and a handler (create), so the two can drift apart.
+  - Bounded: one module, one rule, consistently placed today.
 - **Proposed fix:**
-  - `AreaTeam.Link(Area area, ...)`, or an `Area.EnsureLinkable()` called by every link path, throws `AreaLinkTypeNotAllowed` for a non-department.
-  - `Area.CreateProjectNode(Area? parent, ...)` throws `AreaTypeNotAllowed` unless the parent is a department.
-  - Handlers keep their order of answers (BR-AW-15) by calling the domain at the same step.
-  - Drop the duplicate at `CreateAreaHandler.cs:129-132`, or keep it with a comment saying the domain is authoritative.
+  - A domain rule over `AreaType` (for example `AreaRules.EnsureLinkable(AreaType)`), called by every link path at the same step. `AreaTeam.Link(Area area, ...)` does not fit: the handlers lock and get back types only (`AddTeamHandler.cs:124-135` uses `lockedAreas.Values` as `AreaType`), so it would force an extra load.
+  - `Area.CreateProjectNode` checks the parent's type the same way, throwing `AreaTypeNotAllowed` unless it is a department.
+  - Handlers keep their order of answers (BR-AW-15) by calling the domain at the same step. Keep `CreateAreaHandler.cs:129-132` for that reason, with a comment saying the domain is authoritative.
   - Add Domain unit tests for both rules.
 - **Effort:** S
-- **In flight:** mod-019 (ADR-0029 grants and link codes) rewrites the access checks at the top of these same handlers. The type rule is not authorization, but the files collide.
+- **In flight:** mod-019 (link codes) rewrites the access checks at the top of these same handlers. The type rule is not authorization, but the files collide.
+- **Review:** partly confirmed, major → minor — see review.md.
 
-#### ARC-2 · major · Shared helpers at the module root of `Application/Features` break the no-shared-services rule; the arch test cannot see the module root
+#### ARC-2 · minor · Two shared helpers at the module root of `Application/Features` break the no-shared-services rule; the arch test cannot see the module root
 - **Evidence:**
   - `src/backend/Mustask.Application/Features/Organizations/AreaRequests.cs:7-61`: a static helper shared by 11 slices (`ParseIds`, `TreeOf`, `TypeName`, `EnsureProjectActiveAsync`). Its docstring says it sits at the module root "so no slice references another".
   - `src/backend/Mustask.Application/Features/WorkItems/WorkItemAddress.cs:17`: "a slice takes shared code from Abstractions, the domain or here". This adds a third home the canon does not list.
-  - Cross-module contracts at the module root, a location absent from the Solution structure (`docs/conventions/backend.md:18-25`):
-    - `Features/Organizations/IOrganizationStructure.cs`
-    - `Features/Process/IProcessSeed.cs`
-    - `Features/WorkItems/IWorkItemTeamOwnership.cs`
-    - `Features/Boards/ITeamBacklogPlaces.cs`
+  - Not a breach: four cross-module interfaces at the module root (`Features/Organizations/IOrganizationStructure.cs`, `Features/Process/IProcessSeed.cs`, `Features/WorkItems/IWorkItemTeamOwnership.cs`, `Features/Boards/ITeamBacklogPlaces.cs`). `backend.md:53-54` lets modules talk through explicit interfaces and does not say where those live.
   - `src/backend/tests/Mustask.Architecture.Tests/VerticalSliceRules.cs:15-17`: the regex requires `Features.<module>.<slice>`, so `using Mustask.Application.Features.Organizations;` never matches.
   - `VerticalSliceRules.cs:81-92`: `SliceOf` returns null for a module-root file, which the rule then skips (`:28-31`).
-  - `src/backend/Mustask.Application/Abstractions/Boards/AggregateViews.cs:3`: Abstractions imports `Mustask.Application.Features.Organizations`, and no type from it is used, so Abstractions points upward at Features.
-- **Rule:** `docs/conventions/backend.md:50-52` (no shared services between slices; reuse goes to Domain or Abstractions) and `:18-25`.
+  - `src/backend/Mustask.Application/Abstractions/Boards/AggregateViews.cs:3`: an unused using. Abstractions imports `Mustask.Application.Features.Organizations`, but no type of it appears in the file.
+- **Rule:** `docs/conventions/backend.md:50-52` (no shared services between slices; reuse goes to Domain or Abstractions).
 - **Impact:**
   - Two modules already use this third home, and a code comment presents it as allowed.
-  - Nothing limits what accumulates there: logic, cross-module reads, other slices' types.
+  - Nothing limits what accumulates there, and the arch test cannot see it.
+  - There is no runtime risk, and today it is two small pure helpers.
   - `EnsureProjectActiveAsync` is a reachability rule sitting outside "one place per module" (see ARC-4).
 - **Proposed fix:** decide between two options and record the choice.
-  - (a) Amend the canon: the module root holds only public contracts (interfaces plus their records). Add an arch test that allows only those there and bans Abstractions → Features imports.
+  - (a) Amend the canon: the module root holds only public contracts (interfaces plus their records), which also settles where the four interfaces live. Add an arch test that allows only those there and bans Abstractions → Features imports.
   - (b) Move the helpers:
     - `TypeName` becomes an `AreaType` wire-name extension in Domain.
     - `ParseIds` becomes `AddressedId.ParseSet`.
@@ -125,9 +126,12 @@ One likely real defect is EFC-1: a far page of the rescue list overflows to a ne
   - In both cases, delete the unused using at `AggregateViews.cs:3`.
 - **Effort:** S
 - **In flight:** mod-019 touches the area handlers that call `AreaRequests`.
+- **Review:** partly confirmed, major → minor — see review.md.
 
-#### ARC-3 · minor · Closed enum `AreaType` is stored as a number, with literal 1/2/3 repeated in SQL
+#### ARC-3 · info · `AreaType` is stored as a number by accepted ADR-0031, which conflicts with `backend.md` while claiming no departures
 - **Evidence:**
+  - `docs/adr/0031-typed-area-tree.md:39` (accepted): "`areas` carries `type` (`Department` 1, `Project` 2, `Area` 3)", with the check constraint `ck_areas_type_shape`. The code conforms to it.
+  - `docs/adr/0031-typed-area-tree.md:82`: "Departures from `docs/conventions/*`: none", while rule 1 prescribes a numeric closed set.
   - `src/backend/Mustask.Infrastructure/Organizations/Configurations/AreaConfiguration.cs:27`: `HasConversion<short>()`.
   - Literal type numbers in SQL:
     - `AreaConfiguration.cs:52-54`: index filter `"type = 2"`.
@@ -135,26 +139,16 @@ One likely real defect is EFC-1: a far page of the rescue list overflows to a ne
     - `src/backend/Mustask.Infrastructure/Organizations/AreaRepository.cs:106`: raw lock `AND type = 2`.
     - `src/backend/Mustask.Infrastructure/Migrations/20261028124825_OrganizationAreaWorkspace.cs:135`: `type = 2` / `type = 3`.
   - `src/backend/Mustask.Domain/Organizations/Area.cs:9-19`: the enum with explicit values 1..3.
-  - Every other persisted enum uses `HasConversion<string>()`:
-    - `OrganizationConfiguration.cs:26`
-    - `ProjectConfiguration.cs:29`
-    - `TeamConfiguration.cs:28`
-    - `WorkItemConfiguration.cs:63-64`
-    - `StateDefinitionConfiguration.cs:22`
-    - `ProjectedUserConfiguration.cs:37`
-    - `DirectorySnapshotConfiguration.cs:22`
-  - `src/backend/tests/Mustask.Infrastructure.Tests/UserDirectory/ProjectedUserModelTests.cs:68-69`: the only test asserting a string provider type covers one entity.
-- **Rule:** `docs/conventions/backend.md:314-318` (a closed set is stored as a string) and ADR-0021 § 2.
+  - Every other persisted enum uses `HasConversion<string>()` (for example `OrganizationConfiguration.cs:26`, `WorkItemConfiguration.cs:63-64`, `ProjectedUserConfiguration.cs:37`); only `ProjectedUserModelTests.cs:68-69` asserts it.
+- **Rule:** `docs/conventions/backend.md:314-318` (a closed set is stored as a string) and ADR-0021 § 2, against accepted ADR-0031 rule 1.
 - **Impact:**
-  - This is the only numeric persisted enum. The meaning of `2` is repeated as a magic number in a constraint, an index filter, a hand-written lock and a migration, so reading the DB or the SQL needs the C# enum.
-  - It is a precedent for the next typed table (ADR-0029 scopes).
-  - The explicit values limit the reorder-corruption risk the canon names.
-- **Proposed fix:**
-  - A new migration converts `areas.type` to text (`department`/`project`/`area`) and recreates the constraint and the filtered index with names. `Down` converts back.
-  - `HasConversion<string>()` in the configuration, and `type = 'project'` in `AreaRepository.cs:106`.
-  - A model test over `MustaskDbContext` asserting that every CLR enum property has a string provider type or an explicit wire-name converter.
-- **Effort:** M
+  - Not a code defect: by the canon rule, code that conforms to an accepted ADR is not one. The real issue is the ADR-0031 vs `backend.md:314-318` inconsistency, which carries a false "no departures" line. The human settles it: amend ADR-0031 to record the departure, or amend the canon.
+  - The magic numbers in SQL (`AreaConfiguration.cs:54,63-65`, `AreaRepository.cs:106`) are real but follow from the ADR. The explicit values 1..3 limit the reorder-corruption risk the canon names.
+  - It is the only numeric persisted enum, a precedent for the next typed table (ADR-0029 scopes).
+- **Proposed fix:** reconcile ADR-0031 and the canon in the canon-sync task (candidate #15), with a one-line departure note in the ADR. No migration. Converting the column would need an amending ADR first and has a cosmetic benefit only.
+- **Effort:** F
 - **In flight:** -
+- **Review:** partly confirmed, minor → info; the "no departures" inconsistency was added from review M-2 — see review.md.
 
 #### ARC-4 · minor · Reachability predicates are restated inline outside `Reachability.cs`, in Boards and in M1 itself
 - **Evidence:**
@@ -173,18 +167,19 @@ One likely real defect is EFC-1: a far page of the rescue list overflows to a ne
 - **Effort:** S
 - **In flight:** mod-019. ADR-0029 § 6/7 makes every list, counter and search join access and visibility (`AggregateViewReadModel`, `BacklogMembership`). Fix this with mod-019 or after it.
 
-#### ARC-5 · minor · Two write paths for project/area team links; the bulk path bypasses the domain factory
+#### ARC-5 · info · Two write paths for project/area team links; the bulk path skips the domain factory's well-formedness checks
 - **Evidence:**
   - `src/backend/Mustask.Infrastructure/Organizations/AreaLinkRepository.cs:10-34`: raw `unnest ... ON CONFLICT DO NOTHING` insert, without `AreaTeam.Link`.
   - `AreaLinkRepository.cs:46`: the domain path `Add(AreaTeam)`, used by `AddTeamHandler.cs:175-178` and `CreateAreaHandler.cs:165-168`.
   - `src/backend/Mustask.Infrastructure/Organizations/ProjectTeamRepository.cs:78-106`: raw insert into `project_teams`, bypassing `ProjectTeam.Link`.
-  - `src/backend/Mustask.Domain/Organizations/ProjectTeam.cs:37-49`: the factory checks that the raw path skips.
-  - Callers of the raw path: `LinkTeamsToAreaHandler.cs:78-79` and `LinkAreasToTeamHandler.cs:81`.
-- **Rule:** `docs/conventions/backend.md:55-57` (writes only through the domain) and `:219-226` (bulk raw SQL implements the domain write; it does not replace it).
-- **Impact:** any rule added to `Link`, including the ARC-1 fix, silently does not apply to the bulk path.
-- **Proposed fix:** the bulk methods take `IReadOnlyCollection<AreaTeam>`/`<ProjectTeam>` built by `Link(...)` and unnest their fields into the same single idempotent statement.
+  - The checks the raw path skips (`AreaLinks.cs:45-58`, `ProjectTeam.cs:39-49`) are well-formedness only: non-empty ids and the length of `linkedBy`. The handlers guarantee both: ids are parsed and locked, and the subject comes from the token.
+  - Callers of the raw area path: `LinkTeamsToAreaHandler.cs:78-79` and `LinkAreasToTeamHandler.cs:81`. Callers of `ProjectTeamRepository.LinkAsync`: `LinkTeamsToProjectHandler.cs:94` and `LinkProjectsToTeamHandler.cs:90`.
+- **Rule:** `docs/conventions/backend.md:219-226` explicitly allows raw SQL for bulk operations, and `:55-57` asks for writes through the domain. The canon does not say that bulk SQL must not replace the factory.
+- **Impact:** a latent drift risk, not a canon breach: a rule added to `Link` (for example the ARC-1 rule) would not apply to the bulk path unless the handler also calls it.
+- **Proposed fix:** optional. The bulk methods could take collections built by `Link(...)` and unnest their fields into the same single idempotent statement. Calling the ARC-1 domain rule in the handlers already covers the type rule.
 - **Effort:** S
 - **In flight:** mod-019 adds `*.link` codes per link end (ADR-0029 § 4) in these handlers.
+- **Review:** partly confirmed, minor → info — see review.md.
 
 #### ARC-6 · minor · The reference slice (Dictionaries) and Session declare no `ProducesProblem`; nothing enforces it
 - **Criteria:** ARC, ERR (merged).
@@ -217,7 +212,7 @@ One likely real defect is EFC-1: a far page of the rescue list overflows to a ne
 - **Effort:** S
 - **In flight:** -
 
-#### ARC-8 · minor · Canon route rule is stale: organization-scoped modules are not under `/api/<module>/`
+#### ARC-8 · info · Canon route rule is stale: organization-scoped modules are not under `/api/<module>/`
 - **Evidence:**
   - `docs/conventions/backend.md:61` says routes are `/api/<module>/...`, but:
     - `src/backend/Mustask.Api/Features/WorkItems/WorkItemEndpoints.cs:37`: `/api/organizations/{organizationId}/projects/{projectId}/workitems`.
@@ -228,6 +223,7 @@ One likely real defect is EFC-1: a far page of the rescue list overflows to a ne
 - **Proposed fix:** amend `backend.md:61`. Instance-scoped modules use `/api/<module>/...`; organization-scoped resources nest under `/api/organizations/{organizationId}/...` per ADR-0027/0029.
 - **Effort:** F
 - **In flight:** mod-019 (ADR-0029 § 1 amends rule 3) defines the nested chain. Amend after it lands.
+- **Review:** severity changed, minor → info (stale canon text; the code follows ADR-0027, same kind of drift as ERR-4) — see review.md.
 
 #### ARC-9 · info · Slice drift vs the Dictionaries reference: two response-DTO schools and two file layouts
 - **Evidence:**
@@ -259,7 +255,7 @@ One likely real defect is EFC-1: a far page of the rescue list overflows to a ne
   2. one use case per folder (ARC-7)
   3. no shared services, with module-root files invisible (ARC-2)
   4. writes through the domain outside work items and process (ARC-5)
-  5. enums as strings (ARC-3)
+  5. enums as strings (one accepted exception, ARC-3)
   6. `ProducesProblem` (ARC-6)
   7. routes (ARC-8)
   8. reachability in one place (ARC-4)
@@ -267,13 +263,24 @@ One likely real defect is EFC-1: a far page of the rescue list overflows to a ne
   10. reads with `AsNoTracking` plus projection
   11. no `Constants.cs`
   12. Abstractions must not import Features
-- **Proposed fix:** add cheap source and model tests for (3), (5), (6), (8), (9) and (12). Leave (1), (2) and (10) to review.
+- **Proposed fix:** add cheap source and model tests for (3), (6), (8), (9) and (12), and for (5) once ARC-3 is settled. Leave (1), (2) and (10) to review.
 - **Effort:** S
 - **In flight:** tech-035 reworks the test kit. Agree with it where the new model tests live.
 
+#### ARC-11 · minor · Implemented ADRs cited as canon are still `Status: proposed`; the session and realm security model runs on unaccepted decisions
+- **Evidence:**
+  - `docs/adr/0022-token-mediating-backend-for-the-panel.md:3`, `docs/adr/0033-shared-realm-client-roles.md:3`, `docs/adr/0021-localized-dictionaries-pattern.md:3`, `docs/adr/0034-user-projection-from-the-sign-in.md:3` and `docs/adr/0036-cursor-paged-group-reads-and-read-limiter.md:3`: each reads `Status: proposed`.
+  - The code implements all five and this analysis, like the code comments, cites them as binding. SEC-1, SEC-2, TXN-3 and EFC-4 reason from their texts.
+- **Rule:** `docs/adr/README.md` rule 2: only the human accepts an ADR.
+- **Impact:** the session model (0022) and the realm role model (0033) run in production on texts the human never accepted. Their wording can still be fixed in place (SEC-1, SEC-2), but nobody has decided it. This is a governance gap, not a code defect.
+- **Proposed fix:** a gate-1 question: accept or revise each of 0021, 0022, 0033, 0034 and 0036, after the SEC-1 and SEC-2 decisions, since both findings may amend 0022 or 0033. Carried by the canon-sync task (candidate #15).
+- **Effort:** F
+- **In flight:** -
+- **Review:** added from review M-1.
+
 ### SEC — Security and authorization
 
-#### SEC-1 · major · The bearer path accepts any realm token with `aud=mustask-api`: no `azp` check, and the `user` role gates neither organization-scoped nor AuthenticatedOnly routes
+#### SEC-1 · major · The bearer path accepts any realm token with `aud=mustask-api`: no `azp` check; whether `user` should gate bearer requests is a policy question
 - **Evidence:**
   - `src/backend/Mustask.Api/Authentication/JwtBearerSetup.cs:50-82`: issuer, audience, lifetime and RS256 only. Nothing in `Mustask.Api` checks `azp`/`AuthorizedParty`.
   - `JwtBearerSetup.cs:92-100`: `OnTokenValidated` only appends `perm` claims.
@@ -282,40 +289,40 @@ One likely real defect is EFC-1: a far page of the rescue list overflows to a ne
   - `src/backend/Mustask.Api/Authorization/OrganizationPermissionHandler.cs:39, 56`: checks `IsAuthenticated`, then reads the membership by `sub`.
   - The `user` gate exists only at panel sign-in and renewal (`SessionAuthenticationSetup.cs:185`, `SessionEndpoints.cs:205`).
   - `src/backend/Mustask.Api/Features/Organizations/OrganizationEndpoints.cs:87`: `GET /api/organizations` is AuthenticatedOnly.
-  - ADR-0033 says two things:
+  - ADR-0033 (`Status: proposed`, `:3`) reads two ways on the `user` half:
     - `docs/adr/0033-shared-realm-client-roles.md:57` ("without it there is no session and no right") and `:76-77` ("A bearer token without `user` authenticates and holds no right").
-    - `:71-72` ("ADR-0027's organization rights are untouched").
+    - Rule 2 (`:70-72`) keeps organization rights ("ADR-0027's organization rights are untouched"). The most coherent reading of "holds no right" is no instance right, and the code matches rule 2.
   - `src/backend/tests/Mustask.Api.IntegrationTests/Features/Dictionaries/DictionariesByClientRoleTests.cs:67`: the only `user`-less bearer test covers instance codes only.
-- **Rule:** ADR-0033 rules 1 and 3; ADR-0018 (resource server of the realm).
+- **Rule:** ADR-0033 rules 1-3; ADR-0018 (resource server of the realm).
 - **Impact:**
-  - In the company-wide realm, the default audience mapper can put `aud=mustask-api` into any full-scope client's token for a user who holds a `mustask-api` role. A token issued to, leaked by or logged by another company application then reads and writes every organization the person belongs to.
-  - A person whose `user` role was revoked keeps full organization access through such a token.
-  - The `azp` half stands on the code. The `user` half depends on settling the ADR-0033 contradiction.
+  - `azp` half (a defect): in the company-wide realm, the default audience mapper can put `aud=mustask-api` into any full-scope client's token for a user who holds a `mustask-api` role. A token issued to, leaked by or logged by another company application then reads and writes every organization the person belongs to.
+  - `user` half (a policy question, not a defect): a person whose `user` role was revoked keeps organization access through a bearer token, which is what ADR-0033 rule 2 says today.
   - The realm's mappers are not visible from the repository.
 - **Proposed fix:**
-  - In `OnTokenValidated`, fail the token unless `azp` is in a configured allow-list (today `mustask-panel`).
-  - Fail the token, or withhold every organization verdict, when `resource_access.mustask-api.roles` lacks `user`.
-  - Settle the ADR-0033 wording.
-  - Add integration tests for a foreign `azp` and for a member's token without `user`, against an organization route and against `GET /api/organizations`.
+  - In `OnTokenValidated`, fail the token unless `azp` is in a configured allow-list. The list must admit `mustask-panel` and the stand-only `mustask-e2e` client (ADR-0023), or the E2E suite breaks.
+  - Human decision: should a bearer token without `user` hold organization rights? If not, withhold every organization verdict when `resource_access.mustask-api.roles` lacks `user`, and amend ADR-0033 in place (it is still proposed). If yes, state that in rule 3.
+  - Add integration tests for a foreign `azp`, for `mustask-e2e`, and (after the decision) for a member's token without `user`, against an organization route and against `GET /api/organizations`.
 - **Effort:** S
-- **In flight:** mod-019 rewrites `OrganizationPermissionHandler` and the `org:*` policies, so the `user` gate goes into that rewrite or just before it. The `azp` check sits in `JwtBearerSetup`, which mod-019 does not touch.
+- **In flight:** mod-019 rewrites `OrganizationPermissionHandler` and the `org:*` policies, so the user gate goes into that rewrite or just before it. The `azp` check sits in `JwtBearerSetup`, which mod-019 does not touch.
+- **Review:** partly confirmed, stays major on the `azp` half — see review.md.
 
-#### SEC-2 · major · The shared-origin deployment (ADR-0037) breaks ADR-0022's own-origin premise: any script on the portal origin can mint MUSTASK access tokens
+#### SEC-2 · major · The shared-origin deployment (ADR-0037) widens who can mint MUSTASK access tokens: any script on the portal origin can call `/api/session/token`
 - **Evidence:**
-  - `docs/adr/0022-token-mediating-backend-for-the-panel.md:48, 90`: XSS blast radius as the motivation; "the panel is a SPA on its own origin".
+  - `docs/adr/0022-token-mediating-backend-for-the-panel.md:48, 90`: XSS blast radius as the motivation; "the panel is a SPA on its own origin". ADR-0022 is still `Status: proposed` (`:3`). Its core protection, a refresh token never readable by script (`:47-51, 84-88`), is not affected.
   - `docs/adr/0037-serve-under-a-configured-path-base.md:5, 17, 51`: the target is `https://portal.devexpert.kz/mustask`, inside the portal's `server {}`, and "the web origin stays the bare `https://<host>`". There is no threat-model section.
   - `src/backend/Mustask.Api/Features/Session/SessionAuthenticationSetup.cs:107`: the cookie is scoped by `Path`, which does not isolate against same-origin `fetch`.
   - `src/backend/Mustask.Api/Features/Session/SessionEndpoints.cs:57-59`: `POST /api/session/token` is Public and authenticates by the cookie. `:253` returns the access token in the body.
   - `deploy/vm/nginx-mustask-locations.conf:1-5, 13`: MUSTASK is mounted as locations inside another server.
-- **Rule:** ADR-0022 (token-mediating backend), amended by ADR-0037 without revisiting it.
-- **Impact:** one XSS in any co-hosted portal application, or a compromised page, can `fetch('/mustask/api/session/token', {method:'POST', credentials:'include'})` from a signed-in user's browser and read access tokens for the cookie's whole life. Neither SameSite=Lax nor CORS stops a same-origin request.
+- **Rule:** ADR-0022 (token-mediating backend). ADR-0037:5 records that the human chose the sub-path over a subdomain, without a threat-model section.
+- **Impact:** one XSS in any co-hosted portal application, or a compromised page, can `fetch('/mustask/api/session/token', {method:'POST', credentials:'include'})` from a signed-in user's browser and read short-lived access tokens for as long as the browser session lives. Neither SameSite=Lax nor CORS stops a same-origin request. What grows is the set of scripts able to mint access tokens, from MUSTASK's own code to every co-hosted application. The refresh token stays protected.
 - **Proposed fix:** a human decision recorded in an ADR. Either:
   - give MUSTASK its own origin (a subdomain, as ADR-0022 assumes), or
-  - accept the risk explicitly with compensating controls: an agreed CSP and XSS hygiene for every co-hosted application, short access-token lifetimes and a tight session lifetime.
+  - record a risk acceptance for the shared origin, with compensating controls: an agreed CSP and XSS hygiene for every co-hosted application, short access-token lifetimes and a tight session lifetime.
 
   No server-side check on `/token` can tell the panel apart from other same-origin script.
 - **Effort:** M
 - **In flight:** -
+- **Review:** partly confirmed, stays major; the "voids ADR-0022" framing was overstated — see review.md.
 
 #### SEC-3 · minor · A `perm` claim already present in the access token is honoured as an instance right
 - **Evidence:**
@@ -430,10 +437,11 @@ One likely real defect is EFC-1: a far page of the rescue list overflows to a ne
   - `CodeUniqueIndexModelTests.cs:26`: the precedent of a real-model walk.
   - `src/backend/Mustask.Infrastructure/MustaskDbContext.cs:77`: the registration that nothing pins.
 - **Rule:** ADR-0010 ("impossible to forget", pinned by tests).
-- **Impact:** dropping the registration would remove lost-update protection everywhere, and only one test would notice.
+- **Impact:** dropping the registration would remove lost-update protection everywhere. `ConcurrencyVersion.Read` reads the real model's `xmin` property (`ConcurrencyVersion.cs:18-19`), so the Languages If-Match endpoint tests (`UpdateLanguageEndpointTests`, `DictionaryContractRulesEndpointTests`) would also fail. The gap is coverage of the other entities.
 - **Proposed fix:** an `XminModelTests` walking the real model's table-mapped entities.
 - **Effort:** F
 - **In flight:** tech-035 may host it.
+- **Review:** partly confirmed, "only one test would notice" was understated — see review.md.
 
 #### TXN-5 · info · The area-link insert relies on in-memory order and unnest emission order; project links state ORDER BY in SQL
 - **Evidence:**
@@ -460,7 +468,7 @@ One likely real defect is EFC-1: a far page of the rescue list overflows to a ne
 - **Effort:** F
 - **In flight:** -
 
-#### EFC-2 · minor · `FindProjectAsync` takes two round trips and three unused default-team subqueries on every project-scoped read
+#### EFC-2 · info · `FindProjectAsync` takes two round trips and three unused default-team subqueries on every project-scoped read
 - **Evidence:**
   - `src/backend/Mustask.Infrastructure/Organizations/OrganizationStructure.cs:30-70`, with the default-team subqueries at `:47-64`.
   - `OrganizationStructure.cs:77-78`: a second statement only for organization status.
@@ -474,12 +482,13 @@ One likely real defect is EFC-1: a far page of the rescue list overflows to a ne
     - `GetProjectBoardHandler.cs:36`
     - `GetAssigneeOptionsHandler.cs:29`
 - **Rule:** `backend.md` EF Core (a fixed statement count and only the needed columns); ADR-0026 rule 3.
-- **Impact:** every project-scoped request pays an extra round trip and three ignored subqueries.
+- **Impact:** every project-scoped request pays an extra round trip and three ignored subqueries. It is a primary-key lookup with small correlated subqueries over `project_teams`, and `IOrganizationStructure.cs:76-79` says the default team is resolved "in the statement that reads the project". No measured cost and no correctness issue: an optimisation note.
 - **Proposed fix:**
   - Fold organization status into the first projection and compute reachability with `ReachabilityRules.IsReachable`.
   - Optionally offer a lighter by-id read without the default-team subqueries for read-only handlers.
 - **Effort:** S
 - **In flight:** mod-019 (US-3) may change how handlers resolve the addressed project. Related to ARC-4.
+- **Review:** severity changed, minor → info — see review.md.
 
 #### EFC-3 · minor · Redundant `work_items (project_id, type_id, area_id)` index left over after the area condition was dropped
 - **Evidence:**
@@ -552,24 +561,24 @@ One likely real defect is EFC-1: a far page of the rescue list overflows to a ne
 - **Effort:** F
 - **In flight:** -
 
-#### ERR-2 · minor · ADR-0005 throw-site rules are not enforced by tests: the scanner skips Infrastructure, has stale comments, and the planned enforcement item does not exist
+#### ERR-2 · info · ADR-0005 throw-site rules are not enforced by tests: the scanner reflects over constants only, comments are stale, and the planned enforcement item does not exist
 - **Evidence:**
   - `src/backend/tests/Mustask.Contracts.Tests/AppErrorCodeScanner.cs:17-52`: reflects over constants only. Literal codes and status disagreement are undetected.
-  - `CatalogFixture.cs:31-37`: no Infrastructure assembly, although Infrastructure throws business exceptions (`OrganizationsSaveChanges.cs:28-86`, `LanguageRepository.cs:63-74`).
-  - Stale comments: `CatalogFixture.cs:39` ("today zero") and `RulesAreNotVacuous.cs:7-10`.
-  - `docs/conventions/backend.md:127-134` refers to a backlog item that does not exist.
+  - `CatalogFixture.cs:27-29`: the Infrastructure assembly is excluded deliberately and the exclusion is documented. No `[ErrorCodes]` class lives in Infrastructure (all 6 are in Domain or Api), and its throw sites use Domain constants that are already scanned, so adding the assembly would change nothing.
+  - Stale comments: `CatalogFixture.cs:39` ("today zero"), `AppErrorCodeScanner.cs:12-15` ("today empty") and `RulesAreNotVacuous.cs:7-10`.
+  - `docs/conventions/backend.md:127-134` refers to a backlog item that does not exist; the canon prescribes the by-hand attribute "until then".
   - Statuses are pinned by hand per module: `WorkItemErrorCatalogTests.cs:69`, `BoardErrorCatalogTests.cs:39`, `OrganizationErrorCatalogTests.cs:79`.
 - **Rule:** ADR-0005 rules 5-6.
 - **Impact:** clean today (102 constants, all referenced, no literals). A regression would pass CI and reach the wire and the generated `docs/error-codes.md`.
 - **Proposed fix:**
-  - Add Infrastructure to the fixture.
   - Add an arch test or analyzer rejecting literal codes in `MustaskException` constructors.
   - Optionally check statuses per exception type.
   - Refresh the comments and queue or close the canon's item.
 - **Effort:** S
 - **In flight:** tech-035 may host a shared error-assertion helper.
+- **Review:** partly confirmed, minor → info; the Infrastructure claim was refuted — see review.md.
 
-#### ERR-3 · minor · Typed query parameters turn a malformed value into a generic `http.bad_request`, while an out-of-range value gets a module field code
+#### ERR-3 · info · Typed query parameters turn a malformed value into a generic `http.bad_request`, while an out-of-range value gets a module field code
 - **Evidence:**
   - Framework-bound typed parameters:
     - `src/backend/Mustask.Api/Features/WorkItems/WorkItemEndpoints.cs:159` (`int? page`) and `:298` (`bool? levelAbove`)
@@ -578,13 +587,15 @@ One likely real defect is EFC-1: a far page of the rescue list overflows to a ne
   - `src/backend/Mustask.Application/Features/WorkItems/GetWorkItems/GetWorkItemsHandler.cs:38-45`: `page < 1` gives `workitems.invalid_page` in the field shape.
   - `src/backend/Mustask.Api/ErrorHandling/MalformedRequestExceptionHandler.cs:63, 85-90`: a binding failure becomes a bare status with `http.bad_request`.
   - The consistent pattern: `src/backend/Mustask.Application/Features/Organizations/GetRescueOrganizations/GetRescueOrganizationsHandler.cs:20-26`.
-- **Rule:** ADR-0004/0005 (one error kind, one shape; validation answers a module code in the field shape).
+- **Rule:** ADR-0004:111-128 (accepted) explicitly records that typed-parameter binding failures such as `?pageSize=abc` go through `MalformedRequestExceptionHandler` to their own status with the platform code. That is the canon-sanctioned answer, not a contract breach. ADR-0005 (validation answers a module code in the field shape) covers the out-of-range case.
 - **Impact:**
-  - `?page=0` and `?page=abc` get different bodies, and the frontend cannot point at the field for the second.
-  - Binding runs before the handler, so a malformed page on an unknown or foreign address answers 400 before the address 404, which leaks the order of checks.
-- **Proposed fix:** bind as `string?` and parse in the handler or a shared parser with the module's field code. Add a contract test for `?page=abc`.
+  - `?page=0` and `?page=abc` get different bodies, and the frontend cannot point at the field for the second. This is a sanctioned difference.
+  - No order of checks leaks: the org-scoped check runs in authorization before binding (`OrganizationPermissionHandler.cs:26-28`), so a foreign organization still gets 404 first, and for a project-level route the binding 400 is the same bytes whether or not the project exists.
+  - What remains is a docstring mismatch: `AggregateViewEndpoints.cs:186` binds `int? page` against its own docstring at `:23-24` ("values reach the handler as the strings they are").
+- **Proposed fix:** bring `AggregateViewEndpoints.cs:186` in line with its docstring (bind as `string?`), or fix the docstring. Optionally bind the other pages as `string?` and parse them in the handler with the module's field code.
 - **Effort:** S
 - **In flight:** -
+- **Review:** partly confirmed, minor → info; ADR-0004 sanctions the behaviour and the order-leak claim was wrong — see review.md.
 
 #### ERR-4 · info · Canon drift: `backend.md` describes three exception handlers, the code registers four
 - **Evidence:**
@@ -610,16 +621,17 @@ One likely real defect is EFC-1: a far page of the rescue list overflows to a ne
 #### ERR-6 · info · Instance-permission routes without `WithForbiddenErrorCode` fall back to the generic `http.forbidden`
 - **Evidence:**
   - `src/backend/Mustask.Api/Authorization/ForbiddenErrorCodeResultHandler.cs:32-43, 46-52`
-  - `WithForbiddenErrorCode` is used only in `RescueEndpoints.cs:32, 40, 48, 58` and `OrganizationEndpoints.cs:98`.
+  - `WithForbiddenErrorCode` is used only in `RescueEndpoints.cs:32, 40, 48, 58` and `OrganizationEndpoints.cs:98`. Rescue and organization create both carry a code, so the only instance-permission routes without one are the four Dictionaries routes (`DictionaryEndpoints.cs:25-35`).
 - **Rule:** ADR-0005 (a module code the frontend can explain); ADR-0027 order.
-- **Impact:** a user without an instance right sees the generic text. The organization-scoped path is correct.
-- **Proposed fix:** require a forbidden code per policy route, or document `http.forbidden` as the intended answer.
+- **Impact:** a user without a Dictionaries instance right sees the generic text. The organization-scoped path is correct.
+- **Proposed fix:** give the four Dictionaries routes a forbidden code, or document `http.forbidden` as the intended answer.
 - **Effort:** S
-- **In flight:** mod-019 rewrites this handler. Fold it in; do not fix separately.
+- **In flight:** none. mod-019 (ADR-0029) concerns organization-scoped rights, not the Dictionaries instance policy.
+- **Review:** partly confirmed, reach smaller than stated; the "fold into mod-019" suggestion has no support — see review.md.
 
 ### ASY — Async and cancellation
 
-#### ASY-1 · minor · Forwarding the `CancellationToken` is a convention only: no analyzer, canon rule or test enforces it
+#### ASY-1 · info · Forwarding the `CancellationToken` is a convention only: no analyzer, canon rule or test enforces it
 - **Evidence:**
   - `Directory.Build.props:7-8`: `TreatWarningsAsErrors` and `AnalysisLevel=latest`, but no `AnalysisMode`, so CA2016 stays a suggestion.
   - `.editorconfig:14-22`: no `dotnet_diagnostic.CA2016` line.
@@ -631,8 +643,10 @@ One likely real defect is EFC-1: a far page of the rescue list overflows to a ne
 - **Proposed fix:**
   - `dotnet_diagnostic.CA2016.severity = warning` in `.editorconfig`.
   - A `backend.md` § API line: endpoints take a token and pass it down; abstractions take a required token; framework overrides are exempt.
+  - Under `TreatWarningsAsErrors`, CA2016 as a warning turns any later miss into a build break, which is the intent. Check the solution builds first.
 - **Effort:** F
 - **In flight:** -
+- **Review:** severity changed, minor → info (clean today; a missing guardrail) — see review.md.
 
 #### ASY-2 · minor · The OIDC code-exchange backchannel is left at the framework default: a 60 s timeout and a plain `HttpClient` outside `IHttpClientFactory`
 - **Evidence:**
@@ -647,32 +661,35 @@ One likely real defect is EFC-1: a far page of the rescue list overflows to a ne
 - **Effort:** F
 - **In flight:** -
 
-#### ASY-3 · minor · Session endpoints treat a client abort as "Keycloak unreachable": 503 and a misleading warning instead of the cancel path
+#### ASY-3 · info · Session endpoints treat a client abort as "Keycloak unreachable": a 503, and on `/logout` a misleading warning, instead of the cancel path
 - **Evidence:**
-  - `src/backend/Mustask.Api/Features/Session/SessionEndpoints.cs:193-200, 298-304`: `TaskCanceledException` is caught without checking `RequestAborted`.
+  - `src/backend/Mustask.Api/Features/Session/SessionEndpoints.cs:193, 298`: both filters catch `TaskCanceledException` without checking `RequestAborted`. The `/token` branch (`:193-201`) logs nothing and only sets 503; only `/logout` writes the warning (`:300-301`).
   - `src/backend/Mustask.Api/ErrorHandling/OperationCanceledExceptionHandler.cs:33-45`
   - `docs/conventions/backend.md:65`
 - **Rule:** `backend.md` § API, the cancel handler chain (ADR-0004).
-- **Impact:** closing a tab during `/token` or `/logout` writes a warning that reads like a Keycloak outage. That pollutes the signal operators use to tell an outage from a misconfiguration (`RefreshGrantClient.cs:186-198`). There is no user-visible effect.
+- **Impact:** a tab closed during `/logout` writes one warning that reads like a Keycloak outage, which pollutes the signal operators use to tell an outage from a misconfiguration (`RefreshGrantClient.cs:186-198`). `/token` only returns 503 to a client that is gone. There is no user-visible effect.
 - **Proposed fix:** add `&& !cancellationToken.IsCancellationRequested` to both filters.
 - **Effort:** F
 - **In flight:** -
+- **Review:** partly confirmed, minor → info; only `/logout` logs — see review.md.
 
-#### ASY-4 · info · Outbound timeout layering is implicit: a 5 s `HttpClient.Timeout` over the standard resilience handler
+#### ASY-4 · minor · The standard resilience handler can retry the non-idempotent `refresh_token` POST, which under reuse detection ends the user's session
 - **Evidence:**
-  - `src/backend/Mustask.ServiceDefaults/Extensions.cs:33-36`
+  - `src/backend/Mustask.ServiceDefaults/Extensions.cs:33-36`: `ConfigureHttpClientDefaults` adds `AddStandardResilienceHandler` to every client, including `keycloak-token`. Its default retry does not exclude POST.
+  - `src/backend/Mustask.Api/Features/Session/RefreshGrantClient.cs:55-71`: the refresh POST.
   - `src/backend/Mustask.Api/Program.cs:62`
   - `SessionAuthenticationSetup.cs:88-89`
   - `RealmMetadata.cs:31-32`
   - `deploy/keycloak/realms/mustask-realm.json:28-29`
-- **Rule:** generic: one explicit policy per outbound dependency.
+- **Rule:** generic: one explicit policy per outbound dependency; ADR-0022 D-14 (`:60-71`, refresh-token rotation and reuse detection).
 - **Impact:**
-  - The handler's 10 s and 30 s timeouts never fire.
-  - Retries of the refresh and logout POSTs can happen inside the 5 s window. The analyst checked this against refresh-token rotation and found it harmless.
+  - Take a `refresh_token` POST that Keycloak committed but whose answer came back as a 5xx or a reset. The retry presents the same, already rotated refresh token, and reuse detection then ends the whole client session (D-14; `docs/adr/0022-token-mediating-backend-for-the-panel.md:52-71`). A transient failure becomes a forced sign-out. The earlier conclusion "harmless against rotation" is not supported.
+  - The handler's 10 s and 30 s timeouts never fire inside the 5 s `HttpClient.Timeout`.
   - Neither `RefreshGrantClient.cs:42-54` nor `RealmMetadata` documents the retries.
-- **Proposed fix:** configure the resilience pipeline per Keycloak client and drop `HttpClient.Timeout`, or remove the handler for these clients. State the chosen policy in the `RefreshGrantClient` remarks.
+- **Proposed fix:** disable retries explicitly on the refresh POST (a per-client resilience pipeline without retry), and add a test that a 5xx on refresh is not retried. Configure the pipeline per Keycloak client and drop `HttpClient.Timeout`, or remove the handler for these clients. State the chosen policy in the `RefreshGrantClient` remarks.
 - **Effort:** S
 - **In flight:** -
+- **Review:** severity changed, info → minor; the refresh-retry hazard was added from review M-3 — see review.md.
 
 #### ASY-5 · info · Dev-only AppHost: `CancellationToken.None` on stand reset and a fresh `HttpClient` per drift probe
 - **Evidence:**
@@ -697,7 +714,7 @@ One likely real defect is EFC-1: a far page of the rescue list overflows to a ne
 
 ### DEP — Dependency hygiene
 
-#### DEP-1 · minor · One central Npgsql version serves two majors, and `Logging.Abstractions` sits below its family
+#### DEP-1 · info · One central Npgsql version serves two majors, and `Logging.Abstractions` sits below its family
 - **Evidence:**
   - `Directory.Packages.props:44-46`: Npgsql 8.0.3, for the AppHost stand reset only.
   - `Directory.Packages.props:42`: the EF provider 10.0.3 pulls Npgsql 10.0.3.
@@ -706,13 +723,14 @@ One likely real defect is EFC-1: a far page of the rescue list overflows to a ne
   - `Directory.Packages.props:72`: `Logging.Abstractions` 10.0.0, against 10.0.11 for the rest of the family.
   - `Directory.Packages.props:24-27`: these two entries block transitive pinning (NU1109).
 - **Rule:** central package management, with one release line per family.
-- **Impact:** no runtime defect, but a trap for the next explicit Npgsql reference. The entries also block the tool that would have handled the tech-040 advisory without an override.
-- **Proposed fix:**
-  - Bump `Logging.Abstractions` to 10.0.11 and Npgsql to 10.0.3. `HealthChecks.NpgSql` 9.0.0 only needs >= 8.0.3.
+- **Impact:** no runtime defect. Both entries are deliberate and documented: Npgsql 8.0.3 is pinned to what `Aspire.Hosting.PostgreSQL` resolves in AppHost (`:44-46`), and the NU1109 trade-off is written at `:24-27`. The trap is loud, not silent: a downgrade fails restore with NU1605. `Logging.Abstractions` 10.0.0 is referenced only by Application (`Mustask.Application.csproj:11`), and the shared framework resolves it upward at runtime. The entries do block the tool that would have handled the tech-040 advisory without an override.
+- **Proposed fix:** optional.
+  - Bump `Logging.Abstractions` to 10.0.11 and Npgsql to 10.0.3. `HealthChecks.NpgSql` 9.0.0 only needs >= 8.0.3. The Npgsql bump changes the AppHost stand-reset runtime.
   - Check the AppHost health check and the stand reset, then retry transitive pinning.
   - Otherwise use a commented `VersionOverride` in AppHost.
 - **Effort:** S
 - **In flight:** -
+- **Review:** severity changed, minor → info — see review.md.
 
 #### DEP-2 · minor · Two central `PackageVersion` entries have no consumer
 - **Evidence:**
@@ -724,16 +742,17 @@ One likely real defect is EFC-1: a far page of the rescue list overflows to a ne
 - **Effort:** F
 - **In flight:** -
 
-#### DEP-3 · minor · `.editorconfig` style rules marked as warnings are not enforced by the build or CI
+#### DEP-3 · info · `.editorconfig` style rules marked as warnings are not enforced by the build or CI
 - **Evidence:**
   - `.editorconfig:17, 22, 25`
   - `Directory.Build.props:5-8`: no `EnforceCodeStyleInBuild`.
   - `.github/workflows/ci.yml:89-96` and `scripts/verify.sh:826`: no `dotnet format --verify-no-changes`.
 - **Rule:** `docs/conventions/backend.md:344` together with the repo's own severities.
-- **Impact:** the rules hold only by discipline. "warning" plus warnings-as-errors reads as a gate that does not exist.
-- **Proposed fix:** set `EnforceCodeStyleInBuild=true`, mark `Mustask.Infrastructure/Migrations/*.cs` as `generated_code = true`, or add `dotnet format` to `verify.sh`.
+- **Impact:** the rules hold only by discipline. "warning" plus warnings-as-errors reads as a gate that does not exist. No current defect: outside `Migrations/*.cs`, no file breaks `file_scoped_namespaces` today.
+- **Proposed fix:** set `EnforceCodeStyleInBuild=true`, mark `Mustask.Infrastructure/Migrations/*.cs` as `generated_code = true`, or add `dotnet format` to `verify.sh`. Raising IDE rules under `TreatWarningsAsErrors` can break the build across the solution, so check the fan-out first.
 - **Effort:** S
 - **In flight:** -
+- **Review:** severity changed, minor → info (a guardrail gap with no current defect) — see review.md.
 
 #### DEP-4 · minor · Build and project files carry Russian comments
 - **Evidence:**
@@ -751,7 +770,7 @@ One likely real defect is EFC-1: a far page of the rescue list overflows to a ne
 - **Effort:** S
 - **In flight:** -
 
-#### DEP-5 · minor · Dependency rules cover five of seven production projects; package hygiene is not guarded
+#### DEP-5 · info · Dependency rules cover five of seven production projects; package hygiene is not guarded
 - **Evidence:**
   - `src/backend/tests/Mustask.Architecture.Tests/OnionDependencyRules.cs:13-20`: no rows for ServiceDefaults and AppHost.
   - `OnionDependencyRules.cs:36-47, 53-77`: inner layers only.
@@ -767,6 +786,7 @@ One likely real defect is EFC-1: a far page of the rescue list overflows to a ne
   - A fact that every `PackageVersion` has a consumer.
 - **Effort:** S
 - **In flight:** tech-035 reworks the kit. Check overlap.
+- **Review:** severity changed, minor → info (a missing guardrail; all of it holds today) — see review.md.
 
 #### DEP-6 · info · The test framework is on the xunit v2 line; the Aspire version is written in two places
 - **Evidence:**
@@ -911,7 +931,7 @@ One likely real defect is EFC-1: a far page of the rescue list overflows to a ne
 
 No finding was dropped outright. Changes:
 - **Merged:** ERR "Two slices declare no ProducesProblem" into ARC-6 (same routes, same fix). It is listed under both criteria.
-- **Downgraded:** ARC-3 (AreaType stored as a number), major → minor. The enum has explicit values 1..3 (`Area.cs:12-18`), which removes the reorder-corruption risk the canon cites. What remains is magic numbers in SQL and the precedent.
+- **Downgraded:** ARC-3 (AreaType stored as a number), major → minor. The enum has explicit values 1..3 (`Area.cs:12-18`), which removes the reorder-corruption risk the canon cites. What remains is magic numbers in SQL and the precedent. The review later moved it to info: accepted ADR-0031 prescribes the numbers.
 - **Evidence corrected (ARC-2, ARC-10):** `VerticalSliceRules.cs` has 94 lines.
   - The regex is at `:15-17`, not `:139-141`.
   - `SliceOf` is at `:81-92`, not `:213-215`.
@@ -921,7 +941,7 @@ No finding was dropped outright. Changes:
 - **Evidence corrected (ERR-3):** the rescue handler lives at `Features/Organizations/GetRescueOrganizations/`, not `Features/Rescue/`.
 - **Reframed (SEC-1):** kept major, on spot-check of `JwtBearerSetup.cs:50-110` and `OrganizationPermissionHandler.cs:39-82`.
   - The `azp` half stands on the code.
-  - The `user`-gate half is a contradiction inside ADR-0033: `:57` and `:76-77` say "no right", while `:71-72` says organization rights are untouched. It needs a decision, not only a fix.
+  - The `user`-gate half was read as a contradiction inside ADR-0033 (`:57`, `:76-77` against `:71-72`). The review corrected this: rule 2 keeps organization rights, so it is a policy question, and ADR-0033 is still proposed.
 - **Confirmed on spot-check, unchanged:**
   - ARC-1: `AreaLinks.cs:35-40`, the four handler checks, `Area.cs:109-125` against `:190-195`, `CreateProjectHandler.cs:125-128`.
   - SEC-2: ADR-0022 `:90`, ADR-0037 `:5, 17, 51`, `SessionAuthenticationSetup.cs:107`, `SessionEndpoints.cs:57-59`, `nginx-mustask-locations.conf:1-13`.
@@ -932,24 +952,29 @@ No finding was dropped outright. Changes:
 
 | # | prefix | slug | size | covers | why |
 |---|---|---|---|---|---|
-| 1 | tech | bearer-token-hardening | L | SEC-1, SEC-3 | Changes authorization rules (L threshold): an `azp` allow-list, the `user` gate on bearer requests, stripping inbound `perm` claims, and settling the ADR-0033 wording. deps mod-019, which owns the `org:*` policies. |
-| 2 | tech | session-origin-and-key-ring | L | SEC-2, SEC-5 | An ADR decision on own origin vs accepted shared-origin risk, plus an explicit Data Protection key ring. Both concern ADR-0022 secret handling (L threshold). |
-| 3 | tech | request-size-limits | M | SEC-4 | Kestrel body ceiling and domain count caps with new error codes across WorkItems and Organizations. deps mod-019 (touches `AddTeamHandler`). |
-| 4 | tech | area-rules-into-domain | M | ARC-1, ARC-5, TXN-5 | Type rules move into `Area`/`AreaTeam`; the bulk link paths take domain-built values; the statement gets its ORDER BY. Domain + Application + Infrastructure in one module. deps mod-019. |
-| 5 | tech | area-type-as-text | L | ARC-3 | Changes an existing column's type (a breaking data-model change, L threshold); the migration is reversible. Adds the model test for every persisted enum. |
+| 1a | tech | bearer-azp-check | L | SEC-1 (azp half), SEC-3 | Changes authorization rules (L threshold): an `azp` allow-list in `OnTokenValidated` that admits `mustask-panel` and the stand-only `mustask-e2e` (ADR-0023), plus stripping inbound `perm` claims. Independent of mod-019 (`JwtBearerSetup`, not touched by it). |
+| 1b | tech | bearer-user-gate | L | SEC-1 (user half) | Changes authorization rules (L threshold). Starts only after the human settles the user-gate policy; amends ADR-0033 in place (still proposed). deps mod-019, which owns `OrganizationPermissionHandler` and the `org:*` policies. |
+| 2 | tech | session-origin-adr | L | SEC-2 | The human decision (own origin vs a recorded risk acceptance for the shared origin) written as an ADR; touches session and secret handling (L threshold). SEC-5 moves to #12. |
+| 3 | tech | request-size-limits | L | SEC-4 | A global body cap and per-list count caps refuse inputs that existing routes accept today: a change of API semantics, which routing.md counts as breaking, and when torn between M and L it takes L. New error codes across WorkItems and Organizations. deps mod-019 (touches `AddTeamHandler`). |
+| 4 | tech | area-rules-into-domain | M | ARC-1, TXN-5, ARC-5 (optional) | A domain rule over `AreaType` called at the same step in the four link handlers and in project-node creation; the `ORDER BY` for the area link statement. Domain + Application + Infrastructure in one module. deps mod-019 (the files collide). |
 | 6 | tech | shared-code-placement | M | ARC-2, ARC-7 | Settles where module-shared code lives (canon amendment or move), splits the two-use-case folder, and moves the WorkItems routes. deps mod-019 (area handlers call `AreaRequests`). |
-| 7 | tech | read-path-reachability | M | ARC-4, EFC-2, EFC-3 | One reachability composition in Boards and `OrganizationStructure`, `FindProjectAsync` in one statement, the redundant index dropped after EXPLAIN. deps mod-019 (ADR-0029 rewrites these reads). |
+| 7 | tech | read-path-reachability | M | ARC-4, EFC-3, EFC-2 (optional) | One reachability composition in Boards and `OrganizationStructure`. The redundant index is dropped only after EXPLAIN against the feat-048 volume data. Parked until mod-019 lands, because ADR-0029 rewrites these reads. |
 | 8 | bug | rescue-page-overflow | S | EFC-1 | Observable 500 on a far page of the rescue list. Reproduce with a test first, then copy the `WorkItemReadModel` paging pattern. |
 | 9 | tech | unit-of-work-cleanup | M | TXN-1, TXN-2 | Removes the retry-era wrapper, keeps and documents `ChangeTracker.Clear()`, and closes the second flush point's error-mapping gap. Covers the follow-up that ADR-0012 says was filed. |
-| 10 | tech | error-contract-metadata | S | ARC-6, ERR-1, ASY-3 | `ProducesProblem` on Dictionaries and Session plus an endpoint-metadata test, Error-level logging for 5xx business exceptions, a narrowed session abort filter. Api only. |
-| 11 | tech | query-parameter-errors | L | ERR-3, ERR-5 | Changes the error body of existing routes for malformed query values (a semantic API-contract change, so the larger size per routing.md). |
-| 12 | tech | outbound-http-policy | S | ASY-2, ASY-4 | One client and one explicit timeout/retry policy for all Keycloak token-endpoint calls. Timeouts only; no auth rule changes. |
-| 13 | tech | quality-guardrails | M | ARC-10, DEP-5, ERR-2, TXN-4, EFC-6, ASY-1, DEP-3 | Turns review-only rules into tests and build gates: arch rules, catalog scanner, xmin model test, shared statement counter, CA2016, `EnforceCodeStyleInBuild`. deps tech-035 (test kit). |
-| 14 | tech | package-catalog-cleanup | S | DEP-1, DEP-2, DEP-4, DEP-6 | One Npgsql major, the Logging.Abstractions bump, unused entries removed, build-file comments in English, the Aspire SDK version in one place. |
-| 15 | tech | canon-sync | L | ARC-8, ARC-9, ERR-4, TXN-3 | Brings `backend.md` in line with the code (routes, slice schools, four handlers) and records the Languages xmin-as-ETag exception in an ADR (L threshold). Docs-only. deps mod-019 for the route text. |
+| 10 | tech | error-contract-metadata | M | ARC-6, ERR-1, ERR-6 | `ProducesProblem` on Dictionaries and Session, a forbidden code on the four Dictionaries routes, Error-level logging for 5xx business exceptions, and an endpoint-metadata test over every non-Public route. More than 5 files across Api and tests (routing.md:134). ASY-3 is info and not included. |
+| 12 | tech | outbound-http-policy | S | ASY-2, ASY-4, SEC-5 | One explicit timeout/retry policy for the Keycloak clients. It must disable retries on the `refresh_token` POST, with a test that a 5xx on refresh is not retried; this changes session behaviour. SEC-5 (explicit Data Protection key ring) is a config-only addition. |
+| 13a | tech | build-analyzer-gates | M | ASY-1, DEP-3 | CA2016 as a warning and `EnforceCodeStyleInBuild` with `Migrations` marked `generated_code`. Fan-out across the solution is unknown under `TreatWarningsAsErrors`, so check the build first (S if clean). Independent. |
+| 13b | tech | architecture-and-model-tests | M | ARC-10, DEP-5, ERR-2, TXN-4, EFC-6 | Review-only rules become tests: arch rules, the catalog scanner's literal check, the xmin model test, the shared statement counter, dependency rows. deps tech-035, which owns the test kit. |
+| 14a | tech | package-catalog-cleanup | M | DEP-2, DEP-6, DEP-1 (optional) | Unused entries removed and the Aspire SDK version in one place; the optional Npgsql 8 → 10 bump changes the AppHost stand-reset runtime. |
+| 14b | tech | build-file-comments-english | S | DEP-4 | Translate the Russian comments in about 8 build files, wording only. Comment-only; fits the light cycle if the human counts build-file comments as docs. |
+| 15 | tech | canon-sync | L | ARC-8, ARC-9, ERR-4, TXN-3, ARC-3, ARC-11 | Brings `backend.md` in line with the code (routes, slice schools, four handlers), records the Languages xmin-as-ETag exception in an ADR (L threshold), fixes ADR-0031's "no departures" line against `backend.md:314-318`, and carries the human's accept-or-revise question for the proposed ADRs 0021/0022/0033/0034/0036. Docs-only. deps mod-019 for the route text. |
 
 Not queued: the human decides at gate-1.
 
+Dropped or parked after the review (the numbers are kept, so the gaps are intentional):
+- **#5 area-type-as-text: dropped.** ARC-3 is info: accepted ADR-0031 rule 1 prescribes the numeric values, a conversion would need an amending ADR first, and the benefit is cosmetic. The ADR-0031/canon reconciliation moved into #15.
+- **#11 query-parameter-errors: parked.** ERR-3 and ERR-5 are info and ADR-0004:111-128 sanctions `http.bad_request` for binding failures; an L task with all three gates is poor value. If wanted, make it a canon question. The `AggregateViewEndpoints.cs:186` docstring mismatch can ride along in #10, and ERR-5 is handled when Dictionaries is next touched.
+
 Not given a task:
-- SEC-6 and ERR-6 fold into mod-019's design.
-- EFC-4, EFC-5, ASY-5 and ASY-6 are handled when their files are next touched.
+- SEC-6 folds into mod-019's design. ERR-6 is in #10 (mod-019 does not cover the Dictionaries instance policy).
+- EFC-4, EFC-5, ASY-3, ASY-5 and ASY-6 are handled when their files are next touched.
