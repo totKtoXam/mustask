@@ -3,7 +3,7 @@
 - type: module
 - size: L
 - branch: mod/019-scoped-access
-- stage: 03-ux-design
+- stage: 04-backend
 - epic: core/org-access
 - deps: mod-018,feat-043
 - gates: gate-1, gate-2, gate-3
@@ -11,7 +11,7 @@
 ## Gates
 
 gate-1: approved (2026-11-06, human in chat, one question each: OQ-1 A, OQ-2 reviewer variant, OQ-3 B, OQ-4 B, OQ-5 A, OQ-6 reviewer A, OQ-7 A, OQ-8 A, OQ-9 B, R-27 shown in the switch-off dialog; after review round 3, approved-by-ai, requested by the human)
-gate-2: pending
+gate-2: approved (2026-11-09, human in chat, after D-1..D-13 A, OQ-D1 A, OQ-10 role rename and the prototype screenshots)
 gate-3: pending
 
 ## Plan
@@ -23,7 +23,6 @@ Economy mode: one agent per stage, no build fan-out. E2E: no (paused).
 Plans: `plan-backend.md`, `plan-frontend.md`.
 
 ## Log
-
 - 2026-11-06 [orchestrator] task started in the app-made worktree
   .claude/worktrees/workflow-debts-c5f842, its branch renamed to
   mod/019-scoped-access (handoff.md: task not started yet, the session creates
@@ -61,7 +60,6 @@ Plans: `plan-backend.md`, `plan-frontend.md`.
   human's decision); R-27 closed by listing the reached users' project grants in
   the switch-off confirmation; stage → 03-ux-design
 - 2026-11-06 [ux-designer] design.md (about 28 KB) and prototype/index.html written; D-1..D-13 for gate-2, new open questions OQ-D1 (switch-off list on a sub-area) and OQ-D2 (per-row link flag, no matrix). Gates untouched
-
 - 2026-11-06 [orchestrator] gate-2 decisions answered by the human in chat,
   one question each: D-1..D-13 all A; OQ-D1 A (the sub-area switch-off dialog
   lists the owning project's grants given by those who stop being reached);
@@ -70,6 +68,10 @@ Plans: `plan-backend.md`, `plan-frontend.md`.
   project, row menu, change role, revoke; no JS errors). gate-2 itself waits
   for the human's own look at the prototype
 - 2026-11-06 [task-executor] scoped roles renamed in spec.md (new OQ-10, Roles, Breaks), stories, design.md and the prototype by the human's decision in chat: department and project «Чтение»/«Изменение»/«Управление» → «Читатель»/«Участник»/«Менеджер»; team «Планирование»/«Управление» → «Участник»/«Менеджер» plus a new lowest team «Читатель» (lists the person only). Names only, rights unchanged; review.md left as the history of the rounds.
+- 2026-11-09 [orchestrator] gate-2 approved by the human in chat; stage → 04-backend.
+  Held before stage 4 by the doc-012 orchestrator until the v0.2.0 deploy is
+  done; plan-backend owes the proposed ADR amending ADR-0029, OQ-D2's contract
+  and the error codes
 
 ## Notes
 
