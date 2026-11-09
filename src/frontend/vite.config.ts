@@ -32,7 +32,7 @@ interface EmojibaseGroup {
 }
 
 /**
- * `virtual:rich-text-emoji` — the picker's data as one module (ADR-0027
+ * `virtual:rich-text-emoji` — the picker's data as one module (ADR-0037
  * decision 4, M1): `[emoji, Russian label, Russian tags, group index]`,
  * flags and the component group omitted, skin tones dropped, ordered by the
  * data set's own order. Used only through a dynamic `import()`, so Rollup
