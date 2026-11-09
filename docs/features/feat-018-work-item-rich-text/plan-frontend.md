@@ -1125,8 +1125,8 @@ pause them), as is E2E (the human's standing answer is no).
 
 | | bytes | against the proposed ceiling |
 |---|---|---|
-| entry chunk (baseline 279 519) | **289 381**, **+9 862** | growth ceiling 10 240 |
-| editor chunk (`EditorImpl`, with ProseMirror, TipTap, the toolbar, the highlighter, the link dialog) | **182 041** | 225 280 |
+| entry chunk (baseline 395 696, see below) | **406 652**, **+10 956** | growth ceiling 10 240: **exceeded by 716** |
+| editor chunk (`EditorImpl`, with ProseMirror, TipTap, the toolbar, the highlighter, the link dialog) | **182 083** | 225 280 |
 | emoji chunk | **46 857** | 53 248 |
 
 The entry growth is the pure library (normaliser, vocabulary, legacy conversion, limits, link rule), the
@@ -1134,6 +1134,14 @@ wrapper, and `theme.richText`; no editor-library module is reachable from the en
 passes). The editor chunk is below the isolated measurement (223 654) because the MUI parts the entry
 already holds are not counted again. The ceilings stay *proposed* in `bundle-budget.json` until the human
 confirms them (ADR-0037 decision 10).
+
+Re-measured on 2026-11-09 on the merged tree (code review CR-5; the table above is that measurement,
+replacing slice 7's 289 381 / +9 862 against the pre-merge baseline 279 519). The baseline is main's
+entry at the merge-base side of the merge (`a0a43386`) built the same way, 395 696 B (this file's own
+gzip level 6; the report's figure for the same kind of file differs by about 15 B). **The entry growth
+now exceeds the proposed ceiling by 716 B**; the editor and emoji chunks are inside theirs. The ceilings
+are not changed here: raising the entry ceiling (or trimming the entry) is the human's call at gate-3.
+`bundle:check` therefore fails today on the entry growth alone.
 
 ### 15.3 Left to a human (QA by hand — jsdom cannot show it)
 

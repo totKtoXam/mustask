@@ -47,7 +47,8 @@ The one exception to that stack is the rich-text editor of a work item's
 «Описание» ([ADR-0037](../adr/0037-rich-text-as-sanitized-html-with-tiptap.md)):
 TipTap on ProseMirror, `lowlight` and a bundled emoji data set, only as
 `shared/ui/RichTextEditor` — one lazy chunk, never reachable from the entry
-chunk (`npm run bundle:check` holds the build to `bundle-budget.json`), with
+chunk (`npm run bundle:check`, run by hand after `npm run build` and at the task's final
+review, checks the build against `bundle-budget.json`; no script or CI step runs it), with
 its pure functions in `shared/lib/richText`. Stored html is never assigned
 to the page: no `dangerouslySetInnerHTML`, `innerHTML`, `outerHTML` or
 `insertAdjacentHTML` in product code (ESLint and `src/test/noRawHtml.test.ts`).
