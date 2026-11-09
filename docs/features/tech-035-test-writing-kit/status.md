@@ -28,6 +28,7 @@ gate-3: pending
 - 2026-11-09 [orchestrator] binding: this session's worktree `.claude/worktrees/unruffled-banach-65f877`, its branch renamed to `tech/035-test-writing-kit` and reset to `origin/main` `d6fb8e0f`; new-task.sh was not run (it makes a worktree this session cannot use).
 - 2026-11-09 [orchestrator] queue take: PR #100.
 - 2026-11-09 [backend-developer] stage 4 done (a2086ae3, 67e5fbe6, f3957318): kit, testing.md sections 1–2, four reference tests, 16 KitAssertionsTests; build green, affected suites green (full Api/Infrastructure suites not run). The developer created `src/backend/tests/Directory.Build.props` itself to keep the kit commit buildable; the orchestrator reviewed and accepts it.
+- 2026-11-09 [frontend-developer] frontend stage done (8d9232f3, 51d12637, 8e59da70): `src/test/` api.ts, fixtures.ts, renderPage.tsx, 16 kit tests; reference tests: page `routes.access.test.tsx`, component `DefaultLanguageDialog.test.tsx` (unit layer needs no helper); testing.md section 3. tsc and ESLint clean; full Vitest 5602 passed, 1 load timeout (`BacklogPage.qa.test.tsx`, passes alone).
 
 ## Notes
 
