@@ -287,7 +287,7 @@ export function StructureDiagram({
     patch({ levels: { ...view.levels, selected: new Set() } });
     announce(texts.levels.shownAll);
     // The button is disabled once nothing is pressed: focus goes to the first chip, and when the
-    // layout draws none (folded sections, vertical layout) to the tree's focus item.
+    // layout draws none (a model with no levels) to the tree's focus item.
     requestAnimationFrame(() => {
       const target =
         frameRef.current?.querySelector<HTMLElement>('[data-chip]') ??
