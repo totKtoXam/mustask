@@ -266,9 +266,13 @@ chunk; the ADR names the set (open at gate-2, D-6). No image, no network.
   (also when only an image of rich pasted content was dropped, D-7), until the
   next edit or blur; the Tab hint (below) while the caret is in a code block or
   table. A second drop re-announces.
-- **Read-only.** Not built: no role is read-only (BR-M3-27) and no other
-  surface shows the description (BR-RT-12). The follow-up that shows a stored
-  value renders it through the same schema without toolbar or border.
+- **Read-only.** No dedicated read-only surface is built. The card passes its
+  read-only state (the viewer role, a deleted item) and a running save into the
+  editor as `disabled`: the editor is greyed with `editable: false` and its
+  body is not focusable, so the text cannot be read by keyboard in that state.
+  This is a known gap (QA FD-1) whose resolution is the human's decision at
+  gate-3; it is not designed here. The follow-up that shows a stored value
+  renders it through the same schema without toolbar or border.
 - **Permissions.** Unchanged from mod-003.
 
 ### Keyboard, focus order, Tab exceptions
