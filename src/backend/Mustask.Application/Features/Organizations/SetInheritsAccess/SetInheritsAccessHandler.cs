@@ -22,7 +22,7 @@ public sealed record SetInheritsAccessResponse(bool InheritsAccess);
 /// <remarks>
 /// <b>The order of answers</b>: the organization; the node (404, unlocked, for its parent); the parent's code (403); a department
 /// (409 <c>type_not_allowed</c>); the value (400); then the locks — the organization's tree, then the node <c>FOR UPDATE</c> — and the
-/// parent's code again on the locked row; a switch to the value it has is a 200 that changes nothing. The change takes effect on the
+/// parent's code and the node's own again on the locked row; a switch to the value it has is a 200 that changes nothing. The change takes effect on the
 /// next request: nothing is cached (BR-SA-8).
 /// </remarks>
 public sealed class SetInheritsAccessHandler(
@@ -69,8 +69,10 @@ public sealed class SetInheritsAccessHandler(
                 var area = await areas.LockForUpdateAsync(organizationId, areaId, ct)
                     ?? throw new NotFoundException(OrganizationErrorCodes.AreaNotFound);
 
-                // The parent as the lock holds it: a move that committed meanwhile may have changed it (BR-SA-13, mod-018 m-2).
-                if (!await HoldsOnParentAsync(area.ParentId, ct))
+                // The parent as the lock holds it (a move that committed meanwhile, BR-SA-13) and the node's own code: an ancestor switched off under the route's check no longer
+                // passes access down to the node (review C-8).
+                if (!await HoldsOnParentAsync(area.ParentId, ct)
+                    || !await access.HoldsOnAsync(PermissionCatalog.OrganizationsAreaWrite, areaId, ct))
                 {
                     throw new ForbiddenException(OrganizationErrorCodes.AccessForbidden);
                 }
