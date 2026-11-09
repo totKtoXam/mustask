@@ -395,6 +395,14 @@ export class OrganizationsTestApi {
     return [...(role ? codesOf(role) : servedObjectCodes.current)];
   }
 
+  /** The caller's organization-wide codes: their role's in the dataset, else what the render served. */
+  private organizationCodes(organizationId: string): readonly string[] {
+    const role = this.data.memberships?.find(
+      (m) => m.organizationId === organizationId && m.userId === this.data.actingUserId,
+    )?.role;
+    return role ? codesOf(role) : servedObjectCodes.current;
+  }
+
   private projectAnswer(project: ProjectRecord): Project {
     return {
       id: project.id,
@@ -1389,6 +1397,16 @@ export class OrganizationsTestApi {
       http.post(
         AREAS_URL,
         answer(201, (p, b) => this.createArea(this.organization(o(p)), b)),
+      ),
+      // mod-019 § 5: the nodes the caller may write — every node for who holds `area.write` in the organization, else the dataset's.
+      http.get(
+        `${AREAS_URL}/writable-ids`,
+        answer(200, (p) => {
+          const organization = this.organization(o(p));
+          return this.organizationCodes(organization.id).includes('organizations.area.write')
+            ? this.data.areas.filter((a) => a.organizationId === organization.id).map((a) => a.id)
+            : (this.data.writableAreaIds ?? []);
+        }),
       ),
       http.get(
         AREA_URL,

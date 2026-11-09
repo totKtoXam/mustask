@@ -65,7 +65,7 @@ describe('mod-003 US-4 Scenario: An assignee is found by name and saved', () => 
     expect(within(smirnova).getByText('АС')).toBeInTheDocument();
     expect(within(smirnova).getByText('anna.smirnova@example.com')).toBeInTheDocument();
     expect(api.reads('assignee-candidates').at(-1)?.path).toBe(
-      `/api/organizations/${ids.example}/workitems/assignee-candidates?text=${encodeURIComponent('анна')}`,
+      `/api/organizations/${ids.example}/workitems/assignee-candidates?text=${encodeURIComponent('анна')}&projectId=${ids.msk}`,
     );
 
     await userEvent.click(smirnova);

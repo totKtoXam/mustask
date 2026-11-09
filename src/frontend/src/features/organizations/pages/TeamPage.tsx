@@ -30,6 +30,8 @@ import { FactsPanel } from '../components/FactsPanel';
 import { LinkDialog, type LinkOption } from '../components/LinkDialog';
 import { useNotify } from '../components/notice';
 import { TeamDialogs, type TeamDialog } from '../components/TeamDialogs';
+import { useObjectCodesNotice } from '../hooks/useObjectCodesNotice';
+import { codesChangedNotice } from '../lib/grantTexts';
 import { GrantsSection } from '../components/GrantsSection';
 import { grantsSection } from '../lib/grantTexts';
 import { TeamMembersSection } from '../components/TeamMembersSection';
@@ -69,6 +71,7 @@ export function TeamPage() {
   const notify = useNotify();
   const context = useWorkContext();
   const access = useObjectAccess(query.data?.codes);
+  useObjectCodesNotice(teamId, query.data?.name, query.data?.codes, codesChangedNotice.team);
   const canWrite = access(organizationsPermissions.teamWrite, 'organization');
   const canDelete = access(organizationsPermissions.teamDelete, 'organization');
   // The team's end of a link; the other end's code is the picker's filter (`linkableFor`, api-contract § 4).

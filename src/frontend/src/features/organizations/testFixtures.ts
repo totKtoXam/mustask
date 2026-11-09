@@ -167,6 +167,8 @@ export interface Dataset {
   grantInheritance?: GrantInheritance;
   /** What turning a node's switch off would do (§ 3); absent: nothing. */
   switchImpact?: SwitchImpact;
+  /** The nodes a caller without the organization-wide `area.write` may write (§ 5); absent: none. */
+  writableAreaIds?: string[];
   /** The caller the handlers answer as (the token's `sub`); needed with `teamMembers` and `memberships`. */
   actingUserId?: string;
 }

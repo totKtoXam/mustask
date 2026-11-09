@@ -22,6 +22,8 @@ import { NameDialog } from '../components/NameDialog';
 import { useNotify } from '../components/notice';
 import { useDescribeProject, useRenameProject, useSetDefaultTeam } from '../hooks/mutations';
 import { useArea, useProject, useProjectAreaTree, useTeams } from '../hooks/queries';
+import { useObjectCodesNotice } from '../hooks/useObjectCodesNotice';
+import { codesChangedNotice } from '../lib/grantTexts';
 import { useObjectLink } from '../hooks/useObjectLink';
 import { commandKinds } from '../lib/areaCommands';
 import { placementField } from '../lib/areaTexts';
@@ -56,6 +58,7 @@ export function ProjectGeneralPage() {
   const node = tree.data?.find((entry) => entry.type === 'project');
   const notify = useNotify();
   const access = useObjectAccess(query.data?.codes);
+  useObjectCodesNotice(projectId, query.data?.name, query.data?.codes, codesChangedNotice.project);
   // The node's own codes: a project manager holds the area codes there (ADR-0038 § 2).
   const nodeQuery = useArea(organizationId, node?.id ?? '', { enabled: node !== undefined });
   const nodeAccess = useObjectAccess(nodeQuery.data?.codes);

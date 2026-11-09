@@ -67,9 +67,14 @@ export function placementOptionsFor(
   areas: readonly AreaNode[],
   atTop: boolean,
   inDepartment: boolean,
+  /** mod-019 § 5: the nodes the caller may write; absent: every department (the administrator's view). */
+  writableIds?: ReadonlySet<string>,
 ): PlaceOption[] {
   const options = placementOptions(inDepartment ? areas : []);
-  return atTop ? options : options.filter((option) => option.id !== null);
+  const placed = atTop ? options : options.filter((option) => option.id !== null);
+  return writableIds
+    ? placed.filter((option) => option.id === null || writableIds.has(option.id))
+    : placed;
 }
 
 /**

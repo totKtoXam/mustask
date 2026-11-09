@@ -24,7 +24,10 @@ import {
 import { ErrorBanner } from '../../../shared/ui/ErrorBanner';
 import { FormSkeleton } from '../../../shared/ui/FormSkeleton';
 import { PageHeader, type Command } from '../../../shared/ui/PageHeader';
-import { RequiresOrganizationCode } from '../../../shared/ui/RequiresOrganizationCode';
+import {
+  RequiresCode,
+  RequiresOrganizationCode,
+} from '../../../shared/ui/RequiresOrganizationCode';
 import { AccessDenied, NotFound } from '../../../shared/ui/StateFrame';
 import type { AreaPage as AreaPageData, LinkedTeam } from '../api/organizationsApi';
 import { AreaLinkDialog, AreaUnlinkDialog } from '../components/AreaLinkDialog';
@@ -40,7 +43,12 @@ import { InheritAccessControl } from '../components/InheritAccessControl';
 import { useNotify } from '../components/notice';
 import { PlaceProjectDialog } from '../components/PlaceProjectDialog';
 import { useLinkTeamsToArea, useMoveArea, useUnlinkTeamFromArea } from '../hooks/mutations';
-import { useArea, useAreaTeams, useAreaTree } from '../hooks/queries';
+import { useArea, useAreaTeams, useAreaTree, useWritableAreaIds } from '../hooks/queries';
+import { CreateProjectDialog } from '../components/CreateProjectDialog';
+import { useCreateProject } from '../hooks/mutations';
+import { projectGeneralPath } from '../paths';
+import { useObjectCodesNotice } from '../hooks/useObjectCodesNotice';
+import { codesChangedNotice } from '../lib/grantTexts';
 import { useObjectLink } from '../hooks/useObjectLink';
 import { commandKinds, commandLabel } from '../lib/areaCommands';
 import {
@@ -66,6 +74,7 @@ import { organizationsPermissions } from '../permissions';
 type PageDialog =
   | { kind: 'node'; dialog: NodeDialog }
   | { kind: 'place' }
+  | { kind: 'createProject' }
   | { kind: 'lift'; project: { id: string; name: string } }
   | { kind: 'linkTeams' }
   | { kind: 'unlinkTeam'; team: LinkedTeam }
@@ -205,9 +214,19 @@ export function AreaPage() {
   const linkTeams = useLinkTeamsToArea(organizationId, areaId);
   const unlinkTeam = useUnlinkTeamFromArea(organizationId, areaId);
   const moveArea = useMoveArea(organizationId);
+  const createProject = useCreateProject(organizationId);
+  // The writable nodes (mod-019 § 5): the department manager creates in a department they write.
+  const writable = useWritableAreaIds(organizationId, { enabled: isDepartment });
+  const writableIds = new Set(writable.data ?? []);
   const navigate = useNavigate();
   const notify = useNotify();
   const access = useObjectAccess(query.data?.codes);
+  useObjectCodesNotice(
+    areaId,
+    query.data?.type === 'department' ? query.data.name : undefined,
+    query.data?.codes,
+    codesChangedNotice.department,
+  );
   const context = useWorkContext();
   const canWrite = access(organizationsPermissions.areaWrite, 'organization');
   const canCreate = access(organizationsPermissions.areaCreate, 'organization');
@@ -438,6 +457,13 @@ export function AreaPage() {
             )}
             {canWrite && (
               <ActionButton
+                label={areaPage.projects.create}
+                icon={<ThinAddIcon />}
+                onClick={() => setDialog({ kind: 'createProject' })}
+              />
+            )}
+            {canWrite && (
+              <ActionButton
                 label={areaPage.projects.add}
                 icon={<ThinAddIcon />}
                 onClick={() => setDialog({ kind: 'place' })}
@@ -567,12 +593,32 @@ export function AreaPage() {
         onDone={done}
         onClose={closeDialog}
       />
+      {area && dialog?.kind === 'createProject' && (
+        <RequiresCode holds={canWrite}>
+          <CreateProjectDialog
+            organizationId={organizationId}
+            canLink={false}
+            canPlaceInDepartment
+            writableIds={new Set([area.id])}
+            presetPlaceId={area.id}
+            onForbidden={() => void query.refetch()}
+            submit={(body) => createProject.mutateAsync(body)}
+            onSucceeded={(project) => {
+              setDialog(null);
+              notify(`Проект «${project.name}» создан.`);
+              navigate(projectGeneralPath(organizationId, project.id));
+            }}
+            onClose={closeDialog}
+          />
+        </RequiresCode>
+      )}
       {area && dialog?.kind === 'place' && (
         <RequiresOrganizationCode code={organizationsPermissions.areaWrite}>
           <PlaceProjectDialog
             organizationId={organizationId}
             department={{ id: area.id, name: area.name }}
             canFromTop={canCreate}
+            writableIds={writable.isSuccess ? writableIds : undefined}
             submit={(nodeId) => moveArea.mutateAsync({ areaId: nodeId, parentId: area.id })}
             onSucceeded={(project) => {
               setDialog(null);
