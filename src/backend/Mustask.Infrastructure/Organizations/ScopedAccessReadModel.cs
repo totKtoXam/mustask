@@ -13,8 +13,8 @@ namespace Mustask.Infrastructure.Organizations;
 /// <b>Reach.</b> A grant on a team reaches that team only. A grant on a project reaches the project and, for area-scope codes, its
 /// node and every sub-area below it, whatever the switches. A department grant reaches the department, then each child while that
 /// child's «Наследовать доступ» is on: first a project node, then its sub-areas, each through its parent. The walk follows parent
-/// pointers upward from the addressed node and stops at the first node whose switch is off; the tree is at most 10 levels deep, and
-/// the loop bounds itself anyway. A department's own stored switch never takes effect (BR-SA-6): the walk never asks it.
+/// pointers upward from the addressed node and stops at the first node whose switch is off, all in one recursive statement; the tree is at most 10 levels deep, and
+/// the walk bounds itself anyway. A department's own stored switch never takes effect (BR-SA-6): the walk never asks it.
 /// </remarks>
 internal sealed class ScopedAccessReadModel(MustaskDbContext context) : IScopedAccessReadModel
 {
@@ -57,12 +57,10 @@ internal sealed class ScopedAccessReadModel(MustaskDbContext context) : IScopedA
                 return held;
 
             case ResourceScope.Area:
-                var start = await context.Areas.AsNoTracking()
-                    .Where(area => area.OrganizationId == organizationId && area.Id == objectId)
-                    .Select(area => new AreaStep(area.Id, area.Type, area.ParentId, area.ProjectId, area.InheritsAccess))
-                    .SingleOrDefaultAsync(cancellationToken);
+                // One recursive statement walks the chain upward from the addressed node, so the count does not grow with the depth.
+                var chain = await WalkAsync(organizationId, objectId, cancellationToken);
 
-                if (start is null)
+                if (chain.Count == 0)
                 {
                     return null;
                 }
@@ -70,32 +68,17 @@ internal sealed class ScopedAccessReadModel(MustaskDbContext context) : IScopedA
                 var reaching = new List<ReachingGrant>();
 
                 // A project grant reaches its node and every sub-area, whatever the switches (ADR-0038 § 2).
-                if (start.ProjectId is { } projectId)
+                if (chain[0].ProjectId is { } projectId)
                 {
                     reaching.AddRange(await ProjectGrantsAsync(projectId, userId, cancellationToken));
                 }
 
-                var current = start;
+                // The walk ends at a department only when every node below it passes access on; a department's own switch is never read.
+                var top = chain[^1];
 
-                for (var depth = 0; depth < MaxDepth; depth++)
+                if (top.Type == (short)AreaType.Department)
                 {
-                    if (current.Type == AreaType.Department)
-                    {
-                        reaching.AddRange(await DepartmentGrantsAsync(current.Id, userId, cancellationToken));
-
-                        break;
-                    }
-
-                    // A department's stored switch is not read; every other node must have its switch on to inherit from above.
-                    if (!current.InheritsAccess || current.ParentId is not { } parentId)
-                    {
-                        break;
-                    }
-
-                    current = await context.Areas.AsNoTracking()
-                        .Where(area => area.OrganizationId == organizationId && area.Id == parentId)
-                        .Select(area => new AreaStep(area.Id, area.Type, area.ParentId, area.ProjectId, area.InheritsAccess))
-                        .SingleAsync(cancellationToken);
+                    reaching.AddRange(await DepartmentGrantsAsync(top.Id, userId, cancellationToken));
                 }
 
                 return reaching;
@@ -141,5 +124,33 @@ internal sealed class ScopedAccessReadModel(MustaskDbContext context) : IScopedA
             .Select(grant => grant.Role).ToListAsync(cancellationToken))
         .Select(role => new ReachingGrant(ResourceScope.Area, role)).ToList();
 
-    private sealed record AreaStep(Guid Id, AreaType Type, Guid? ParentId, Guid? ProjectId, bool InheritsAccess);
+    // The chain from the addressed node up to the first node that does not pass access on (BR-SA-6: a department stops it and its
+    // stored switch is not read). The depth bound is the tree's 10 levels; the walk follows (organization_id, parent_id), so a parent
+    // of another organization cannot appear. Empty when the node is not in the organization.
+    private async Task<List<AreaStepRow>> WalkAsync(Guid organizationId, Guid areaId, CancellationToken cancellationToken) =>
+        await context.Database
+            .SqlQuery<AreaStepRow>(
+                $"""
+                 WITH RECURSIVE walk AS (
+                     SELECT a.id, a.type, a.parent_id, a.project_id, a.inherits_access, 0 AS depth
+                     FROM areas AS a
+                     WHERE a.organization_id = {organizationId} AND a.id = {areaId}
+                   UNION ALL
+                     SELECT p.id, p.type, p.parent_id, p.project_id, p.inherits_access, walk.depth + 1
+                     FROM walk
+                     JOIN areas AS p ON p.organization_id = {organizationId} AND p.id = walk.parent_id
+                     WHERE walk.type <> 1 AND walk.inherits_access AND walk.depth < {MaxDepth}
+                 )
+                 SELECT id AS "Id", type AS "Type", project_id AS "ProjectId" FROM walk ORDER BY depth
+                 """)
+            .ToListAsync(cancellationToken);
+
+    private sealed class AreaStepRow
+    {
+        public Guid Id { get; init; }
+
+        public short Type { get; init; }
+
+        public Guid? ProjectId { get; init; }
+    }
 }
