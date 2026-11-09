@@ -1,5 +1,6 @@
 using Mustask.Domain.Organizations;
 using Mustask.Domain.Process;
+using Mustask.Testing;
 using static Mustask.Domain.Tests.Organizations.OrganizationsDomainTestData;
 
 namespace Mustask.Domain.Tests.Organizations;
@@ -13,7 +14,7 @@ public sealed class OrganizationTests
         var id = Guid.CreateVersion7();
         var processId = ProcessId.New();
 
-        var organization = Organization.Create(id, Name("  Пример организации "), processId, Now, Creator);
+        var organization = Organization.Create(id, TestData.Name("  Пример организации "), processId, TestData.Now, TestData.Creator);
 
         Assert.Equal(id, organization.Id);
         Assert.Equal("Пример организации", organization.Name);
@@ -21,8 +22,8 @@ public sealed class OrganizationTests
         Assert.Equal(OrganizationStatus.Active, organization.Status);
         Assert.True(organization.IsActive);
         Assert.Equal(processId, organization.ProcessId);
-        Assert.Equal(Now, organization.CreatedAt);
-        Assert.Equal(Creator, organization.CreatedBy);
+        Assert.Equal(TestData.Now, organization.CreatedAt);
+        Assert.Equal(TestData.Creator, organization.CreatedBy);
     }
 
     [Theory]

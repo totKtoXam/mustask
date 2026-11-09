@@ -2,6 +2,7 @@ using Mustask.Application.Features.Organizations.GetOrganization;
 using Mustask.Application.Tests.TestDoubles.Organizations;
 using Mustask.Domain.Organizations;
 using Mustask.Shared.Exceptions;
+using Mustask.Testing;
 
 namespace Mustask.Application.Tests.Features.Organizations.GetOrganization;
 
@@ -76,7 +77,7 @@ public sealed class GetOrganizationHandlerTests
     {
         var f = new Fixture();
 
-        f.Organization.Rename(InMemoryOrganizations.Name("Новое название"));
+        f.Organization.Rename(TestData.Name("Новое название"));
         var result = await f.HandleAsync(f.Organization.Id.ToString());
 
         Assert.Equal("Новое название", result.Response.Name);

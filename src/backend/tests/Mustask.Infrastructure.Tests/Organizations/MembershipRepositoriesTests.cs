@@ -4,6 +4,7 @@ using Mustask.Domain.Identity;
 using Mustask.Domain.Organizations;
 using Mustask.Infrastructure.Tests.Process;
 using Mustask.Shared.Exceptions;
+using Mustask.Testing;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -230,11 +231,11 @@ public sealed class MembershipRepositoriesTests(OrganizationsDatabaseFixture dat
     {
         var structure = await database.CreateStructureAsync();
         var projectId = structure.Project.Project.Id;
-        var analytics = Team.Create(structure.Organization.Id, OrganizationsDatabaseFixture.Name("Аналитика"));
+        var analytics = Team.Create(structure.Organization.Id, TestData.Name("Аналитика"));
         await using (var context = database.NewContext())
         {
             context.Teams.Add(analytics);
-            context.ProjectTeams.Add(ProjectTeam.Link(structure.Organization.Id, projectId, analytics.Id, OrganizationsDatabaseFixture.Creator, OrganizationsDatabaseFixture.Now));
+            context.ProjectTeams.Add(ProjectTeam.Link(structure.Organization.Id, projectId, analytics.Id, TestData.Creator, TestData.Now));
             await context.SaveChangesAsync();
         }
 
