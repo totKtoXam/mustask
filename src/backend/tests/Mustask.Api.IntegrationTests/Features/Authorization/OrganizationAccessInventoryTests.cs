@@ -111,7 +111,7 @@ public sealed class OrganizationAccessInventoryTests(MustaskApiFactory factory)
                 problems.Add($"{key}: declares {code}, which is not an organization code of the catalog.");
             }
 
-            var expectedPolicy = PermissionPolicies.OrganizationPolicyName(code, categories[0].AcceptsDeactivated);
+            var expectedPolicy = PermissionPolicies.OrganizationPolicyName(code, categories[0].AcceptsDeactivated, categories[0].Scope);
             var policies = endpoint.Metadata.GetOrderedMetadata<IAuthorizeData>().Select(data => data.Policy).ToList();
 
             if (!policies.Contains(expectedPolicy))
@@ -163,7 +163,7 @@ public sealed class OrganizationAccessInventoryTests(MustaskApiFactory factory)
     public void TheInstanceOperationRoutes_AreNotVacuous_AndNoListedRouteIsInTheOrganizationList()
     {
         Assert.NotEmpty(InstanceOperationRoutes);
-        Assert.Equal(PermissionScope.Instance, PermissionCatalog.ScopeOf(PermissionCatalog.OrganizationsOrganizationRescue));
+        Assert.Equal(PermissionSource.Instance, PermissionCatalog.SourceOf(PermissionCatalog.OrganizationsOrganizationRescue));
         Assert.Empty(AddressedEndpoints().Select(KeyOf).Intersect(InstanceOperationRoutes.Keys));
         Assert.Empty(OrganizationAddressedRoutes.All.Select(route => route.Key).Intersect(InstanceOperationRoutes.Keys));
     }
@@ -293,7 +293,8 @@ public sealed class OrganizationAccessInventoryTests(MustaskApiFactory factory)
         // mod-018 api-contract § 2-3 (typed tree): eleven organization-area routes, the project's subtree read and three team-end routes in, the project-nested tree writes out - 70; TC-28 adds the read-only team-links read - 71.
         // feat-033 api-contract § 2.1 adds the organization's own appointment record - 74 (its two rescue routes with {organizationId} are the instance exceptions below).
         // feat-048 api-contract § 2 adds the aggregate views' eight reads - 82.
-        Assert.Equal(82, expected.Count);
+        // mod-019 api-contract § 2: fifteen grant routes (five under each of a department, a project and a team) - 97.
+        Assert.Equal(97, expected.Count);
     }
 
     // Every organization code of the catalog is declared by at least one route — a code with no route is a decision nobody enforces

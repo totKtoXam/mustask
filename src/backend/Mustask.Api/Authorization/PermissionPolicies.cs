@@ -1,3 +1,4 @@
+using Mustask.Domain.Identity;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.Extensions.Options;
 
@@ -22,6 +23,7 @@ public sealed class PermissionPolicies : IAuthorizationPolicyProvider
     private const string PermissionPolicyPrefix = "perm:";
     private const string OrganizationPolicyPrefix = "org:";
     private const string OrganizationRestorePolicyPrefix = "org+restore:";
+    private const string OrganizationScopedPolicyPrefix = "orgscope:";
     private const string PermissionClaimType = "perm";
 
     private readonly DefaultAuthorizationPolicyProvider _fallback;
@@ -34,7 +36,8 @@ public sealed class PermissionPolicies : IAuthorizationPolicyProvider
     public static string PolicyName(string permissionCode) => PermissionPolicyPrefix + permissionCode;
 
     /// <summary>The policy name of an organization-scoped route (mod-016): the code, and whether a deactivated organization is accepted.</summary>
-    public static string OrganizationPolicyName(string permissionCode, bool acceptsDeactivated) =>
+    public static string OrganizationPolicyName(string permissionCode, bool acceptsDeactivated, ResourceScope scope = ResourceScope.Organization) =>
+        scope != ResourceScope.Organization ? $"{OrganizationScopedPolicyPrefix}{scope}:{permissionCode}" :
         (acceptsDeactivated ? OrganizationRestorePolicyPrefix : OrganizationPolicyPrefix) + permissionCode;
 
     public Task<AuthorizationPolicy?> GetPolicyAsync(string policyName)
@@ -48,6 +51,17 @@ public sealed class PermissionPolicies : IAuthorizationPolicyProvider
                 .Build();
 
             return Task.FromResult<AuthorizationPolicy?>(policy);
+        }
+
+        if (policyName.StartsWith(OrganizationScopedPolicyPrefix, StringComparison.Ordinal))
+        {
+            var rest = policyName[OrganizationScopedPolicyPrefix.Length..];
+            var separator = rest.IndexOf(':', StringComparison.Ordinal);
+
+            if (separator > 0 && Enum.TryParse<ResourceScope>(rest[..separator], out var scope))
+            {
+                return Task.FromResult<AuthorizationPolicy?>(OrganizationPolicy(rest[(separator + 1)..], acceptsDeactivated: false, scope));
+            }
         }
 
         if (policyName.StartsWith(OrganizationPolicyPrefix, StringComparison.Ordinal))
@@ -69,9 +83,10 @@ public sealed class PermissionPolicies : IAuthorizationPolicyProvider
 
     public Task<AuthorizationPolicy?> GetFallbackPolicyAsync() => _fallback.GetFallbackPolicyAsync();
 
-    private static AuthorizationPolicy OrganizationPolicy(string code, bool acceptsDeactivated) =>
+    private static AuthorizationPolicy OrganizationPolicy(
+        string code, bool acceptsDeactivated, ResourceScope scope = ResourceScope.Organization) =>
         new AuthorizationPolicyBuilder()
             .RequireAuthenticatedUser()
-            .AddRequirements(new OrganizationPermissionRequirement(code, acceptsDeactivated))
+            .AddRequirements(new OrganizationPermissionRequirement(code, acceptsDeactivated, scope))
             .Build();
 }

@@ -104,6 +104,16 @@ public sealed class WorkItemWriteInventoryTests(MustaskApiFactory factory)
         ["DELETE " + Org + "/members/{userId}"] = new(Kind.NamesNoWorkItem, ReasonMembership),
         ["POST " + OrgTeam + "/members"] = new(Kind.NamesNoWorkItem, ReasonMembership),
         ["DELETE " + OrgTeam + "/members/{userId}"] = new(Kind.NamesNoWorkItem, ReasonMembership),
+        // mod-019 api-contract § 2: who holds which role on a department, a project or a team.
+        ["POST " + Area + "/grants"] = new(Kind.NamesNoWorkItem, ReasonMembership),
+        ["PUT " + Area + "/grants/{userId}"] = new(Kind.NamesNoWorkItem, ReasonMembership),
+        ["DELETE " + Area + "/grants/{userId}"] = new(Kind.NamesNoWorkItem, ReasonMembership),
+        ["POST " + Org + "/projects/{projectId}/grants"] = new(Kind.NamesNoWorkItem, ReasonMembership),
+        ["PUT " + Org + "/projects/{projectId}/grants/{userId}"] = new(Kind.NamesNoWorkItem, ReasonMembership),
+        ["DELETE " + Org + "/projects/{projectId}/grants/{userId}"] = new(Kind.NamesNoWorkItem, ReasonMembership),
+        ["POST " + OrgTeam + "/grants"] = new(Kind.NamesNoWorkItem, ReasonMembership),
+        ["PUT " + OrgTeam + "/grants/{userId}"] = new(Kind.NamesNoWorkItem, ReasonMembership),
+        ["DELETE " + OrgTeam + "/grants/{userId}"] = new(Kind.NamesNoWorkItem, ReasonMembership),
         // feat-033: a system administrator appoints an administrator (instance route, ADR-0029 § 9).
         ["POST /api/organizations/rescue/{organizationId}/appointments"] = new(Kind.NamesNoWorkItem, ReasonMembership),
     };

@@ -157,6 +157,24 @@ public static class OrganizationAddressedRoutes
         new("GET", OrgTeam + "/member-candidates", PermissionCatalog.OrganizationsTeamWrite),
         new("POST", OrgTeam + "/members", PermissionCatalog.OrganizationsTeamWrite),
         new("DELETE", OrgTeam + "/members/{userId}", PermissionCatalog.OrganizationsTeamWrite),
+
+        // mod-019 api-contract § 2: the grants of a department, a project and a team. Reads of an area and a team carry their
+        // organization-wide read code; the project's read, the writes and the candidate searches are checked on the object.
+        new("GET", Area + "/grants", PermissionCatalog.OrganizationsAreaRead),
+        new("POST", Area + "/grants", PermissionCatalog.OrganizationsAreaGrant),
+        new("PUT", Area + "/grants/{userId}", PermissionCatalog.OrganizationsAreaGrant),
+        new("DELETE", Area + "/grants/{userId}", PermissionCatalog.OrganizationsAreaGrant),
+        new("GET", Area + "/grant-candidates", PermissionCatalog.OrganizationsAreaGrant),
+        new("GET", Project + "/grants", PermissionCatalog.OrganizationsProjectRead),
+        new("POST", Project + "/grants", PermissionCatalog.OrganizationsProjectGrant),
+        new("PUT", Project + "/grants/{userId}", PermissionCatalog.OrganizationsProjectGrant),
+        new("DELETE", Project + "/grants/{userId}", PermissionCatalog.OrganizationsProjectGrant),
+        new("GET", Project + "/grant-candidates", PermissionCatalog.OrganizationsProjectGrant),
+        new("GET", OrgTeam + "/grants", PermissionCatalog.OrganizationsTeamRead),
+        new("POST", OrgTeam + "/grants", PermissionCatalog.OrganizationsTeamGrant),
+        new("PUT", OrgTeam + "/grants/{userId}", PermissionCatalog.OrganizationsTeamGrant),
+        new("DELETE", OrgTeam + "/grants/{userId}", PermissionCatalog.OrganizationsTeamGrant),
+        new("GET", OrgTeam + "/grant-candidates", PermissionCatalog.OrganizationsTeamGrant),
     ];
 
     /// <summary>The ten routes of mod-016's own access and memberships (api-contract § 1-§ 2), the last of <see cref="All"/>.</summary>

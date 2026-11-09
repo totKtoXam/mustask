@@ -59,6 +59,13 @@ public sealed class MustaskDbContext(DbContextOptions<MustaskDbContext> options)
 
     public DbSet<TeamMembership> TeamMemberships => Set<TeamMembership>();
 
+    /// <summary>mod-019: the roles held on departments, projects and teams (BR-SA-1).</summary>
+    public DbSet<AreaGrant> AreaGrants => Set<AreaGrant>();
+
+    public DbSet<ProjectGrant> ProjectGrants => Set<ProjectGrant>();
+
+    public DbSet<TeamGrant> TeamGrants => Set<TeamGrant>();
+
     /// <summary>feat-033: the insert-only record of administrator appointments by a system administrator.</summary>
     public DbSet<OrganizationAppointment> OrganizationAppointments => Set<OrganizationAppointment>();
 

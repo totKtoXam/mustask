@@ -66,6 +66,22 @@ internal static class OrganizationsSaveChanges
             // mod-016: the same user added to a team twice.
             throw new ConflictException(OrganizationErrorCodes.TeamMemberExists, ErrorParams.None, exception);
         }
+        catch (DbUpdateException exception) when (
+            PostgresConflictDetection.IsUniqueViolationOnConstraint(exception, OrganizationsConstraints.AreaGrantPrimaryKey)
+            || PostgresConflictDetection.IsUniqueViolationOnConstraint(exception, OrganizationsConstraints.ProjectGrantPrimaryKey)
+            || PostgresConflictDetection.IsUniqueViolationOnConstraint(exception, OrganizationsConstraints.TeamGrantPrimaryKey))
+        {
+            // mod-019 BR-SA-1: the same member given a role on the same object twice; a lost race answers like the pre-check.
+            throw new ConflictException(OrganizationErrorCodes.GrantChanged, ErrorParams.None, exception);
+        }
+        catch (DbUpdateException exception) when (
+            PostgresConflictDetection.IsForeignKeyViolationOnConstraint(exception, OrganizationsConstraints.AreaGrantMembership)
+            || PostgresConflictDetection.IsForeignKeyViolationOnConstraint(exception, OrganizationsConstraints.ProjectGrantMembership)
+            || PostgresConflictDetection.IsForeignKeyViolationOnConstraint(exception, OrganizationsConstraints.TeamGrantMembership))
+        {
+            // mod-019 BR-SA-3: the organization membership ended while a grant was being given; the grant loses.
+            throw new NotFoundException(OrganizationErrorCodes.MembershipNotFound, ErrorParams.None, exception);
+        }
         catch (DbUpdateException exception) when (PostgresConflictDetection.IsForeignKeyViolationOnConstraint(exception, OrganizationsConstraints.TeamMembershipOrganizationMembership))
         {
             // mod-016 BR-M1-10: the organization membership ended while a team membership was being added.

@@ -140,6 +140,20 @@ public static class OrganizationErrorCodes
     /// <summary>Field reason of <c>userId</c>: missing, blank or over 255 characters.</summary>
     public const string MembershipUserInvalid = "organizations.membership.user_invalid";
 
+    // ----- mod-019: scoped grants (api-contract § 7) -----
+
+    /// <summary>Field reason of <c>userId</c>: a grantee is never the grant's giver, the administrator's included (BR-SA-19).</summary>
+    public const string GrantSelfGrant = "organizations.grant.self_grant";
+
+    /// <summary>Field reason of <c>role</c>: not exactly <c>reader</c>, <c>member</c> or <c>manager</c>.</summary>
+    public const string GrantRoleInvalid = "organizations.grant.role_invalid";
+
+    /// <summary>A grant addressed to a project node or a sub-area, which hold none (BR-SA-4, OQ-1 A).</summary>
+    public const string GrantScopeNotAllowed = "organizations.grant.scope_not_allowed";
+
+    /// <summary>A grant given twice, or changed or removed after it was already gone (US-1).</summary>
+    public const string GrantChanged = "organizations.grant.changed";
+
     /// <summary>The user is already in the team, or a concurrent add took it first.</summary>
     public const string TeamMemberExists = "organizations.team.member_exists";
 

@@ -1,0 +1,301 @@
+{
+  "$comment": "Generated from Mustask.Domain.Identity by RoleBundlesContractTests; do not edit by hand (mod-019 api-contract § 9).",
+  "instanceRoles": {
+    "user": [
+      "dictionaries.languages.read"
+    ],
+    "organization-creator": [
+      "organizations.organization.create"
+    ],
+    "dictionaries-admin": [
+      "dictionaries.languages.read",
+      "dictionaries.languages.write"
+    ],
+    "system-admin": [
+      "dictionaries.languages.read",
+      "dictionaries.languages.write",
+      "organizations.organization.create",
+      "organizations.organization.rescue"
+    ]
+  },
+  "organizationRoles": {
+    "admin": [
+      "boards.backlog.reorder",
+      "organizations.area.create",
+      "organizations.area.grant",
+      "organizations.area.link",
+      "organizations.area.read",
+      "organizations.area.write",
+      "organizations.membership.read",
+      "organizations.membership.write",
+      "organizations.organization.deactivate",
+      "organizations.organization.read",
+      "organizations.organization.write",
+      "organizations.project.deactivate",
+      "organizations.project.grant",
+      "organizations.project.link",
+      "organizations.project.read",
+      "organizations.project.write",
+      "organizations.team.create",
+      "organizations.team.delete",
+      "organizations.team.grant",
+      "organizations.team.link",
+      "organizations.team.read",
+      "organizations.team.write",
+      "process.definition.read",
+      "workitems.link.write",
+      "workitems.workitem.delete",
+      "workitems.workitem.purge",
+      "workitems.workitem.read",
+      "workitems.workitem.write"
+    ],
+    "member": [
+      "boards.backlog.reorder",
+      "organizations.area.read",
+      "organizations.membership.read",
+      "organizations.organization.read",
+      "organizations.project.read",
+      "organizations.team.read",
+      "process.definition.read",
+      "workitems.link.write",
+      "workitems.workitem.delete",
+      "workitems.workitem.read",
+      "workitems.workitem.write"
+    ],
+    "viewer": [
+      "organizations.area.read",
+      "organizations.membership.read",
+      "organizations.organization.read",
+      "organizations.project.read",
+      "organizations.team.read",
+      "process.definition.read",
+      "workitems.workitem.read"
+    ]
+  },
+  "scopedRoles": {
+    "area": {
+      "reader": [
+        "organizations.project.read",
+        "workitems.workitem.read"
+      ],
+      "member": [
+        "organizations.project.read",
+        "workitems.link.write",
+        "workitems.workitem.delete",
+        "workitems.workitem.read",
+        "workitems.workitem.write"
+      ],
+      "manager": [
+        "organizations.area.grant",
+        "organizations.area.link",
+        "organizations.area.write",
+        "organizations.project.grant",
+        "organizations.project.link",
+        "organizations.project.read",
+        "organizations.project.write",
+        "workitems.link.write",
+        "workitems.workitem.delete",
+        "workitems.workitem.read",
+        "workitems.workitem.write"
+      ]
+    },
+    "project": {
+      "reader": [
+        "organizations.project.read",
+        "workitems.workitem.read"
+      ],
+      "member": [
+        "organizations.project.read",
+        "workitems.link.write",
+        "workitems.workitem.delete",
+        "workitems.workitem.read",
+        "workitems.workitem.write"
+      ],
+      "manager": [
+        "organizations.area.write",
+        "organizations.project.grant",
+        "organizations.project.link",
+        "organizations.project.read",
+        "organizations.project.write",
+        "workitems.link.write",
+        "workitems.workitem.delete",
+        "workitems.workitem.read",
+        "workitems.workitem.write"
+      ]
+    },
+    "team": {
+      "reader": [],
+      "member": [
+        "boards.backlog.reorder"
+      ],
+      "manager": [
+        "boards.backlog.reorder",
+        "organizations.team.grant",
+        "organizations.team.link",
+        "organizations.team.write"
+      ]
+    }
+  },
+  "catalog": [
+    {
+      "code": "boards.backlog.reorder",
+      "source": "organization",
+      "resourceScope": "team"
+    },
+    {
+      "code": "dictionaries.languages.read",
+      "source": "instance",
+      "resourceScope": null
+    },
+    {
+      "code": "dictionaries.languages.write",
+      "source": "instance",
+      "resourceScope": null
+    },
+    {
+      "code": "organizations.area.create",
+      "source": "organization",
+      "resourceScope": "organization"
+    },
+    {
+      "code": "organizations.area.grant",
+      "source": "organization",
+      "resourceScope": "area"
+    },
+    {
+      "code": "organizations.area.link",
+      "source": "organization",
+      "resourceScope": "area"
+    },
+    {
+      "code": "organizations.area.read",
+      "source": "organization",
+      "resourceScope": "organization"
+    },
+    {
+      "code": "organizations.area.write",
+      "source": "organization",
+      "resourceScope": "area"
+    },
+    {
+      "code": "organizations.membership.read",
+      "source": "organization",
+      "resourceScope": "organization"
+    },
+    {
+      "code": "organizations.membership.write",
+      "source": "organization",
+      "resourceScope": "organization"
+    },
+    {
+      "code": "organizations.organization.create",
+      "source": "instance",
+      "resourceScope": null
+    },
+    {
+      "code": "organizations.organization.deactivate",
+      "source": "organization",
+      "resourceScope": "organization"
+    },
+    {
+      "code": "organizations.organization.read",
+      "source": "organization",
+      "resourceScope": "organization"
+    },
+    {
+      "code": "organizations.organization.rescue",
+      "source": "instance",
+      "resourceScope": null
+    },
+    {
+      "code": "organizations.organization.write",
+      "source": "organization",
+      "resourceScope": "organization"
+    },
+    {
+      "code": "organizations.project.deactivate",
+      "source": "organization",
+      "resourceScope": "organization"
+    },
+    {
+      "code": "organizations.project.grant",
+      "source": "organization",
+      "resourceScope": "project"
+    },
+    {
+      "code": "organizations.project.link",
+      "source": "organization",
+      "resourceScope": "project"
+    },
+    {
+      "code": "organizations.project.read",
+      "source": "organization",
+      "resourceScope": "project"
+    },
+    {
+      "code": "organizations.project.write",
+      "source": "organization",
+      "resourceScope": "project"
+    },
+    {
+      "code": "organizations.team.create",
+      "source": "organization",
+      "resourceScope": "organization"
+    },
+    {
+      "code": "organizations.team.delete",
+      "source": "organization",
+      "resourceScope": "organization"
+    },
+    {
+      "code": "organizations.team.grant",
+      "source": "organization",
+      "resourceScope": "team"
+    },
+    {
+      "code": "organizations.team.link",
+      "source": "organization",
+      "resourceScope": "team"
+    },
+    {
+      "code": "organizations.team.read",
+      "source": "organization",
+      "resourceScope": "organization"
+    },
+    {
+      "code": "organizations.team.write",
+      "source": "organization",
+      "resourceScope": "team"
+    },
+    {
+      "code": "process.definition.read",
+      "source": "organization",
+      "resourceScope": "organization"
+    },
+    {
+      "code": "workitems.link.write",
+      "source": "organization",
+      "resourceScope": "project"
+    },
+    {
+      "code": "workitems.workitem.delete",
+      "source": "organization",
+      "resourceScope": "project"
+    },
+    {
+      "code": "workitems.workitem.purge",
+      "source": "organization",
+      "resourceScope": "project"
+    },
+    {
+      "code": "workitems.workitem.read",
+      "source": "organization",
+      "resourceScope": "project"
+    },
+    {
+      "code": "workitems.workitem.write",
+      "source": "organization",
+      "resourceScope": "project"
+    }
+  ]
+}

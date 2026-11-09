@@ -1,3 +1,5 @@
+using Mustask.Domain.Identity;
+
 namespace Mustask.Api.Authorization;
 
 public enum EndpointCategoryKind
@@ -27,19 +29,23 @@ public sealed class EndpointCategoryMetadata
     /// <summary>Only the restore of an organization accepts a deactivated one (<see cref="EndpointCategoryKind.OrganizationPermission"/> only).</summary>
     public bool AcceptsDeactivated { get; }
 
-    private EndpointCategoryMetadata(EndpointCategoryKind kind, string? permissionCode, string? reason, bool acceptsDeactivated = false)
+    /// <summary>The kind of object the route addresses (mod-019); Organization for a route that names no object of a scope.</summary>
+    public ResourceScope Scope { get; }
+
+    private EndpointCategoryMetadata(EndpointCategoryKind kind, string? permissionCode, string? reason, bool acceptsDeactivated = false, ResourceScope scope = ResourceScope.Organization)
     {
         Kind = kind;
         PermissionCode = permissionCode;
         Reason = reason;
         AcceptsDeactivated = acceptsDeactivated;
+        Scope = scope;
     }
 
     public static EndpointCategoryMetadata Permission(string code) =>
         new(EndpointCategoryKind.Permission, code, reason: null);
 
-    public static EndpointCategoryMetadata OrganizationPermission(string code, bool acceptsDeactivated) =>
-        new(EndpointCategoryKind.OrganizationPermission, code, reason: null, acceptsDeactivated);
+    public static EndpointCategoryMetadata OrganizationPermission(string code, bool acceptsDeactivated, ResourceScope scope = ResourceScope.Organization) =>
+        new(EndpointCategoryKind.OrganizationPermission, code, reason: null, acceptsDeactivated, scope);
 
     public static EndpointCategoryMetadata Public(string reason) =>
         new(EndpointCategoryKind.Public, permissionCode: null, reason);

@@ -58,6 +58,11 @@ using Mustask.Application.Features.Organizations.RemoveMember;
 using Mustask.Application.Features.Organizations.LinkProjectsToTeam;
 using Mustask.Application.Features.Organizations.LinkTeamsToProject;
 using Mustask.Application.Features.Organizations.RemoveTeamMember;
+using Mustask.Application.Features.Organizations.ChangeGrantRole;
+using Mustask.Application.Features.Organizations.GetGrants;
+using Mustask.Application.Features.Organizations.GiveGrant;
+using Mustask.Application.Features.Organizations.RevokeGrant;
+using Mustask.Application.Features.Organizations.SearchGrantCandidates;
 using Mustask.Application.Features.Organizations.RenameArea;
 using Mustask.Application.Features.Organizations.RenameOrganization;
 using Mustask.Application.Features.Organizations.RenameProject;
@@ -177,6 +182,13 @@ public static class DependencyInjection
         services.AddScoped<SearchNewTeamMemberCandidatesHandler>();
         services.AddScoped<AddTeamMemberHandler>();
         services.AddScoped<RemoveTeamMemberHandler>();
+
+        // Scoped grants (mod-019).
+        services.AddScoped<GetGrantsHandler>();
+        services.AddScoped<GiveGrantHandler>();
+        services.AddScoped<ChangeGrantRoleHandler>();
+        services.AddScoped<RevokeGrantHandler>();
+        services.AddScoped<SearchGrantCandidatesHandler>();
 
         // Work items (mod-003): one handler per route of WorkItemEndpoints.cs.
         services.AddScoped<GetWorkItemsHandler>();

@@ -306,6 +306,7 @@ app.MapDictionaryEndpoints();
 app.MapOrganizationEndpoints();
 app.MapRescueEndpoints();
 app.MapMembershipEndpoints();
+app.MapGrantEndpoints();
 app.MapProcessEndpoints();
 app.MapSessionEndpoints();
 app.MapWorkItemEndpoints();

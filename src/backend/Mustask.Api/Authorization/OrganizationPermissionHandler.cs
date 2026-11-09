@@ -29,10 +29,38 @@ namespace Mustask.Api.Authorization;
 /// </remarks>
 public sealed class OrganizationPermissionHandler(
     IOrganizationAccessReadModel accessReadModel,
+    IScopedAccessReadModel scopedAccess,
     ICurrentUser currentUser) : AuthorizationHandler<OrganizationPermissionRequirement>
 {
     /// <summary>The route parameter every organization-addressed route names (mod-015 BR-18).</summary>
     public const string RouteParameter = "organizationId";
+
+    private async Task<bool> HoldsAsync(
+        HttpContext httpContext, OrganizationPermissionRequirement requirement, Guid organizationId, OrganizationRole role)
+    {
+        if (requirement.Scope == ResourceScope.Organization)
+        {
+            return OrganizationRoleBundles.Holds(role, requirement.Code);
+        }
+
+        var parameter = requirement.Scope switch
+        {
+            ResourceScope.Area => "areaId",
+            ResourceScope.Project => "projectId",
+            _ => "teamId",
+        };
+
+        IReadOnlyList<ReachingGrant> reaching = [];
+
+        // An object that cannot be addressed leaves the organization role alone to answer; the handler then reports the 404.
+        if (AddressedId.TryParse(httpContext.Request.RouteValues[parameter] as string, out var objectId) && role != OrganizationRole.Admin)
+        {
+            reaching = await scopedAccess.ReachingGrantsAsync(
+                organizationId, currentUser.SubjectId, requirement.Scope, objectId, httpContext.RequestAborted) ?? [];
+        }
+
+        return EffectivePermissions.Holds(role, requirement.Scope, reaching, requirement.Code);
+    }
 
     protected override async Task HandleRequirementAsync(AuthorizationHandlerContext context, OrganizationPermissionRequirement requirement)
     {
@@ -70,7 +98,7 @@ public sealed class OrganizationPermissionHandler(
             return;
         }
 
-        if (!OrganizationRoleBundles.Holds(role, requirement.Code))
+        if (!await HoldsAsync(httpContext, requirement, organizationId, role))
         {
             context.Fail(new OrganizationAccessFailure(
                 this, OrganizationAccessFailureKind.RoleLacksCode, organizationId.ToString(), requirement.Code));
