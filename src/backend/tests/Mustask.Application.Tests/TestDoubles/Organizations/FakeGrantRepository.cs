@@ -24,6 +24,15 @@ public sealed class FakeGrantRepository(ProjectInheritance? inheritance = null) 
     public Task<bool> ChangeRoleAsync(ResourceScope scope, Guid objectId, string userId, GrantRole role, string grantedBy, DateTimeOffset now, CancellationToken cancellationToken) =>
         throw new NotSupportedException();
 
+    /// <summary>The objects whose grants were all ended, in order.</summary>
+    public List<(ResourceScope Scope, Guid ObjectId)> RemovedAll { get; } = [];
+
+    public Task RemoveAllAsync(ResourceScope scope, Guid objectId, CancellationToken cancellationToken)
+    {
+        RemovedAll.Add((scope, objectId));
+        return Task.CompletedTask;
+    }
+
     public Task<bool> RemoveAsync(ResourceScope scope, Guid objectId, string userId, CancellationToken cancellationToken) =>
         throw new NotSupportedException();
 }

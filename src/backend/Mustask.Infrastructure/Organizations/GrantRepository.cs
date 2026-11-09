@@ -178,4 +178,15 @@ internal sealed class GrantRepository(
 
         return removed > 0;
     }
+
+    public async Task RemoveAllAsync(ResourceScope scope, Guid objectId, CancellationToken cancellationToken)
+    {
+        _ = scope switch
+        {
+            ResourceScope.Area => await context.AreaGrants.Where(grant => grant.ObjectId == objectId).ExecuteDeleteAsync(cancellationToken),
+            ResourceScope.Project => await context.ProjectGrants.Where(grant => grant.ObjectId == objectId).ExecuteDeleteAsync(cancellationToken),
+            ResourceScope.Team => await context.TeamGrants.Where(grant => grant.ObjectId == objectId).ExecuteDeleteAsync(cancellationToken),
+            _ => throw new ArgumentOutOfRangeException(nameof(scope), scope, "Not a grant scope."),
+        };
+    }
 }

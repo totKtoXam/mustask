@@ -55,6 +55,9 @@ public interface IGrantRepository
 
     /// <summary>Removes the grant; <c>false</c> when there was none.</summary>
     Task<bool> RemoveAsync(ResourceScope scope, Guid objectId, string userId, CancellationToken cancellationToken);
+
+    /// <summary>Removes every grant held on the object (a soft-deleted team ends its grants in its own transaction, BR-SA-3).</summary>
+    Task RemoveAllAsync(ResourceScope scope, Guid objectId, CancellationToken cancellationToken);
 }
 
 /// <summary>

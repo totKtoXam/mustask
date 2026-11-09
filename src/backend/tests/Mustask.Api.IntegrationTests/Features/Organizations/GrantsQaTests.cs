@@ -130,7 +130,7 @@ public sealed class GrantsQaTests(MustaskApiFactory factory)
     }
 
     // BR-SA-3 · deleting a team ends its grants; a deactivated project keeps them and restoring brings them back.
-    [Fact(Skip = "QA mod-019 D-2: DeleteTeamHandler does not end the team grants; remove Skip when fixed")]
+    [Fact]
     public async Task DeletingATeamEndsItsGrants_DeactivatingAProjectKeepsThem()
     {
         var (s, admin) = await WorldAsync();
