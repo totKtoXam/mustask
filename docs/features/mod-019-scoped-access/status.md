@@ -82,6 +82,7 @@ Plans: `plan-backend.md`, `plan-frontend.md`.
 - 2026-11-09 [frontend-dev] stage 6 second pass: X-1..X-5 done (work-item and board surfaces read project codes through useProjectCodes/ProjectAccess/useBoardAccess, per-card canMove by the card's project; useAccessWatcher re-reads the object on a scoped failure and the project rows on a role change; BR-SA-18 guard test scopeGuard.test.ts; AreasPage row commands by writable ids; 200-row grants test); test doubles serve the organization answer organization-scope only; residual coarse team-backlog controls recorded in plan-frontend § 5
 - 2026-11-09 [backend-dev] O-1 closed in code: GetOrganizationAccessHandler serves only organization-scope codes (catalog order) per BR-SA-11 / api-contract § 5; unit, integration tests updated, one exact-set test per role; no contract text change, panel reads no other code from that answer.
 - 2026-11-10 [qa-engineer] frontend QA pass 1 in qa.md: 0 blockers, 0 majors, 4 minors (G-1 guard blind to destructuring, G-2 team notice, G-3 switch-off table not capped, G-4 switch flicker); 4 tests added; tsc 0, ESLint 0 errors, Vitest 5649 (+4); E2E skipped, standing answer NO.
+- 2026-11-10 [code-reviewer] code review round 1 (standard + L security pass) in review.md: changes-requested, 4 majors open (C-1..C-4), 4 minors as debts (C-5..C-8). Gates and stage untouched
 
 ## Notes
 
