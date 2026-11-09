@@ -98,7 +98,7 @@ public sealed class OrganizationPermissionHandler(
             return;
         }
 
-        if (!await HoldsAsync(httpContext, requirement, organizationId, role))
+        if (!requirement.MembershipOnly && !await HoldsAsync(httpContext, requirement, organizationId, role))
         {
             context.Fail(new OrganizationAccessFailure(
                 this, OrganizationAccessFailureKind.RoleLacksCode, organizationId.ToString(), requirement.Code));

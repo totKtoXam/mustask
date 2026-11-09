@@ -1,4 +1,5 @@
 using Mustask.Application.Abstractions.Organizations;
+using Mustask.Domain.Identity;
 using Mustask.Domain.Organizations;
 using Mustask.Shared.Exceptions;
 
@@ -13,7 +14,7 @@ namespace Mustask.Application.Features.Organizations.GetTeamProjects;
 /// <b>The order of answers</b> (api-contract § 0.5): the organization, then the team (404 for a deleted team, a foreign one and a
 /// malformed id alike). <b>Reads, not locks:</b> one statement for the team, one for the projects.
 /// </remarks>
-public sealed class GetTeamProjectsHandler(ITeamReadModel teams)
+public sealed class GetTeamProjectsHandler(ITeamReadModel teams, IOrganizationAccess access)
 {
     public async Task<GetTeamProjectsResult> Handle(GetTeamProjectsQuery query, CancellationToken cancellationToken)
     {
@@ -29,7 +30,8 @@ public sealed class GetTeamProjectsHandler(ITeamReadModel teams)
         }
 
         var rows = await teams.ListProjectsOfTeamAsync(organizationId, teamId, cancellationToken);
+        var set = await access.SetAsync(cancellationToken);
 
-        return new GetTeamProjectsResult(rows.Select(row => new TeamProjectResponse(row.Id, row.Name, row.Key)).ToList());
+        return new GetTeamProjectsResult(rows.Select(row => new TeamProjectResponse(row.Id, row.Name, row.Key, LinkRules.CanUnlinkProjectTeam(set, row.Id, teamId), set.CodesInCatalogOrder(ResourceScope.Project, row.Id))).ToList());
     }
 }

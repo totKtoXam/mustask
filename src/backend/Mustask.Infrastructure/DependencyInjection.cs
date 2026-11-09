@@ -147,6 +147,7 @@ public static class DependencyInjection
         // mod-019: grants and the grants that reach an object.
         services.AddScoped<IGrantRepository, GrantRepository>();
         services.AddScoped<IScopedAccessReadModel, ScopedAccessReadModel>();
+        services.AddScoped<ISwitchImpactReadModel, SwitchImpactReadModel>();
 
         // feat-033: the appointment record of a system administrator's rescue.
         services.AddScoped<IAppointmentRecordRepository, AppointmentRecordRepository>();

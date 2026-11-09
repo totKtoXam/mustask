@@ -32,7 +32,7 @@ public sealed class LinkTeamsToAreaHandler(
     public async Task Handle(LinkTeamsToAreaCommand command, CancellationToken cancellationToken)
     {
         // 0. The second code, first of all (D-7).
-        if (!access.Holds(PermissionCatalog.OrganizationsTeamLink))
+        if (!await ScopedCodes.HoldsOnAllAsync(access, PermissionCatalog.OrganizationsTeamLink, command.TeamIds, cancellationToken))
         {
             throw new ForbiddenException(OrganizationErrorCodes.AccessForbidden);
         }

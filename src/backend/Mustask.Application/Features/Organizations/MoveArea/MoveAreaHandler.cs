@@ -63,7 +63,7 @@ public sealed class MoveAreaHandler(
                     throw new NotFoundException(OrganizationErrorCodes.AreaNotFound);
                 }
 
-                if (addressed.IsTopLevel && !access.Holds(PermissionCatalog.OrganizationsAreaCreate))
+                if (!await HoldsOnParentAsync(addressed.ParentId, ct))
                 {
                     throw new ForbiddenException(OrganizationErrorCodes.AccessForbidden);
                 }
@@ -73,6 +73,15 @@ public sealed class MoveAreaHandler(
 
                 if (command.ParentId is not null)
                 {
+                    // The destination's own code (mod-019 BR-SA-7, US-8): whoever moves holds area.write on the new parent as well; an
+                    // unknown destination is judged by the role alone, so a non-admin learns nothing about it.
+                    var destinationGuess = AddressedId.TryParse(command.ParentId, out var guessed) ? guessed : Guid.Empty;
+
+                    if (!await access.HoldsOnAsync(PermissionCatalog.OrganizationsAreaWrite, destinationGuess, ct))
+                    {
+                        throw new ForbiddenException(OrganizationErrorCodes.AccessForbidden);
+                    }
+
                     if (!AddressedId.TryParse(command.ParentId, out var destinationId)
                         || await areas.FindAsync(organizationId, destinationId, ct) is null)
                     {
@@ -88,7 +97,7 @@ public sealed class MoveAreaHandler(
 
                 // The current parent was read before the locks: a move that committed meanwhile may have changed it, so the second
                 // code is decided again on the locked row (the code-review minor m-2).
-                if (area.IsTopLevel && !access.Holds(PermissionCatalog.OrganizationsAreaCreate))
+                if (!await HoldsOnParentAsync(area.ParentId, ct))
                 {
                     throw new ForbiddenException(OrganizationErrorCodes.AccessForbidden);
                 }
@@ -118,6 +127,12 @@ public sealed class MoveAreaHandler(
             },
             cancellationToken);
     }
+
+    // The code of the node's current parent: area.create at the top level, area.write on the parent otherwise (BR-SA-7, BR-SA-13).
+    private async Task<bool> HoldsOnParentAsync(Guid? parentId, CancellationToken cancellationToken) =>
+        parentId is { } parent
+            ? await access.HoldsOnAsync(PermissionCatalog.OrganizationsAreaWrite, parent, cancellationToken)
+            : access.Holds(PermissionCatalog.OrganizationsAreaCreate);
 
     private async Task<(Area Area, Area? Destination)> LockAreaAndDestinationAsync(
         Guid organizationId, Guid areaId, Guid? destinationId, CancellationToken cancellationToken)

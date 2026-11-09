@@ -1,3 +1,4 @@
+using Mustask.Domain.Identity;
 using Mustask.Application.Abstractions.Organizations;
 using Mustask.Application.Features.Organizations.GetProjects;
 using Mustask.Application.Tests.TestDoubles.Organizations;
@@ -18,7 +19,7 @@ public sealed class GetProjectsHandlerTests
         public Fixture()
         {
             Organization = Store.AddOrganization();
-            Handler = new GetProjectsHandler(new FakeOrganizationReadModel(Store), new FakeProjectReadModel(Store));
+            Handler = new GetProjectsHandler(new FakeOrganizationReadModel(Store), new FakeProjectReadModel(Store), new FakeOrganizationAccess(OrganizationRole.Admin));
         }
 
         public InMemoryOrganizations Store { get; } = new();
@@ -73,7 +74,7 @@ public sealed class GetProjectsHandlerTests
                 new ProjectListItemResponse(analytics.Project.Id, "Аналитика", "ANL"),
                 new ProjectListItemResponse(example.Project.Id, "Пример проекта", "PRM"),
             ],
-            result.Items);
+            result.Items.Select(item => item with { Codes = null }).ToList());
     }
 
     // US-8 · "Lists in order": letters before letter case, so «альфа» comes before «Бета» although a lower-case letter sorts
@@ -107,7 +108,7 @@ public sealed class GetProjectsHandlerTests
             new(Guid.CreateVersion7(), organization.Id, "альфа", "ALF"),
         };
         var projects = new FixedOrderProjectReadModel(rows);
-        var handler = new GetProjectsHandler(new FakeOrganizationReadModel(store), projects);
+        var handler = new GetProjectsHandler(new FakeOrganizationReadModel(store), projects, new FakeOrganizationAccess(OrganizationRole.Admin));
 
         var result = await handler.Handle(new GetProjectsQuery(organization.Id.ToString()), CancellationToken.None);
 

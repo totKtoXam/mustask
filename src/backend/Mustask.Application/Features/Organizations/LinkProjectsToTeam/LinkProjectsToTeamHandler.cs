@@ -37,7 +37,7 @@ public sealed class LinkProjectsToTeamHandler(
     public async Task Handle(LinkProjectsToTeamCommand command, CancellationToken cancellationToken)
     {
         // 0. The second code, first of all (D-7).
-        if (!access.Holds(PermissionCatalog.OrganizationsProjectLink))
+        if (!await ScopedCodes.HoldsOnAllAsync(access, PermissionCatalog.OrganizationsProjectLink, command.ProjectIds, cancellationToken))
         {
             throw new ForbiddenException(OrganizationErrorCodes.AccessForbidden);
         }

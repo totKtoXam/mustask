@@ -31,7 +31,7 @@ namespace Mustask.Application.Features.Organizations.GetTeams;
 /// first) is the panel's.
 /// </para>
 /// </remarks>
-public sealed class GetTeamsHandler(IProjectReadModel projects, ITeamReadModel teams, ICurrentUser currentUser)
+public sealed class GetTeamsHandler(IProjectReadModel projects, ITeamReadModel teams, ICurrentUser currentUser, IOrganizationAccess access)
 {
     public async Task<GetTeamsResult> Handle(GetTeamsQuery query, CancellationToken cancellationToken)
     {
@@ -48,7 +48,8 @@ public sealed class GetTeamsHandler(IProjectReadModel projects, ITeamReadModel t
         }
 
         var rows = await teams.ListLinkedAsync(organizationId, projectId, currentUser.SubjectId, cancellationToken);
+        var set = await access.SetAsync(cancellationToken);
 
-        return new GetTeamsResult(rows.Select(row => new TeamResponse(row.Id, row.Name, row.Mark.ToWireName(), row.IsMember)).ToList());
+        return new GetTeamsResult(rows.Select(row => new TeamResponse(row.Id, row.Name, row.Mark.ToWireName(), row.IsMember, CanUnlink: LinkRules.CanUnlinkProjectTeam(set, projectId, row.Id))).ToList());
     }
 }

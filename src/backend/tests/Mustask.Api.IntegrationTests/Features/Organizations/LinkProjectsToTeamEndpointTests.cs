@@ -267,6 +267,6 @@ public sealed class LinkProjectsToTeamEndpointTests(MustaskApiFactory factory)
         Assert.Empty(whileDeactivated.Body.EnumerateArray());
         Assert.Single(linkKept);
         Assert.Equal([structure.ProjectId], Ids(restored.Body));
-        Assert.Equal(["id", "key", "name"], PropertyNames(before.Body[0]));
+        Assert.Equal(["canUnlink", "codes", "id", "key", "name"], PropertyNames(before.Body[0]));
     }
 }

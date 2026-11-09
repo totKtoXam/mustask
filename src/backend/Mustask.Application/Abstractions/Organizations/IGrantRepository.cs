@@ -65,4 +65,7 @@ public interface IScopedAccessReadModel
 {
     Task<IReadOnlyList<Mustask.Domain.Identity.ReachingGrant>?> ReachingGrantsAsync(
         Guid organizationId, string userId, ResourceScope target, Guid objectId, CancellationToken cancellationToken);
+
+    /// <summary>The caller's grants and the organization's tree, read once, for the set form (lists, per-row flags, the tree's writable ids).</summary>
+    Task<AccessSet> LoadSetAsync(Guid organizationId, string userId, OrganizationRole role, CancellationToken cancellationToken);
 }

@@ -51,6 +51,7 @@ public sealed class GetOrganizationAccessEndpointTests(MustaskApiFactory factory
         Assert.Equal(
             [
                 "boards.backlog.reorder",
+                "boards.projectbacklog.reorder",
                 "organizations.area.read",
                 "organizations.membership.read",
                 "organizations.organization.read",

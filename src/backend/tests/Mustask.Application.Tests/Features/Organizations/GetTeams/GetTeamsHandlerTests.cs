@@ -1,3 +1,4 @@
+using Mustask.Domain.Identity;
 using Mustask.Application.Features.Organizations.GetTeams;
 using Mustask.Application.Tests.TestDoubles;
 using Mustask.Application.Tests.TestDoubles.Organizations;
@@ -20,7 +21,7 @@ public sealed class GetTeamsHandlerTests
             Organization = Store.AddOrganization();
             Project = Store.AddProject(Organization);
             User.SubjectId = "u-caller";
-            Handler = new GetTeamsHandler(new FakeProjectReadModel(Store), new FakeTeamReadModel(Store), User);
+            Handler = new GetTeamsHandler(new FakeProjectReadModel(Store), new FakeTeamReadModel(Store), User, new FakeOrganizationAccess(OrganizationRole.Admin));
         }
 
         public InMemoryOrganizations Store { get; } = new();
@@ -62,7 +63,7 @@ public sealed class GetTeamsHandlerTests
 
         var teams = await f.ListAsync();
 
-        Assert.Equal([new TeamResponse(alpha.Id, "альфа", null), new TeamResponse(beta.Id, "Бета", null)], teams);
+        Assert.Equal([new TeamResponse(alpha.Id, "альфа", null, false, true), new TeamResponse(beta.Id, "Бета", null, false, true)], teams);
     }
 
     // US-3 · "the mark follows the links": the only linked team is marked onlyTeam; naming one carries named and no other mark.
@@ -72,7 +73,7 @@ public sealed class GetTeamsHandlerTests
         var f = new Fixture();
         var alpha = f.Store.AddLinkedTeam(f.Organization, f.Project, "Альфа");
 
-        Assert.Equal([new TeamResponse(alpha.Id, "Альфа", "onlyTeam")], await f.ListAsync());
+        Assert.Equal([new TeamResponse(alpha.Id, "Альфа", "onlyTeam", false, true)], await f.ListAsync());
 
         var beta = f.Store.AddLinkedTeam(f.Organization, f.Project, "Бета");
         Assert.All(await f.ListAsync(), team => Assert.Null(team.DefaultMark));

@@ -47,6 +47,19 @@ public sealed class OrganizationAccessInventoryTests(MustaskApiFactory factory)
             "ADR-0029 § 9: the system administrator appoints an administrator in an organization they are not a member of; no organization content.",
     };
 
+    /// <summary>
+    /// The routes whose code is decided in the handler, with the reason (mod-019 BR-SA-15, BR-SA-17): the addressed object is the place in
+    /// the body, or the unlink needs either end's code, so no one scoped code fits the route. They carry a membership-only policy and a
+    /// stated reason; the list is exact and asserted both ways below.
+    /// </summary>
+    private static readonly IReadOnlyList<string> DecidedInHandlerRoutes =
+    [
+        "DELETE /api/organizations/{organizationId}/areas/{areaId}/teams/{teamId}",
+        "DELETE /api/organizations/{organizationId}/teams/{teamId}/areas/{areaId}",
+        "POST /api/organizations/{organizationId}/areas",
+        "POST /api/organizations/{organizationId}/projects",
+    ];
+
     private static string KeyOf(RouteEndpoint endpoint)
     {
         var methods = endpoint.Metadata.GetMetadata<HttpMethodMetadata>()?.HttpMethods ?? [];
@@ -111,7 +124,29 @@ public sealed class OrganizationAccessInventoryTests(MustaskApiFactory factory)
                 problems.Add($"{key}: declares {code}, which is not an organization code of the catalog.");
             }
 
-            var expectedPolicy = PermissionPolicies.OrganizationPolicyName(code, categories[0].AcceptsDeactivated, categories[0].Scope);
+            var decided = categories[0].DecidedInHandler;
+            var expectedPolicy = decided
+                ? PermissionPolicies.OrganizationMemberPolicyName(code)
+                : PermissionPolicies.OrganizationPolicyName(code, categories[0].AcceptsDeactivated, categories[0].Scope);
+
+            if (decided != DecidedInHandlerRoutes.Contains(key) || (decided && string.IsNullOrWhiteSpace(categories[0].Reason)))
+            {
+                problems.Add($"{key}: decided-in-handler is {decided}, but the exception list says {DecidedInHandlerRoutes.Contains(key)} (or the reason is missing).");
+            }
+
+            // mod-019: a code of a narrower scope is declared with its scope and the id of the route; the scope is the code's own.
+            var catalogScope = PermissionCatalog.ResourceScopeOf(code);
+
+            if (!decided && categories[0].Scope != ResourceScope.Organization && categories[0].Scope != catalogScope)
+            {
+                problems.Add($"{key}: declares {code} of scope {catalogScope} on a route scoped {categories[0].Scope}.");
+            }
+
+            if (!decided && categories[0].Scope != ResourceScope.Organization
+                && endpoint.RoutePattern.GetParameter(categories[0].Scope switch { ResourceScope.Area => "areaId", ResourceScope.Project => "projectId", _ => "teamId" }) is null)
+            {
+                problems.Add($"{key}: is scoped {categories[0].Scope} but its address names no such object.");
+            }
             var policies = endpoint.Metadata.GetOrderedMetadata<IAuthorizeData>().Select(data => data.Policy).ToList();
 
             if (!policies.Contains(expectedPolicy))
@@ -294,7 +329,8 @@ public sealed class OrganizationAccessInventoryTests(MustaskApiFactory factory)
         // feat-033 api-contract § 2.1 adds the organization's own appointment record - 74 (its two rescue routes with {organizationId} are the instance exceptions below).
         // feat-048 api-contract § 2 adds the aggregate views' eight reads - 82.
         // mod-019 api-contract § 2: fifteen grant routes (five under each of a department, a project and a team) - 97.
-        Assert.Equal(97, expected.Count);
+        // mod-019 api-contract § 3, § 5: the switch, its impact read and the writable ids - 100.
+        Assert.Equal(100, expected.Count);
     }
 
     // Every organization code of the catalog is declared by at least one route — a code with no route is a decision nobody enforces

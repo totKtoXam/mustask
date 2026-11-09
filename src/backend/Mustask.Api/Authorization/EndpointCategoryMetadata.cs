@@ -32,20 +32,24 @@ public sealed class EndpointCategoryMetadata
     /// <summary>The kind of object the route addresses (mod-019); Organization for a route that names no object of a scope.</summary>
     public ResourceScope Scope { get; }
 
-    private EndpointCategoryMetadata(EndpointCategoryKind kind, string? permissionCode, string? reason, bool acceptsDeactivated = false, ResourceScope scope = ResourceScope.Organization)
+    /// <summary>The code is decided in the handler, the addressed object being carried in the body (mod-019 BR-SA-17); the reason is stated in the declaration.</summary>
+    public bool DecidedInHandler { get; }
+
+    private EndpointCategoryMetadata(EndpointCategoryKind kind, string? permissionCode, string? reason, bool acceptsDeactivated = false, ResourceScope scope = ResourceScope.Organization, bool decidedInHandler = false)
     {
         Kind = kind;
         PermissionCode = permissionCode;
         Reason = reason;
         AcceptsDeactivated = acceptsDeactivated;
         Scope = scope;
+        DecidedInHandler = decidedInHandler;
     }
 
     public static EndpointCategoryMetadata Permission(string code) =>
         new(EndpointCategoryKind.Permission, code, reason: null);
 
-    public static EndpointCategoryMetadata OrganizationPermission(string code, bool acceptsDeactivated, ResourceScope scope = ResourceScope.Organization) =>
-        new(EndpointCategoryKind.OrganizationPermission, code, reason: null, acceptsDeactivated, scope);
+    public static EndpointCategoryMetadata OrganizationPermission(string code, bool acceptsDeactivated, ResourceScope scope = ResourceScope.Organization, bool decidedInHandler = false, string? reason = null) =>
+        new(EndpointCategoryKind.OrganizationPermission, code, reason, acceptsDeactivated, scope, decidedInHandler);
 
     public static EndpointCategoryMetadata Public(string reason) =>
         new(EndpointCategoryKind.Public, permissionCode: null, reason);

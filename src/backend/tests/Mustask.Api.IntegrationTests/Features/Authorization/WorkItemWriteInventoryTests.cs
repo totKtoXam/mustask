@@ -91,6 +91,7 @@ public sealed class WorkItemWriteInventoryTests(MustaskApiFactory factory)
         ["POST " + Org + "/areas"] = new(Kind.NamesNoWorkItem, ReasonStructure),
         ["PUT " + Area + "/name"] = new(Kind.NamesNoWorkItem, ReasonStructure),
         ["PUT " + Area + "/parent"] = new(Kind.NamesNoWorkItem, ReasonStructure),
+        ["PUT " + Area + "/inherits-access"] = new(Kind.NamesNoWorkItem, "turns an access switch of the tree and moves no item (mod-019 BR-SA-6)"),
         ["PUT " + Area + "/description"] = new(Kind.NamesNoWorkItem, ReasonStructure),
         ["POST " + Area + "/teams"] = new(Kind.NamesNoWorkItem, "links teams to a department and moves no item"),
         ["DELETE " + Area + "/teams/{teamId}"] = new(Kind.NamesNoWorkItem, "unlinks a team from a department and moves no item"),

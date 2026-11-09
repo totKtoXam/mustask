@@ -1,4 +1,5 @@
 using Mustask.Application.Abstractions.Organizations;
+using Mustask.Domain.Identity;
 using Mustask.Domain.Organizations;
 using Mustask.Shared.Exceptions;
 
@@ -28,7 +29,7 @@ namespace Mustask.Application.Features.Organizations.GetProject;
 /// is never revealed as such through an addressed request.
 /// </para>
 /// </remarks>
-public sealed class GetProjectHandler(IProjectReadModel projects)
+public sealed class GetProjectHandler(IProjectReadModel projects, IOrganizationAccess access, IGrantRepository grants)
 {
     public async Task<GetProjectResult> Handle(GetProjectQuery query, CancellationToken cancellationToken)
     {
@@ -45,6 +46,18 @@ public sealed class GetProjectHandler(IProjectReadModel projects)
             throw new NotFoundException(OrganizationErrorCodes.ProjectNotFound);
         }
 
-        return new GetProjectResult(new ProjectResponse(project.Id, project.OrganizationId, project.Name, project.Key, project.Description));
+        // The caller's codes on this project, and the department above its node with the node's switch (mod-019 BR-SA-6, BR-SA-11).
+        var set = await access.SetAsync(cancellationToken);
+        var inheritance = await grants.FindProjectInheritanceAsync(organizationId, projectId, cancellationToken);
+
+        return new GetProjectResult(new ProjectResponse(
+            project.Id,
+            project.OrganizationId,
+            project.Name,
+            project.Key,
+            project.Description,
+            set.CodesInCatalogOrder(ResourceScope.Project, projectId),
+            inheritance is null ? null : new DepartmentRefView(inheritance.DepartmentId, inheritance.DepartmentName),
+            inheritance?.InheritsAccess));
     }
 }

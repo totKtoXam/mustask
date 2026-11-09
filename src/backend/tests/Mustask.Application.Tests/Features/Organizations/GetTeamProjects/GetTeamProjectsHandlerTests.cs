@@ -1,3 +1,4 @@
+using Mustask.Domain.Identity;
 using Mustask.Application.Features.Organizations.GetTeamProjects;
 using Mustask.Application.Tests.TestDoubles.Organizations;
 using Mustask.Domain.Organizations;
@@ -26,7 +27,7 @@ public sealed class GetTeamProjectsHandlerTests
         store.Link(beta, mars);
         store.Link(alpha, mars);
         store.Link(old, mars);
-        var handler = new GetTeamProjectsHandler(new FakeTeamReadModel(store));
+        var handler = new GetTeamProjectsHandler(new FakeTeamReadModel(store), new FakeOrganizationAccess(OrganizationRole.Admin));
 
         var projects = await handler.Handle(new GetTeamProjectsQuery(organization.Id.ToString(), mars.Id.ToString()), CancellationToken.None);
         var none = await handler.Handle(new GetTeamProjectsQuery(organization.Id.ToString(), empty.Id.ToString()), CancellationToken.None);
@@ -55,7 +56,7 @@ public sealed class GetTeamProjectsHandlerTests
         }
 
         var id = how switch { "foreign" => foreign.Id.ToString(), "malformed" => "abc", _ => mars.Id.ToString() };
-        var handler = new GetTeamProjectsHandler(new FakeTeamReadModel(store));
+        var handler = new GetTeamProjectsHandler(new FakeTeamReadModel(store), new FakeOrganizationAccess(OrganizationRole.Admin));
 
         var refusal = await Assert.ThrowsAsync<NotFoundException>(
             () => handler.Handle(new GetTeamProjectsQuery(organization.Id.ToString(), id), CancellationToken.None));

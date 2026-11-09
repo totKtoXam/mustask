@@ -1,3 +1,4 @@
+using Mustask.Domain.Identity;
 using Mustask.Application.Features.Organizations.GetArea;
 using Mustask.Application.Features.Organizations.GetAreaDeletion;
 using Mustask.Application.Features.Organizations.GetAreaTeams;
@@ -59,7 +60,7 @@ public sealed class AreaReadHandlersTests
     public async Task GetArea_ShowsTheTypeTheParentThePathAndTheChildren()
     {
         var w = new World();
-        var handler = new GetAreaHandler(w.Reads);
+        var handler = new GetAreaHandler(w.Reads, new FakeOrganizationAccess(OrganizationRole.Admin));
 
         var sub = (await handler.Handle(new GetAreaQuery(w.Org, w.Quarterly.Id.ToString()), Ct)).Response;
         var node = (await handler.Handle(new GetAreaQuery(w.Org, w.Node.Id.ToString()), Ct)).Response;
@@ -85,7 +86,7 @@ public sealed class AreaReadHandlersTests
         var w = new World();
         w.Project.Deactivate();
 
-        var node = (await new GetAreaHandler(w.Reads).Handle(new GetAreaQuery(w.Org, w.Node.Id.ToString()), Ct)).Response;
+        var node = (await new GetAreaHandler(w.Reads, new FakeOrganizationAccess(OrganizationRole.Admin)).Handle(new GetAreaQuery(w.Org, w.Node.Id.ToString()), Ct)).Response;
 
         Assert.Equal(false, node.ProjectActive);
     }
@@ -100,7 +101,7 @@ public sealed class AreaReadHandlersTests
         var foreign = w.Store.AddDepartment(w.Store.AddOrganization("Другая"), "Чужая");
         var id = how switch { "malformed" => "x", "unknown" => Guid.CreateVersion7().ToString(), _ => foreign.Id.ToString() };
 
-        var refusal = await Assert.ThrowsAsync<NotFoundException>(() => new GetAreaHandler(w.Reads).Handle(new GetAreaQuery(w.Org, id), Ct));
+        var refusal = await Assert.ThrowsAsync<NotFoundException>(() => new GetAreaHandler(w.Reads, new FakeOrganizationAccess(OrganizationRole.Admin)).Handle(new GetAreaQuery(w.Org, id), Ct));
 
         Assert.Equal(OrganizationErrorCodes.AreaNotFound, refusal.Code);
     }
@@ -188,12 +189,12 @@ public sealed class AreaReadHandlersTests
         w.Store.LinkArea(w.Department, w.Team);
         w.Store.LinkArea(w.Department, gone);
         gone.Delete();
-        var handler = new GetAreaTeamsHandler(w.Areas, w.Reads);
+        var handler = new GetAreaTeamsHandler(w.Areas, w.Reads, new FakeOrganizationAccess(OrganizationRole.Admin));
 
         var teams = await handler.Handle(new GetAreaTeamsQuery(w.Org, w.Department.Id.ToString()), Ct);
         var refusal = await Assert.ThrowsAsync<NotFoundException>(() => handler.Handle(new GetAreaTeamsQuery(w.Org, Guid.CreateVersion7().ToString()), Ct));
 
-        Assert.Equal(new AreaTeamResponse(w.Team.Id, "Платформа"), Assert.Single(teams.Items));
+        Assert.Equal(new AreaTeamResponse(w.Team.Id, "Платформа", true), Assert.Single(teams.Items));
         Assert.Equal(OrganizationErrorCodes.AreaNotFound, refusal.Code);
     }
 
@@ -235,13 +236,13 @@ public sealed class AreaReadHandlersTests
     {
         var w = new World();
         w.Store.LinkArea(w.Department, w.Team);
-        var handler = new GetTeamAreasHandler(w.Structure);
+        var handler = new GetTeamAreasHandler(w.Structure, new FakeOrganizationAccess(OrganizationRole.Admin));
 
         var team = await handler.Handle(new GetTeamAreasQuery(w.Org, w.Team.Id.ToString()), Ct);
         w.Team.Delete();
         var refusal = await Assert.ThrowsAsync<NotFoundException>(() => handler.Handle(new GetTeamAreasQuery(w.Org, w.Team.Id.ToString()), Ct));
 
-        Assert.Equal(new TeamAreaResponse(w.Department.Id, "Разработка", "Разработка"), Assert.Single(team.Items));
+        Assert.Equal(new TeamAreaResponse(w.Department.Id, "Разработка", "Разработка", true), Assert.Single(team.Items));
         Assert.Equal(OrganizationErrorCodes.TeamNotFound, refusal.Code);
     }
 }

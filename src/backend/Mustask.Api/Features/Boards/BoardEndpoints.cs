@@ -45,7 +45,7 @@ public static class BoardEndpoints
 
         // § 3.2. Move one item of the backlog; the panel reads the backlog again.
         team.MapPost("/backlogs/{level}/reorder", ReorderBacklogAsync)
-            .RequiresOrganizationPermission(PermissionCatalog.BoardsBacklogReorder)
+            .RequiresOrganizationPermission(PermissionCatalog.BoardsBacklogReorder, ResourceScope.Team)
             .Produces(StatusCodes.Status204NoContent)
             .ProducesProblem(StatusCodes.Status400BadRequest)
             .ProducesProblem(StatusCodes.Status401Unauthorized)
@@ -67,7 +67,7 @@ public static class BoardEndpoints
 
         // § 3.1. The project's backlog of a level, over every item of the project. Written with BacklogJson: the answer is a tree.
         project.MapGet("/backlogs/{level}", GetProjectBacklogAsync)
-            .RequiresOrganizationPermission(PermissionCatalog.WorkItemsWorkItemRead)
+            .RequiresOrganizationPermission(PermissionCatalog.WorkItemsWorkItemRead, ResourceScope.Project)
             .Produces<ProjectBacklogResponse>()
             .ProducesProblem(StatusCodes.Status401Unauthorized)
             .ProducesProblem(StatusCodes.Status403Forbidden)
@@ -75,7 +75,7 @@ public static class BoardEndpoints
 
         // § 3.2. Move one item of the project's backlog in the project's own order; the panel reads the backlog again.
         project.MapPost("/backlogs/{level}/reorder", ReorderProjectBacklogAsync)
-            .RequiresOrganizationPermission(PermissionCatalog.BoardsBacklogReorder)
+            .RequiresOrganizationPermission(PermissionCatalog.BoardsProjectBacklogReorder, ResourceScope.Project)
             .Produces(StatusCodes.Status204NoContent)
             .ProducesProblem(StatusCodes.Status400BadRequest)
             .ProducesProblem(StatusCodes.Status401Unauthorized)
@@ -85,7 +85,7 @@ public static class BoardEndpoints
 
         // § 3.3. The project's board of a level.
         project.MapGet("/boards/{level}", GetProjectBoardAsync)
-            .RequiresOrganizationPermission(PermissionCatalog.WorkItemsWorkItemRead)
+            .RequiresOrganizationPermission(PermissionCatalog.WorkItemsWorkItemRead, ResourceScope.Project)
             .Produces<ProjectBoardResponse>()
             .ProducesProblem(StatusCodes.Status401Unauthorized)
             .ProducesProblem(StatusCodes.Status403Forbidden)

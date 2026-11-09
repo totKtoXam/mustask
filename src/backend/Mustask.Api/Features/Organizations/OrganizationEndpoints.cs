@@ -7,10 +7,13 @@ using Mustask.Application.Features.Organizations.DeactivateOrganization;
 using Mustask.Application.Features.Organizations.DeactivateProject;
 using Mustask.Application.Features.Organizations.DeleteArea;
 using Mustask.Application.Features.Organizations.DeleteTeam;
+using Mustask.Application.Features.Organizations.SetInheritsAccess;
+using Mustask.Application.Features.Organizations.GetSwitchImpact;
 using Mustask.Application.Features.Organizations.GetArea;
 using Mustask.Application.Features.Organizations.GetAreaDeletion;
 using Mustask.Application.Features.Organizations.GetAreaTeams;
 using Mustask.Application.Features.Organizations.GetAreaTree;
+using Mustask.Application.Features.Organizations.GetWritableAreaIds;
 using Mustask.Application.Features.Organizations.GetProjectAreas;
 using Mustask.Application.Features.Organizations.GetTeamAreas;
 using Mustask.Application.Features.Organizations.LinkAreasToTeam;
@@ -68,6 +71,10 @@ namespace Mustask.Api.Features.Organizations;
 public static class OrganizationEndpoints
 {
     private const string Tag = "Organizations";
+
+    private const string EitherEnd = "removing a department–team link needs either end's link code (mod-019 BR-SA-15), so no one code can be declared on the addressed object";
+
+    private const string PlaceInBody = "the addressed object is the place, carried in the body (mod-018 api-contract § 4); decided at step 0, before any lookup (mod-019 BR-SA-17)";
 
     private const string ListsOnlyMine =
         "Lists only the organizations the caller belongs to, in any role (mod-016 BR-M1-7, api-contract § 4.1 row 1): "
@@ -164,7 +171,7 @@ public static class OrganizationEndpoints
             .ProducesProblem(StatusCodes.Status404NotFound);
 
         projects.MapPost("/", CreateProjectAsync)
-            .RequiresOrganizationPermission(PermissionCatalog.OrganizationsProjectWrite)
+            .RequiresOrganizationPermissionDecidedInHandler(PermissionCatalog.OrganizationsAreaWrite, PlaceInBody)
             .Produces<Application.Features.Organizations.CreateProject.ProjectResponse>(StatusCodes.Status201Created)
             .ProducesProblem(StatusCodes.Status400BadRequest)
             .ProducesProblem(StatusCodes.Status401Unauthorized)
@@ -342,8 +349,13 @@ public static class OrganizationEndpoints
             .Produces<IReadOnlyList<AreaNodeResponse>>()
             .WithReadProblems();
 
+        areas.MapGet("/writable-ids", GetWritableAreaIdsAsync)
+            .RequiresOrganizationPermission(PermissionCatalog.OrganizationsAreaRead)
+            .Produces<IReadOnlyList<Guid>>()
+            .WithReadProblems();
+
         areas.MapPost("/", CreateAreaAsync)
-            .RequiresOrganizationPermission(PermissionCatalog.OrganizationsAreaWrite)
+            .RequiresOrganizationPermissionDecidedInHandler(PermissionCatalog.OrganizationsAreaWrite, PlaceInBody)
             .Produces<Application.Features.Organizations.CreateArea.AreaResponse>(StatusCodes.Status201Created)
             .WriteProblems();
 
@@ -353,27 +365,37 @@ public static class OrganizationEndpoints
             .WithReadProblems();
 
         areas.MapPut("/{areaId}/name", RenameAreaAsync)
-            .RequiresOrganizationPermission(PermissionCatalog.OrganizationsAreaWrite)
+            .RequiresOrganizationPermission(PermissionCatalog.OrganizationsAreaWrite, ResourceScope.Area)
             .Produces<Application.Features.Organizations.RenameArea.AreaResponse>()
             .WriteProblems();
 
         areas.MapPut("/{areaId}/description", SetAreaDescriptionAsync)
-            .RequiresOrganizationPermission(PermissionCatalog.OrganizationsAreaWrite)
+            .RequiresOrganizationPermission(PermissionCatalog.OrganizationsAreaWrite, ResourceScope.Area)
             .Produces<Application.Features.Organizations.SetAreaDescription.AreaResponse>()
             .WriteProblems();
 
         areas.MapPut("/{areaId}/parent", MoveAreaAsync)
-            .RequiresOrganizationPermission(PermissionCatalog.OrganizationsAreaWrite)
+            .RequiresOrganizationPermission(PermissionCatalog.OrganizationsAreaWrite, ResourceScope.Area)
             .Produces<Application.Features.Organizations.MoveArea.AreaResponse>()
             .WriteProblems();
 
+        areas.MapPut("/{areaId}/inherits-access", SetInheritsAccessAsync)
+            .RequiresOrganizationPermission(PermissionCatalog.OrganizationsAreaWrite, ResourceScope.Area)
+            .Produces<SetInheritsAccessResponse>()
+            .WriteProblems();
+
+        areas.MapGet("/{areaId}/inherits-access/impact", GetSwitchImpactAsync)
+            .RequiresOrganizationPermission(PermissionCatalog.OrganizationsAreaWrite, ResourceScope.Area)
+            .Produces<SwitchImpactResponse>()
+            .WriteProblems();
+
         areas.MapDelete("/{areaId}", DeleteAreaAsync)
-            .RequiresOrganizationPermission(PermissionCatalog.OrganizationsAreaWrite)
+            .RequiresOrganizationPermission(PermissionCatalog.OrganizationsAreaWrite, ResourceScope.Area)
             .Produces(StatusCodes.Status204NoContent)
             .WriteProblems();
 
         areas.MapGet("/{areaId}/deletion", GetAreaDeletionAsync)
-            .RequiresOrganizationPermission(PermissionCatalog.OrganizationsAreaWrite)
+            .RequiresOrganizationPermission(PermissionCatalog.OrganizationsAreaWrite, ResourceScope.Area)
             .Produces<GetAreaDeletionResult>()
             .WithReadProblems();
 
@@ -383,13 +405,13 @@ public static class OrganizationEndpoints
             .WithReadProblems();
 
         areas.MapPost("/{areaId}/teams", LinkTeamsToAreaAsync)
-            .RequiresOrganizationPermission(PermissionCatalog.OrganizationsAreaLink)
+            .RequiresOrganizationPermission(PermissionCatalog.OrganizationsAreaLink, ResourceScope.Area)
             .Produces(StatusCodes.Status204NoContent)
             .WithReadProblems()
             .ProducesProblem(StatusCodes.Status409Conflict);
 
         areas.MapDelete("/{areaId}/teams/{teamId}", UnlinkTeamFromAreaAsync)
-            .RequiresOrganizationPermission(PermissionCatalog.OrganizationsAreaLink)
+            .RequiresOrganizationPermissionDecidedInHandler(PermissionCatalog.OrganizationsAreaLink, EitherEnd)
             .Produces(StatusCodes.Status204NoContent)
             .WithReadProblems();
 
@@ -411,13 +433,13 @@ public static class OrganizationEndpoints
             .WithReadProblems();
 
         teams.MapPost("/{teamId}/areas", LinkAreasToTeamAsync)
-            .RequiresOrganizationPermission(PermissionCatalog.OrganizationsTeamLink)
+            .RequiresOrganizationPermission(PermissionCatalog.OrganizationsTeamLink, ResourceScope.Team)
             .Produces(StatusCodes.Status204NoContent)
             .WithReadProblems()
             .ProducesProblem(StatusCodes.Status409Conflict);
 
         teams.MapDelete("/{teamId}/areas/{areaId}", UnlinkAreaFromTeamAsync)
-            .RequiresOrganizationPermission(PermissionCatalog.OrganizationsTeamLink)
+            .RequiresOrganizationPermissionDecidedInHandler(PermissionCatalog.OrganizationsTeamLink, EitherEnd)
             .Produces(StatusCodes.Status204NoContent)
             .WithReadProblems();
 
@@ -459,8 +481,8 @@ public static class OrganizationEndpoints
 
     // --- § 2. Projects ----------------------------------------------------------------
 
-    private static async Task<IResult> GetProjectsAsync(string organizationId, GetProjectsHandler handler, CancellationToken cancellationToken) =>
-        Results.Ok((await handler.Handle(new GetProjectsQuery(organizationId), cancellationToken)).Items);
+    private static async Task<IResult> GetProjectsAsync(string organizationId, string? linkableFor, GetProjectsHandler handler, CancellationToken cancellationToken) =>
+        Results.Ok((await handler.Handle(new GetProjectsQuery(organizationId, linkableFor), cancellationToken)).Items);
 
     private static async Task<IResult> GetDeactivatedProjectsAsync(string organizationId, GetDeactivatedProjectsHandler handler, CancellationToken cancellationToken) =>
         Results.Ok((await handler.Handle(new GetDeactivatedProjectsQuery(organizationId), cancellationToken)).Items);
@@ -539,8 +561,8 @@ public static class OrganizationEndpoints
     private static async Task<IResult> GetSelectorOffersAsync(string organizationId, GetSelectorOffersHandler handler, CancellationToken cancellationToken) =>
         Results.Ok(await handler.Handle(new GetSelectorOffersQuery(organizationId), cancellationToken));
 
-    private static async Task<IResult> GetOrganizationTeamsAsync(string organizationId, GetOrganizationTeamsHandler handler, CancellationToken cancellationToken) =>
-        Results.Ok((await handler.Handle(new GetOrganizationTeamsQuery(organizationId), cancellationToken)).Items);
+    private static async Task<IResult> GetOrganizationTeamsAsync(string organizationId, string? linkableFor, GetOrganizationTeamsHandler handler, CancellationToken cancellationToken) =>
+        Results.Ok((await handler.Handle(new GetOrganizationTeamsQuery(organizationId, linkableFor), cancellationToken)).Items);
 
     private static async Task<IResult> GetTeamAsync(
         string organizationId, string teamId, GetTeamHandler handler, CancellationToken cancellationToken) =>
@@ -640,8 +662,11 @@ public static class OrganizationEndpoints
             .WithReadProblems()
             .ProducesProblem(StatusCodes.Status409Conflict);
 
-    private static async Task<IResult> GetAreaTreeAsync(string organizationId, GetAreaTreeHandler handler, CancellationToken cancellationToken) =>
-        Results.Ok((await handler.Handle(new GetAreaTreeQuery(organizationId), cancellationToken)).Items);
+    private static async Task<IResult> GetWritableAreaIdsAsync(string organizationId, GetWritableAreaIdsHandler handler, CancellationToken cancellationToken) =>
+        Results.Ok(await handler.Handle(new GetWritableAreaIdsQuery(organizationId), cancellationToken));
+
+    private static async Task<IResult> GetAreaTreeAsync(string organizationId, string? linkableFor, GetAreaTreeHandler handler, CancellationToken cancellationToken) =>
+        Results.Ok((await handler.Handle(new GetAreaTreeQuery(organizationId, linkableFor), cancellationToken)).Items);
 
     private static async Task<IResult> GetAreaAsync(string organizationId, string areaId, GetAreaHandler handler, CancellationToken cancellationToken) =>
         Results.Ok((await handler.Handle(new GetAreaQuery(organizationId, areaId), cancellationToken)).Response);
@@ -668,6 +693,18 @@ public static class OrganizationEndpoints
     private static async Task<IResult> MoveAreaAsync(
         string organizationId, string areaId, ParentRequest? request, MoveAreaHandler handler, CancellationToken cancellationToken) =>
         Results.Ok((await handler.Handle(new MoveAreaCommand(organizationId, areaId, request?.ParentId), cancellationToken)).Response);
+
+    private static async Task<IResult> SetInheritsAccessAsync(
+        string organizationId, string areaId, InheritsAccessRequest? request, SetInheritsAccessHandler handler, CancellationToken cancellationToken) =>
+        Results.Ok(await handler.Handle(new SetInheritsAccessCommand(organizationId, areaId, request?.Value), cancellationToken));
+
+    private static async Task<IResult> GetSwitchImpactAsync(
+        HttpContext context, string organizationId, string areaId, GetSwitchImpactHandler handler, CancellationToken cancellationToken)
+    {
+        context.Response.Headers.CacheControl = "no-store";
+
+        return Results.Ok(await handler.Handle(new GetSwitchImpactQuery(organizationId, areaId), cancellationToken));
+    }
 
     private static async Task<IResult> DeleteAreaAsync(
         string organizationId, string areaId, DeleteAreaHandler handler, CancellationToken cancellationToken)
@@ -778,4 +815,5 @@ public static class OrganizationEndpoints
     private sealed record LinkAreasRequest(IReadOnlyList<string?>? AreaIds);
 
     private sealed record ParentRequest(string? ParentId);
+    private sealed record InheritsAccessRequest(bool? Value);
 }

@@ -43,7 +43,7 @@ public static class EndpointCategories
     /// An organization code checked <b>on an object of a scope</b> (mod-019, ADR-0029 § 7): the route carries <c>{organizationId}</c>
     /// and the id of its scope (<c>{areaId}</c>, <c>{projectId}</c> or <c>{teamId}</c>), and the caller must hold the code on that
     /// object — through the organization role's bundle or a grant that reaches it. The code's resource scope must be the route's or
-    /// the organization's; any other pairing is refused at mapping time, since it would be a permanent silent 403.
+    /// its own; any other pairing is refused at mapping time, since it would be a permanent silent 403.
     /// </summary>
     public static TBuilder RequiresOrganizationPermission<TBuilder>(this TBuilder builder, string permissionCode, ResourceScope scope)
         where TBuilder : IEndpointConventionBuilder
@@ -52,7 +52,7 @@ public static class EndpointCategories
 
         var codeScope = PermissionCatalog.ResourceScopeOf(permissionCode);
 
-        if (scope == ResourceScope.Organization || (codeScope != ResourceScope.Organization && codeScope != scope))
+        if (scope == ResourceScope.Organization || codeScope != scope)
         {
             throw new InvalidOperationException(
                 $"'{permissionCode}' is checked on a {codeScope.ToString().ToLowerInvariant()}, not on a {scope.ToString().ToLowerInvariant()}: "
@@ -61,6 +61,22 @@ public static class EndpointCategories
 
         builder.WithMetadata(EndpointCategoryMetadata.OrganizationPermission(permissionCode, acceptsDeactivated: false, scope));
         return builder.RequireAuthorization(PermissionPolicies.OrganizationPolicyName(permissionCode, acceptsDeactivated: false, scope));
+    }
+
+    /// <summary>
+    /// An organization code whose <b>object is carried in the body, or needs either of two codes</b> (mod-019 BR-SA-17, BR-SA-15, ADR-0038): the place of a new project or area, the unlink of a department–team link.
+    /// The route proves an active organization and a membership, and its handler decides the code on the place at step 0, before any
+    /// lookup. It is an exception of the inventory and states why, so the exception is a decision and not an omission.
+    /// </summary>
+    public static TBuilder RequiresOrganizationPermissionDecidedInHandler<TBuilder>(this TBuilder builder, string permissionCode, string reason)
+        where TBuilder : IEndpointConventionBuilder
+    {
+        EnsureScope(permissionCode, PermissionSource.Organization, nameof(RequiresPermission));
+        ArgumentException.ThrowIfNullOrWhiteSpace(reason);
+
+        builder.WithMetadata(EndpointCategoryMetadata.OrganizationPermission(
+            permissionCode, acceptsDeactivated: false, ResourceScope.Organization, decidedInHandler: true, reason));
+        return builder.RequireAuthorization(PermissionPolicies.OrganizationMemberPolicyName(permissionCode));
     }
 
     public static TBuilder Public<TBuilder>(this TBuilder builder, string reason)

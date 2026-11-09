@@ -72,7 +72,7 @@ public sealed class UnlinkTeamHandler(
     public async Task Handle(UnlinkTeamCommand command, CancellationToken cancellationToken)
     {
         // 0. The second code, first of all (D-7): a role without it learns nothing about any id, and nothing changes.
-        if (!access.Holds(PermissionCatalog.OrganizationsTeamLink))
+        if (!await access.HoldsOnAsync(PermissionCatalog.OrganizationsTeamLink, ScopedCodes.Guess(command.TeamId), cancellationToken))
         {
             throw new ForbiddenException(OrganizationErrorCodes.AccessForbidden);
         }

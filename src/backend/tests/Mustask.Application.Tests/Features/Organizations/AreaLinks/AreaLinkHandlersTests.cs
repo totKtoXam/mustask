@@ -73,10 +73,10 @@ public sealed class AreaLinkHandlersTests
             _unitOfWork);
 
         public UnlinkTeamFromAreaHandler UnlinkTeamFromArea() => new(
-            new FakeOrganizationReadModel(Store), new FakeOrganizationStructure(Store), Areas, new FakeAreaLinkRepository(Store), _unitOfWork);
+            new FakeOrganizationReadModel(Store), new FakeOrganizationStructure(Store), Areas, new FakeAreaLinkRepository(Store), Access, _unitOfWork);
 
         public UnlinkAreaFromTeamHandler UnlinkAreaFromTeam() => new(
-            new FakeOrganizationReadModel(Store), new FakeOrganizationStructure(Store), Areas, new FakeAreaLinkRepository(Store), _unitOfWork);
+            new FakeOrganizationReadModel(Store), new FakeOrganizationStructure(Store), Areas, new FakeAreaLinkRepository(Store), Access, _unitOfWork);
     }
 
     private static CancellationToken Ct => CancellationToken.None;

@@ -1,5 +1,6 @@
 using Mustask.Application;
 using Mustask.Application.Abstractions;
+using Mustask.Application.Abstractions.Organizations;
 using Mustask.Application.Abstractions.Process;
 using Mustask.Application.Abstractions.UserDirectory;
 using Mustask.Application.Features.Process;
@@ -81,6 +82,7 @@ public sealed class OrganizationsDatabaseFixture : IAsyncLifetime
         services.AddScoped<IUnitOfWork, UnitOfWork>();
         services.AddScoped<IProcessSeedStore, ProcessSeedStore>();
         services.AddScoped<IUserDirectory, UserDirectoryReadModel>();
+        services.AddScoped<IOrganizationAccess, StandInAdminAccess>();
         services.AddApplication();
         services.AddOrganizationsInfrastructure();
 
@@ -350,4 +352,16 @@ public sealed record LegacyProject(Guid ProjectId, Guid FirstTeamId, Guid RootAr
 public sealed class OrganizationsDatabaseCollection : ICollectionFixture<OrganizationsDatabaseFixture>
 {
     public const string Name = "Organizations database";
+}
+
+/// <summary>
+/// The access of a request, for the handlers that serve per-object flags: an administrator, who holds every code and needs no grant read,
+/// so the statement counts of the reads stay those of the reads themselves (the check's own cost is pinned by
+/// <c>ScopedAccessStatementCountTests</c>).
+/// </summary>
+internal sealed class StandInAdminAccess : IOrganizationAccess
+{
+    public OrganizationRole Role => OrganizationRole.Admin;
+
+    public bool Holds(string code) => OrganizationRoleBundles.Holds(OrganizationRole.Admin, code);
 }

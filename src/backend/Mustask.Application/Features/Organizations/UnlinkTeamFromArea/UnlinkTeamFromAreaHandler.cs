@@ -1,5 +1,6 @@
 using Mustask.Application.Abstractions;
 using Mustask.Application.Abstractions.Organizations;
+using Mustask.Domain.Identity;
 using Mustask.Domain.Organizations;
 using Mustask.Shared.Exceptions;
 
@@ -19,6 +20,7 @@ public sealed class UnlinkTeamFromAreaHandler(
     IOrganizationStructure structure,
     IAreaRepository areas,
     IAreaLinkRepository areaLinks,
+    IOrganizationAccess access,
     IUnitOfWork unitOfWork)
 {
     public async Task Handle(UnlinkTeamFromAreaCommand command, CancellationToken cancellationToken) =>
@@ -29,6 +31,17 @@ public sealed class UnlinkTeamFromAreaHandler(
                     || await organizations.FindActiveAsync(organizationId, ct) is null)
                 {
                     throw new NotFoundException(OrganizationErrorCodes.OrganizationNotFound);
+                }
+
+                // The code: either end's link code is enough to end a department-team link (mod-019 BR-SA-15), judged before the area or
+                // the team is looked at, so an unknown id is answered by the role alone.
+                var areaGuess = AddressedId.TryParse(command.AreaId, out var guessedArea) ? guessedArea : Guid.Empty;
+                var teamGuess = AddressedId.TryParse(command.TeamId, out var guessedTeam) ? guessedTeam : Guid.Empty;
+
+                if (!await access.HoldsOnAsync(PermissionCatalog.OrganizationsAreaLink, areaGuess, ct)
+                    && !await access.HoldsOnAsync(PermissionCatalog.OrganizationsTeamLink, teamGuess, ct))
+                {
+                    throw new ForbiddenException(OrganizationErrorCodes.AccessForbidden);
                 }
 
                 var area = AddressedId.TryParse(command.AreaId, out var areaId)

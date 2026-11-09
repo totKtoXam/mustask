@@ -24,6 +24,7 @@ public sealed class PermissionPolicies : IAuthorizationPolicyProvider
     private const string OrganizationPolicyPrefix = "org:";
     private const string OrganizationRestorePolicyPrefix = "org+restore:";
     private const string OrganizationScopedPolicyPrefix = "orgscope:";
+    private const string OrganizationMemberPolicyPrefix = "orgmember:";
     private const string PermissionClaimType = "perm";
 
     private readonly DefaultAuthorizationPolicyProvider _fallback;
@@ -40,6 +41,9 @@ public sealed class PermissionPolicies : IAuthorizationPolicyProvider
         scope != ResourceScope.Organization ? $"{OrganizationScopedPolicyPrefix}{scope}:{permissionCode}" :
         (acceptsDeactivated ? OrganizationRestorePolicyPrefix : OrganizationPolicyPrefix) + permissionCode;
 
+    /// <summary>The policy of a route whose code is decided in its handler (the place is in the body): membership only.</summary>
+    public static string OrganizationMemberPolicyName(string permissionCode) => OrganizationMemberPolicyPrefix + permissionCode;
+
     public Task<AuthorizationPolicy?> GetPolicyAsync(string policyName)
     {
         if (policyName.StartsWith(PermissionPolicyPrefix, StringComparison.Ordinal))
@@ -51,6 +55,14 @@ public sealed class PermissionPolicies : IAuthorizationPolicyProvider
                 .Build();
 
             return Task.FromResult<AuthorizationPolicy?>(policy);
+        }
+
+        if (policyName.StartsWith(OrganizationMemberPolicyPrefix, StringComparison.Ordinal))
+        {
+            return Task.FromResult<AuthorizationPolicy?>(new AuthorizationPolicyBuilder()
+                .RequireAuthenticatedUser()
+                .AddRequirements(new OrganizationPermissionRequirement(policyName[OrganizationMemberPolicyPrefix.Length..], false, ResourceScope.Organization, MembershipOnly: true))
+                .Build());
         }
 
         if (policyName.StartsWith(OrganizationScopedPolicyPrefix, StringComparison.Ordinal))

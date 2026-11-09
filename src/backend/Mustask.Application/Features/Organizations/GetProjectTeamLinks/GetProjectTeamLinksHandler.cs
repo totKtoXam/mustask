@@ -1,3 +1,4 @@
+using Mustask.Application.Abstractions.Organizations;
 using Mustask.Domain.Organizations;
 using Mustask.Shared.Exceptions;
 
@@ -7,7 +8,7 @@ namespace Mustask.Application.Features.Organizations.GetProjectTeamLinks;
 public sealed record GetProjectTeamLinksQuery(string? OrganizationId, string? ProjectId);
 
 /// <summary>One linked team as the project node's read-only list shows it (mod-018 api-contract § 4, <c>ProjectTeamLink</c>).</summary>
-public sealed record ProjectTeamLinkResponse(Guid Id, string Name);
+public sealed record ProjectTeamLinkResponse(Guid Id, string Name, bool CanUnlink = false);
 
 /// <summary>The handler's outcome: the linked active teams by name.</summary>
 public sealed record GetProjectTeamLinksResult(IReadOnlyList<ProjectTeamLinkResponse> Items);
@@ -19,7 +20,7 @@ public sealed record GetProjectTeamLinksResult(IReadOnlyList<ProjectTeamLinkResp
 /// <c>…/projects/{id}/teams</c> (feat-028), which answers 404 for a deactivated project. A project that is unknown or of another
 /// organization is <see cref="OrganizationErrorCodes.ProjectNotFound"/>.
 /// </summary>
-public sealed class GetProjectTeamLinksHandler(IOrganizationStructure structure)
+public sealed class GetProjectTeamLinksHandler(IOrganizationStructure structure, IOrganizationAccess access)
 {
     public async Task<GetProjectTeamLinksResult> Handle(GetProjectTeamLinksQuery query, CancellationToken cancellationToken)
     {
@@ -35,7 +36,8 @@ public sealed class GetProjectTeamLinksHandler(IOrganizationStructure structure)
         }
 
         var teams = await structure.ListLinkedTeamsAsync(organizationId, projectId, cancellationToken);
+        var set = await access.SetAsync(cancellationToken);
 
-        return new GetProjectTeamLinksResult(teams.Select(team => new ProjectTeamLinkResponse(team.Id, team.Name)).ToList());
+        return new GetProjectTeamLinksResult(teams.Select(team => new ProjectTeamLinkResponse(team.Id, team.Name, LinkRules.CanUnlinkProjectTeam(set, projectId, team.Id))).ToList());
     }
 }

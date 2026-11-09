@@ -19,5 +19,10 @@ namespace Mustask.Api.Authorization;
 /// The kind of object the route addresses (mod-019, ADR-0029 § 7): for a code of another resource scope than the organization's the
 /// grants that reach that object are added to the role's bundle. <see cref="ResourceScope.Organization"/> is today's check.
 /// </param>
-public sealed record OrganizationPermissionRequirement(string Code, bool AcceptsDeactivated, ResourceScope Scope = ResourceScope.Organization)
+/// <param name="MembershipOnly">
+/// <c>true</c> for a route whose code is decided in its handler because the addressed object is carried in the body (the place of a
+/// new project or area, mod-019 BR-SA-17): the check only proves an active organization and a membership, and the handler answers 403.
+/// </param>
+public sealed record OrganizationPermissionRequirement(
+    string Code, bool AcceptsDeactivated, ResourceScope Scope = ResourceScope.Organization, bool MembershipOnly = false)
     : IAuthorizationRequirement;

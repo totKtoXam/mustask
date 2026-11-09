@@ -1,4 +1,5 @@
 using Mustask.Application.Abstractions.Organizations;
+using Mustask.Domain.Identity;
 using Mustask.Domain.Organizations;
 using Mustask.Shared.Exceptions;
 
@@ -33,7 +34,7 @@ namespace Mustask.Application.Features.Organizations.GetProjects;
 /// (plan-backend § 6.2).
 /// </para>
 /// </remarks>
-public sealed class GetProjectsHandler(IOrganizationReadModel organizations, IProjectReadModel projects)
+public sealed class GetProjectsHandler(IOrganizationReadModel organizations, IProjectReadModel projects, IOrganizationAccess access)
 {
     public async Task<GetProjectsResult> Handle(GetProjectsQuery query, CancellationToken cancellationToken)
     {
@@ -45,10 +46,13 @@ public sealed class GetProjectsHandler(IOrganizationReadModel organizations, IPr
         }
 
         // 2-6. Nothing else to refuse: a read has no body and no rule about the addressed object.
+        var filtered = LinkableFor.IsRequested(query.LinkableFor);
         var rows = await projects.ListAsync(organizationId, ProjectStatus.Active, cancellationToken);
+        var set = await access.SetAsync(cancellationToken);
 
         return new GetProjectsResult(rows
-            .Select(row => new ProjectListItemResponse(row.Id, row.Name, row.Key))
+            .Where(row => !filtered || set.Holds(PermissionCatalog.OrganizationsProjectLink, row.Id))
+            .Select(row => new ProjectListItemResponse(row.Id, row.Name, row.Key, set.CodesInCatalogOrder(ResourceScope.Project, row.Id)))
             .ToList());
     }
 }

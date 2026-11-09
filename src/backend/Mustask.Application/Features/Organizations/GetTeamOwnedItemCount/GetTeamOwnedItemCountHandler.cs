@@ -28,7 +28,7 @@ public sealed class GetTeamOwnedItemCountHandler(
     public async Task<GetTeamOwnedItemCountResult> Handle(GetTeamOwnedItemCountQuery query, CancellationToken cancellationToken)
     {
         // 0. The second code (D-7), first of all: a role without it learns nothing about any id.
-        if (!access.Holds(PermissionCatalog.OrganizationsTeamLink))
+        if (!await access.HoldsOnAsync(PermissionCatalog.OrganizationsTeamLink, ScopedCodes.Guess(query.TeamId), cancellationToken))
         {
             throw new ForbiddenException(OrganizationErrorCodes.AccessForbidden);
         }

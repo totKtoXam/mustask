@@ -1,5 +1,6 @@
 using Mustask.Application.Abstractions;
 using Mustask.Application.Abstractions.Organizations;
+using Mustask.Domain.Identity;
 using Mustask.Domain.Organizations;
 using Mustask.Shared.Exceptions;
 
@@ -16,7 +17,7 @@ namespace Mustask.Application.Features.Organizations.GetOrganizationTeams;
 /// the read model runs two whatever the number of teams or projects (an organization of 200 teams lists within 2 s). A deleted team
 /// and a team of another organization never reach the handler (ADR-0026 rules 3 and 4; BR-OL-1).
 /// </remarks>
-public sealed class GetOrganizationTeamsHandler(ITeamReadModel teams, ICurrentUser currentUser)
+public sealed class GetOrganizationTeamsHandler(ITeamReadModel teams, ICurrentUser currentUser, IOrganizationAccess access)
 {
     public async Task<GetOrganizationTeamsResult> Handle(GetOrganizationTeamsQuery query, CancellationToken cancellationToken)
     {
@@ -25,10 +26,12 @@ public sealed class GetOrganizationTeamsHandler(ITeamReadModel teams, ICurrentUs
             throw new NotFoundException(OrganizationErrorCodes.OrganizationNotFound);
         }
 
+        var filtered = LinkableFor.IsRequested(query.LinkableFor);
         var rows = await teams.ListOrganizationTeamsAsync(organizationId, currentUser.SubjectId, cancellationToken);
+        var set = filtered ? await access.SetAsync(cancellationToken) : null;
 
         return new GetOrganizationTeamsResult(
-            rows.Select(row => new TeamListItemResponse(
+            rows.Where(row => set is null || set.Holds(PermissionCatalog.OrganizationsTeamLink, row.Id)).Select(row => new TeamListItemResponse(
                     row.Id,
                     row.Name,
                     row.Description,

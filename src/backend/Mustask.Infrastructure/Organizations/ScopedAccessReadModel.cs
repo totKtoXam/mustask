@@ -105,6 +105,30 @@ internal sealed class ScopedAccessReadModel(MustaskDbContext context) : IScopedA
         }
     }
 
+    public async Task<AccessSet> LoadSetAsync(Guid organizationId, string userId, OrganizationRole role, CancellationToken cancellationToken)
+    {
+        // The administrator holds every code on every object: no grant or tree changes the answer, so nothing is read.
+        if (role == OrganizationRole.Admin)
+        {
+            return new AccessSet(role, [], Group([]), Group([]), Group([]));
+        }
+
+        var nodes = await context.Areas.AsNoTracking().Where(area => area.OrganizationId == organizationId)
+            .Select(area => new AccessNode(area.Id, area.Type, area.ParentId, area.ProjectId, area.InheritsAccess))
+            .ToListAsync(cancellationToken);
+        var areaGrants = (await context.AreaGrants.AsNoTracking().Where(g => g.OrganizationId == organizationId && g.UserId == userId)
+            .Select(g => new { g.ObjectId, g.Role }).ToListAsync(cancellationToken)).Select(g => (g.ObjectId, g.Role));
+        var projectGrants = (await context.ProjectGrants.AsNoTracking().Where(g => g.OrganizationId == organizationId && g.UserId == userId)
+            .Select(g => new { g.ObjectId, g.Role }).ToListAsync(cancellationToken)).Select(g => (g.ObjectId, g.Role));
+        var teamGrants = (await context.TeamGrants.AsNoTracking().Where(g => g.OrganizationId == organizationId && g.UserId == userId)
+            .Select(g => new { g.ObjectId, g.Role }).ToListAsync(cancellationToken)).Select(g => (g.ObjectId, g.Role));
+
+        return new AccessSet(role, nodes, Group(areaGrants), Group(projectGrants), Group(teamGrants));
+    }
+
+    private static IReadOnlyDictionary<Guid, IReadOnlyList<GrantRole>> Group(IEnumerable<(Guid Id, GrantRole Role)> rows) =>
+        rows.GroupBy(row => row.Id).ToDictionary(group => group.Key, group => (IReadOnlyList<GrantRole>)group.Select(row => row.Role).ToList());
+
     private async Task<List<ReachingGrant>> ProjectGrantsAsync(Guid projectId, string userId, CancellationToken cancellationToken) =>
         (await context.ProjectGrants.AsNoTracking()
             .Where(grant => grant.ObjectId == projectId && grant.UserId == userId)
