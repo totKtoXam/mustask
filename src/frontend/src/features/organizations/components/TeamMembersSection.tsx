@@ -1,27 +1,22 @@
 import { useEffect, useEffectEvent, useId, useRef, useState } from 'react';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
-import Paper from '@mui/material/Paper';
 import Stack from '@mui/material/Stack';
-import Table from '@mui/material/Table';
-import TableBody from '@mui/material/TableBody';
-import TableCell from '@mui/material/TableCell';
-import TableContainer from '@mui/material/TableContainer';
-import TableHead from '@mui/material/TableHead';
-import TableRow from '@mui/material/TableRow';
 import Typography from '@mui/material/Typography';
 import AddIcon from '@mui/icons-material/Add';
 import InboxOutlinedIcon from '@mui/icons-material/InboxOutlined';
 import PersonRemoveOutlinedIcon from '@mui/icons-material/PersonRemoveOutlined';
 import { useAccessCheck } from '../../../shared/lib/access';
 import { ErrorBanner } from '../../../shared/ui/ErrorBanner';
+import { DataTable, type DataColumn } from '../../../shared/ui/table/DataTable';
 import { RegistrySkeleton } from '../../../shared/ui/RegistrySkeleton';
 import { RequiresOrganizationCode } from '../../../shared/ui/RequiresOrganizationCode';
 import { StateFrame } from '../../../shared/ui/StateFrame';
 import type { Team } from '../api/organizationsApi';
 import type { UserRef } from '../api/membershipApi';
 import { useAddTeamMember, useRemoveTeamMember } from '../hooks/mutations';
-import { useTeamMembers } from '../hooks/queries';
+import { useGrants, useTeamMembers } from '../hooks/queries';
+import { GRANT_ROLE_LABELS, grantsSection } from '../lib/grantTexts';
 import { useRowFocus } from '../hooks/useRowFocus';
 import { memberNotices, teamMembersSection } from '../lib/memberTexts';
 import { placeMembershipRefusal } from '../lib/membershipRefusals';
@@ -67,6 +62,9 @@ export function TeamMembersSection({
 }: TeamMembersSectionProps) {
   const headingId = useId();
   const query = useTeamMembers(organizationId, team.id);
+  // The role a member holds on the team by a grant (mod-019 design § 3); none is a dash.
+  const grants = useGrants(organizationId, 'team', team.id);
+  const roleOf = new Map((grants.data?.items ?? []).map((row) => [row.user.id, row.role]));
   const add = useAddTeamMember(organizationId, team.id);
   const remove = useRemoveTeamMember(organizationId, team.id);
   const access = useAccessCheck();
@@ -130,7 +128,59 @@ export function TeamMembersSection({
   }
 
   const loading = query.isPending || (query.isError && query.isFetching);
-  const columns: string[] = [teamMembersSection.columns.name, teamMembersSection.columns.email];
+  const tableColumns: DataColumn<UserRef>[] = [
+    {
+      key: 'name',
+      header: teamMembersSection.columns.name,
+      width: '40%',
+      render: (user) => <UserLine user={user} />,
+    },
+    {
+      key: 'email',
+      header: teamMembersSection.columns.email,
+      width: '40%',
+      render: (user) => (user.email ? <TruncatedName name={user.email} /> : null),
+    },
+    {
+      key: 'role',
+      header: grantsSection.teamRoleColumn,
+      render: (user) =>
+        roleOf.has(user.id) ? (
+          GRANT_ROLE_LABELS[roleOf.get(user.id)!]
+        ) : (
+          <span aria-label={grantsSection.noTeamRoleForEar}>{grantsSection.noTeamRole}</span>
+        ),
+    },
+    ...(canWrite
+      ? [
+          {
+            key: 'actions',
+            header: '',
+            align: 'right' as const,
+            width: 48,
+            render: (user: UserRef) => (
+              <RowActionsMenu
+                name={plainName(user)}
+                actions={[
+                  {
+                    label: teamMembersSection.removeFromTeam,
+                    icon: <PersonRemoveOutlinedIcon fontSize="small" />,
+                    onClick: () => void removeFromTeam(user),
+                  },
+                ]}
+                busy={busyIds.has(user.id)}
+                buttonRef={focus.buttonRef(user.id)}
+              />
+            ),
+          },
+        ]
+      : []),
+  ];
+  const columns: string[] = [
+    teamMembersSection.columns.name,
+    teamMembersSection.columns.email,
+    grantsSection.teamRoleColumn,
+  ];
 
   return (
     <Box component="section" aria-labelledby={headingId} sx={{ mt: 4 }}>
@@ -174,50 +224,12 @@ export function TeamMembersSection({
           }
         />
       ) : (
-        <TableContainer component={Paper} variant="outlined">
-          <Table
-            size="small"
-            aria-labelledby={headingId}
-            sx={(theme) => ({ minWidth: theme.spacing(60) })}
-          >
-            <TableHead>
-              <TableRow>
-                {columns.map((column) => (
-                  <TableCell key={column}>{column}</TableCell>
-                ))}
-                {canWrite && <TableCell />}
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {query.data.map((user) => (
-                <TableRow key={user.id} hover>
-                  <TableCell sx={{ maxWidth: 0, width: '50%' }}>
-                    <UserLine user={user} />
-                  </TableCell>
-                  <TableCell sx={{ maxWidth: 0, width: '50%' }}>
-                    {user.email ? <TruncatedName name={user.email} /> : null}
-                  </TableCell>
-                  {canWrite && (
-                    <TableCell align="right">
-                      <RowActionsMenu
-                        name={plainName(user)}
-                        actions={[
-                          {
-                            label: teamMembersSection.removeFromTeam,
-                            icon: <PersonRemoveOutlinedIcon fontSize="small" />,
-                            onClick: () => void removeFromTeam(user),
-                          },
-                        ]}
-                        busy={busyIds.has(user.id)}
-                        buttonRef={focus.buttonRef(user.id)}
-                      />
-                    </TableCell>
-                  )}
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </TableContainer>
+        <DataTable
+          aria-label={teamMembersSection.title}
+          columns={tableColumns}
+          rows={query.data}
+          rowKey={(user) => user.id}
+        />
       )}
       <RequiresOrganizationCode code={organizationsPermissions.teamWrite}>
         {adding && (

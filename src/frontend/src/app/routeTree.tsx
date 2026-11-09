@@ -27,11 +27,13 @@ import { LanguageFormPage, LanguagesRegistryPage } from '../features/dictionarie
 import { HomePage } from '../features/home/HomePage';
 import {
   ADMIN_ORGANIZATIONS_PATH,
+  AREA_MEMBERS_ROUTE,
   AREA_PREFIX_ROUTE,
   AREA_PROJECTS_ROUTE,
   AREA_SETTINGS_ROUTE,
   AREA_TEAMS_ROUTE,
   AllOrganizationsPage,
+  AreaMembersPage,
   AreaPage,
   AreasPage,
   DEACTIVATED_ORGANIZATIONS_ROUTE,
@@ -52,9 +54,11 @@ import {
   OrganizationTeamsPage,
   OrganizationsSection,
   PROJECTS_ROUTE,
+  PROJECT_ACCESS_ROUTE,
   PROJECT_GENERAL_ROUTE,
   PROJECT_PREFIX_ROUTE,
   PROJECT_SETTINGS_ROUTE,
+  ProjectAccessPage,
   ProjectGeneralPage,
   ProjectListPage,
   TEAMS_ROUTE,
@@ -231,6 +235,14 @@ export const routeTree = (
               />
             ))}
             <Route
+              path={AREA_MEMBERS_ROUTE}
+              element={
+                <OrganizationPage code={permissions.areaRead} title="Участники" skeleton="registry">
+                  <AreaMembersPage />
+                </OrganizationPage>
+              }
+            />
+            <Route
               path={AREA_SETTINGS_ROUTE}
               element={
                 <OrganizationPage code={permissions.areaRead} title="Область" skeleton="form">
@@ -281,6 +293,18 @@ export const routeTree = (
                   columns={['Команда']}
                 >
                   <TeamsPage />
+                </OrganizationPage>
+              }
+            />
+            <Route
+              path={PROJECT_ACCESS_ROUTE}
+              element={
+                <OrganizationPage
+                  code={permissions.projectRead}
+                  title="Участники и доступ"
+                  skeleton="registry"
+                >
+                  <ProjectAccessPage />
                 </OrganizationPage>
               }
             />

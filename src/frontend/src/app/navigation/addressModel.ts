@@ -93,6 +93,7 @@ export const MENU_TABLE: Record<MenuKind, readonly MenuRow[]> = {
       segment: 'backlogs/:level',
       code: boardsPermissions.workItemRead,
     },
+    { id: 'members', label: 'Участники', segment: 'members', code: read.areaRead },
   ],
   team: [
     { id: 'overview', label: 'Обзор', segment: 'overview', code: read.teamRead },
@@ -139,6 +140,7 @@ export const MENU_TABLE: Record<MenuKind, readonly MenuRow[]> = {
       code: boardsPermissions.workItemRead,
     },
     { id: 'teams', label: 'Команды', segment: 'teams', code: read.teamRead },
+    { id: 'access', label: 'Участники и доступ', segment: 'access', code: read.projectRead },
   ],
 };
 

@@ -21,6 +21,8 @@ import { MembersPage } from './pages/MembersPage';
 import { ProjectGeneralPage } from './pages/ProjectGeneralPage';
 import { ProjectListPage } from './pages/ProjectListPage';
 import { AreaPage } from './pages/AreaPage';
+import { AreaMembersPage } from './pages/AreaMembersPage';
+import { ProjectAccessPage } from './pages/ProjectAccessPage';
 import { AreasPage } from './pages/AreasPage';
 import { OrganizationTeamsPage } from './pages/OrganizationTeamsPage';
 import { TeamPage } from './pages/TeamPage';
@@ -28,6 +30,7 @@ import { TeamsPage } from './pages/TeamsPage';
 import {
   ADMIN_ORGANIZATIONS_PATH,
   ORG_AREAS_ROUTE,
+  AREA_MEMBERS_ROUTE,
   AREA_PROJECTS_ROUTE,
   AREA_SETTINGS_ROUTE,
   AREA_TEAMS_ROUTE,
@@ -43,6 +46,7 @@ import {
   TEAM_MEMBERS_ROUTE,
   TEAM_PROJECTS_ROUTE,
   TEAM_SETTINGS_ROUTE,
+  PROJECT_ACCESS_ROUTE,
   PROJECT_GENERAL_ROUTE,
   PROJECT_SETTINGS_ROUTE,
   TEAMS_ROUTE,
@@ -149,6 +153,7 @@ export function renderPage({
     role: TestRole,
   ) {
     servedObjectCodes.current = orgCodes ?? codesOf(role);
+    servedObjectCodes.pinned = orgCodes !== undefined;
     const access: AccessCheck = orgCodes
       ? checkForCodes(orgCodes, currentPermissions)
       : checkFor(role, currentPermissions);
@@ -183,6 +188,8 @@ export function renderPage({
                       {[PROJECT_GENERAL_ROUTE, PROJECT_SETTINGS_ROUTE].map((path) => (
                         <Route key={path} path={path} element={<ProjectGeneralPage />} />
                       ))}
+                      <Route path={AREA_MEMBERS_ROUTE} element={<AreaMembersPage />} />
+                      <Route path={PROJECT_ACCESS_ROUTE} element={<ProjectAccessPage />} />
                       <Route path={TEAMS_ROUTE} element={<TeamsPage />} />
                       <Route path={ORG_TEAMS_ROUTE} element={<OrganizationTeamsPage />} />
                       {[

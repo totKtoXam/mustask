@@ -3,6 +3,7 @@
 // Russian texts. Every test of the slice takes its data from here instead of
 // typing it again; `testApi.ts` serves it per api-contract.
 import { readFileSync } from 'node:fs';
+import type { GrantInheritance, GrantRow, SwitchImpact } from './api/grantsApi';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -160,6 +161,12 @@ export interface Dataset {
    * `ownedKey(projectId, teamId)`; absent: none.
    */
   ownedItemCounts?: Record<string, number>;
+  /** The grants by `scope:objectId` (mod-019 § 2); absent: none. */
+  grants?: Record<string, GrantRow[]>;
+  /** What a project's grant list says about the department above it (§ 1); absent: none. */
+  grantInheritance?: GrantInheritance;
+  /** What turning a node's switch off would do (§ 3); absent: nothing. */
+  switchImpact?: SwitchImpact;
   /** The caller the handlers answer as (the token's `sub`); needed with `teamMembers` and `memberships`. */
   actingUserId?: string;
 }

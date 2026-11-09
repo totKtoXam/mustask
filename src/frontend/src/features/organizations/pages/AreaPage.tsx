@@ -36,6 +36,7 @@ import {
 import { AreaTypeMark, commandIcon } from '../components/AreaTypeMark';
 import { ConfirmAction } from '../components/ConfirmAction';
 import { FactsPanel, type Fact } from '../components/FactsPanel';
+import { InheritAccessControl } from '../components/InheritAccessControl';
 import { useNotify } from '../components/notice';
 import { PlaceProjectDialog } from '../components/PlaceProjectDialog';
 import { useLinkTeamsToArea, useMoveArea, useUnlinkTeamFromArea } from '../hooks/mutations';
@@ -211,6 +212,15 @@ export function AreaPage() {
   const canWrite = access(organizationsPermissions.areaWrite, 'organization');
   const canCreate = access(organizationsPermissions.areaCreate, 'organization');
   const canLink = access(organizationsPermissions.areaLink, 'organization');
+  // «Наследовать доступ» needs the node's write code and its parent's (api-contract § 3): the parent's codes are its own read.
+  const parentId = area && area.type !== 'department' ? (area.parent?.id ?? null) : null;
+  const parentQuery = useArea(organizationId, parentId ?? '', { enabled: parentId !== null });
+  const parentAccess = useObjectAccess(parentQuery.data?.codes);
+  const canSwitch =
+    canWrite &&
+    (parentId === null
+      ? canCreate
+      : parentAccess(organizationsPermissions.areaWrite, 'organization'));
   // The department's end; the team's end is the picker's filter and each row's `canUnlink` (api-contract § 4).
   const canLinkTeams = canLink;
   const [dialog, setDialog] = useState<PageDialog>(null);
@@ -501,6 +511,18 @@ export function AreaPage() {
       {area && ((section === 'overview' && !isDepartment) || section === 'projects') && (
         <Box sx={{ mt: 4 }}>{childrenSection}</Box>
       )}
+      {area &&
+        section === 'overview' &&
+        area.type !== 'department' &&
+        area.inheritsAccess != null && (
+          <Box sx={{ mt: 4 }}>
+            <InheritAccessControl
+              organizationId={organizationId}
+              area={area}
+              canSwitch={canSwitch}
+            />
+          </Box>
+        )}
       {area && section === 'overview' && area.type === 'project' && (
         <Box sx={{ mt: 2 }}>
           <InlineNotice severity="info">{areaPage.projectTeamsHint}</InlineNotice>

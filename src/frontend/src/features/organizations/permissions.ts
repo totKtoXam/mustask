@@ -35,6 +35,10 @@ export const organizationsPermissions = {
   areaCreate: 'organizations.area.create',
   /** mod-018: the area's end of a link or an unlink; with the other end's link code. */
   areaLink: 'organizations.area.link',
+  /** mod-019: give, change and revoke a grant on the object (an object-scope code: read from the object's `codes`). */
+  areaGrant: 'organizations.area.grant',
+  projectGrant: 'organizations.project.grant',
+  teamGrant: 'organizations.team.grant',
   /** Instance code, in the token. */
   organizationCreate: 'organizations.organization.create',
   /** Instance code, in the token (feat-033, ADR-0035): «Все организации» and the appointment. */

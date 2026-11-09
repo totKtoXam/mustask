@@ -30,6 +30,8 @@ import { FactsPanel } from '../components/FactsPanel';
 import { LinkDialog, type LinkOption } from '../components/LinkDialog';
 import { useNotify } from '../components/notice';
 import { TeamDialogs, type TeamDialog } from '../components/TeamDialogs';
+import { GrantsSection } from '../components/GrantsSection';
+import { grantsSection } from '../lib/grantTexts';
 import { TeamMembersSection } from '../components/TeamMembersSection';
 import { UnlinkDialog } from '../components/UnlinkDialog';
 import { useLinkProjectsToTeam, useUnlinkTeam } from '../hooks/mutations';
@@ -266,11 +268,24 @@ export function TeamPage() {
         />
       )}
       {team && section === 'members' && (
-        <TeamMembersSection
-          organizationId={organizationId}
-          team={team}
-          onContextGone={() => void query.refetch()}
-        />
+        <>
+          <TeamMembersSection
+            organizationId={organizationId}
+            team={team}
+            onContextGone={() => void query.refetch()}
+          />
+          <Box sx={{ mt: 4 }}>
+            <GrantsSection
+              organizationId={organizationId}
+              scope="team"
+              objectId={team.id}
+              objectName={team.name}
+              canGrant={access(organizationsPermissions.teamGrant, 'organization')}
+              title={grantsSection.teamSectionAccess}
+              onContextGone={() => void query.refetch()}
+            />
+          </Box>
+        </>
       )}
       {dialog && (
         <RequiresOrganizationCode

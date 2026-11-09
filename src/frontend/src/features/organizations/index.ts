@@ -18,6 +18,8 @@ export { RESCUE_SECTION_LABEL } from './lib/rescueTexts';
 export { OrganizationsSection } from './components/OrganizationsSection';
 export { AllOrganizationsPage } from './pages/AllOrganizationsPage';
 export { AreaPage } from './pages/AreaPage';
+export { AreaMembersPage } from './pages/AreaMembersPage';
+export { ProjectAccessPage } from './pages/ProjectAccessPage';
 export { AreasPage } from './pages/AreasPage';
 export { MembersPage } from './pages/MembersPage';
 export { OrganizationGeneralPage } from './pages/OrganizationGeneralPage';
@@ -36,6 +38,8 @@ export {
   AREA_TEAMS_ROUTE,
   DEACTIVATED_ORGANIZATIONS_ROUTE,
   MEMBERS_ROUTE,
+  AREA_MEMBERS_ROUTE,
+  PROJECT_ACCESS_ROUTE,
   ORGANIZATIONS_PATH,
   ORGANIZATIONS_ROUTE,
   ORGANIZATION_GENERAL_ROUTE,

@@ -37,6 +37,7 @@ export const ORG_AREA_ROUTE = `${AREA_PREFIX_ROUTE}/overview`;
 export const AREA_PROJECTS_ROUTE = `${AREA_PREFIX_ROUTE}/projects`;
 export const AREA_TEAMS_ROUTE = `${AREA_PREFIX_ROUTE}/teams`;
 export const AREA_SETTINGS_ROUTE = `${AREA_PREFIX_ROUTE}/settings`;
+export const AREA_MEMBERS_ROUTE = `${AREA_PREFIX_ROUTE}/members`;
 
 /** A project's pages. «Рабочие элементы», «Канбан» and «Бэклог» are the slices' own. */
 export const PROJECT_PREFIX_ROUTE = '/organizations/:organizationId/projects/:projectId';
@@ -44,6 +45,7 @@ export const PROJECT_GENERAL_ROUTE = `${PROJECT_PREFIX_ROUTE}/general`;
 /** The project's «Команды»: its linked teams (feat-028 design § 7). */
 export const TEAMS_ROUTE = `${PROJECT_PREFIX_ROUTE}/teams`;
 export const PROJECT_SETTINGS_ROUTE = `${PROJECT_PREFIX_ROUTE}/settings`;
+export const PROJECT_ACCESS_ROUTE = `${PROJECT_PREFIX_ROUTE}/access`;
 
 /** Every route of the slice, in design § 2's order. */
 export const ORGANIZATIONS_ROUTES = [
@@ -59,6 +61,7 @@ export const ORGANIZATIONS_ROUTES = [
   AREA_PROJECTS_ROUTE,
   AREA_TEAMS_ROUTE,
   AREA_SETTINGS_ROUTE,
+  AREA_MEMBERS_ROUTE,
   ORG_TEAM_ROUTE,
   TEAM_PROJECTS_ROUTE,
   TEAM_MEMBERS_ROUTE,
@@ -66,6 +69,7 @@ export const ORGANIZATIONS_ROUTES = [
   PROJECT_GENERAL_ROUTE,
   TEAMS_ROUTE,
   PROJECT_SETTINGS_ROUTE,
+  PROJECT_ACCESS_ROUTE,
 ] as const;
 
 const segment = encodeURIComponent;
