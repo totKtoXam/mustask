@@ -10,7 +10,7 @@
 
 ## Gates
 
-gate-3: approved 2026-11-09
+gate-3: approved 2026-11-09 — https://github.com/totKtoXam/mustask/pull/105
 
 ## Plan
 
