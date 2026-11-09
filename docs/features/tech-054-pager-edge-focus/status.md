@@ -3,7 +3,7 @@
 - type: tech
 - size: S
 - branch: tech/054-pager-edge-focus
-- stage: 07-qa-frontend
+- stage: 08-review
 - epic: platform/ui
 - deps: -
 - gates: gate-3
@@ -37,6 +37,15 @@ gate-3: pending
   `bash scripts/verify.sh` → exit 1 twice, each time one different workitems test
   (`WorkItemsPage.keyword`, then `WorkItemsPage.assignee` — timing-measured), both green
   alone, unrelated to the pager; left to QA's run to settle.
+- 2026-11-09 [orchestrator] first QA run stopped by the human (a stray full Vitest run was
+  eating memory); restarted at the human's word.
+- 2026-11-09 [qa-engineer] 10b5f3de: frontend QA done, light form. Defects: none
+  blocker/major, 1 minor (count=-1 reads as one page, no consumer does it). E2E: no
+  (standing answer).
+- 2026-11-09 [qa-engineer] `VERIFY_FULL=1 bash scripts/verify.sh` → exit 1: 6 timing failures
+  in 5 files (BacklogPage.qa, WorkItemFormPage.planning/.readOnly, WorkItemsPage.assignee/
+  .keyword, 11–160 s under load), none touching the pager; the 5 files rerun alone 79/79
+  green, judged flaky, not this diff. CI on the PR settles it.
 - 2026-11-09 [new-task] task started, worktree C:/Users/khamb/Workspace/devex/internal_products/mustask/.claude/worktrees/tech-054-pager-edge-focus
 
 ## Notes
