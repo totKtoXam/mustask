@@ -17,22 +17,48 @@ database.
 - After the release, the panel writes `Html`. Those rows hold a reduced HTML
   string in `description`.
 
-## Recommended: roll the code back, leave the migration
+## Rolling the code back alone is NOT safe once `Html` rows exist
 
-Deploying the previous release against the migrated database is safe:
+(Correction 2026-11-09, code review CR-2: an earlier version of this page called
+a code-only rollback safe and the roll-forward repair-free. It is neither.)
 
-- The old code does not know the column, so it ignores it (the default
-  `Plain` applies to rows it inserts) and reads `description` as it always did.
-- A row written as `Html` is then shown by the old panel as **raw tags in a
-  plain field** (spec "Out of scope": the panel is the only client, there is no
-  downgrade of html to plain). Nothing is lost; the old release's next save of
-  such a description writes whatever text the user leaves, as plain.
-- The old release writes `Plain` only (the column default). A description it
-  has saved keeps its text; it is *not* promoted back to `Html`.
-- The marker stays in the database, so the release can be rolled **forward**
-  again with no data repair: every `Html` row still says so.
+The previous release does not know the column and never writes it: its saves
+change `description` only, so `description_format` keeps whatever the row had.
+Against the migrated database that breaks in two ways:
 
-Do this unless there is a reason to remove the column.
+- **Clearing an `Html` description fails with a 500.** The old save writes
+  `description = ''` and leaves the format `Html`, which violates
+  `ck_work_items_empty_description_plain`.
+- **Plain text saved over an `Html` row stays marked `Html`.** After rolling
+  forward the new release reads it as html: line breaks collapse and a typed
+  `<b>` becomes markup.
+- Also, the old panel shows an `Html` description as raw tags in a plain field
+  (spec "Out of scope": there is no downgrade of html to plain). Nothing is lost
+  by that alone.
+
+Supported procedures (pick one before the old release takes traffic):
+
+1. **Roll the migration back too** (the section below). `Down` drops the
+   column and all four description checks, so the old release runs cleanly;
+   the cost is the marker (see below). This is the procedure with no hidden state.
+2. **Keep the migration, drop the empty-description check for the time of the
+   code rollback** (`ALTER TABLE work_items DROP CONSTRAINT
+   ck_work_items_empty_description_plain;`). Then, **before rolling forward**,
+   repair what the old release did and put the check back:
+
+   ```sql
+   -- rows the old release touched while it ran (replace the timestamp):
+   UPDATE work_items SET description_format = 'Plain'
+   WHERE changed_at >= TIMESTAMPTZ '<time the old release started>'
+     AND description_format = 'Html';
+   ALTER TABLE work_items ADD CONSTRAINT ck_work_items_empty_description_plain
+     CHECK (description_format = 'Plain' OR description <> '');
+   ```
+
+   A row of the touched set whose text the user did not change is converted to
+   `Plain` too, which shows its markup as text; accept that, or export first.
+
+Do not run the old code against `Html` rows with neither step.
 
 ## Rolling the migration back (`dotnet ef database update <previous>`)
 
@@ -65,7 +91,8 @@ Only if the schema itself must go. Understand the cost first:
 
 ## After a rollback of the code
 
-- Nothing needs repair for the old release to run.
+- After procedure 1 nothing needs repair for the old release to run; after
+  procedure 2 the repair above is owed before rolling forward.
 - If the migration was rolled back as well and the release is deployed again,
   run the migration forward first (`dotnet ef database update`), then the code.
 - The shared vocabularies (`contracts/rich-text/vocabularies.json`) are not

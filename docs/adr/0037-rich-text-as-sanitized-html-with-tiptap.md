@@ -477,6 +477,13 @@ history (feat-015) and concurrency will not see spurious changes.
   shows as raw tags in a plain field; the stored-format marker stays so the
   release can be rolled forward again without data repair. No downgrade of
   html to plain is built (spec § Out of scope).
+  *Correction 2026-11-09 (code review CR-2, a factual fix, not a decision
+  change):* the two sentences above about a code-only rollback are wrong. The
+  older release never writes `description_format`, so clearing an html
+  description under it violates `ck_work_items_empty_description_plain` (a
+  500) and plain text it saves over an html row stays marked html; rolling
+  forward then needs a repair. Roll the migration back with the code, or
+  follow the repair steps in `docs/runbooks/rich-text-rollback.md`.
 - *Bundle weight.* ProseMirror, the extensions, grammars and emoji data are
   a material addition to a panel whose DataGrid decision once pushed one
   chunk to 552 kB (ADR-0007). Decision 10 binds it to a lazy split and a

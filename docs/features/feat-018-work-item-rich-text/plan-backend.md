@@ -411,14 +411,16 @@ The handler gains `IRichTextReducer` (constructor). No other dependency.
   (the spec's "fails once any row exceeds 100 000" made explicit); then drop
   the two new checks and the format check, drop the column, restore the
   100 000 check. Html rows that fit stay as strings in a plain field.
-- **Rollback note (owed as a runbook, see § 14 item 4).** Rolling the *code*
-  back without the migration is safe (the column is ignored); rolling the
-  migration back is refused while a row exceeds 100 000 characters and
-  otherwise loses the marker, so rows previously html are then
-  indistinguishable from plain text containing tags. The plan therefore
-  recommends rolling **code** back and the migration **forward only**; the
-  marker stays so the release can be rolled forward again (ADR-0037
-  Consequences).
+- **Rollback note (the runbook is `docs/runbooks/rich-text-rollback.md`;
+  corrected by code review CR-2).** Rolling the *code* back without the
+  migration is **not** safe once html rows exist: the old release never writes
+  `description_format`, so clearing an html description violates
+  `ck_work_items_empty_description_plain` (500) and plain text saved over an
+  html row stays marked html. The supported ways are to roll the migration back
+  with the code (refused while a row exceeds 100 000 characters; it loses the
+  marker, so html rows become indistinguishable from plain text containing
+  tags), or to keep the migration, drop the empty-description check while the
+  old code runs and repair the touched rows before rolling forward (runbook).
 - The model snapshot is regenerated, not edited; per conventions, if main
   brings migrations, this one is deleted and regenerated on the fresh
   snapshot. Verified: apply on a clean database, apply twice (idempotent
