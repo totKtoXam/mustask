@@ -3,7 +3,7 @@
 - type: tech
 - size: S
 - branch: tech/052-structure-level-chips-fold
-- stage: 05-frontend
+- stage: 07-qa-frontend
 - epic: platform/ui
 - deps: feat-049
 - gates: gate-3
@@ -34,6 +34,15 @@ gate-3: pending
   thresholds, ~1–2 h, 2–4 files, one layer (frontend organizations slice). The chip treatment
   was put to the human as a question: «Тонкая полоса в секции» chosen over one shared row.
   Economy mode: one agent per stage, one Opus review.
+- 2026-11-09 [orchestrator] queue line taken: PR #111 (auto-merge on green CI).
+- 2026-11-09 [frontend-developer] 66827799: vertical layout — a folded section and one emptied
+  by «Только связанные» keep all their level chips in a slim band under the header (a section
+  emptied by the level choice already did; now pinned by a test); `emptyTop` clears the lowest
+  chip. `AreasPage.diagram.qa.test.tsx` (outside the brief's zone, accepted by the
+  orchestrator): its CR-4 test pinned the vanishing chips, now asserts they stay pressed; a
+  new test unpresses a chip of a folded section by keyboard. `npx vitest run
+  src/features/organizations/lib src/features/organizations/pages/AreasPage.diagram` → exit 0
+  (277/277); `npm run lint` → 0 errors; `npx tsc -b` → ok. verify.sh not run (left to QA).
 - 2026-11-09 [new-task] task started, worktree C:/Users/khamb/Workspace/devex/internal_products/mustask/.claude/worktrees/tech-052-structure-level-chips-fold
 
 ## Notes
