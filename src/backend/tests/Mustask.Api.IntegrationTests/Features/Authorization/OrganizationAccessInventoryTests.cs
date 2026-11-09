@@ -63,23 +63,23 @@ public sealed class OrganizationAccessInventoryTests(MustaskApiFactory factory)
 
     /// <summary>
     /// The routes that declare a code of a project, team or department scope <b>without</b> a scope, because they name no such object
-    /// (mod-019 QA D-1): a list or an aggregate read over the organization, whose handler narrows the rows by the caller's grants, or a
+    /// (mod-019 QA D-1): a list or an aggregate read over the organization, read by a code that every organization role already holds (a grant adds nothing there; hiding rows is owed to feat-041), or a
     /// team-addressed read of a project-scoped code. A route that names the object of its code's scope must declare the scope. The list
     /// is exact and asserted both ways.
     /// </summary>
     private static readonly IReadOnlyDictionary<string, string> OrganizationWideUseOfNarrowCodes = new Dictionary<string, string>(StringComparer.Ordinal)
     {
-        ["GET /api/organizations/{organizationId}/projects"] = "A list over the organization; the rows are narrowed by the caller's grants in the handler.",
-        ["GET /api/organizations/{organizationId}/teams/{teamId}/backlogs/{level}"] = "Team-addressed read of a project-scoped code: the team is not the project; the rows are narrowed in the handler.",
-        ["GET /api/organizations/{organizationId}/teams/{teamId}/boards/{level}"] = "Team-addressed read of a project-scoped code: the team is not the project; the rows are narrowed in the handler.",
-        ["GET /api/organizations/{organizationId}/backlogs/{level}/groups"] = "Aggregate read over the organization (feat-048); the rows are narrowed by the caller's access set.",
-        ["GET /api/organizations/{organizationId}/boards/{level}/groups"] = "Aggregate read over the organization (feat-048); the rows are narrowed by the caller's access set.",
-        ["GET /api/organizations/{organizationId}/workitems/groups"] = "Aggregate read over the organization (feat-048); the rows are narrowed by the caller's access set.",
-        ["GET /api/organizations/{organizationId}/backlogs/{level}/rows"] = "Aggregate read over the organization (feat-048); the rows are narrowed by the caller's access set.",
-        ["GET /api/organizations/{organizationId}/boards/{level}/cells"] = "Aggregate read over the organization (feat-048); the rows are narrowed by the caller's access set.",
-        ["GET /api/organizations/{organizationId}/workitems/rows"] = "Aggregate read over the organization (feat-048); the rows are narrowed by the caller's access set.",
-        ["GET /api/organizations/{organizationId}/workitems"] = "Aggregate read over the organization (feat-048); the rows are narrowed by the caller's access set.",
-        ["GET /api/organizations/{organizationId}/workitems/assignee-options"] = "Aggregate read over the organization (feat-048); the rows are narrowed by the caller's access set.",
+        ["GET /api/organizations/{organizationId}/projects"] = "A list over the organization, read by a code every organization role holds; no grant adds anything there (the rows carry per-row codes, they are not narrowed). Hiding rows is owed to feat-041.",
+        ["GET /api/organizations/{organizationId}/teams/{teamId}/backlogs/{level}"] = "Team-addressed read of a project-scoped code: the team is not the project. Every organization role holds the code, so no grant adds anything; narrowing the rows is owed to feat-041.",
+        ["GET /api/organizations/{organizationId}/teams/{teamId}/boards/{level}"] = "Team-addressed read of a project-scoped code: the team is not the project. Every organization role holds the code, so no grant adds anything; narrowing the rows is owed to feat-041.",
+        ["GET /api/organizations/{organizationId}/backlogs/{level}/groups"] = "Aggregate read over the organization (feat-048), by a code every organization role holds: no grant adds anything and no handler narrows the rows. Hiding is owed to feat-041.",
+        ["GET /api/organizations/{organizationId}/boards/{level}/groups"] = "Aggregate read over the organization (feat-048), by a code every organization role holds: no grant adds anything and no handler narrows the rows. Hiding is owed to feat-041.",
+        ["GET /api/organizations/{organizationId}/workitems/groups"] = "Aggregate read over the organization (feat-048), by a code every organization role holds: no grant adds anything and no handler narrows the rows. Hiding is owed to feat-041.",
+        ["GET /api/organizations/{organizationId}/backlogs/{level}/rows"] = "Aggregate read over the organization (feat-048), by a code every organization role holds: no grant adds anything and no handler narrows the rows. Hiding is owed to feat-041.",
+        ["GET /api/organizations/{organizationId}/boards/{level}/cells"] = "Aggregate read over the organization (feat-048), by a code every organization role holds: no grant adds anything and no handler narrows the rows. Hiding is owed to feat-041.",
+        ["GET /api/organizations/{organizationId}/workitems/rows"] = "Aggregate read over the organization (feat-048), by a code every organization role holds: no grant adds anything and no handler narrows the rows. Hiding is owed to feat-041.",
+        ["GET /api/organizations/{organizationId}/workitems"] = "Aggregate read over the organization (feat-048), by a code every organization role holds: no grant adds anything and no handler narrows the rows. Hiding is owed to feat-041.",
+        ["GET /api/organizations/{organizationId}/workitems/assignee-options"] = "Aggregate read over the organization (feat-048), by a code every organization role holds: no grant adds anything and no handler narrows the rows. Hiding is owed to feat-041.",
     };
 
     private static string KeyOf(RouteEndpoint endpoint)
