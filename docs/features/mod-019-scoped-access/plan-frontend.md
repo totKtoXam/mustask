@@ -60,5 +60,5 @@ Done: F-1..F-9, X-1..X-5, and steps 1-9 of section 4.
 
 ## 6. Open items for the orchestrator or backend
 
-- **O-1 (contract text, no code change).** api-contract § 5 and US-4 say the organization answer keeps "organization-scope codes only"; `GetOrganizationAccessHandler` still serves the whole organization-role bundle (`OrganizationRoleBundles.CodesOf(role)`; an administrator's answer lists `area.write`). The panel does not depend on either (F-1 reads object codes), so this is not a blocker; one of the two texts should change.
-- **O-2.** `GET /projects` rows carry `codes` (nullable). F-6 relies on them for every active project, including ones on which the caller holds no grant. Confirm that is served for every row, not only for rows the caller has a grant on.
+- **O-1 (closed by `188fbde7`).** The organization answer serves organization-scope codes only, as api-contract § 5 and US-4 say: `GetOrganizationAccessHandler` filters the bundle to the organization scope. The panel never depended on it (F-1 reads object codes).
+- **O-2 (answered).** `GET /projects` serves `codes` on every row the caller can see, whether or not the caller holds a grant on it (`GetProjectsHandler`): F-6 may rely on it.
