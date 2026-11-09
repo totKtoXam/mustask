@@ -107,8 +107,14 @@ public static class PermissionCatalog
     /// <summary>Creating and saving work items, and the assignee candidates a save needs (mod-003 BR-M3-27).</summary>
     public const string WorkItemsWorkItemWrite = "workitems.workitem.write";
 
-    /// <summary>Reordering a team's backlog (mod-006 BR-M4-27).</summary>
+    /// <summary>Reordering a team's backlog (mod-006 BR-M4-27; the team's alone since mod-019 BR-SA-10).</summary>
     public const string BoardsBacklogReorder = "boards.backlog.reorder";
+
+    /// <summary>
+    /// Reordering a project's backlog (mod-019 BR-SA-10, ADR-0029 § 4): held by admin, member and the project roles «Участник»
+    /// and «Менеджер»; not by viewer or a department role. It replaces boards.backlog.reorder on the project backlog.
+    /// </summary>
+    public const string BoardsProjectBacklogReorder = "boards.projectbacklog.reorder";
 
     /// <summary>Setting, replacing and clearing a work item's parent (feat-001 BR-H-18).</summary>
     public const string WorkItemsLinkWrite = "workitems.link.write";
@@ -166,6 +172,7 @@ public static class PermissionCatalog
         new(WorkItemsWorkItemDelete, PermissionSource.Organization, "Удаление и восстановление рабочих элементов проекта", ResourceScope.Project),
         new(WorkItemsWorkItemPurge, PermissionSource.Organization, "Окончательное удаление рабочих элементов проекта", ResourceScope.Project),
         new(BoardsBacklogReorder, PermissionSource.Organization, "Изменение порядка бэклога команды", ResourceScope.Team),
+        new(BoardsProjectBacklogReorder, PermissionSource.Organization, "Изменение порядка бэклога проекта", ResourceScope.Project),
         new(OrganizationsAreaGrant, PermissionSource.Organization, "Доступ к департаменту: выдача, смена роли и отзыв", ResourceScope.Area),
         new(OrganizationsProjectGrant, PermissionSource.Organization, "Доступ к проекту: выдача, смена роли и отзыв", ResourceScope.Project),
         new(OrganizationsTeamGrant, PermissionSource.Organization, "Доступ к команде: выдача, смена роли и отзыв", ResourceScope.Team),

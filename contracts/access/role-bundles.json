@@ -21,6 +21,7 @@
   "organizationRoles": {
     "admin": [
       "boards.backlog.reorder",
+      "boards.projectbacklog.reorder",
       "organizations.area.create",
       "organizations.area.grant",
       "organizations.area.link",
@@ -51,6 +52,7 @@
     ],
     "member": [
       "boards.backlog.reorder",
+      "boards.projectbacklog.reorder",
       "organizations.area.read",
       "organizations.membership.read",
       "organizations.organization.read",
@@ -105,6 +107,7 @@
         "workitems.workitem.read"
       ],
       "member": [
+        "boards.projectbacklog.reorder",
         "organizations.project.read",
         "workitems.link.write",
         "workitems.workitem.delete",
@@ -112,6 +115,7 @@
         "workitems.workitem.write"
       ],
       "manager": [
+        "boards.projectbacklog.reorder",
         "organizations.area.write",
         "organizations.project.grant",
         "organizations.project.link",
@@ -141,6 +145,11 @@
       "code": "boards.backlog.reorder",
       "source": "organization",
       "resourceScope": "team"
+    },
+    {
+      "code": "boards.projectbacklog.reorder",
+      "source": "organization",
+      "resourceScope": "project"
     },
     {
       "code": "dictionaries.languages.read",

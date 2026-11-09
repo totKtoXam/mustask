@@ -40,6 +40,7 @@ public sealed class OrganizationRoleBundlesTests
         (PermissionCatalog.WorkItemsWorkItemDelete, true, true, false),
         (PermissionCatalog.WorkItemsWorkItemPurge, true, false, false),
         (PermissionCatalog.BoardsBacklogReorder, true, true, false),
+        (PermissionCatalog.BoardsProjectBacklogReorder, true, true, false),
     ];
 
     public static TheoryData<string, OrganizationRole, bool> Cells()
@@ -90,14 +91,14 @@ public sealed class OrganizationRoleBundlesTests
     }
 
     [Fact]
-    public void Member_IsTheViewerPlusTheFourNonAdminWrites()
+    public void Member_IsTheViewerPlusTheFiveNonAdminWrites()
     {
         var viewer = OrganizationRoleBundles.CodesOf(OrganizationRole.Viewer);
         var member = OrganizationRoleBundles.CodesOf(OrganizationRole.Member);
 
         Assert.True(viewer.IsSubsetOf(member));
         Assert.Equal(
-            new[] { "boards.backlog.reorder", "workitems.link.write", "workitems.workitem.delete", "workitems.workitem.write" },
+            new[] { "boards.backlog.reorder", "boards.projectbacklog.reorder", "workitems.link.write", "workitems.workitem.delete", "workitems.workitem.write" },
             member.Except(viewer).Order(StringComparer.Ordinal));
     }
 

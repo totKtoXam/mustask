@@ -75,9 +75,9 @@ public sealed class PermissionCatalogTests
     }
 
     [Fact]
-    public void OrganizationCodes_AreTheTwentyEightOfTheMatrix_AndNoCodeIsInBothScopes()
+    public void OrganizationCodes_AreTheTwentyNineOfTheMatrix_AndNoCodeIsInBothScopes()
     {
-        Assert.Equal(28, PermissionCatalog.OrganizationCodes.Count);
+        Assert.Equal(29, PermissionCatalog.OrganizationCodes.Count);
         Assert.Empty(PermissionCatalog.OrganizationCodes.Intersect(PermissionCatalog.InstanceCodes));
         Assert.Equal(
             PermissionCatalog.AllCodes.Order(StringComparer.Ordinal),
@@ -91,6 +91,7 @@ public sealed class PermissionCatalogTests
     [InlineData("workitems.workitem.read", nameof(PermissionCatalog.WorkItemsWorkItemRead))]
     [InlineData("workitems.workitem.write", nameof(PermissionCatalog.WorkItemsWorkItemWrite))]
     [InlineData("boards.backlog.reorder", nameof(PermissionCatalog.BoardsBacklogReorder))]
+    [InlineData("boards.projectbacklog.reorder", nameof(PermissionCatalog.BoardsProjectBacklogReorder))]
     [InlineData("workitems.link.write", nameof(PermissionCatalog.WorkItemsLinkWrite))]
     [InlineData("workitems.workitem.delete", nameof(PermissionCatalog.WorkItemsWorkItemDelete))]
     [InlineData("workitems.workitem.purge", nameof(PermissionCatalog.WorkItemsWorkItemPurge))]

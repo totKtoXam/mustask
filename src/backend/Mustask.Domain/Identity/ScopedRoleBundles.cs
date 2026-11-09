@@ -3,7 +3,7 @@ namespace Mustask.Domain.Identity;
 /// <summary>
 /// The codes each grant role holds, per the scope it is granted on (ADR-0029 § 4 as amended by ADR-0038, spec § Roles).
 /// The bundles are explicit sets over <b>registered</b> codes; a code joins them in the change that first checks it
-/// (<c>boards.projectbacklog.reorder</c> and <c>organizations.visibility.write</c> are not registered yet). A bundle holds
+/// (<c>organizations.visibility.write</c> is not registered yet). A bundle holds
 /// codes of several resource scopes: a code applies to an object only where its resource scope is the object's, and where
 /// the grant reaches it (<see cref="EffectivePermissions"/>). Only <see cref="ResourceScope.Area"/> (a department),
 /// <see cref="ResourceScope.Project"/> and <see cref="ResourceScope.Team"/> are grant scopes. No bundle holds an
@@ -21,6 +21,15 @@ public static class ScopedRoleBundles
         PermissionCatalog.WorkItemsWorkItemWrite,
         PermissionCatalog.WorkItemsLinkWrite,
         PermissionCatalog.WorkItemsWorkItemDelete);
+
+    // The project's «Участник» also orders the project's backlog (BR-SA-10); a department's does not.
+    private static readonly IReadOnlySet<string> ProjectChange = Set(
+        PermissionCatalog.OrganizationsProjectRead,
+        PermissionCatalog.WorkItemsWorkItemRead,
+        PermissionCatalog.WorkItemsWorkItemWrite,
+        PermissionCatalog.WorkItemsLinkWrite,
+        PermissionCatalog.WorkItemsWorkItemDelete,
+        PermissionCatalog.BoardsProjectBacklogReorder);
 
     // The department's «Менеджер»: its own area codes, and on every project it reaches the project's settings, links and grants (OQ-8 A).
     private static readonly IReadOnlySet<string> DepartmentManager = Set(
@@ -46,6 +55,7 @@ public static class ScopedRoleBundles
         PermissionCatalog.OrganizationsProjectWrite,
         PermissionCatalog.OrganizationsProjectLink,
         PermissionCatalog.OrganizationsProjectGrant,
+        PermissionCatalog.BoardsProjectBacklogReorder,
         PermissionCatalog.OrganizationsAreaWrite);
 
     private static readonly IReadOnlySet<string> None = Set();
@@ -69,7 +79,7 @@ public static class ScopedRoleBundles
         (ResourceScope.Area, GrantRole.Member) => Change,
         (ResourceScope.Area, GrantRole.Manager) => DepartmentManager,
         (ResourceScope.Project, GrantRole.Reader) => Read,
-        (ResourceScope.Project, GrantRole.Member) => Change,
+        (ResourceScope.Project, GrantRole.Member) => ProjectChange,
         (ResourceScope.Project, GrantRole.Manager) => ProjectManager,
         (ResourceScope.Team, GrantRole.Reader) => None,
         (ResourceScope.Team, GrantRole.Member) => TeamMember,

@@ -165,6 +165,26 @@ public sealed class Area
         NormalizedName = name.Normalized;
     }
 
+    /// <summary>
+    /// Sets «Наследовать доступ» (mod-019 BR-SA-6): a project node and a sub-area carry it; a department's value is stored, never takes
+    /// effect and is never changed (<see cref="OrganizationErrorCodes.AreaTypeNotAllowed"/>). Returns <c>false</c> when it already has the value.
+    /// </summary>
+    public bool SetInheritsAccess(bool value)
+    {
+        if (Type == AreaType.Department)
+        {
+            throw new ConflictException(OrganizationErrorCodes.AreaTypeNotAllowed);
+        }
+
+        if (InheritsAccess == value)
+        {
+            return false;
+        }
+
+        InheritsAccess = value;
+        return true;
+    }
+
     /// <summary>Sets or clears the description (BR-AW-4); every type may be described.</summary>
     public void Describe(EntityDescription? description) => Description = description?.Value;
 
