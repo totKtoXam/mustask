@@ -749,3 +749,135 @@ only U/C/I/M, no E2E.
   multi-line `pre` into a cell or list item: the editor needs a paste
   transform there (ProseMirror would otherwise lift the block out of the
   cell); add it to US-6:43-47.
+
+## Round 1 — code (with the L security pass)
+
+Diff: `git diff a0a43386...831bde51` (merge-base with origin/main; main's side of
+merge 3dfdeb8a not reviewed). Verdict: **changes-requested** — 5 majors (CR-1 runtime;
+CR-2..CR-5 documents, CR-5 also a script wiring choice), 2 minors, 2 nits. Decisions the human took (HTML+TipTap, lazy
+conversion, code points, palettes, lowlight, no E2E, A/B/C split) are not
+re-opened. This file is over its 32 KB budget from the requirements rounds; this
+round is kept to findings.
+
+### CR-1 (major) — Esc in the editor closes the card dialog; BR-RT-16/17 exit broken
+`src/frontend/src/shared/ui/RichTextEditor/behaviour/keyboard.ts:149` returns
+`false` on Escape, so the key bubbles to `shared/ui/dialog/DialogShell.tsx:177`
+(the card's host since the merge, `card/KitFrames.tsx:81`). In a code block or a
+table, "Esc then Tab" (BR-RT-16, BR-RT-17) closes the card instead, or asks
+«закрыть без сохранения?» when dirty. With an edit made <150 ms before Esc the
+guard reads a stale `isDirty` (the report is debounced) and the card closes with
+no question, and the edit is lost (`EditorImpl.tsx:382` clears the timer on
+unmount without flushing). The pre-merge host was a page, where Esc did nothing.
+Fix: consume the arming Esc in the editor (`event.stopPropagation()` when not
+already armed; a second Esc may bubble and close), and test it with the card
+inside `DialogFrame`.
+
+### CR-2 (major) — the rollback runbook's "safe" code rollback is not safe
+`docs/runbooks/rich-text-rollback.md:24-33` (also ADR-0037:474-478,
+plan-backend.md:414-420) says the previous release ignores the column, writes
+`Plain`, and the release can be rolled forward "with no data repair". The old
+code never writes `description_format` (EF updates changed columns only), so:
+(a) clearing an `Html` description under the old release violates
+`ck_work_items_empty_description_plain` (migration `…120028…cs:35-38`) → 500;
+(b) a plain text saved by the old release over an `Html` row stays marked `Html`,
+and after rolling forward it is read as html (line breaks collapse, a typed `<b>`
+becomes markup). Fix (prose is enough): say both, and give the steps (drop that
+check before a code rollback; before rolling forward, `UPDATE … SET
+description_format = 'Plain'` for rows changed after the rollback, or accept it).
+
+### CR-3 (major) — BR-RT-13 amendments not applied (direction 2)
+`docs/features/mod-003-work-item-core/spec.md:89,134` and its
+`api-contract.md:98` still say Описание is plain text, "nothing in it is
+interpreted as markup"; `feat-022-work-item-form-fields/spec.md:121` still reads
+"as BR-M3-19 has it for Описание"; there is no doc-002 note. BR-RT-13 is a rule of
+this spec, and status.md lists it as owed. Fix: apply BR-RT-13 as written, with
+the status.md notes it names.
+
+### CR-4 (major, prose) — design.md denies a read-only surface the diff ships
+`design.md:269` "Read-only. Not built: no role is read-only (BR-M3-27)". The same
+diff passes `readOnly` (viewer role, deleted card) into the editor
+(`card/WorkItemCard.tsx`, `disabled={common.busy || common.readOnly}`). The gap
+itself (QA FD-1, status.md 2026-11-05) is the human's to decide at gate-3; the
+sentence is the finding. Fix: replace it with what is built (greyed,
+`editable:false`, body not focusable) and point to the open gate-3 item.
+
+### CR-5 (major, prose) — bundle numbers predate the merge; nothing runs the check
+`src/frontend/bundle-budget.json` "measured" is 2026-10-13 (slice 7, pre-merge),
+and `baseline.entryGzipBytes` 279 519 is pre-merge main's entry. The human is to
+confirm the ceilings at gate-3 from these numbers (+9 862 against a 10 240
+ceiling: 378 B of slack, on a tree main has since changed).
+`docs/conventions/frontend.md:50` says "`npm run bundle:check` holds the build to
+`bundle-budget.json`", but no script, hook or CI step runs it (only
+`package.json:16` defines it). Fix: re-measure on the merged tree with the
+baseline taken from main at the merge-base; wire `bundle:check` into
+`verify.sh`'s frontend bucket, or reword to "checked when run (manual)".
+
+### CR-6 (minor) — leave guards read `isDirty` without flushing the editor
+`card/WorkItemCard.tsx:184` (`useGuardedLeave(state.isDirty)`) and the frame's
+`dirty` (`KitFrames.tsx:94`) do not call `flushDescription` first, so a keyboard
+leave within 150 ms of typing (CR-1's Esc, a shortcut) skips the question. Mouse
+leaves are covered by the blur flush. Fix: flush before the guard decides.
+
+### CR-7 (minor) — the html reduction runs before the item is found
+`SaveWorkItemHandler.cs:89`: a PATCH with an html description to a missing or
+deleted item takes a reducer slot and a full parse before its 404/409. It is
+bounded by `workitems.workitem.write` and the gate, so this is a cost, not a leak.
+Fix (optional): an unlocked existence read before reducing.
+
+### Nits
+- n-1 `src/frontend/vite.config.ts:35` still cites "ADR-0027 decision 4"; it is ADR-0037.
+- n-2 `Mustask.Infrastructure/DependencyInjection.cs:6-8` adds the
+  `Mustask.Infrastructure.RichText` and `Microsoft.Extensions.Configuration`
+  usings in the middle of the `Mustask.Application` ones.
+
+### Security pass (L) — no findings
+- Output is built from a model and never echoed: `CanonicalWriter.cs:255-289`
+  writes only fixed tags, vocabulary classes, an `href` with `&` and `"` escaped
+  (`:314-340`) and a fixed `rel`; no `target`. mXSS, `noscript`, `template`, svg,
+  math, comments and CDATA cannot reach the output: they are dropped by namespace
+  and name (`DomConverter.cs:116`), and text is re-escaped (`:343-386`).
+- Link schemes: `LinkAddress.cs:28-85` trims C0 and spaces, removes tab/LF/CR
+  after the parser's entity decoding, allows only strict scheme characters,
+  requires a host for http(s) and an address for mailto, and refuses `<`/`>`. NUL
+  is removed earlier (`HtmlRichTextReducer.cs:196`). The client twin is
+  `shared/lib/richText/linkAddress.ts`, with the link mark's parse and allow rules
+  at `schema/extensions.ts:80,86`. A link opens only by Ctrl-click or «Открыть»,
+  with `noopener,noreferrer` (`keyboard.ts:170`, `toolbar/model.ts:487`).
+- Client sinks: no `innerHTML` or `dangerouslySetInnerHTML` in product code (grep;
+  `src/test/noRawHtml.test.ts`). Html is parsed only by an inert `DOMParser`
+  (`loadDocument.ts:23`, `pasteReduce.ts:187`, `normalise.ts:1144`), then by the
+  schema.
+- DoS: the deterministic guard runs before the gate (`HtmlRichTextReducer.cs:90`),
+  slots equal the core count, the wait is async, and the parser runs on its own
+  32 MB thread. Probe (scratch console, AngleSharp 1.7.2): `ParseDocumentAsync` on
+  a string honours the token mid-parse (a 50 ms net stopped a quadratic
+  `<td>x`×60 000 parse at 58–141 ms), so the safety net is real.
+- Authorization is unchanged: the route requires `workitems.workitem.write`,
+  `link.write` is still checked first (`SaveWorkItemHandler.cs:82`), and a deleted
+  item answers 409 before any field reason (`:201`); the description has no right
+  of its own. No secrets in code, no personal data in logs.
+- Migration: no `UPDATE`, checks only; Down refuses rows over 100 000 before
+  dropping anything (`…120028…cs:52-60`). The contract change is additive: an
+  absent format takes the old plain path (`SaveWorkItemHandler.cs:111-115`).
+
+### Claims checked (direction 1)
+- backend.md:306-317 rich-text paragraph → `IRichTextReducer.cs`, `HtmlRichTextReducer.cs:90-119`; holds.
+- contracts/README.md "no token literal in server code (a test scans)" → `ReducerRulesTests.cs:131`; holds.
+- frontend.md:50 "bundle:check holds the build" → CR-5.
+- frontend.md:51-53 no raw html sinks → `noRawHtml.test.ts`, eslint config; holds.
+- ADR-0037 "safety net answers 500, never 400" → `HtmlRichTextReducer.cs:148-155`, probe above; holds.
+- Rollback statements in the runbook, ADR and plan → CR-2.
+- api-contract § 3 structural bounds → `RichTextInputGuard.cs:9-79` defaults; holds (the values match).
+- bundle-budget.json measured numbers → CR-5.
+- design.md:269 read-only → CR-4.
+
+### Direction 2
+- Behaviour: Описание may be html. Grepped `BR-M3-19` and "plain text" for
+  Описание: hits in the mod-003 spec and api-contract and the feat-022 spec → CR-3.
+  The ADR-0007 index line already says "amended by ADR-0037".
+- Behaviour: the form moved into the card host (merge). Grepped `Escape` and
+  `escapeKeyDown` in `shared/ui/dialog` and the card → CR-1. Not swept: board and
+  backlog docs that describe the card dialog's keyboard (no identifier ties them to
+  the editor).
+- Old ADR number: grepped `ADR-0027` in feature artifacts, code and conventions →
+  n-1 only (the status.md history lines keep it by design).
