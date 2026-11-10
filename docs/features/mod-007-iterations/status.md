@@ -3,7 +3,7 @@
 - type: module
 - size: L
 - branch: mod/007-iterations
-- stage: 02-requirements-review
+- stage: 03-ux-design
 - epic: core/iterations-planning
 - deps: feat-040
 - gates: gate-1, gate-2, gate-3
@@ -59,6 +59,11 @@ agent per stage, no fan-out. E2E: no (paused).
   order with feat-041 for owed clauses), R-22 (queue edits 6-7), R-23
   (BR-10/-11 owners, a US-4 title), all fixed in spec and US-4. § Plan and
   § Notes here still describe the old scope (orchestrator's). gate-1 untouched
+- 2026-11-10 [ux-designer] design.md (26 KB) and prototype/index.html written
+  for US-1..US-5: team «Спринты» list, form/start/remove/close dialogs, the
+  Closed sprint's outcome page, the card's «Спринт» field, roles and states;
+  7 decisions D-1..D-7 for the human, 16 proposed error codes (§ 10). Stage
+  set to 03-ux-design; gate-2 untouched
 
 ## Notes
 

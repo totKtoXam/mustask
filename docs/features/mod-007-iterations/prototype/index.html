@@ -1,0 +1,425 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>mod-007: спринты команды (прототип)</title>
+<style>
+  * { box-sizing: border-box; }
+  body { font: 14px/20px "Segoe UI", Arial, sans-serif; background: #f3f2f1; margin: 0; color: #201f1e; }
+  header.top { background: #fff; border-bottom: 1px solid #e1dfdd; padding: 8px 16px; display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+  header.top b { margin-right: 4px; }
+  header.top label { font-size: 12px; color: #605e5c; }
+  main { padding: 16px 24px 40px; max-width: 1180px; }
+  button { font: inherit; color: inherit; background: #edebe9; border: 0; border-radius: 4px; padding: 5px 12px; cursor: pointer; }
+  button:hover { background: #e1dfdd; }
+  button.primary { background: #0078d4; color: #fff; }
+  button.primary:hover { background: #106ebe; }
+  button.danger { background: #a4262c; color: #fff; }
+  button.sub { background: none; color: #605e5c; }
+  button.ghost { background: none; padding: 2px 8px; font-size: 18px; line-height: 18px; }
+  button:disabled { opacity: .5; cursor: default; }
+  :focus-visible { outline: 2px solid #0078d4; outline-offset: 1px; }
+  a.lnk { color: #0078d4; text-decoration: none; cursor: pointer; }
+  a.lnk:hover { text-decoration: underline; }
+  h1 { font-size: 22px; margin: 0; font-weight: 600; }
+  .row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+  .grow { flex: 1; }
+  .mute { color: #605e5c; }
+  .head { display: flex; align-items: center; gap: 8px; margin: 4px 0 8px; flex-wrap: wrap; }
+  .tabs { display: flex; gap: 18px; border-bottom: 1px solid #e1dfdd; margin-bottom: 14px; flex-wrap: wrap; }
+  .tabs a { padding: 6px 2px; color: #201f1e; cursor: pointer; }
+  .tabs a.on { box-shadow: inset 0 -2px 0 #0078d4; font-weight: 600; }
+  .crumbs { font-size: 12px; color: #605e5c; margin-bottom: 4px; }
+  .card { background: #fff; border-radius: 4px; box-shadow: 0 1px 6px rgba(0,0,0,.18); }
+  .wrap { overflow-x: auto; }
+  table { border-collapse: collapse; width: 100%; min-width: 760px; }
+  th { text-align: left; font-size: 12px; color: #605e5c; font-weight: 400; padding: 8px; position: sticky; top: 0; background: #fff; }
+  td { padding: 7px 8px; height: 36px; }
+  td.n, th.n { text-align: right; width: 56px; }
+  tbody tr:hover td { background: #f8f8f8; }
+  .tag { display: inline-block; border-radius: 3px; padding: 0 8px; font-size: 12px; line-height: 20px; background: #edebe9; }
+  .tag.act { background: #e8f0fb; color: #004578; font-weight: 600; }
+  .frame { text-align: center; padding: 40px 12px; background: #fff; border-radius: 4px; box-shadow: 0 1px 6px rgba(0,0,0,.18); }
+  .frame h2 { font-size: 16px; margin: 4px 0; }
+  .skel { height: 20px; margin: 8px; background: linear-gradient(90deg, #edebe9, #f8f8f8, #edebe9); border-radius: 4px; }
+  .alertbox { background: #fde7e9; border-radius: 4px; padding: 8px 10px; display: flex; gap: 8px; align-items: center; margin-bottom: 10px; }
+  .more { text-align: center; margin: 14px 0; }
+  .menu { position: absolute; z-index: 10; background: #fff; border-radius: 4px; box-shadow: 0 4px 14px rgba(0,0,0,.3); padding: 4px 0; min-width: 190px; list-style: none; margin: 0; right: 0; }
+  .menu li { padding: 6px 12px; cursor: pointer; }
+  .menu li:hover { background: #f3f2f1; }
+  .menu li.danger { color: #a4262c; }
+  .rel { position: relative; display: inline-block; }
+  .scrim { position: fixed; inset: 0; background: rgba(0,0,0,.35); display: flex; align-items: center; justify-content: center; padding: 12px; z-index: 20; }
+  .dlg { background: #fff; border-radius: 6px; width: 540px; max-width: 100%; padding: 18px 20px; box-shadow: 0 8px 28px rgba(0,0,0,.35); max-height: 100%; overflow: auto; }
+  .dlg h2 { font-size: 18px; margin: 0 0 10px; font-weight: 600; }
+  .dlg .foot { display: flex; gap: 8px; justify-content: flex-end; margin-top: 16px; }
+  .fld { margin: 10px 0; flex: 1; min-width: 180px; }
+  .fld > label { display: block; font-size: 12px; color: #605e5c; margin-bottom: 2px; }
+  .fld input, .fld select, select.f { width: 100%; height: 28px; border: 1px solid #8a8886; border-radius: 4px; padding: 0 8px; font: inherit; background: #fff; }
+  .fld .invalid { border-color: #a4262c; }
+  .err { color: #a4262c; font-size: 12px; margin: 2px 0 0; }
+  .cap { font-size: 12px; color: #605e5c; margin: 2px 0 0; }
+  .note { background: #fde7e9; border-radius: 4px; padding: 6px 10px; margin: 8px 0; }
+  .warn { background: #fff4ce; border-radius: 4px; padding: 6px 10px; margin: 8px 0; }
+  #toast { position: fixed; left: 16px; bottom: 16px; background: #323130; color: #fff; padding: 8px 12px; border-radius: 4px; display: none; z-index: 30; max-width: 80vw; }
+  #toast.error { background: #a4262c; }
+  .band { background: #f3f2f1; padding: 10px 18px; display: grid; grid-template-columns: minmax(240px, 300px) minmax(240px, 300px) 1fr; column-gap: 32px; row-gap: 4px; }
+  .prop { display: flex; align-items: center; min-height: 32px; gap: 8px; }
+  .prop > span.k { width: 82px; color: #605e5c; font-size: 12px; flex: none; }
+  .prop > div { flex: 1; }
+  .facts { display: flex; gap: 24px; flex-wrap: wrap; margin: 6px 0 14px; }
+  h3 { font-size: 15px; margin: 14px 0 6px; font-weight: 600; }
+  @media (max-width: 720px) { .band { grid-template-columns: 1fr; } }
+  @media (max-width: 640px) { main { padding: 12px; } .dlg .row { display: block; } }
+</style>
+</head>
+<body>
+<header class="top">
+  <b>mod-007</b>
+  <label>Пользователь <select id="user">
+    <option value="ann">Анна: org «Администратор»</option>
+    <option value="pavel">Павел: team «Участник» на MARS</option>
+    <option value="vera">Вера: org «Участник», без команд</option>
+    <option value="oleg">Олег: team «Читатель» на MARS</option>
+    <option value="lena">Лена: org «Читатель»</option></select></label>
+  <label>Команда <select id="team"><option>MARS</option><option>JUPITER</option></select></label>
+  <label>Экран <select id="screen"><option value="list">Спринты команды</option><option value="outcome">Итог завершённого спринта</option><option value="card">Карточка: «Спринт»</option></select></label>
+  <label>Страница <select id="page"><option value="data">Данные</option><option value="loading">Загрузка</option><option value="error">Ошибка чтения</option><option value="notfound">Команда не найдена</option></select></label>
+  <label>Показать ещё <select id="moreFail"><option value="">успех</option><option value="1">ошибка</option></select></label>
+  <label>Списки спринтов (карточка, диалог завершения) <select id="cardOpts"><option value="ok">загружен</option><option value="loading">загрузка</option><option value="error">ошибка</option></select></label>
+  <label>Следующий отказ сервера <select id="fail">
+    <option value="">нет</option>
+    <option value="nf">«Спринт не найден.»</option>
+    <option value="notrem">«Удалить можно только запланированный спринт без элементов.»</option>
+    <option value="notact">«Завершить можно только активный спринт.»</option>
+    <option value="notplan">«Начать можно только запланированный спринт.»</option>
+    <option value="team">«Команда не найдена.»</option>
+    <option value="forb">403 «Недостаточно прав»</option></select></label>
+</header>
+<main id="main"></main>
+<div id="dlg"></div>
+<div id="toast" role="status"></div>
+<script>
+'use strict';
+var PAGE_SIZE = 8; // the product's page is 200
+var USERS = { ann: 'admin', pavel: 'mars', vera: 'none', oleg: 'reader', lena: 'orgreader' };
+var PROJ = { ALP: 'Alpha', BET: 'Beta', GAM: 'Gamma' };
+var ITEMS = [
+  { id: 'ALP-US-4', title: 'Экспорт отчёта', pts: 5, st: 'Закрыта', sprint: 12 },
+  { id: 'GAM-US-7', title: 'Печать накладной', pts: 3, st: 'Закрыта', sprint: 12 },
+  { id: 'BET-US-3', title: 'Интеграция с 1С', pts: 8, st: 'Активна', sprint: 12 },
+  { id: 'ALP-BUG-2', title: 'Ошибка при входе', pts: 2, st: 'Разрешена', sprint: 12 },
+  { id: 'ALP-US-9', title: 'Старая заметка', pts: 4, st: 'Удалена', sprint: 12 },
+  { id: 'ALP-US-12', title: 'Подсказки в форме', pts: 5, st: 'Новая', sprint: 13 },
+  { id: 'BET-US-6', title: 'Список складов', pts: 3, st: 'Новая', sprint: 13 }
+];
+var SPR = { MARS: [], JUPITER: [] };
+(function seed() {
+  for (var n = 1; n <= 11; n++) {
+    var out = n === 11 ? [mk('ALP-US-1', 'Вход по ссылке из письма', 'ALP', 3), mk('BET-US-1', 'Повторная отправка письма', 'BET', 5), mk('GAM-US-1', 'Печать этикетки', 'GAM', 2)]
+      : [mk('ALP-US-' + (n + 20), 'Задача спринта ' + n, 'ALP', 3), mk('BET-US-' + (n + 20), 'Доработка спринта ' + n, 'BET', 2)];
+    var d0 = new Date(Date.UTC(2026, 0, 5 + (n - 1) * 14)), d1 = new Date(Date.UTC(2026, 0, 16 + (n - 1) * 14));
+    if (n === 11) { d0 = new Date(Date.UTC(2026, 9, 19)); d1 = new Date(Date.UTC(2026, 9, 30)); }
+    SPR.MARS.push({ n: n, name: 'Спринт ' + n, st: 'closed', s: iso(d0), f: iso(d1), outcome: out, by: 'Павел Орлов', at: fmt(iso(d1)) + ' 18:04' });
+  }
+  SPR.MARS.push({ n: 12, name: 'Спринт 12', st: 'active', s: '2026-11-02', f: '2026-11-13' });
+  SPR.MARS.push({ n: 13, name: 'Релизный', st: 'planned', s: '2026-11-16', f: '2026-11-27' });
+  SPR.MARS.push({ n: 14, name: 'Спринт 14', st: 'planned', s: null, f: null });
+})();
+function mk(id, title, p, pts) { return { id: id, title: title, p: PROJ[p], pts: pts }; }
+function iso(d) { return d.toISOString().slice(0, 10); }
+function fmt(s) { return s ? s.slice(8, 10) + '.' + s.slice(5, 7) + '.' + s.slice(0, 4) : '—'; }
+function esc(s) { return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
+function pl(n, a, b, c) { var m = n % 100, k = n % 10; return n + ' ' + (m > 10 && m < 15 ? c : k === 1 ? a : k > 1 && k < 5 ? b : c); }
+function items(n) { return pl(n, 'элемент', 'элемента', 'элементов'); }
+var STL = { planned: 'Запланирован', active: 'Активен', closed: 'Завершён' };
+
+var S = { user: 'ann', team: 'MARS', screen: 'list', page: 'data', shown: PAGE_SIZE, outId: 11, menu: null, dlg: null, fail: '', moreFail: '' };
+var CARD = { team: 'MARS', sprint: 12, st: 'Активна', origTeam: 'MARS', origSprint: 12, touched: false, err: '' };
+var PRESETS = {
+  a: { label: 'Интеграция с 1С — MARS, в «Спринт 12»', team: 'MARS', sprint: 12, st: 'Активна' },
+  b: { label: 'Без команды', team: '', sprint: null, st: 'Новая' },
+  c: { label: 'Удалена (только чтение)', team: 'MARS', sprint: 12, st: 'Удалена' },
+  d: { label: 'Закрыта, сохраняет «Спринт 11»', team: 'MARS', sprint: 11, st: 'Закрыта' }
+};
+var preset = 'a';
+
+function me() { return USERS[S.user]; }
+function canManage() { var r = me(); return r === 'admin' || (r === 'mars' && S.team === 'MARS'); }
+function canChangeItem() { return me() !== 'orgreader'; }
+function list() { return SPR[S.team]; }
+function sorted() { return list().slice().sort(function (a, b) { return b.n - a.n; }); }
+function figures(sp) {
+  if (sp.st === 'closed') { var s = 0; sp.outcome.forEach(function (o) { s += o.pts; }); return { c: sp.outcome.length, p: s }; }
+  var c = 0, p = 0;
+  ITEMS.forEach(function (i) { if (i.sprint === sp.n && i.st !== 'Удалена') { c++; p += i.pts; } });
+  return { c: c, p: p };
+}
+function toast(t, err) { var e = document.getElementById('toast'); e.textContent = t; e.className = err ? 'error' : ''; e.style.display = 'block'; clearTimeout(toast.t); toast.t = setTimeout(function () { e.style.display = 'none'; }, 3200); }
+function take() { var f = S.fail; S.fail = ''; document.getElementById('fail').value = ''; return f; }
+var FAILS = { nf: 'Спринт не найден.', notrem: 'Удалить можно только запланированный спринт без элементов.', notact: 'Завершить можно только активный спринт.', notplan: 'Начать можно только запланированный спринт.', team: 'Команда не найдена.', forb: 'Недостаточно прав' };
+
+/* ---------- chrome ---------- */
+function head(title, ancestors) {
+  var tabs = ['Обзор', 'Канбан', 'Бэклог', 'Рабочие элементы', 'Спринты', 'Проекты', 'Участники и доступ'];
+  return (ancestors ? '<div class="crumbs">' + ancestors + '</div>' : '') +
+    '<div class="head"><h1>' + esc(title) + '</h1><span class="grow"></span>' + (head.cmds || '') + '</div>' +
+    '<nav class="tabs" aria-label="Разделы команды">' + tabs.map(function (t) {
+      return '<a data-act="tab" data-t="' + esc(t) + '"' + (t === 'Спринты' ? ' class="on" aria-current="page"' : '') + '>' + t + '</a>';
+    }).join('') + '</nav>';
+}
+function skeleton() { var r = ''; for (var i = 0; i < 6; i++) r += '<div class="skel"></div>'; return '<div class="card" role="status" aria-label="Загрузка данных">' + r + '</div>'; }
+
+function render() {
+  var m = document.getElementById('main');
+  head.cmds = '';
+  if (S.screen === 'card') { m.innerHTML = renderCard(); return; }
+  if (S.page === 'notfound') { m.innerHTML = '<div class="frame"><h2>Команда не найдена</h2></div>'; return; }
+  if (S.screen === 'outcome') { m.innerHTML = renderOutcome(); return; }
+  m.innerHTML = renderList();
+}
+
+/* ---------- list ---------- */
+function renderList() {
+  if (canManage()) head.cmds = '<button class="primary" data-act="create">+ Создать спринт</button>';
+  var out = head(S.team);
+  if (S.page === 'loading') return out + skeleton();
+  if (S.page === 'error') return out + '<div class="alertbox" role="alert"><span class="grow">Не удалось загрузить спринты</span><button data-act="retry">Повторить</button></div>';
+  var all = sorted();
+  if (!all.length) {
+    return out + '<div class="frame"><div aria-hidden="true">🗓</div><h2>У команды пока нет спринтов</h2><p class="mute">' +
+      (canManage() ? 'Создайте первый спринт, чтобы запланировать работу команды.' : 'Спринты создают участники и менеджеры команды.') + '</p>' +
+      '</div>';
+  }
+  var rows = all.slice(0, S.shown).map(function (sp) {
+    var f = figures(sp), mg = canManage();
+    var name = sp.st === 'closed' ? '<a class="lnk" data-act="open" data-n="' + sp.n + '">' + esc(sp.name) + '</a>' : esc(sp.name);
+    return '<tr><td class="n">' + sp.n + '</td><td>' + name + '</td><td><span class="tag' + (sp.st === 'active' ? ' act' : '') + '">' + (sp.st === 'closed' ? '✓ ' : '') + STL[sp.st] + '</span></td><td>' + fmt(sp.s) + '</td><td>' + fmt(sp.f) + '</td><td>' + f.c + '</td><td>' + f.p + '</td>' +
+      (mg ? '<td class="rel">' + rowMenu(sp) + '</td>' : '') + '</tr>';
+  }).join('');
+  var more = '';
+  if (all.length > S.shown) more = '<div class="more"><button data-act="more">Показать ещё</button></div>';
+  if (S.moreErr) more = '<div class="alertbox" role="alert"><span class="grow">Не удалось загрузить ещё спринты.</span><button data-act="more">Повторить</button></div>' + more;
+  return out + '<div class="card wrap"><table aria-label="Спринты команды"><thead><tr><th class="n">№</th><th>Название</th><th>Состояние</th><th>Начало</th><th>Окончание</th><th>Элементы</th><th>Story points</th>' + (canManage() ? '<th></th>' : '') + '</tr></thead><tbody>' + rows + '</tbody></table></div>' + more;
+}
+function rowMenu(sp) {
+  var open = S.menu === sp.n;
+  var ents = sp.st === 'planned' ? [['edit', 'Изменить'], ['start', 'Начать спринт'], ['remove', 'Удалить', 1]] : sp.st === 'active' ? [['edit', 'Изменить'], ['close', 'Завершить спринт']] : [['rename', 'Переименовать']];
+  return '<button class="ghost" data-act="menu" data-n="' + sp.n + '" aria-label="Действия со спринтом ' + esc(sp.name) + '" aria-haspopup="menu" aria-expanded="' + open + '">⋮</button>' +
+    (open ? '<ul class="menu" role="menu">' + ents.map(function (e) { return '<li role="menuitem" tabindex="0" class="' + (e[2] ? 'danger' : '') + '" data-act="' + e[0] + '" data-n="' + sp.n + '">' + e[1] + '</li>'; }).join('') + '</ul>' : '');
+}
+
+/* ---------- outcome ---------- */
+function renderOutcome() {
+  var sp = list().filter(function (x) { return x.n === S.outId && x.st === 'closed'; })[0];
+  if (!sp) { var c = list().filter(function (x) { return x.st === 'closed'; })[0]; if (c) { S.outId = c.n; sp = c; } }
+  if (S.page === 'loading') return head('Спринт', 'Команды › ' + S.team + ' › Спринты') + skeleton();
+  if (S.page === 'error') return head('Спринт', 'Команды › ' + S.team + ' › Спринты') + '<div class="alertbox" role="alert"><span class="grow">Не удалось загрузить итог спринта</span><button data-act="retry">Повторить</button></div>';
+  if (!sp) return '<div class="frame"><h2>Спринт не найден</h2><p><a class="lnk" data-act="back">К списку «Спринты»</a></p></div>';
+  if (canManage()) head.cmds = '<button data-act="rename" data-n="' + sp.n + '">Переименовать</button>';
+  var f = figures(sp);
+  var body = sp.outcome.length ? '<div class="card wrap"><table aria-label="Итог спринта"><thead><tr><th>Идентификатор</th><th>Название</th><th>Проект</th><th>Story points</th></tr></thead><tbody>' +
+    sp.outcome.map(function (o) { return '<tr><td><a class="lnk" data-act="item" data-id="' + o.id + '">' + o.id + '</a></td><td>' + esc(o.title) + '</td><td>' + o.p + '</td><td>' + o.pts + '</td></tr>'; }).join('') + '</tbody></table></div>'
+    : '<div class="card" style="padding:16px">В итоге нет выполненных элементов.</div>';
+  return head(sp.name, 'Команды › ' + S.team + ' › <a class="lnk" data-act="back">Спринты</a>') +
+    '<p><span class="tag">✓ Завершён</span></p><div class="facts"><div><span class="mute">Даты: </span>' + fmt(sp.s) + ' – ' + fmt(sp.f) + '</div><div><span class="mute">Завершил: </span>' + esc(sp.by) + ', ' + sp.at + '</div></div>' +
+    '<h3>Итог спринта <span class="tag">' + items(f.c) + ', ' + f.p + ' SP</span></h3>' + body;
+}
+
+/* ---------- dialogs ---------- */
+function field(id, label, val, type, err, cap) {
+  return '<div class="fld"><label for="' + id + '">' + label + '</label><input id="' + id + '" type="' + (type || 'text') + '" value="' + esc(val) + '"' + (err ? ' class="invalid" aria-invalid="true" aria-describedby="' + id + 'e"' : '') + '>' +
+    (err ? '<p class="err" id="' + id + 'e">' + err + '</p>' : '') + (cap && !err ? '<p class="cap">' + cap + '</p>' : '') + '</div>';
+}
+function openDlg(d) { S.dlg = d; S.menu = null; drawDlg(); render(); var f = document.querySelector('#dlg input, #dlg select, #dlg button.primary, #dlg button.danger'); if (f) f.focus(); }
+function closeDlg() { S.dlg = null; document.getElementById('dlg').innerHTML = ''; render(); }
+function sp(n) { return list().filter(function (x) { return x.n === n; })[0]; }
+function drawDlg() {
+  var d = S.dlg, h = document.getElementById('dlg'); if (!d) { h.innerHTML = ''; return; }
+  var e = d.err || {}, body = '', title = '', ok = '', cls = 'primary', okDisabled = false;
+  var note = d.note ? '<div class="note" role="alert">' + esc(d.note) + '</div>' : '';
+  var s = d.n ? sp(d.n) : null;
+  if (d.kind === 'form') {
+    var edit = !!s, act = edit && s.st === 'active';
+    title = edit ? 'Изменить спринт' : 'Новый спринт'; ok = edit ? 'Сохранить' : 'Создать';
+    var v = d.vals || { name: edit ? s.name : '', s: edit ? s.s || '' : '', f: edit ? s.f || '' : '' };
+    body = field('fName', 'Название', v.name, 'text', e.name, edit ? '' : 'Если оставить пустым, название будет «Спринт ' + nextN() + '»') +
+      '<div class="row">' + field('fS', 'Дата начала', v.s, 'date', e.dates && e.dates.start) + field('fF', 'Дата окончания', v.f, 'date', e.dates && (e.dates.fin || e.dates.both)) + '</div>' +
+      (e.dates && e.dates.both && !e.dates.fin ? '' : '') + (act ? '<p class="cap">Даты активного спринта можно менять, но не очищать.</p>' : '');
+  } else if (d.kind === 'rename') {
+    title = 'Переименовать спринт'; ok = 'Сохранить';
+    body = field('fName', 'Название', (d.vals || s).name, 'text', e.name);
+  } else if (d.kind === 'start') {
+    title = 'Начать спринт';
+    var nodates = !(s.s && s.f);
+    body = '<p>' + (nodates ? '' : 'Спринт «' + esc(s.name) + '» станет активным. Его даты можно будет менять, но не очищать, а вернуть спринт в «Запланирован» нельзя.') + '</p>' + (nodates ? '<div class="note">Чтобы начать спринт, укажите обе даты.</div>' : '');
+    ok = nodates ? 'Указать даты' : 'Начать';
+  } else if (d.kind === 'remove') {
+    title = 'Удалить спринт'; cls = 'danger'; ok = 'Удалить';
+    body = '<p>Спринт «' + esc(s.name) + '» будет удалён. Его номер не используется повторно, а освободившееся название можно занять снова.</p>';
+  } else if (d.kind === 'close') {
+    title = 'Завершить спринт «' + s.name + '»'; ok = 'Завершить спринт';
+    var mv = 0, st = 0, pts = 0;
+    ITEMS.forEach(function (i) { if (i.sprint !== s.n || i.st === 'Удалена') return; if (i.st === 'Закрыта') { st++; pts += i.pts; } else mv++; });
+    var planned = list().filter(function (x) { return x.st === 'planned'; }).sort(function (a, b) { return a.n - b.n; });
+    if (d.dest === undefined) d.dest = planned.length ? String(planned[0].n) : '';
+    if (d.dest !== '' && d.dest !== 'none' && !sp(+d.dest)) d.dest = '';
+    var opts = '<option value=""' + (d.dest === '' ? ' selected' : '') + ' disabled>Выберите спринт или «Без спринта»</option>' + planned.map(function (p) {
+      return '<option value="' + p.n + '"' + (d.dest === String(p.n) ? ' selected' : '') + '>' + esc(p.name) + (p.s ? ' (' + fmt(p.s) + ' – ' + fmt(p.f) + ')' : '') + '</option>';
+    }).join('') + '<option value="none"' + (d.dest === 'none' ? ' selected' : '') + '>Без спринта</option>';
+    if (d.optsState === 'loading') { body = '<div class="skel"></div>'; okDisabled = true; }
+    else if (d.optsState === 'error') { body = '<div class="note">Не удалось загрузить спринты. <button data-act="dretry">Повторить</button></div>'; okDisabled = true; }
+    else {
+      okDisabled = d.dest === '';
+      body = '<p>' + (mv ? 'Незавершённые элементы: ' + mv + ' — их нужно перенести.' : 'Незавершённых элементов нет.') + '<br>Останутся в спринте и войдут в итог: ' + items(st) + ', ' + pts + ' SP.</p>' +
+        '<div class="fld"><label for="fDest">Куда перенести незавершённые элементы *</label><select id="fDest" data-bind="dest"' + (e.dest ? ' class="invalid" aria-invalid="true" aria-describedby="fDeste"' : '') + '>' + opts + '</select>' + (e.dest ? '<p class="err" id="fDeste">' + e.dest + '</p>' : '') + '</div>' +
+        '<div class="warn">Завершение нельзя отменить: спринт не вернуть в работу, а итог не изменится.</div>';
+    }
+  }
+  h.innerHTML = '<div class="scrim"><div class="dlg" role="dialog" aria-modal="true" aria-label="' + esc(title) + '"><h2>' + esc(title) + '</h2>' + note + body +
+    '<div class="foot"><button data-act="dcancel">Отмена</button><button class="' + cls + '" data-act="dok"' + (okDisabled || d.busy ? ' disabled' : '') + '>' + (d.busy ? 'Завершаем…' : ok) + '</button></div></div></div>';
+}
+function nextN() { var m = 0; list().forEach(function (x) { if (x.n > m) m = x.n; }); return m + 1; }
+function val(id) { var e = document.getElementById(id); return e ? e.value : ''; }
+
+function refuse(kind, code) {
+  var d = S.dlg;
+  if (code === 'team') { S.page = 'notfound'; document.getElementById('page').value = 'notfound'; closeDlg(); return; }
+  if (code === 'forb') { closeDlg(); toast('Недостаточно прав', true); return; }
+  if (code === 'nf') {
+    if (kind === 'close') { d.err = { dest: 'Спринт не найден.' }; d.dest = ''; drawDlg(); return; }
+    closeDlg(); toast('Спринт не найден.', true); return;
+  }
+  if (code === 'notact' || code === 'notplan') { closeDlg(); toast(FAILS[code], true); return; }
+  d.note = FAILS[code]; drawDlg();
+}
+function submit() {
+  var d = S.dlg, s = d.n ? sp(d.n) : null, f = take();
+  if (f) { refuse(d.kind, f); return; }
+  if (d.kind === 'form' || d.kind === 'rename') {
+    var name = val('fName').trim(), vals = { name: val('fName'), s: val('fS'), f: val('fF') }, err = {};
+    if (d.kind === 'form' && !s && !name) name = 'Спринт ' + nextN();
+    if (!name || name.length > 100) err.name = 'Название спринта — от 1 до 100 символов.';
+    else if (list().some(function (x) { return x !== s && x.name.trim().toLowerCase() === name.toLowerCase(); })) err.name = 'Спринт с таким названием уже есть в команде.';
+    if (d.kind === 'form') {
+      var a = vals.s, b = vals.f;
+      if (s && s.st === 'active' && !(a && b)) err.dates = { both: 'У активного спринта должны быть обе даты.' };
+      else if ((a && !b) || (!a && b)) err.dates = { both: 'Укажите обе даты спринта или ни одной.' };
+      else if (a && b && b < a) err.dates = { fin: 'Дата окончания не может быть раньше даты начала.' };
+    }
+    if (err.name || err.dates) { d.err = err; d.vals = vals; drawDlg(); return; }
+    if (!s) list().push({ n: nextN(), name: name, st: 'planned', s: vals.s || null, f: vals.f || null });
+    else { s.name = name; if (d.kind === 'form') { s.s = vals.s || null; s.f = vals.f || null; } }
+    closeDlg(); toast(!s ? 'Спринт создан.' : d.kind === 'rename' ? 'Спринт переименован.' : 'Спринт обновлён.'); return;
+  }
+  if (d.kind === 'start') {
+    if (!(s.s && s.f)) { closeDlg(); openDlg({ kind: 'form', n: s.n }); return; }
+    if (list().some(function (x) { return x.st === 'active'; })) { d.note = 'У команды уже есть активный спринт.'; drawDlg(); return; }
+    s.st = 'active'; closeDlg(); toast('Спринт начат.'); return;
+  }
+  if (d.kind === 'remove') {
+    var held = ITEMS.some(function (i) { return i.sprint === s.n && i.st !== 'Удалена'; });
+    if (held) { d.note = FAILS.notrem; drawDlg(); return; }
+    ITEMS.forEach(function (i) { if (i.sprint === s.n) i.sprint = null; });
+    SPR[S.team] = list().filter(function (x) { return x !== s; }); closeDlg(); toast('Спринт удалён.'); return;
+  }
+  if (d.kind === 'close') {
+    d.dest = val('fDest'); if (d.dest === '') return;
+    var snap = [];
+    ITEMS.forEach(function (i) {
+      if (i.sprint !== s.n || i.st === 'Удалена') return;
+      if (i.st === 'Закрыта') snap.push({ id: i.id, title: i.title, p: PROJ[i.id.slice(0, 3)], pts: i.pts });
+      else i.sprint = d.dest === 'none' ? null : +d.dest;
+    });
+    s.st = 'closed'; s.outcome = snap; s.by = 'Анна Смирнова'; s.at = '10.11.2026 12:30';
+    closeDlg(); toast('Спринт завершён.');
+  }
+}
+
+/* ---------- card ---------- */
+function openOf(team) { return (SPR[team] || []).filter(function (x) { return x.st !== 'closed'; }).sort(function (a, b) { return a.n - b.n; }); }
+function renderCard() {
+  var ro = !canChangeItem() || CARD.st === 'Удалена', cs = SPR.MARS.filter(function (x) { return x.n === CARD.sprint; })[0];
+  var pres = '<select class="f" id="preset" style="width:auto">' + Object.keys(PRESETS).map(function (k) { return '<option value="' + k + '"' + (k === preset ? ' selected' : '') + '>' + PRESETS[k].label + '</option>'; }).join('') + '</select>';
+  var sf = '';
+  var os = document.getElementById('cardOpts').value;
+  if (!CARD.team) sf = '<span class="mute">Сначала выберите команду</span>';
+  else if (ro) sf = '<span>' + (CARD.sprint ? esc(cs ? cs.name : '') : 'Без спринта') + '</span>';
+  else if (os === 'loading') sf = '<div class="skel" style="margin:0;width:200px"></div> <span class="mute">Загрузка…</span>';
+  else if (os === 'error') sf = '<span class="err">Не удалось загрузить спринты</span> <button class="sub" data-act="cretry">Повторить</button>';
+  else {
+    var o = '<option value=""' + (CARD.sprint == null ? ' selected' : '') + '>Без спринта</option>';
+    if (CARD.sprint && cs && cs.st === 'closed') o += '<option value="' + cs.n + '" selected>' + esc(cs.name) + ' · завершён</option>';
+    o += (SPR[CARD.team] ? openOf(CARD.team) : []).map(function (p) { return '<option value="' + p.n + '"' + (CARD.sprint === p.n ? ' selected' : '') + '>' + esc(p.name) + (p.st === 'active' ? ' · активен' : '') + '</option>'; }).join('');
+    sf = '<select class="f" id="cSprint" aria-label="Спринт"' + (CARD.err ? ' aria-invalid="true" class="invalid"' : '') + '>' + o + '</select>';
+  }
+  var cap = (CARD.team !== CARD.origTeam && !CARD.touched && CARD.origSprint) ? '<p class="cap">Спринт будет очищен: он принадлежит прежней команде.</p>' : '';
+  var team = '<select class="f" id="cTeam"' + (ro ? ' disabled' : '') + '><option value=""' + (!CARD.team ? ' selected' : '') + '>Без команды</option><option' + (CARD.team === 'MARS' ? ' selected' : '') + ' value="MARS">MARS</option><option' + (CARD.team === 'VENUS' ? ' selected' : '') + ' value="VENUS">VENUS</option></select>';
+  return '<p class="mute">Карточка рабочего элемента (фрагмент блока свойств). Элемент: ' + pres + '</p><div class="card" style="overflow:hidden"><div style="padding:12px 18px"><b>BET-US-3</b> Интеграция с 1С</div>' +
+    '<div class="band"><div class="prop"><span class="k">Состояние</span><div>' + CARD.st + '</div></div>' +
+    '<div class="prop" style="align-items:flex-start"><span class="k">Команда</span><div>' + team + '</div></div>' +
+    '<div class="prop" style="align-items:flex-start"><span class="k">Спринт</span><div>' + sf + (CARD.err ? '<p class="err">' + CARD.err + '</p>' : '') + cap + '</div></div></div>' +
+    '<div style="padding:10px 18px"><button class="primary" data-act="csave"' + (ro ? ' disabled' : '') + '>Сохранить</button> ' + (ro ? '<span class="mute">' + (CARD.st === 'Удалена' ? 'Рабочий элемент удалён и доступен только для чтения.' : 'Только чтение') + '</span>' : '') + '</div></div>';
+}
+function csave() {
+  var f = take(), sel = document.getElementById('cSprint'); CARD.err = '';
+  if (sel && sel.value !== '') CARD.sprint = +sel.value; else if (sel) CARD.sprint = null;
+  if (f) { CARD.err = f === 'nf' ? 'Спринт не найден.' : FAILS[f]; if (f === 'nf') CARD.sprint = null; render(); return; }
+  if (CARD.sprint && !CARD.team) CARD.err = 'Сначала выберите команду: спринт есть только у команды.';
+  render(); if (CARD.err) return;
+  CARD.origTeam = CARD.team; CARD.origSprint = CARD.sprint; CARD.touched = false; toast('Изменения сохранены.'); render();
+}
+
+/* ---------- events ---------- */
+document.addEventListener('click', function (ev) {
+  var t = ev.target.closest('[data-act]'); if (!t) { if (S.menu != null) { S.menu = null; render(); } return; }
+  var a = t.getAttribute('data-act'), n = +t.getAttribute('data-n');
+  if (a === 'menu') { S.menu = S.menu === n ? null : n; render(); return; }
+  if (a === 'create') return openDlg({ kind: 'form' });
+  if (a === 'edit') return openDlg({ kind: 'form', n: n });
+  if (a === 'rename') return openDlg({ kind: 'rename', n: n });
+  if (a === 'start') return openDlg({ kind: 'start', n: n });
+  if (a === 'remove') return openDlg({ kind: 'remove', n: n });
+  if (a === 'close') { var os = document.getElementById('cardOpts').value; openDlg({ kind: 'close', n: n, optsState: os === 'ok' ? '' : os }); return; }
+  if (a === 'dcancel') { if (!S.dlg.busy) closeDlg(); return; }
+  if (a === 'dretry') { S.dlg.optsState = ''; document.getElementById('cardOpts').value = 'ok'; drawDlg(); return; }
+  if (a === 'dok') {
+    if (S.dlg.kind === 'close' && !S.dlg.busy) {
+      var f2 = S.fail; S.dlg.dest = val('fDest'); S.dlg.busy = true; drawDlg();
+      setTimeout(function () { if (S.dlg) { S.dlg.busy = false; submit(); } }, 500); return;
+    }
+    return submit();
+  }
+  if (a === 'open') { S.outId = n; S.screen = 'outcome'; document.getElementById('screen').value = 'outcome'; render(); return; }
+  if (a === 'back') { S.screen = 'list'; document.getElementById('screen').value = 'list'; render(); return; }
+  if (a === 'retry') { S.page = 'data'; document.getElementById('page').value = 'data'; render(); return; }
+  if (a === 'more') { if (S.moreFail) { S.moreErr = true; render(); return; } S.moreErr = false; S.shown += PAGE_SIZE; render(); return; }
+  if (a === 'tab') { toast('Другие разделы команды вне этого прототипа.'); return; }
+  if (a === 'item') { toast('Открывается карточка ' + t.getAttribute('data-id') + ' (feat-029).'); return; }
+  if (a === 'cretry') { document.getElementById('cardOpts').value = 'ok'; render(); return; }
+  if (a === 'csave') return csave();
+});
+document.addEventListener('keydown', function (ev) {
+  if (ev.key === 'Escape') { if (S.dlg && !S.dlg.busy) closeDlg(); else if (S.menu != null) { S.menu = null; render(); } }
+  if (ev.key === 'Enter' && ev.target.matches && ev.target.matches('li[data-act]')) ev.target.click();
+});
+document.addEventListener('change', function (ev) {
+  var t = ev.target;
+  if (t.id === 'user') { S.user = t.value; S.dlg = null; document.getElementById('dlg').innerHTML = ''; }
+  else if (t.id === 'team') { S.team = t.value; S.shown = PAGE_SIZE; }
+  else if (t.id === 'screen') { S.screen = t.value; }
+  else if (t.id === 'page') { S.page = t.value; }
+  else if (t.id === 'moreFail') { S.moreFail = t.value; S.moreErr = false; }
+  else if (t.id === 'fail') { S.fail = t.value; return; }
+  else if (t.id === 'cardOpts') { /* re-render below */ }
+  else if (t.id === 'preset') { preset = t.value; var p = PRESETS[preset]; CARD = { team: p.team, sprint: p.sprint, st: p.st, origTeam: p.team, origSprint: p.sprint, touched: false, err: '' }; }
+  else if (t.id === 'cTeam') { CARD.team = t.value; if (CARD.team !== CARD.origTeam) { CARD.sprint = null; CARD.touched = false; } else { CARD.sprint = CARD.origSprint; } CARD.err = ''; }
+  else if (t.id === 'cSprint') { CARD.sprint = t.value ? +t.value : null; CARD.touched = true; CARD.err = ''; }
+  else if (t.getAttribute('data-bind') === 'dest') { S.dlg.dest = t.value; drawDlg(); var f = document.getElementById('fDest'); if (f) f.focus(); return; }
+  S.menu = null; render();
+});
+render();
+</script>
+</body>
+</html>
