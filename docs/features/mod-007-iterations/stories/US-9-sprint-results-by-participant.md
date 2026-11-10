@@ -11,7 +11,7 @@ As an **organization member**, I want **the outcome page of a Closed sprint to s
 
 Team MARS, Closed «Спринт 12». Figures come from the close-time snapshot (spec BR-14), after visibility (BR-9); an item belongs to the person who was its assignee at the close. «Закрыто» is the snapshot's done flag (Completed category at the close). Items without story points count 0 SP. Percent is closed over held, rounded half up to a whole percent, «—» when held is 0. The range of previous sprints is US-10's (`?last=N`, default 5), the same control. Source: spec BR-14, BR-16; the human's request of 2026-11-10.
 
-The snapshot of «Спринт 12»: API (5 SP, Анна Иванова, done), integration (8 SP, Анна Иванова, moved), notifications (3 SP, Борис Петров, done), a bug (no story points, no assignee, moved). Previous sprints, in the range: «Спринт 11» — Анна 3 items of 10 SP, 3 closed (10 SP); Борис 2 items of 6 SP, 2 closed; «Спринт 10» — Анна 4 items of 20 SP, 1 closed (5 SP); «Спринт 9» — Борис only.
+The snapshot of «Спринт 12»: API (5 SP, Анна Иванова, done), integration (8 SP, Анна Иванова, moved), notifications (3 SP, Борис Петров, done), a bug (no story points, no assignee, moved). Previous sprints, in the range: «Спринт 11» — Анна 3 items of 10 SP, 3 closed (10 SP); Борис 2 items of 6 SP, 2 closed; «Спринт 10» — Анна 4 items of 20 SP, 1 closed (5 SP); «Спринт 9» — Борис only; «Спринт 8» — Анна and Борис; «Спринт 7» — the first Closed sprint, Глеб Орлов only. Sprints close in number order.
 
 ```gherkin
 Scenario: Each participant's figures, with a «Без исполнителя» row and a totals row
@@ -36,15 +36,16 @@ Scenario: Dynamics of a participant against the range, min, average and max
   And the row «Без исполнителя» and the row «Итого» show the same dynamics over their own sprints
 
 Scenario: A participant with no previous sprint in the range
-  Given Борис's only earlier sprint is outside the range
+  Given Глеб Орлов is also an assignee in «Спринт 12», and before it held items only in «Спринт 7», outside the last 3
   When Vera opens «Спринт 12» with the last 3 sprints
-  Then his dynamics read «Нет данных для сравнения» and his own figures show
+  Then Глеб's dynamics read «Нет данных для сравнения» ("0 из 3") and his own figures show
+  And with the last 10 sprints his dynamics are over «Спринт 7» alone ("1 из 10")
 
 Scenario: Division by zero never shows a number
   Given a participant held 2 items of 0 SP in «Спринт 12»
   When Vera opens the page
   Then the percent of SP reads «—», and no figure reads NaN, infinity or 0 %
-  And in the dynamics a previous sprint with 0 SP for that person is left out of the SP percent's min, average and max and counts as 0 in the SP's
+  And in the dynamics a previous sprint in which that person held items of 0 SP in total is left out of their SP percent's min, average and max, and counts as 0 in their closed SP's min, average and max
 
 Scenario: A person who left the team still has their row
   Given Анна was removed from the team MARS after the close
@@ -66,6 +67,7 @@ Scenario: Participants of hidden projects' items do not appear (owed by feat-041
   Given all Борис's items of «Спринт 12» are in project C, «Ограниченный» with no grant for Vera
   When she opens the page
   Then there is no row for Борис, and every figure, the totals row included, equals what a twin organization without C gives her
+  And a previous sprint in which a person's items were all in C does not count in that person's "k из N"
 
 Scenario: A reassignment or a leaving after the close changes nothing
   When API is later reassigned to Борис

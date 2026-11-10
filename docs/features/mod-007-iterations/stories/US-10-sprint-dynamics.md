@@ -9,7 +9,7 @@ As an **organization member**, I want **the outcome page of a Closed sprint to s
 
 ## Acceptance criteria
 
-Team MARS has Closed sprints 7 to 12, closed in that order, and a Planned «Спринт 13». Figures of a sprint come from its close-time snapshot (spec BR-14), after visibility (BR-9). A sprint's «закрыто» is the snapshot's done flag. Percent is closed over held, rounded half up to a whole percent; an average of counts has one decimal. "Previous" means Closed sprints of the same team closed before this one, in close order. Source: spec BR-14, BR-15; the human's request of 2026-11-10. This reads only the records of closed sprints, never item history: burndown and velocity from history stay `mod-012-iteration-metrics`'s.
+Team MARS has Closed sprints 8 to 12, closed in that order, and a Planned «Спринт 13». Figures of a sprint come from its close-time snapshot (spec BR-14), after visibility (BR-9). A sprint's «закрыто» is the snapshot's done flag. Percent is closed over held, rounded half up to a whole percent; an average of counts has one decimal. "Previous" means Closed sprints of the same team closed before this one, in close order. Source: spec BR-14, BR-15; the human's request of 2026-11-10. This reads only the records of closed sprints, never item history: burndown and velocity from history stay `mod-012-iteration-metrics`'s.
 
 | Sprint | Items | SP | Closed items | Closed SP |
 |--------|-------|----|--------------|-----------|
@@ -18,7 +18,6 @@ Team MARS has Closed sprints 7 to 12, closed in that order, and a Planned «Сп
 | «Спринт 10» | 12 | 50 | 6 | 20 |
 | «Спринт 9» | 10 | 0 | 5 | 0 |
 | «Спринт 8» | 0 | 0 | 0 | 0 |
-| «Спринт 7» | no snapshot | | | |
 
 ```gherkin
 Scenario: The page shows this sprint's figures and its previous sprints with min, average and max
@@ -52,11 +51,11 @@ Scenario: A sprint with no previous Closed sprint says so
   Then the dynamics read «Нет предыдущих завершённых спринтов для сравнения.»
   And this sprint's own figures are shown, and minimum, average and maximum read «—»
 
-Scenario: A previous sprint with no snapshot is shown and not counted
-  Given «Спринт 7» has no snapshot
-  When Vera opens «Спринт 12» with the last 5 sprints
-  Then «Спринт 7» is listed with «Нет данных» and enters no minimum, average, maximum or percent
-  And the control's "found" count still counts it as examined
+Scenario: Averages use exact values, rounded only for display
+  Given a team's only two previous sprints closed 1 of 6 items and 1 of 2 items
+  When Vera opens a later sprint with the last 3 sprints
+  Then their percents read 17 % and 50 %, and the average percent (OQ-11 A) reads 33 %, the exact mean 33.33… rounded, not 34 % from the rounded 17 and 50
+  And an average of 2 and 3 closed items reads 2.5, and of 1, 1 and 2 reads 1.3
 
 Scenario: Only the team's own Closed sprints are compared
   Given VENUS has Closed sprints with figures, and MARS's «Спринт 13» is Planned
@@ -83,7 +82,7 @@ Scenario: A deleted team's sprints have no dynamics page
   Then it answers «Команда не найдена»; the project's «Спринты» (US-7) lists the sprint's items and shows no dynamics
 
 Scenario: The comparison reads a bounded number of records in a bounded time
-  Given MARS has 20 previous Closed sprints of 500 items each
+  Given «Спринт 12» held 5 000 items and MARS has 20 previous Closed sprints of 5 000 items each, over 50 projects and 300 assignees
   When Vera opens the page with the last 20 sprints
-  Then it answers in ≤ 2 s and in a number of statements that does not grow with the range
+  Then it answers in ≤ 2 s and in a number of statements that does not grow with the range, the projects or the assignees
 ```

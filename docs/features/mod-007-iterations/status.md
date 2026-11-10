@@ -59,6 +59,12 @@ agent per stage, no fan-out. E2E: no (paused).
   order with feat-041 for owed clauses), R-22 (queue edits 6-7), R-23
   (BR-10/-11 owners, a US-4 title), all fixed in spec and US-4. § Plan and
   § Notes here still describe the old scope (orchestrator's). gate-1 untouched
+- 2026-11-10 [requirements-reviewer] round 3 (scope delta US-9, US-10) in
+  review.md, rounds 1-2 condensed: verdict needs-human-decision. 5 major
+  (R-24..R-28 with R-26..R-28 fixed: mod-012 velocity queue edit 7, NFR
+  sized to 5 000 items, a US-9 scenario that could not pass), 6 minor
+  (R-29..R-34; R-34 is D-4 for the designer). New OQ-14 (levels counted),
+  OQ-15 (purged items in a snapshot). Gates untouched
 - 2026-11-10 [ux-designer] design.md (26 KB) and prototype/index.html written
   for US-1..US-5: team «Спринты» list, form/start/remove/close dialogs, the
   Closed sprint's outcome page, the card's «Спринт» field, roles and states;
