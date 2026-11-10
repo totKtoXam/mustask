@@ -3,14 +3,14 @@
 - type: tech
 - size: S
 - branch: tech/065-mod019-review-debts
-- stage: 04-backend
+- stage: complete
 - epic: core/org-access
 - deps: mod-019
 - gates: gate-3
 
 ## Gates
 
-gate-3: pending
+gate-3: approved (2026-11-10, human in chat, after review round 2; open minors R-3 and R-5 accepted as debts)
 
 ## Plan
 
@@ -37,6 +37,7 @@ gate-3: pending
 - 2026-11-10 [code-reviewer] stage 08 round 1 over the whole diff: approve; 0 blocker, 0 major, 4 minors open (R-1..R-4, plus QA M-1..M-3), all debts for gate-3; see review.md
 - 2026-11-10 [task-executor] fix round 1: M-1 race give pinned to 404 organizations.membership.not_found; M-2 ui-kit.md TableCard re-wrapped; M-3 scopeGuard now matches a rest element (fixture added), other limits documented in its comment; R-1 TableCard comments (maxRows sticky, one-line rows, no foot); R-2 SwitchOffDialog UserLine cells truncate; R-4 test title shortened; R-3 none. Affected tests, tsc, ESLint green.
 - 2026-11-10 [code-reviewer] round 2 (delta over 95cdf06c): approve; M-1..M-3, R-1, R-2, R-4 fixed; open minors R-3 (left) and R-5 (new); see review.md
+- 2026-11-10 [orchestrator] gate-3: approved by the human in chat («Approve, R-5 — долг»), after the human chose to fix M-1..M-3, R-1, R-2, R-4 first; debts R-3 (commit history) and R-5 (SwitchOffDialog columns have no width: a very long name widens the table) accepted; stage → complete
 
 ## Notes
 
