@@ -95,9 +95,9 @@ Scenario: Empty rows are skipped and counted
   When the dry run runs
   Then they are reported as «Пропущен» with «Пустая строка» and are counted (BR-IE-3, BR-IE-13)
 
-Scenario: Only the organization administrator builds templates
-  Given an organization «Участник», and a project «Менеджер»
+Scenario: Who builds templates
+  Given an organization «Участник» who manages no project or department, and a project «Менеджер»
   When they open the organization's «Импорт»
-  Then neither can create or change a template
-  And the «Менеджер» may pick a saved template and read its settings (§ Roles, OQ-12 A)
+  Then the «Участник» cannot create or change a template
+  And the «Менеджер» may create a template, and pick and read any saved one (§ Roles, OQ-12 B)
 ```

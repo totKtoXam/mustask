@@ -72,9 +72,15 @@ Scenario: Members read templates, only the administrator changes them
   Then they see the organization's templates by name, with the columns each exports
   And they see no recoding table or other setting, and are offered no create, edit, copy or delete (§ Roles)
 
-Scenario: A manager reads the settings and changes nothing
-  Given a project «Менеджер»
+Scenario: A manager edits only the templates they authored
+  Given a project «Менеджер» who authored «Мой реестр», and «Реестр — задачи» authored by the organization «Администратор»
   When they open «Реестр — задачи» in «Импорт»
-  Then they see its settings, recoding tables included, read-only
-  And they are offered no create, edit, copy or delete (§ Roles, OQ-12 A)
+  Then they see its settings, recoding tables included, read-only, and may copy it
+  And they are offered no edit or delete on it, but are offered both on «Мой реестр» (§ Roles, BR-IE-18, OQ-12 B)
+
+Scenario: A template outlives its author's role
+  Given «Мой реестр» authored by a «Менеджер» who has since lost «Менеджер» everywhere
+  When they open it
+  Then they see no edit or delete on it
+  And the organization «Администратор» may still edit or delete it (BR-IE-18)
 ```

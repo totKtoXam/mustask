@@ -10,7 +10,7 @@
 
 ## Gates
 
-gate-1: pending
+gate-1: approved (by the human in chat, 2026-11-10)
 gate-3: pending
 
 ## Plan
@@ -38,6 +38,8 @@ No backend/frontend plan: a docs task. Input: [input-brief.md](input-brief.md)
 - 2026-11-10 [business-analyst] rework: spec split into a generic constructor and § DevEx transfer, catalogue by class (+«Дата из ISO 8601»), key dropped, ADR-0039 withdrawn (stub, git rm owed), US-9 links only, ADR-0040 updated; OQ-1..-11 resolved, OQ-12, OQ-13 new.
 - 2026-11-10 [orchestrator] stubs removed; never-merged ADR-0040 renumbered to ADR-0039 (the key ADR it replaced was withdrawn), references updated; review.md round 1 keeps the old numbers as history.
 - 2026-11-10 [requirements-reviewer] round 2 (delta): needs-human-decision. R-19..R-27: 2 major (no-identifier round trip, per-type state recoding), 7 minor, fixed in place but R-27 (orchestrator); OQ-12, OQ-13 open; verify.sh not run (no shell).
+- 2026-11-10 [orchestrator] human answers in chat: OQ-12 B (a «Менеджер» also creates templates, edits and deletes their own), OQ-13 A; applied to § Roles, BR-IE-18, US-1, US-7, ADR-0039 decision 5.
+- 2026-11-10 [orchestrator] gate-1 approved by the human in chat; ADR-0039 accepted with it (index updated). Next: the delivery lines into the queue, feat-005 and the amended lines reworded, then the final diff and gate-3.
 
 ## Notes
 
