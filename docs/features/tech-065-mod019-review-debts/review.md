@@ -43,3 +43,47 @@ Minor:
 - M-3 `scopeGuard.ts` destructuring regex requires a trailing `;` and a single identifier on the right (`const { x } = a.b;` or a function-parameter pattern is not matched). Acceptable for the current code style (prettier adds `;`), but a known blind spot; note it in the guard's comment.
 
 E2E: standing answer NO (not asked, not run).
+
+## Round 1
+
+Code review (stage 08, session: code-reviewer, 2026-11-10). Diff `origin/main...db3f33a1`, whole branch. Not the author.
+
+### Checked
+
+- Plan vs diff: D-5, G-1..G-4 each implemented as planned; nothing extra beyond the opt-in `maxRows` prop the G-3 cap needs. Copy matches design § 2, § 5, § 7 (notice dropped only for `scope === 'team'`, `FieldsSkeleton` per design § 4/§ 5 loading rows).
+- Races really race: `TeamTestData.RaceAsync` (TeamTestData.cs:53-69) holds the first request at its commit gate and asserts via `PgLocks.WaitUntilBlockedAsync` that the second is blocked on a Postgres lock before release; all 8 facts use it.
+- Frontend tests fail without the fix: reverted the 7 production files to `origin/main` and ran the three test files: 7 fail (4 in `ScopedAccessDebts`, 2 in `scopeGuard.test.ts`, 1 in `TableCard.test.tsx`); with the fix 35/35 pass. The two that pass either way pin existing behaviour by design (team codes notice, reader fact).
+- G-4 `deciding` (AreaPage.tsx:549): guarded by `parentId !== null`, so a disabled query's permanent `isPending` cannot leave a skeleton; a failed parent read falls back to the read-only fact.
+- Scope-guard regex (scopeGuard.ts:51): resolves aliases, renames and defaults; no false positive on organization codes (negative fixture). Blind spots as QA M-3, plus a rest element (`const { ...all } = workItemsPermissions`) names nothing; same fix (state them in the comment).
+- QA minors M-1..M-3 agreed, left as debts.
+
+### Findings
+
+Blocker: none. Major: none.
+
+Minor:
+- R-1 `src/frontend/src/shared/ui/table/TableCard.tsx:60-61` still says "a sticky header needs `maxHeightOffset`"; `maxRows` now also makes the card scroll with a sticky header, and the cap does not count a `foot` (a `TablePager` inside the scrollport eats rows). Fix: "needs `maxHeightOffset` or `maxRows`" and note on `maxRows` that it assumes one-line rows and no foot.
+- R-2 `src/frontend/src/features/organizations/components/SwitchOffDialog.tsx:25,35` render `UserLine truncate={false}`; in the dialog's width a long name wraps, the row outgrows `registryRowHeight`, and fewer than 6 rows show. The test (ScopedAccessDebts.test.tsx:436) checks the computed max-height only, which jsdom cannot contradict. Fix: `truncate` in these two cells (the tooltip keeps the full name), or accept "about 6".
+- R-3 Commit history: `ScopedAccessRacesTests.cs` landed in the guard commit bddd8a3c, the G-2/G-3 page tests in the G-4 commit 109cda63, and 680e4b6d carries no test. The Log discloses it; nothing to redo, noted because PRs are merged with a merge commit and the branch history is kept.
+- R-4 `ScopedAccessDebts.test.tsx:373` the title says it keeps the notice on the project and the department; that case asserts the team only (the `it.each` below covers the rest). Fix: drop the second half of the title.
+
+### Behavioural claims
+
+- status.md Log (backend) "8 race tests on commit gates and Postgres locks" -> ScopedAccessRacesTests.cs (4 facts + 2-row theory + 2 facts) via TeamTestData.cs:53-69. Holds.
+- status.md Log "Refusal log line already pinned by `RefusalLogTests`" -> RefusalLogTests.cs:27,49 (route, code, scope, user). Holds.
+- status.md Log "500 ms seed not run (pinned by `ScopedAccessStatementCountTests`)" -> the statement count is pinned there, the wall clock is not; the sentence says "not run". Holds.
+- status.md Log "no defect, no production change" (backend) -> diff touches no `src/backend/src`. Holds.
+- status.md Log "6 fail with the fixes reverted" -> reproduced: 6 in ScopedAccessDebts + scopeGuard (7 with TableCard.test). Holds.
+- status.md Log "team codes notice pinned by a test" -> ScopedAccessDebts.test.tsx:389 against grantTexts.ts:177; passes without the fix, i.e. pins, does not fix. Holds.
+- status.md Log "File landed in bddd8a3c" -> `git show --stat bddd8a3c`. Holds (R-3).
+- status.md Log verify green / QA's full-run exit 1 -> not re-run; QA's flake classification stated as theirs.
+- ui-kit.md:243 "`maxRows` caps it at that many rows for a table in a dialog" -> TableCard.tsx:92-99. Holds, with R-1/R-2 caveats (one-line rows, no foot).
+- TableCard.tsx:46-47 "Ignored with `maxHeightOffset`" -> TableCard.tsx:90 branch. Holds.
+- SwitchOffDialog.tsx:15 "shows this many rows and scrolls" -> R-2 (true for one-line rows only).
+- scopeGuard.ts:34 "or by destructuring one" -> scopeGuard.ts:51-64; partial set (QA M-3, rest element). Minor, as M-3.
+- QA "`maxRows` is opt-in, default path unchanged" -> TableCard.tsx:90-103 (`maxHeightOffset` branch verbatim, `minHeight` alone as before). Holds.
+- Direction 2: behaviours changed = team grants notice (grepped «Здесь показан только выданный доступ»: mod-019 design.md:29,40 and prototype say project/department, consistent; qa.md:215 is the debt itself), TableCard scrolling/sticky (grepped `maxHeightOffset`, "sticky header needs": TableCard.tsx:60 -> R-1; tech-015 design.md:1412 is a merged design record, not swept), scope guard (grepped `scopeGuard`, `destructur` under docs/.claude: mod-019 qa.md/status.md record G-1 as the open debt, nothing else describes the guard's reach), inherit-switch loading and switch-off loading (design.md:111,140 already say `FieldsSkeleton`). mod-019 qa.md still lists G-1..G-4/D-5 as open: historical record of that task, not swept.
+
+### Verdict
+
+**approve** — blockers 0, majors 0, minors open 4 (R-1..R-4) plus QA M-1..M-3; all are debts for gate-3.

@@ -34,6 +34,7 @@ gate-3: pending
 - 2026-11-10 [orchestrator] `bash scripts/verify.sh` → exit 0 (green: backend build, tests incl. integration, coverage floors, frontend lint, build, affected tests, guards)
 
 - 2026-11-10 [qa-engineer] light QA: plan covered, affected tests green (frontend 522, backend 10); `VERIFY_FULL=1 bash scripts/verify.sh` -> exit 1 on load-induced flakes outside the diff (workitems 60 s timeouts, AggregateViewVolume 2 s), re-runs alone green; no blocker/major, 3 minors in review.md; E2E: standing answer NO
+- 2026-11-10 [code-reviewer] stage 08 round 1 over the whole diff: approve; 0 blocker, 0 major, 4 minors open (R-1..R-4, plus QA M-1..M-3), all debts for gate-3; see review.md
 
 ## Notes
 
