@@ -74,6 +74,10 @@ agent per stage, no fan-out. E2E: no (paused).
   gate-1 and gate-2 reopen for the delta: BR-14..16, US-9 (results by
   participant), US-10 (dynamics), US-5 snapshot; OQ-9..OQ-13 added; design.md
   needs the outcome page's new sections
+- 2026-11-10 [business-analyst] delta answers applied: OQ-9 the human's date
+  range (?from=&to=, default 90 days before the sprint's start, at most 20
+  sprints read), OQ-10..OQ-15 all A; BR-14 (level, purge), BR-15, BR-16, US-5,
+  US-9, US-10 updated; OQs closed; gates untouched
 
 ## Notes
 

@@ -28,6 +28,13 @@ Scenario: The close records a snapshot of every item the sprint held, done or mo
   And «Done» is the Completed category at the close, the same rule that decides which items stay recorded as completed
   And API's later reassignment to Борис, re-estimate or reopening changes nothing in the record
 
+Scenario: The snapshot records each item's level and survives a purge (BR-14; OQ-14, OQ-15)
+  Given «Спринт 12» held the story API and the feature «Платежи», both recorded at the close
+  Then the record holds each item's level (mod-006), so that figures can be read per level
+  When an administrator purges API (mod-005)
+  Then the figures of «Спринт 12» still count API at its recorded points, assignee and done flag
+  And the outcome list shows its row by identifier with «Удалён навсегда», no title and no link
+
 Scenario: A moved item's «Изменён» becomes the close's time
   Given integration was last changed on 2026-11-03 and API on 2026-11-04
   When Pavel closes «Спринт 12» towards «Спринт 13» on 2026-11-13

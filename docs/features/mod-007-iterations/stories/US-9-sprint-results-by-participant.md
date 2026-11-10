@@ -9,9 +9,9 @@ As an **organization member**, I want **the outcome page of a Closed sprint to s
 
 ## Acceptance criteria
 
-Team MARS, Closed «Спринт 12». Figures come from the close-time snapshot (spec BR-14), after visibility (BR-9); an item belongs to the person who was its assignee at the close. «Закрыто» is the snapshot's done flag (Completed category at the close). Items without story points count 0 SP. Percent is closed over held, rounded half up to a whole percent, «—» when held is 0. The range of previous sprints is US-10's (`?last=N`, default 5), the same control. Source: spec BR-14, BR-16; the human's request of 2026-11-10.
+Team MARS, Closed «Спринт 12». Figures come from the close-time snapshot (spec BR-14), after visibility (BR-9); an item belongs to the person who was its assignee at the close. «Закрыто» is the snapshot's done flag (Completed category at the close). Items without story points count 0 SP. Percent is closed over held, rounded half up to a whole percent, «—» when held is 0. The figures are at the level chosen on the page, default «Истории» (OQ-14), as in US-10. The date range is US-10's (`?from=&to=`, default the 90 days before this sprint's start), the same control, and selects the team's other Closed sprints ending in it. Sprint dates are those of US-10; «Спринт 7» ended 2026-08-21. Source: spec BR-14, BR-16; the human's request of 2026-11-10.
 
-The snapshot of «Спринт 12»: API (5 SP, Анна Иванова, done), integration (8 SP, Анна Иванова, moved), notifications (3 SP, Борис Петров, done), a bug (no story points, no assignee, moved). Previous sprints, in the range: «Спринт 11» — Анна 3 items of 10 SP, 3 closed (10 SP); Борис 2 items of 6 SP, 2 closed; «Спринт 10» — Анна 4 items of 20 SP, 1 closed (5 SP); «Спринт 9» — Борис only; «Спринт 8» — Анна and Борис; «Спринт 7» — the first Closed sprint, Глеб Орлов only. Sprints close in number order.
+The snapshot of «Спринт 12»: API (5 SP, Анна Иванова, done), integration (8 SP, Анна Иванова, moved), notifications (3 SP, Борис Петров, done), a bug (no story points, no assignee, moved). Other sprints: «Спринт 11» — Анна 3 items of 10 SP, 3 closed (10 SP); Борис 2 items of 6 SP, 2 closed; «Спринт 10» — Анна 4 items of 20 SP, 1 closed (5 SP); «Спринт 9» — Борис only; «Спринт 8» — Анна and Борис; «Спринт 7» — the first Closed sprint, Глеб Орлов only. Sprints close in number order.
 
 ```gherkin
 Scenario: Each participant's figures, with a «Без исполнителя» row and a totals row
@@ -25,7 +25,7 @@ Scenario: Each participant's figures, with a «Без исполнителя» r
   And the totals equal the sums of the rows and the figures of this sprint on US-10
 
 Scenario: Dynamics of a participant against the range, min, average and max
-  When Vera opens «Спринт 12» with the last 3 sprints
+  When Vera opens «Спринт 12» with `from=2026-09-21&to=2026-10-30`
   Then Анна Иванова's row shows, over the sprints in the range in which she held items («Спринт 11» and «Спринт 10», "2 из 3"):
     | Показатель         | Мин  | Среднее | Макс |
     | Закрыто элементов  | 1    | 2.0     | 3    |
@@ -36,10 +36,10 @@ Scenario: Dynamics of a participant against the range, min, average and max
   And the row «Без исполнителя» and the row «Итого» show the same dynamics over their own sprints
 
 Scenario: A participant with no previous sprint in the range
-  Given Глеб Орлов is also an assignee in «Спринт 12», and before it held items only in «Спринт 7», outside the last 3
-  When Vera opens «Спринт 12» with the last 3 sprints
+  Given Глеб Орлов is also an assignee in «Спринт 12», and before it held items only in «Спринт 7», outside the range
+  When Vera opens «Спринт 12» with `from=2026-09-21&to=2026-10-30`
   Then Глеб's dynamics read «Нет данных для сравнения» ("0 из 3") and his own figures show
-  And with the last 10 sprints his dynamics are over «Спринт 7» alone ("1 из 10")
+  And with `from=2026-08-01&to=2026-10-30` his dynamics are over «Спринт 7» alone ("1 из 5": the range holds «Спринт 7» to «Спринт 11»)
 
 Scenario: Division by zero never shows a number
   Given a participant held 2 items of 0 SP in «Спринт 12»
