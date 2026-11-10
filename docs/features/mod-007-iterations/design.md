@@ -2,7 +2,7 @@
 
 Stage 3 artifact. Rules (BR-n) and scenarios (US-1..US-5) are in `spec.md` and `stories/`; this file is the layout, the MUI components, every state and every Russian string. Every string in «» is final; ◆ marks a string the spec does not quote. The board (US-6, feat-057) and the project archive (US-7, feat-058) are not designed here.
 
-- Base: [feat-043](../feat-043-area-project-team-navigation/design.md) (object page § 4, team menu § 7.2), [feat-040](../feat-040-team-surfaces-across-projects/design.md) (head, state order § 10, narrow § 11), [feat-029](../feat-029-work-item-card/design.md) § 4.8 (the card's slot), [mod-019](../mod-019-scoped-access/design.md) (roles), [ui-kit.md](../../conventions/ui-kit.md).
+- Base: [feat-043](../feat-043-area-project-team-navigation/design.md) (object page § 4, team menu § 7.2), [feat-040](../feat-040-team-surfaces-across-projects/design.md) (head, state order § 10, narrow § 11), [feat-029](../feat-029-work-item-card-reference/design.md) § 4.8 (the card's slot), [mod-019](../mod-019-scoped-access/design.md) (roles), [ui-kit.md](../../conventions/ui-kit.md).
 - Prototype: `prototype/index.html` (static, no build): the list, create/edit, start, remove, close, the outcome, the card's field. Switch the user, the team, the page state and the next server refusal in the top bar.
 - Cast: team MARS (sprints 1-14), JUPITER (none), VENUS; projects Alpha, Beta, Gamma.
 - **No new kit part, icon, colour, dependency or token.** Every control is a kit part that exists.
