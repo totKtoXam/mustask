@@ -12,7 +12,7 @@
 
 gate-1: approved (2026-11-06, human in chat, one question each: OQ-1 A, OQ-2 reviewer variant, OQ-3 B, OQ-4 B, OQ-5 A, OQ-6 reviewer A, OQ-7 A, OQ-8 A, OQ-9 B, R-27 shown in the switch-off dialog; after review round 3, approved-by-ai, requested by the human)
 gate-2: approved (2026-11-09, human in chat, after D-1..D-13 A, OQ-D1 A, OQ-10 role rename and the prototype screenshots)
-gate-3: approved (2026-11-10, human in chat, «approve», after the gate-3 package and a look at the running stand; ADR-0038 accepted with it; debts D-5, G-1..G-4, team-backlog rows, team-place picker, plan-backend § 6(a) accepted)
+gate-3: approved · PR #117 https://github.com/totKtoXam/mustask/pull/117 (2026-11-10, human in chat, «approve», after the gate-3 package and a look at the running stand; ADR-0038 accepted with it; debts D-5, G-1..G-4, team-backlog rows, team-place picker, plan-backend § 6(a) accepted)
 
 ## Plan
 
