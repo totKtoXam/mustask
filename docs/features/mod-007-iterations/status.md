@@ -17,9 +17,9 @@ gate-3: pending
 ## Plan
 
 Route L, the full pipeline. This run covers only business analysis →
-requirements review → gate-1, then stops: design and development wait until
-feat-041 (project visibility) and feat-042 (area overview) merge, or the
-human's decision on OQ (b) lifts the feat-042 dependency. Economy mode: one
+requirements review → gate-1, then stops. After the human's answers (OQ-2 A,
+OQ-7 B) the only dependency is feat-040, merged, so design is no longer
+blocked; it starts in a later run when the human says so. Economy mode: one
 agent per stage, no fan-out. E2E: no (paused).
 
 ## Log
@@ -53,10 +53,22 @@ agent per stage, no fan-out. E2E: no (paused).
   feat-041; deps feat-040 only), OQ-8 A (mod-007 stays the L with US-1..US-5;
   US-6 and US-7 spun out). Spec § Decomposition rewritten, queue edits listed
   there; gates untouched
+- 2026-11-10 [requirements-reviewer] round 2 in review.md: verdict
+  approved-by-ai. R-3, R-4, R-15..R-19 resolved; new R-20 (feat-042 must
+  depend on the board line, which owns the Active-sprint read), R-21 (merge
+  order with feat-041 for owed clauses), R-22 (queue edits 6-7), R-23
+  (BR-10/-11 owners, a US-4 title), all fixed in spec and US-4. § Plan and
+  § Notes here still describe the old scope (orchestrator's). gate-1 untouched
 
 ## Notes
 
-Summary (from the queue line): MVP. Founds M5 on team sprints: the lifecycle
+Scope after gate-1 answers: US-1..US-5 (lifecycle, numbering, the team's
+«Спринты», the item's sprint pointer, the close with its outcome and moves).
+The board (US-6) and the project «Спринты» archive (US-7) are spun out into
+their own lines; the area overview's Active sprints go to feat-042 (spec
+§ Decomposition lists the queue edits).
+
+Original summary (from the queue line): MVP. Founds M5 on team sprints: the lifecycle
 (Planned, Active, Closed), numbering, the team's sprint list, the item's
 sprint pointer with the team rule, closing with its outcome record and the
 move of unfinished items, the team sprint board, active sprints on the area

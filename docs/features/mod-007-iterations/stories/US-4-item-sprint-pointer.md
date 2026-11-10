@@ -29,7 +29,7 @@ Scenario Outline: An item joins only a Planned or Active sprint of its own ownin
     | MARS          | a sprint of another organization | «Спринт не найден.», the answer for a sprint id that names nothing |
     | MARS, API in «Удалена» | MARS's Planned «Спринт 12» | «Рабочий элемент удалён и доступен только для чтения.» (mod-005) |
 
-Scenario: Removing a sprint or deleting its team clears a deleted item's pointer
+Scenario: Removing a sprint clears a deleted item's pointer
   Given the Planned «Спринт 13» holds only a story in «Удалена»
   When Pavel removes «Спринт 13»
   Then the story has no sprint, although a user's own save of it would be refused as read-only
