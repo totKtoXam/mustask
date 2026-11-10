@@ -2,7 +2,7 @@
 
 - story: US-6
 - depends-on: US-3, US-4
-- shippable: yes — a board over the Active sprint, usable without the project archive
+- shippable: yes — spun out as `feat-NNN-team-sprint-board`, after `mod-007-iterations`; usable without the project archive
 - status: pending
 
 As an **organization member**, I want **a board of my team's Active sprint in the team's «Спринты»**, so that **I see the whole sprint at one level, across projects, and move cards as on the team board**.
@@ -30,7 +30,7 @@ Scenario: A card move is offered only the states of the card's own type
   Then only the states of a story in its own project's process are drop targets
 
 Scenario: The board counts only what the viewer sees
-  Given C becomes «Ограниченный» with no grant for Vera
+  Given C becomes «Ограниченный» with no grant for Vera (owed by feat-041)
   When she opens MARS's sprint board
   Then it shows API and integration, 2 items and 13 SP: the same answer as if C did not exist
   And a deactivated project's items count nowhere on it

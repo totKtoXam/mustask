@@ -2,7 +2,7 @@
 
 - story: US-3
 - depends-on: US-1, US-2
-- shippable: no — it is the page that shows US-1 and US-2; they ship together as `feat-NNN-team-sprint-lifecycle`
+- shippable: no — it is the page that shows US-1 and US-2; US-1..US-5 ship together as `mod-007-iterations` (one L, OQ-8)
 - status: pending
 
 As an **organization member**, I want **to open a team's «Спринты» and see every sprint of the team with its state and dates**, so that **I know what the team is running, has planned and has finished**.

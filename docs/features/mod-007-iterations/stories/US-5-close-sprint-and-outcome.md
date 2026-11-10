@@ -2,7 +2,7 @@
 
 - story: US-5
 - depends-on: US-2, US-4
-- shippable: yes — a planner closes a sprint and the record is kept, readable on the sprint's own page in the list
+- shippable: no — US-1..US-5 ship together as `mod-007-iterations` (one L, OQ-8)
 - status: pending
 
 As a **team planner**, I want **to close the Active sprint, choosing where its unfinished items go, and keep a record of what was completed**, so that **the team starts the next sprint with its unfinished work in hand and the finished sprint stays a true history**.
@@ -30,7 +30,7 @@ Scenario: A Closed sprint shows its outcome
   When Vera opens «Спринт 12» from MARS's «Спринты»
   Then it shows its dates, «Завершён» and its outcome: API of A at 5 SP and notifications of C at 3 SP, 2 items and 8 SP
   And it offers a planner only the rename
-  When C becomes «Ограниченный» with no grant for Vera
+  When C becomes «Ограниченный» with no grant for Vera (owed by feat-041)
   Then the outcome shows API alone, 1 item and 5 SP
 
 Scenario: A later close never moves an item that kept a Closed sprint
@@ -41,6 +41,7 @@ Scenario: A later close never moves an item that kept a Closed sprint
 Scenario: The close dialog states what will move before it happens
   When Pavel opens the close dialog of «Спринт 12»
   Then it shows the number of items that will move and of those that will stay recorded, a destination chosen among the team's Planned sprints and «Без спринта», and the confirm command
+  And the Planned sprint with the lowest number is preselected when the team has one, and nothing is preselected otherwise (OQ-4)
 
 Scenario: The destination of the unfinished items is chosen at close
   Given MARS's Active «Спринт 12» holds integration in «Активна»
@@ -55,7 +56,7 @@ Scenario: The outcome never changes afterwards, and a reopened item keeps its sp
   When API is re-estimated at 8 SP, put into «Спринт 13», or given the owning team VENUS
   Then the outcome of «Спринт 12» still lists API of A at 5 SP
 
-Scenario: Closing moves items the closer cannot see, without disclosing them
+Scenario: Closing moves items the closer cannot see, without disclosing them (owed by feat-041)
   Given C is «Ограниченный» with no grant for Pavel, and the Active «Спринт 12» holds integration and notifications in «Активна»
   When Pavel closes «Спринт 12» towards «Спринт 13»
   Then both items move to «Спринт 13»

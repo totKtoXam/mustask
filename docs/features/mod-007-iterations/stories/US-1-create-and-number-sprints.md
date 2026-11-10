@@ -2,7 +2,7 @@
 
 - story: US-1
 - depends-on: -
-- shippable: no — a sprint nobody can list is not usable; it ships with US-2 and US-3 as `feat-NNN-team-sprint-lifecycle`
+- shippable: no — a sprint nobody can list is not usable; US-1..US-5 ship together as `mod-007-iterations` (one L, OQ-8)
 - status: pending
 
 As a **team planner**, I want **to create, name and date my team's sprints, numbered in the team's own sequence**, so that **the team plans its time once, whatever number of projects it works on**.

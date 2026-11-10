@@ -5,7 +5,7 @@
 - branch: mod/007-iterations
 - stage: 02-requirements-review
 - epic: core/iterations-planning
-- deps: feat-040,feat-041,feat-042
+- deps: feat-040
 - gates: gate-1, gate-2, gate-3
 
 ## Gates
@@ -47,6 +47,12 @@ agent per stage, no fan-out. E2E: no (paused).
 - 2026-11-10 [business-analyst] round-1 fixes R-15..R-19 applied to spec and
   stories; OQ-7 and OQ-8 added from the review; the decomposition is not
   rewritten until the human answers OQ-2, OQ-7, OQ-8
+- 2026-11-10 [business-analyst] the human answered all open questions in
+  chat: OQ-1 A, OQ-2 A (area-overview sprints go to feat-042; US-8 withdrawn),
+  OQ-3 A, OQ-4 A, OQ-5 A, OQ-6 A, OQ-7 B (visibility clauses owed by
+  feat-041; deps feat-040 only), OQ-8 A (mod-007 stays the L with US-1..US-5;
+  US-6 and US-7 spun out). Spec § Decomposition rewritten, queue edits listed
+  there; gates untouched
 
 ## Notes
 

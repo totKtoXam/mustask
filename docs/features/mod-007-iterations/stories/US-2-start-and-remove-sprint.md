@@ -2,7 +2,7 @@
 
 - story: US-2
 - depends-on: US-1
-- shippable: no — starting is half of the lifecycle whose other half is the close (US-5); it ships with US-1 and US-3 as `feat-NNN-team-sprint-lifecycle`
+- shippable: no — starting is half of the lifecycle whose other half is the close (US-5); US-1..US-5 ship together as `mod-007-iterations` (one L, OQ-8)
 - status: pending
 
 As a **team planner**, I want **to start a Planned sprint and to remove one I no longer need**, so that **the team has one running sprint at a time and no dead sprints clutter the list**.
@@ -44,7 +44,7 @@ Scenario Outline: Only a Planned sprint that holds no item outside «Удале�
     | Planned | only an item in «Удалена»                                     | it is gone, and that item has no sprint                                    |
     | Planned | integration                                                   | refused                                                                    |
     | Planned | only API, in «Закрыта»                                        | refused                                                                    |
-    | Planned | only notifications, while C is hidden from him or deactivated | refused, and the refusal names no item, project or count                   |
+    | Planned | only notifications, while C is deactivated, or hidden from him (hidden: owed by feat-041) | refused, and the refusal names no item, project or count                   |
     | Active  | no item                                                       | refused                                                                    |
     | Closed  | its completed items                                           | refused: a Closed sprint is never removed                                  |
 

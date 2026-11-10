@@ -2,7 +2,7 @@
 
 - story: US-7
 - depends-on: US-5
-- shippable: yes — a read-only section of the project's page
+- shippable: yes — spun out as `feat-NNN-project-sprints-archive`, after `mod-007-iterations`; a read-only section of the project's page
 - status: pending
 
 As a **user who can see a project**, I want **the project's «Спринты» to list the Closed sprints that recorded its items, with those items, even after the sprint's team is deleted**, so that **the history of the project's delivered work stays readable**.
@@ -34,7 +34,7 @@ Scenario: A deleted team's sprint that recorded nothing is listed nowhere
   Then no project's «Спринты» lists it
 
 Scenario: A project the user may not see answers not found
-  Given C becomes «Ограниченный» with no grant for Vera
+  Given C becomes «Ограниченный» with no grant for Vera (owed by feat-041)
   When she opens C's «Спринты» by its address
   Then it answers «Проект не найден» and A's list is unchanged
 

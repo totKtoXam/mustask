@@ -7,12 +7,14 @@ A team plans its time once, whatever number of projects it works on. doc-012
 team selection with sprints that belong to a team and hold the team's items of
 any project; doc-013 made the team's «Спринты» (`teams/:t/sprints`) and a
 project's «Спринты» (`projects/:p/sprints`) sections of their own pages. This
-task builds that: the sprint lifecycle and numbering, the team's sprint list,
-the item's sprint pointer with the team rule, the close with its outcome
-record, the team sprint board, the project's read-only archive and (OQ-2) the
-area overview's active sprints. The behaviour is doc-012's, restated here as
-this task's testable stories; where a story and a doc-012 rule differ, the
-doc-012 rule wins and the difference is a defect of this spec.
+line founds the iterations slice: the sprint lifecycle and numbering, the
+team's sprint list, the item's sprint pointer with the team rule, and the
+close with its outcome record (US-1..US-5). The team sprint board (US-6) and
+the project's read-only archive (US-7) are spun out into their own lines
+(§ Decomposition); the area overview's Active sprints belong to feat-042
+(§ Out of scope). The behaviour is doc-012's, restated here as testable
+stories; where a story and a doc-012 rule differ, the doc-012 rule wins and
+the difference is a defect of this spec.
 
 ## Roles
 
@@ -35,12 +37,14 @@ The roles are doc-012's (§ Roles, BR-MX-23) under the names mod-019 gave them (
 | US-3 | A team's sprint list | US-1, US-2 | `stories/US-3-team-sprint-list.md` |
 | US-4 | An item's sprint follows the team rule | US-1 | `stories/US-4-item-sprint-pointer.md` |
 | US-5 | Closing a sprint moves unfinished work and records the outcome | US-2, US-4 | `stories/US-5-close-sprint-and-outcome.md` |
-| US-6 | The team sprint board | US-3, US-4 | `stories/US-6-team-sprint-board.md` |
-| US-7 | A project's «Спринты» archive, a deleted team's included | US-5 | `stories/US-7-project-sprints-archive.md` |
-| US-8 | The area overview shows linked teams' Active sprints | US-6 | `stories/US-8-area-overview-active-sprints.md` |
+| US-6 | The team sprint board — spun out: `feat-NNN-team-sprint-board` | US-3, US-4 | `stories/US-6-team-sprint-board.md` |
+| US-7 | A project's «Спринты» archive — spun out: `feat-NNN-project-sprints-archive` | US-5 | `stories/US-7-project-sprints-archive.md` |
 
-US-8 is in this spec because the queue line names it; OQ-2 may move it to
-`feat-042-area-board-and-overview`.
+US-6 and US-7 keep their files here as the analysis their lines start from;
+they are delivered by those lines, not by `mod-007-iterations`. Visibility
+clauses of US-2, US-3, US-5, US-6 and US-7 («Ограниченный», "hidden from
+him") are owed by `feat-041-project-visibility` (OQ-7; doc-013 BR-NE-4): they
+are marked in the stories and run when feat-041 merges.
 
 ## Business process (BPMN)
 
@@ -99,8 +103,8 @@ the user cannot see (the answer of an id that names nothing, BR-MX-24).
 | Sprint | team planner, org admin (US-1) | every org member (US-3); a Closed sprint's outcome per visibility (US-5) | planner: rename, dates, start, close (US-1, US-2, US-5); Closed: rename only | planner: remove a Planned sprint without items outside «Удалена» (US-2); no: Closed and Active are never removed; no: a deleted team's sprints are not removed | no: start and close are final (BR-3) |
 | Item's sprint pointer | whoever may change the item, Planned or Active sprint of its team (US-4) | whoever reads the item | same person; cleared by a team change or unlink (US-4) | cleared by removing the sprint (US-2) or by the team's deletion | set the pointer back to empty on a Planned or Active sprint; no: a Closed sprint's pointer is not editable into |
 | Sprint outcome | created by the close (US-5), no manual create | every org member, per visibility (US-5, US-7) | no: never changes | no: kept with the sprint, even of a deleted team | no: a reopened item does not alter it |
-| Sprint board | no: a view over the Active sprint (US-6) | every org member, per visibility | state of a card by a user who may change the item; no reorder | no | the move of a card is reversed by moving it back |
-| Project «Спринты» archive | no: a view | every user who can see the project (US-7) | no: read-only | no | no |
+| Sprint board (US-6, own line) | no: a view over the Active sprint | every org member, per visibility | state of a card by a user who may change the item; no reorder | no | the move of a card is reversed by moving it back |
+| Project «Спринты» archive (US-7, own line) | no: a view | every user who can see the project | no: read-only | no | no |
 
 ## Non-functional requirements
 
@@ -111,7 +115,7 @@ the user cannot see (the answer of an id that names nothing, BR-MX-24).
   sprint board of a sprint holding 5 000 items at a level answers within 2 s,
   as a team board does (doc-012 NFR Volumes; feat-040 NFR). A team with 1 000
   sprints shows the first page of its list in ≤ 2 s: this figure is this
-  spec's own, not doc-012's, and is approved with OQ-5 at gate-1.
+  spec's own, not doc-012's, and was approved with OQ-5.
 - Query shape: the sprint list, the sprint board, a Closed sprint's outcome,
   the close dialog's counts and the project's «Спринты» each read in a number
   of statements that does not grow with sprints, items, projects or teams; a
@@ -119,9 +123,9 @@ the user cannot see (the answer of an id that names nothing, BR-MX-24).
 - Non-disclosure: each of those surfaces has a test comparing a user who
   cannot see project X with the same data without X; the answers are
   identical, totals included, BR-8's refusal aside (doc-012 NFR
-  Non-disclosure). The clauses that need a visibility other than
-  «Организация» run once `feat-041-project-visibility` has merged
-  (§ Decomposition).
+  Non-disclosure). Until `feat-041-project-visibility` merges every project
+  is «Организация», so these tests are owed by feat-041 (OQ-7), which covers
+  "every surface that exists when it merges".
 - Tenant isolation: every new route passes the containment check; a team,
   sprint, item or project id of another organization answers as an id that
   names nothing and changes nothing (doc-012 NFR Tenant isolation).
@@ -142,6 +146,13 @@ the user cannot see (the answer of an id that names nothing, BR-MX-24).
   pane drag (feat-009), the sprint backlog and «Задачи» taskboard (mod-011),
   capacity (feat-011), burndown and velocity (mod-012), delivery plans
   (mod-013), the history of sprint acts (feat-015).
+- The Active sprint of linked teams on the area overview (the human's OQ-2 A,
+  2026-11-10): `feat-042-area-board-and-overview` owes the figure after this
+  line and gains `mod-007-iterations` in its deps; the draft US-8 is carried
+  there and rewritten against the typed tree (ADR-0031: a department holds
+  project nodes; «Включая дочерние области» is feat-042's). This line exposes
+  for reuse the read "the Active sprint of a team, as the team sprint board
+  counts it for the viewer".
 - Releases and milestones: a sprint has no kind (doc-012 brief § 8.9).
 - Iteration tree, one sprint across teams, team selection of doc-004: retired.
 - Sprint goal text, sprint templates, cloning a sprint, bulk move of items
@@ -149,34 +160,85 @@ the user cannot see (the answer of an id that names nothing, BR-MX-24).
 - Hiding or restricting a sprint per user beyond project visibility.
 - Browsing a Planned sprint's items: this line shows a Planned sprint's
   contents only as the item count and story points on its row in the team's
-  list (US-3). The items
-  themselves are listed by the sprint filter (feat-008, feat-013) and the
-  sprint backlog (mod-011); the board shows the Active sprint alone.
+  list (US-3). The items themselves are listed by the sprint filter (feat-008,
+  feat-013) and the sprint backlog (mod-011); the board shows the Active
+  sprint alone.
 
 ## Decomposition for the backlog
 
+`mod-007-iterations` stays the L founding line, id unchanged, so feat-008,
+feat-009, feat-013, mod-008, mod-011 and mod-013 keep `mod-007` in their deps
+(OQ-8 A; routing.md § Size). The rest become their own lines, all
+`core/iterations-planning`, MVP.
+
 | id | Task | size | deps |
 |----|------|------|------|
-| feat-NNN-team-sprint-lifecycle | US-1, US-2, US-3: create, number, date, start, remove; the team's «Спринты» section with the list (`teams/:t/sprints`) | M | feat-040 |
-| feat-NNN-item-sprint-pointer | US-4: the item's sprint on the card (fills the iteration slot, feat-029 design § 4.8) with the team rule; pointer clearing on team change, unlink, delete | M | feat-NNN-team-sprint-lifecycle |
-| feat-NNN-sprint-close-and-outcome | US-5: close with destination, move of unfinished items, outcome record, races | M | feat-NNN-item-sprint-pointer |
-| feat-NNN-team-sprint-board | US-6: the Active-sprint board in the team's «Спринты», empty state | M | feat-NNN-item-sprint-pointer, feat-NNN-sprint-close-and-outcome |
-| feat-NNN-project-sprints-archive | US-7: project «Спринты» section, read-only, deleted team's Closed sprints | M | feat-NNN-sprint-close-and-outcome, feat-041 |
-| feat-NNN-area-overview-active-sprints | US-8: Active sprint of each linked team on the area's «Обзор»; only if OQ-2 keeps it here | S | feat-NNN-team-sprint-board, feat-042 |
+| mod-007-iterations | Founds the slice: US-1..US-5 — lifecycle, numbering, the team's «Спринты» section with the list, the item's sprint on the card, the close with its outcome and moves; registers the sprint-management code; exposes the Active-sprint read for feat-042 | L | feat-040 |
+| feat-NNN-team-sprint-board | US-6: the Active-sprint board in the team's «Спринты» | M | mod-007-iterations |
+| feat-NNN-project-sprints-archive | US-7: the project's read-only «Спринты» section, a deleted team's Closed sprints included | M | mod-007-iterations |
+| feat-042-area-board-and-overview (existing) | gains the Active-sprint figure on the area's «Обзор»; deps gain `mod-007-iterations` | - | mod-018, feat-041, feat-043, feat-048, mod-007-iterations |
 
-All tasks are `core/iterations-planning`. Priority: MVP, in the order above.
-The module line `mod-007-iterations` is replaced by these lines when they are
-entered; if OQ-2 moves US-8, the last row goes to `feat-042` and
-`mod-007-iterations`' deps lose `feat-042`. The first row is shippable alone
-(a sprint list nothing else uses is still a capability: planners can plan);
-rows 2-5 each ship their own section or control.
+Why the archive does not wait for feat-041: its non-disclosure clause («Проект
+не найден» for a hidden project) is owed by feat-041 like every other
+visibility clause (OQ-7 B); without visibility every project is «Организация»
+and nothing in the archive is hidden. Why the board does not need the board of
+feat-043: it reuses feat-040's team order and card (merged). Dependents of
+the sprint board's old place: `mod-011` says "the team sprint board itself is
+mod-007's"; its text is updated at queue time (§ Queue edits below).
+
+**Queue edits after gate-1** (orchestrator, commits to `main` touching only
+queue files; numbers issued by `scripts/queue.sh add`):
+
+1. `mod-007-iterations`: deps `feat-040` only (drop `feat-041`, `feat-042`);
+   text: "MVP. Founds M5 on team sprints: the lifecycle (Planned, Active,
+   Closed), numbering, the team's sprint list, the item's sprint pointer with
+   the team rule, closing with its outcome record and the move of unfinished
+   items; registers the sprint-management code. The team's «Спринты»
+   (teams/:t/sprints) is a section of its own page (doc-012 BR-MX-13..-15;
+   US-9, US-12, US-10); the team sprint board, the project's «Спринты» and the
+   area overview's Active sprints are the three lines below." Size L, epic
+   unchanged; the note adds "narrowed after the human's answers on mod-007's
+   spec, 2026-11-10".
+2. New line `feat-NNN-team-sprint-board` — "MVP. The board of a team's Active
+   sprint in the team's «Спринты»: one level at a time, the team's order, card
+   moves as on the team board, «У команды нет активного спринта.» (doc-012
+   BR-MX-14; US-12; mod-007 US-6)" · epic:core/iterations-planning · size:M ·
+   deps:mod-007-iterations · note: spun out of mod-007, spec US-6; its
+   visibility clauses owed by feat-041.
+3. New line `feat-NNN-project-sprints-archive` — "MVP. A project's «Спринты»
+   (projects/:p/sprints): the read-only list of the Closed sprints that
+   recorded the project's items, a deleted team's included (doc-012 BR-MX-14;
+   US-12, US-10; mod-007 US-7)" · epic:core/iterations-planning · size:M ·
+   deps:mod-007-iterations · note: spun out of mod-007, spec US-7; its
+   «Проект не найден» clause owed by feat-041.
+4. `feat-042-area-board-and-overview`: deps become `mod-018,feat-041,feat-043,
+   feat-048,mod-007-iterations`; text "the Active sprint of linked teams with
+   mod-007" becomes "the Active sprint of linked teams, read from
+   mod-007-iterations, counted as the team sprint board counts it for the
+   viewer, over the typed tree (ADR-0031)".
+5. `feat-041-project-visibility`: add to its note "owes the visibility clauses
+   of mod-007's surfaces (spec OQ-7): the removal refusal, the close, the
+   list counts, the sprint board and the project's «Спринты»".
+6. `mod-011-sprint-views`: text "the team sprint board itself is mod-007's"
+   becomes "is `feat-NNN-team-sprint-board`'s"; deps keep `mod-007`
+   and add `feat-NNN-team-sprint-board` if the human wants the hub built over
+   the board (not required here).
+7. `docs/features/doc-013-navigation-earlier` table row for `mod-007`:
+   "9th · feat-040, feat-041, feat-042" becomes "feat-040"; its text drops
+   "and the area's «Обзор» gains the active sprints" and the project's
+   «Спринты» clause (they come with the archive line and feat-042); only the
+   team's «Спринты» is placed by mod-007. The rows of feat-042 and of the
+   two new lines gain the matching clauses.
 
 ## Open questions
 
-- [ ] **OQ-1 `doc-016-teams-under-departments`: what changes for sprints, and should this wait?** A team will belong to exactly one department instead of the organization level; teams and projects are created inside a department; existing teams migrate. What it changes for sprints, concretely: (1) *Ownership*: nothing; a sprint belongs to its team permanently (BR-1) and the team keeps its numbering, list and names whatever its place; (2) *Who manages*: today the team roles «Участник» and «Менеджер» and the organization admin (BR-13). The department «Менеджер» exists already (mod-019), but its grant reaches the department's projects and their items, not the teams (BR-MX-22); so the real question doc-016 settles for sprints is whether a department grant will reach the teams placed under the department. If it does, the effective-permission policy (ADR-0029) gives the department «Менеджер» sprint management with no sprint-specific change, provided every sprint check reads the codes through that policy and not through a stored role list; if it does not, nothing changes; (3) *A team moving between departments*: sprints, numbers and outcomes stay with the team; the only visible effect is which department's overview shows its Active sprint (OQ-2) and the department's «Команды» list; (4) *Area overview*: today it reads teams linked to the area (typed tree, ADR-0031); doc-016 changes how a team reaches a department (membership instead of an area-team link) and so changes the query US-8 needs, not the figure; (5) *Deleting a team* and its Closed sprints on projects' «Спринты» (US-7): unchanged. Options: **(A, recommended)** proceed now with the sprint owned by the team regardless of its place, all management checks through the effective-permission policy, and the department-dependent part (US-8) is built outside this line (OQ-2), where it meets doc-016 on its own (feat-042's deps do not include doc-016, so that meeting is a decision for that line); ➕ no wait on an analysis (size M, deps mod-019) that cannot change team-owned sprints, so doc-016 cannot invalidate US-1..7; ➖ if doc-016 lets a department grant reach its teams, a row is added to the roles table. **(B)** wait for doc-016; ➕ roles known up front; ➖ blocks the whole M5 epic (feat-008, -009, mod-011..013) behind an analysis that cannot change team-owned sprints. **(C)** proceed but fold US-8 here and write it against the department tree after doc-016; ➖ ties the MVP to doc-016's timeline for one figure.
-- [ ] **OQ-2 Does «active sprints on the area overview» move to `feat-042-area-board-and-overview`?** Today `mod-007` depends on `feat-042` (L-sized overview, not started), while feat-042's own deps lack mod-007: its text "the Active sprint of linked teams with mod-007" only says the figure comes with mod-007. So no cycle exists; mod-007 simply waits for feat-042 for one figure. Two facts weigh on US-8 in any option: its «Child areas follow the switch» scenario is not buildable as written (in the typed tree a department holds project nodes and a plain «Область» stands only below a project node, mod-019 § Roles, ADR-0031), and «Включая дочерние области» does not exist in the code yet (it is feat-042's); US-8 must be rewritten against the typed tree wherever it lands. Options: **(A, recommended) move it to feat-042**: US-8 leaves this spec (feat-042 owes the figure after mod-007 and gains `mod-007-iterations` in its deps), `mod-007-iterations` drops `feat-042` (deps: `feat-040`, `feat-041`), the doc-013 table row for mod-007 loses the «Обзор» clause, and mod-007 exposes the "Active sprint of a team, as the board counts it for the viewer" as a read the overview reuses; ➕ the overview's tree and switch are their owner's domain; mod-007 starts when feat-041 merges; ➖ feat-042 now waits for mod-007, and three queue lines change. **(B) keep it in mod-007 as now**: ➕ one line closes every sprint clause of doc-012 US-12; ➖ mod-007 stays blocked by feat-042 and must write the overview figure over a switch that does not exist. **(C) keep row 6 as its own S line** (US-8 rewritten against the typed tree) depending on mod-007 and feat-042, and drop `feat-042` from mod-007's deps; feat-042 keeps its deps unchanged; ➕ nobody waits for anybody: mod-007 starts at once, feat-042 is untouched, and row 6 runs after both; ➖ one more small line, and the figure is owned by neither of the two lines it touches.
-- [ ] **OQ-3 Where an item's sprint can be set in this task.** Options: **(A, recommended) the card's «Спринт» field and its save**, which fills the existing slot; creation dialogs and rows offer no sprint, as a new item has no sprint to prefer; ➕ small, matches doc-012 US-4; ➖ choosing a sprint at creation waits for the planning pane (feat-009). **(B)** also a «Спринт» field in the creation dialogs; ➕ one step for a planner; ➖ more forms to test, and doc-012 BR-MX-10 gives creation dialogs no such field.
-- [ ] **OQ-4 What the close dialog preselects.** Options: **(A, recommended)** nothing is preselected for a team with no Planned sprint, and the Planned sprint with the lowest number is preselected when one exists; the planner may choose «Без спринта»; ➕ the usual case is one click, the choice stays visible. **(B)** always «Без спринта»; ➕ no surprise move; ➖ unfinished work silently leaves planning. **(C)** auto-create the next sprint; ➖ invents a sprint the planner never named and issues a number.
-- [ ] **OQ-5 The sprint list order and paging.** Options: **(A, recommended)** highest number first, all sprints on one page up to 200 and a "load more" beyond (doc-012 US-9 asks for the order, not paging); ➕ cheap, long-lived teams stay readable. **(B)** no paging; ➖ a team with 1 000 sprints breaks the NFR above.
-- [ ] **OQ-6 A deleted team's sprint with no recorded item.** doc-012 R-34 B already lists none (the sprint is not shown anywhere). Confirm that this loss of name and dates is acceptable. **(A, recommended)** accept as decided at gate-1 of doc-012; **(B)** keep an anonymous entry; ➖ reopens a decided point.
-- [ ] **OQ-7 Does mod-007 wait for feat-041, or owe its visibility clauses to it?** Until feat-041 merges every project is «Организация» (feat-040 § Roles), so the «Ограниченный» and "hidden from him" clauses of US-2, US-5, US-6, US-7 and US-8 cannot be tested. **(A)** wait: every row carries feat-041 and its visibility clauses run in this line; ➕ one line proves non-disclosure on its own surfaces; ➖ M5 waits for an L that has not started. **(B, recommended)** owe: the rows before US-7 drop feat-041, their «Ограниченный» clauses are marked owed by feat-041 (doc-013 BR-NE-4), whose line already covers "every surface that exists when this line merges"; ➕ M5 starts now (feat-040, feat-043, mod-019 are merged); ➖ feat-041 grows by the sprint surfaces.- [ ] **OQ-8 Which stories make up the L line `mod-007-iterations`?** The six-row decomposition replaces the L line while feat-008, feat-009, feat-013, mod-008, mod-011 and mod-013 name `mod-007` in their deps, and an L founds the slice (routing.md § Size). **(A, recommended)** `mod-007-iterations` stays the L founding line (id and dependents' deps unchanged) carrying US-1..US-5 (the sprint, the pointer and the close share one data model and one set of races), and the board (US-6), the project archive (US-7) and, per OQ-2, the overview figure (US-8) become M/S lines depending on `mod-007-iterations`; ➕ no dependent is re-pointed, the invariant "every M reaches its L" holds; ➖ one big L (five stories). **(B)** keep the six-row split, name its first row L and rewrite each dependent's deps explicitly; ➖ six queue edits and a dependency map to maintain. The decomposition table is rewritten once OQ-2, OQ-7 and OQ-8 are answered.
+All answered by the human in chat on 2026-11-10; this spec states the result.
+
+- [x] **OQ-1 doc-016 (teams under departments): A.** Proceed now; a sprint is the team's whatever its place; management is checked through the effective-permission policy, never a stored role list. The only thing doc-016 can change for sprints is whether a department grant will reach the teams under it (department «Менеджер» today reaches projects, not teams, BR-MX-22); if it does, the policy gives it sprint rights with no sprint change. A team moving between departments moves nothing of its sprints. The overview part meets doc-016 in feat-042.
+- [x] **OQ-2 Overview's Active sprints: A.** Moved to feat-042 (§ Out of scope, § Decomposition).
+- [x] **OQ-3 Where the sprint is set: A.** The card's «Спринт» field only; creation dialogs and rows offer none.
+- [x] **OQ-4 Close dialog: A.** The Planned sprint with the lowest number is preselected when one exists, nothing otherwise; «Без спринта» is always offered.
+- [x] **OQ-5 List order and paging: A.** Highest number first; up to 200 on a page, then load more.
+- [x] **OQ-6 A deleted team's sprint with no recorded item: A.** Listed on no project (as decided at doc-012 gate-1).
+- [x] **OQ-7 Visibility: B.** `mod-007` does not wait for feat-041; the «Ограниченный» clauses are marked owed by feat-041 (doc-013 BR-NE-4); mod-007's deps are `feat-040` only.
+- [x] **OQ-8 What the L line holds: A.** `mod-007-iterations` stays the L line with US-1..US-5; US-6 and US-7 are their own lines depending on it; dependents keep `mod-007`.

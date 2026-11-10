@@ -2,7 +2,7 @@
 
 - story: US-4
 - depends-on: US-1
-- shippable: yes — the card's sprint field works on its own over Planned sprints
+- shippable: no — US-1..US-5 ship together as `mod-007-iterations` (one L, OQ-8)
 - status: pending
 
 As a **member who may change an item**, I want **to put the item into a Planned or Active sprint of its owning team, from any project**, so that **the team's sprint holds all of the team's work, not one project's**.
