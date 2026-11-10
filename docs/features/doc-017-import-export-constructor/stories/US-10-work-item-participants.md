@@ -5,7 +5,7 @@
 - shippable: no — an analysis story; delivered by `feat-NNN-work-item-participants`
 - status: pending
 
-As a **member**, I want **to name the other people who work on an item, besides its one assignee**, so that **a task done by several people says so, as the sheet's «Team» column did**.
+As a **member**, I want **to name the other people who work on an item, besides its one assignee**, so that **a task done by several people says so, as a source's list of co-workers does**.
 
 ## Acceptance criteria
 
@@ -51,7 +51,17 @@ Scenario: A member removes a participant
   Then only the other stays (BR-IE-25)
 
 Scenario: An import fills participants from a list column
-  Given «Team» split by «,» and recoded to members, mapped to «Участники»
-  When a row holds «Пользователь Б, Пользователь В»
+  Given «Соисполнители» split by «,» and recoded to members, mapped to «Участники»
+  When a row creating an item holds «Пользователь Б, Пользователь В»
   Then the item's participants are those two (BR-IE-5, BR-IE-9)
+
+Scenario: An import adds participants and removes none
+  Given an item with the participant «Пользователь Б»
+  When an import's row naming the item holds «Пользователь В»
+  Then the item's participants are «Пользователь Б» and «Пользователь В» (BR-IE-11)
+
+Scenario: Undo removes the participants an import added
+  Given a batch that added «Пользователь В» to an item
+  When the batch is undone
+  Then «Пользователь В» is no longer a participant, and those added by people stay (BR-IE-16)
 ```

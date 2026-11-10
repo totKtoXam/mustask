@@ -19,8 +19,7 @@ No backend/frontend plan: a docs task. Input: [input-brief.md](input-brief.md)
 (the human's ask and the anonymized analysis of the team's spreadsheet).
 1. Stage 1 (deep, one agent): `spec.md` + `stories/` + ADR drafts (Proposed)
    + the decomposition table: the constructor lines, the gap lines, which of
-   them must land before the first DevEx transfer, feat-005 withdrawn or
-   reworded.
+   them the one DevEx transfer waits for, feat-005 reworded.
 2. Stage 2: requirements review in a clean context, findings in `review.md`.
 3. gate-1: the spec, the ADR drafts and the decomposition.
 4. After gate-1: the orchestrator enters the delivery lines and withdraws or
@@ -36,7 +35,12 @@ No backend/frontend plan: a docs task. Input: [input-brief.md](input-brief.md)
 - 2026-11-10 [orchestrator] human answers in chat (gate-1 not yet asked): OQ-1 B (managers import into their projects too), OQ-2 «убираем это поле» → drop the external key, keep external links; OQ-3 A (undo purges), OQ-4 A (recode states).
 - 2026-11-10 [orchestrator] human answers in chat: OQ-5 «игнорим» (Срок, Вес D on stories not moved), OQ-6 A, OQ-7 B (one DevEx transfer when its lines land), OQ-8 A, OQ-9 «отдельная задача для уведомлений в телеграмм», OQ-10 A, OQ-11 deferred as a recorded debt.
 - 2026-11-10 [orchestrator] the human asked why the constructor is built for this one file; chose: split the spec into a generic constructor and a DevEx transfer example, and check the converter catalogue on the ТОС sheet and a generic tracker CSV export.
+- 2026-11-10 [business-analyst] rework: spec split into a generic constructor and § DevEx transfer, catalogue by class (+«Дата из ISO 8601»), key dropped, ADR-0039 withdrawn (stub, git rm owed), US-9 links only, ADR-0040 updated; OQ-1..-11 resolved, OQ-12, OQ-13 new.
+- 2026-11-10 [orchestrator] stubs removed; never-merged ADR-0040 renumbered to ADR-0039 (the key ADR it replaced was withdrawn), references updated; review.md round 1 keeps the old numbers as history.
+- 2026-11-10 [requirements-reviewer] round 2 (delta): needs-human-decision. R-19..R-27: 2 major (no-identifier round trip, per-type state recoding), 7 minor, fixed in place but R-27 (orchestrator); OQ-12, OQ-13 open; verify.sh not run (no shell).
 
 ## Notes
 
 Summary (from the queue line or an argument): Analysis: an import/export constructor for work items from .xlsx and .csv: column-to-field mapping, value recoding tables (type, state, priority, project, people), chained converters (split, Excel date, bucket to hours, hyperlink URL, regex, constant), an external key for upsert, a dry run with per-row results, batched import with undo, saved per-organization templates and export by the same template; decides which gaps must land before the first transfer of the DevEx sheet (external key and links, custom fields, item participants, custom states); replaces feat-005
+
+The summary above is the queue line as taken; the external key and the first-transfer plan in it were dropped by the human (OQ-2, OQ-7 B). Delivery lines are worded from spec.md § Decomposition, not from this summary (review.md R-27).

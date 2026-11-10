@@ -193,3 +193,115 @@ Resolution: US-8 now marks the clause as owed by feat-041. § Stories now defers
 ### Verdict
 
 needs-human-decision: OQ-1..OQ-11 are human decisions, and R-7 stays open as OQ-11. No blocker. Every other finding is fixed in spec.md, the stories and ADR-0040. Stories stay within ~150 lines, and spec.md within ~250.
+
+## Round 2 — delta
+
+Reviewer: requirements-reviewer, clean context, not the author. Delta over round 1. Read: the status.md Log (the human's answers to OQ-1..OQ-11, and the ask for a generic constructor), spec.md as reworked, stories US-1..US-10, ADR-0039 (the import batch, renumbered from 0040) and the docs/adr/README.md index. Checked against feat-022's field table and doc-003's state table only where the delta touched them. There was no shell, so the delta was read from the files, not from `git diff`, and `scripts/verify.sh` was not run.
+
+### What holds
+
+- **The human's answers.** They are applied, and nothing contradicts them.
+  - OQ-2: the external key is gone. No rule, story, card section or undo clause keeps it, and § Out of scope excludes it. The old key ADR is deleted, and the README lists only the batch ADR as ADR-0039.
+  - OQ-1 B is applied in § Roles, BR-IE-12, ADR-0039 decision 5, US-4 and US-6.
+  - OQ-7 B is § DevEx transfer: one transfer, no re-import.
+  - OQ-9 is `mod-NNN-telegram-notifications`, a delivery line with its own spec stage.
+  - OQ-11 is a recorded debt in § Debts, with no line queued, so doc-010 D-21 stands. R-7 is closed by that answer.
+  - OQ-5 leaves `Срок`, and `Вес D` on stories, unmoved.
+- **Generic rules.** BR-IE-1..-25, the converter catalogue and the limits name no DevEx column, value or count. The limits come from BR-M6-8, or they are generic caps. The DevEx detail lives only in § DevEx transfer.
+- **§ Other sources.** The check is convincing. It works the ТОС sheet's constant-type, field-the-type-lacks case and the CSV's email, ISO-date, delimited-labels and link-back cases through named pieces, and it states the one gap, the parent by another row, as OQ-13. Two holes it exposed are R-20 and R-24.
+- **Round-1 resolutions** still hold after the rework:
+  - R-1: BR-IE-16 still amends BR-DR-12 for this caller only.
+  - R-2: BR-IE-12 keeps the create followed by the save.
+  - R-3: «Удалена» is excluded in BR-IE-7 and BR-IE-12.
+  - R-4: the undo edge cases are kept in BR-IE-16 and US-6.
+  - R-5: BR-IE-11 keeps the merge.
+  - R-8..R-18 also hold.
+  - R-6, the round trip, now runs through the identifier, but it had a hole: R-19.
+- **The analyst's new decisions** are sound and testable. Each one has a scenario:
+  - the manager's undo scope (US-6, two scenarios);
+  - the empty identifier, «Строки без идентификатора» (US-4);
+  - non-disclosure through «Элемент не найден.» (US-4);
+  - «Не переносить для типов без поля» (the US-1 outline).
+- **Decomposition.** Each L names its threshold:
+  - the constructor founds a module (routing.md, the greenfield clarification);
+  - the run line is breaking (BR-DR-12);
+  - Telegram founds a module and is an external integration.
+
+  The other lines are M. The deps are right, since mod-003, mod-005, mod-019 and feat-022 are not open. The "waits" set is complete: links, the constructor, the run, participants, feat-053, feat-016 (through feat-013 and feat-042) and feat-002.
+- **Budgets.** spec.md is about 207 lines and every story is at most about 125. All links resolve.
+
+### R-19
+Severity: major
+Affects: BR-IE-10, BR-IE-19, US-4, US-8, § DevEx transfer
+Problem: A template with no identifier mapping still exports an «Идентификатор» column (BR-IE-19), but on import that template "only creates". So export → edit → import back by the same template duplicates every row. The DevEx template is exactly this case, because its `Id` is not moved, and yet § DevEx transfer plans later edits that way.
+Required resolution: Make the export's added column usable on the way back, without capturing a foreign column of the same name.
+Status: resolved
+Resolution: BR-IE-10 now uses a file column headed «Идентификатор» when the template leaves it unmapped. A column the template sets to «Не переносить» counts as mapped and is not used. BR-IE-4 makes that column the exception to "extra columns are ignored". US-4 gained a scenario, its create-only scenario now says the file has no such column, and US-8's identifier scenario now imports the file back.
+
+### R-20
+Severity: major
+Affects: BR-IE-7, US-2
+Problem: The fixed types' states differ: «Разрешена» exists on «Баг» but not on «Задача» (doc-003). A state table keyed only by the file value cannot send one source status, such as "Resolved", to different states per type. BR-IE-4's one-source-per-field rule rules out a second mapping. A generic tracker CSV with one status column over several types would get errors on whole types.
+Required resolution: Allow a per-type entry.
+Status: resolved
+Resolution: BR-IE-7 now allows an entry for one type (type, file value → state), which wins on that type's rows. US-2 gained a scenario.
+
+### R-21
+Severity: minor
+Affects: OQ-2
+Problem: After the renumbering, "ADR-0039 withdrawn" points at the import-batch ADR, which goes to gate-1.
+Required resolution: Reword.
+Status: resolved
+Resolution: OQ-2 now says that the key's draft ADR was withdrawn and that its number now belongs to the batch ADR.
+
+### R-22
+Severity: minor
+Affects: BR-IE-5, OQ-13
+Problem: BR-IE-5 offered the parent "(OQ-13 A)" as if OQ-13 were decided. Under A, it was also undefined whether an import that sets a parent writes the parent item, which matters for the later-batch rule in BR-IE-16 and for BR-IE-17. Without that, the creating batch's undo could purge a parent that a later batch gave children to.
+Required resolution: Make it conditional and state the rule.
+Status: resolved
+Resolution: BR-IE-5 now reads "if OQ-13 A". OQ-13 A now says that setting a parent writes both the child and the parent.
+
+### R-23
+Severity: minor
+Affects: BR-IE-4, US-3
+Problem: US-3 feeds fields through «Объединить», but BR-IE-4 allowed only a column or a constant as a field's source.
+Required resolution: Name it.
+Status: resolved
+Resolution: BR-IE-4 now lists a column, a «Константа» or an «Объединить» pattern, and says that both of the latter ignore the cell.
+
+### R-24
+Severity: minor
+Affects: BR-IE-9, § Other sources
+Problem: The source check puts ISO dates "into … the description", but nothing said how a date or a number becomes text.
+Required resolution: State the form.
+Status: resolved
+Resolution: BR-IE-9 now says that a number or a date feeding a text field is written as text (1200,5; ДД.ММ.ГГГГ).
+
+### R-25
+Severity: minor
+Affects: BR-IE-11, BR-IE-10
+Problem: «Элемент находится в корзине.» would reveal that an unreadable item exists, which defeats BR-IE-10's non-disclosure.
+Required resolution: Order the checks.
+Status: resolved
+Resolution: BR-IE-11 now gives that error only for an item the importer can read, and checks «Элемент не найден.» first.
+
+### R-26
+Severity: minor
+Affects: § DevEx transfer, § Decomposition
+Problem: The transfer table said "story points" where the field is «Оценка в пунктах» (feat-022). No line or role owned the one transfer (OQ-7 B).
+Required resolution: Name both.
+Status: resolved
+Resolution: The table row now names «Оценка в пунктах». § Decomposition now says that the transfer is not a line: whoever may import runs it once the "yes" lines land.
+
+### R-27
+Severity: minor
+Affects: status.md § Notes; doc-017's queue line
+Problem: The task summary still says "an external key for upsert". Copying it into the delivery lines would bring back the key that OQ-2 dropped.
+Required resolution: The orchestrator words the new lines from § Decomposition, not from the summary.
+Status: open (orchestrator's write zone)
+Resolution: —
+
+### Verdict
+
+needs-human-decision. OQ-12 (who manages templates; A recommended) and OQ-13 (the parent link; A recommended) are open human decisions. ADR-0039 goes to the human at gate-1. There is no blocker, and every finding but R-27 is fixed in place.

@@ -5,29 +5,29 @@
 - shippable: no — an analysis story; delivered by `mod-NNN-import-constructor`
 - status: pending
 
-As an **organization administrator**, I want **to keep a template by name and apply it again**, so that **next week's sheet goes in with the same settings, and another team's sheet gets its own**.
+As an **organization administrator**, I want **to keep a template by name and apply it again**, so that **next week's file goes in with the same settings, and another source gets its own**.
 
 ## Acceptance criteria
 
 ```gherkin
 Scenario: A template is saved with everything it describes
-  Given a template with its sheet, rows, mappings, converters, recoding tables, policies, key and source «DevEx»
-  When the administrator saves it as «DevEx — реестр»
+  Given a template with its sheet, rows, mappings, converters, recoding tables, policies and identifier setting
+  When the administrator saves it as «Реестр — задачи»
   Then reopening it shows the same settings (BR-IE-18)
 
 Scenario: A saved template is applied to a new file
-  Given the template «DevEx — реестр»
-  When the administrator uploads next week's file and picks it
+  Given the template «Реестр — задачи»
+  When an importer uploads next week's file and picks it
   Then the dry run runs without any setting re-entered (BR-IE-18)
 
 Scenario: New values in a new file show up in the recoding table
-  Given «DevEx — реестр» and a new file with the type value «Spike», in no entry
+  Given «Реестр — задачи» and a new file with the type value «Research», in no entry
   When the administrator opens the type's recoding table
-  Then «Spike» is listed as a new value with its row count, and the saved entries are kept (BR-IE-7)
+  Then «Research» is listed as a new value with its row count, and the saved entries are kept (BR-IE-7)
 
 Scenario: Names are unique in the organization
-  Given a template «DevEx — реестр»
-  When another is saved as « devex — реестр »
+  Given a template «Реестр — задачи»
+  When another is saved as « реестр — задачи »
   Then it is refused as a taken name (BR-IE-18)
 
 Scenario: A name must be 1–100 characters
@@ -36,15 +36,20 @@ Scenario: A name must be 1–100 characters
   Then it is refused (BR-IE-18)
 
 Scenario: Copy keeps the settings under a new name
-  Given «DevEx — реестр»
+  Given «Реестр — задачи»
   When the administrator copies it
-  Then «Копия DevEx — реестр» appears with the same settings
-  And copying again gives «Копия DevEx — реестр 2» (BR-IE-18)
+  Then «Копия Реестр — задачи» appears with the same settings
+  And copying again gives «Копия Реестр — задачи 2» (BR-IE-18)
 
-Scenario: Two sheets, two templates
-  Given «DevEx — реестр» with source «DevEx»
-  When the administrator builds «ТОС — задачи» over another sheet with source «ТОС»
-  Then their keys never match each other's items (BR-IE-10, OQ-2)
+Scenario: Two sources, two templates
+  Given «Реестр — задачи» over a workbook and «Трекер — CSV» over another tracker's export
+  When each is applied to its own file
+  Then each reads its own columns with its own chains and tables, and neither changes the other (BR-IE-18)
+
+Scenario: The later of two concurrent saves wins
+  Given two administrators editing «Реестр — задачи», and a dry run made on the version they both opened
+  When one saves and then the other saves
+  Then the template holds the second save, and the dry run offers no «Импортировать» (BR-IE-14, BR-IE-18)
 
 Scenario: Delete is final and keeps the batches
   Given «Старый шаблон» with one batch
@@ -66,4 +71,10 @@ Scenario: Members read templates, only the administrator changes them
   When they open «Экспорт по шаблону»
   Then they see the organization's templates by name, with the columns each exports
   And they see no recoding table or other setting, and are offered no create, edit, copy or delete (§ Roles)
+
+Scenario: A manager reads the settings and changes nothing
+  Given a project «Менеджер»
+  When they open «Реестр — задачи» in «Импорт»
+  Then they see its settings, recoding tables included, read-only
+  And they are offered no create, edit, copy or delete (§ Roles, OQ-12 A)
 ```
