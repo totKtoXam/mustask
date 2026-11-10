@@ -12,7 +12,7 @@
 
 gate-1: approved (2026-11-06, human in chat, one question each: OQ-1 A, OQ-2 reviewer variant, OQ-3 B, OQ-4 B, OQ-5 A, OQ-6 reviewer A, OQ-7 A, OQ-8 A, OQ-9 B, R-27 shown in the switch-off dialog; after review round 3, approved-by-ai, requested by the human)
 gate-2: approved (2026-11-09, human in chat, after D-1..D-13 A, OQ-D1 A, OQ-10 role rename and the prototype screenshots)
-gate-3: pending
+gate-3: approved (2026-11-10, human in chat, «approve», after the gate-3 package and a look at the running stand; ADR-0038 accepted with it; debts D-5, G-1..G-4, team-backlog rows, team-place picker, plan-backend § 6(a) accepted)
 
 ## Plan
 
@@ -86,6 +86,7 @@ Plans: `plan-backend.md`, `plan-frontend.md`.
 - 2026-11-10 [backend-dev] code-review fix round 1: C-1 (area walk in one recursive statement, count equal at depth 1 and 10, pinned), C-2 (one refusal line with route, code, scope, user id; handler 403s too), C-3, C-4, C-6 (prose), C-7 (grant give/change/revoke log lines), C-8 (node own code re-checked after the lock) fixed with tests; C-5 left: spec BR-SA-7, BR-SA-19 and US-2 all exclude every project-grant holder, so counting a department Manager who holds project Reader needs a BA/human decision. Gates and stage untouched
 - 2026-11-10 [code-reviewer] code review round 2 (delta) in review.md: approved; C-1..C-4, C-6..C-8 closed, 0 majors open; C-5 reclassified as a spec question for the human at gate-3 (US-2 scenario contradicts the unconditional exclusion). Gates and stage untouched
 - 2026-11-10 [backend-dev] C-5 decided by the human (OQ-12): the switch-off impact (SwitchImpact count, callerIncluded, givenGrants) spares a project-grant holder only when that bundle covers every code the switch takes from them; api-contract § 1, § 3 text updated (response shape unchanged), spec BR-SA-7, BR-SA-19, US-2 and OQ-12 reworded; SwitchImpactReadModel and integration tests changed; Application 863, Infrastructure 467, Organizations/Authorization integration 1933 green. Gates and stage untouched
+- 2026-11-10 [orchestrator] gate-3 approved by the human in chat («останови стенд и approve», answering «Утверждаете gate-3 и ADR-0038?»); ADR-0038 → accepted; the demo stand (own DB mustask_mod019, ports 3200/5200/5020) stopped; its LAN-host AppHost patch was never committed
 
 ## Notes
 

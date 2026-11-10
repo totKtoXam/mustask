@@ -43,8 +43,7 @@ anything already fixed by the conventions.
 
 Keep the list current (append-only, newest on top):
 
-- ADR-0038 — Let the place decide who creates a project, let a project's manager run its subtree, and let a department's manager run the department's projects · proposed (amends ADR-0029 §§ 4, 6, 7, 12)
-- ADR-0037 — Let the place decide who creates a project, let a project's manager run its subtree, and let a department's manager run the department's projects · proposed (amends ADR-0029 §§ 4, 6, 7, 12)
+- ADR-0038 — Let the place decide who creates a project, let a project's manager run its subtree, and let a department's manager run the department's projects · accepted (amends ADR-0029 §§ 4, 6, 7, 12)
 - ADR-0037 — Serve the panel and the API under one configured path base · accepted (accepted 2026-11-05)
 - ADR-0036 — Page the aggregate views' group reads by a cursor, and limit those reads per user and per process · proposed (deviates from ADR-0014/0015 for these reads only)
 - ADR-0035 — Let the instance administrator appoint organization administrators on request, on a permanent record · accepted (amends the wording of ADR-0027 rule 4 and ADR-0033 § 1) (accepted 2026-11-04)
@@ -52,7 +51,7 @@ Keep the list current (append-only, newest on top):
 - ADR-0033 — Run in the company-wide realm on four client roles, and keep the role-to-right table in code · proposed (amends ADR-0018, ADR-0027); amended by ADR-0035
 - ADR-0031 — Make the organization's area tree a typed single tree whose project nodes are the projects' places in it · accepted (supersedes ADR-0028 rules 1, 2, 3, 6, 7, 8, its mod-018 delivery row, and ADR-0029 § 6 and its mod-018 delivery bullet, in part)
 - ADR-0030 — Delete a work item into its Removed state with the way back on its row, hide it by named entry points, and purge it in one locked transaction · accepted (amends ADR-0029 § 4)
-- ADR-0029 — Compute effective permissions once, from organization, area, project and team scopes over the membership-derived codes · accepted (amends ADR-0027); amended by ADR-0030; partially superseded by ADR-0031 (accepted 2026-10-29)
+- ADR-0029 — Compute effective permissions once, from organization, area, project and team scopes over the membership-derived codes · accepted (amends ADR-0027); amended by ADR-0030, ADR-0038; partially superseded by ADR-0031 (accepted 2026-10-29)
 - ADR-0028 — Organize an organization as independent areas, projects and teams joined by links, with the organization as the only tenant boundary · accepted (amends ADR-0024, ADR-0026); partially superseded by ADR-0031 (accepted 2026-10-29)
 - ADR-0027 — Derive organization access from the membership of the resource's organization, and keep Keycloak to instance roles · accepted (amends ADR-0018); amended by ADR-0033 (proposed), ADR-0035
 - ADR-0024 — Build every panel screen on one shell and one theme, carry the work context in the address, and name type appearance by a closed token set · accepted

@@ -1,6 +1,6 @@
 # ADR-0038: Let the place decide who creates a project, let a project's manager run its subtree, and let a department's manager run the department's projects
 
-- Status: proposed (written at mod-019 stage 4; only the human sets `accepted`, at mod-019 gate-3, as ADR-0031 was)
+- Status: accepted (by the human in chat, at mod-019 gate-3, 2026-11-10)
 - Date: 2026-11-09
 - Context: `mod-019-scoped-access`, stage 4 (backend plan). The human's gate-1 answers of 2026-11-06 (OQ-3 B, OQ-4 B, OQ-8 A, OQ-10) and the spec's BR-SA-16, BR-SA-17 and § Breaks: [spec](../features/mod-019-scoped-access/spec.md), [plan-backend](../features/mod-019-scoped-access/plan-backend.md), [api-contract](../features/mod-019-scoped-access/api-contract.md). **Amends [ADR-0029](0029-scoped-effective-permissions.md) §§ 4, 6, 7 and 12 and its mod-019 delivery bullet.** ADR-0029 stays accepted; its sections are read as this ADR says where it names them, and through [ADR-0031](0031-typed-area-tree.md) rule 7 (no area–project links: "a linked area" means the project's node and its ancestors).
 
