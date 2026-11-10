@@ -162,7 +162,7 @@ Row: «Найти узел», «Развернуть всё», then three `IconT
 | Reads disagree | project without offer: no key, no lines; offer without node ignored; a link to a missing department is ignored (the team lands under its other departments, else in «Без департамента») |
 | Many lines, nothing chosen | the note of § 4.8 |
 | Level choice hides everything | «Нет узлов на выбранных уровнях» |
-| A section folded | header only; count stays |
+| A section folded | header only; count stays (vertical: plus its slim level-chip band, tech-052) |
 | «Только связанные», team with no relations chosen | the team alone (and its departments) |
 | Vertical, over 120 visible cards | the note of § 4.3 |
 | «Все уровни», nothing pressed | disabled text button, no halo |

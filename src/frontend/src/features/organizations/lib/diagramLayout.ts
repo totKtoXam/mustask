@@ -166,7 +166,9 @@ export function layoutDiagram(
 
   for (const section of SECTION_KEYS) {
     const roots = model.roots[section].filter(keepNode);
-    if (roots.length === 0) continue;
+    // The vertical layout keeps a section the choice emptied (header + slim chip band), so a
+    // pressed level can still be unpressed (tech-052); the horizontal one drops it.
+    if (roots.length === 0 && (!vertical || model.roots[section].length === 0)) continue;
     const sequence: Placed[] = [];
     const walk = (list: readonly DiagramNode[], level: number, parent: Placed | null) => {
       for (const node of list) {
@@ -205,6 +207,13 @@ export function layoutDiagram(
     positions.set(head.id, head);
     y += SECTION_HEIGHT;
     if (!open) {
+      if (vertical) {
+        // A folded section keeps all its level chips in a slim band under the header.
+        for (let level = 1; level <= model.sectionDepth[section]; level += 1) {
+          chips.push({ level, x: PAD, y: y + (SLIM_BAND - CHIP_SIZE) / 2 });
+          y += SLIM_BAND;
+        }
+      }
       y += 10;
       continue;
     }

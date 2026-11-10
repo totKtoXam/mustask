@@ -6,8 +6,10 @@ import {
   INDENT,
   NODE_HEIGHT,
   NODE_WIDTH,
+  CHIP_SIZE,
   PAD,
   ROW,
+  SLIM_BAND,
   layoutDiagram,
   type CardItem,
   type LayoutOptions,
@@ -159,5 +161,67 @@ describe('feat-049 vertical layout (design § 4.3)', () => {
     const levels = layout.chips.map((c) => c.level);
     // outside: levels 1; departments: levels 1..4.
     expect(levels).toEqual([1, 1, 2, 3, 4]);
+  });
+});
+
+describe('tech-052 vertical level chips of folded or emptied sections', () => {
+  const vertical: LayoutOptions = { ...base, orientation: 'v' };
+  const depths = [model.sectionDepth.outside, model.sectionDepth.departments];
+  const noOverlap = (layout: ReturnType<typeof layoutDiagram>) => {
+    for (const chip of layout.chips) {
+      for (const item of layout.items) {
+        const apart =
+          chip.y + CHIP_SIZE <= item.y ||
+          item.y + item.h <= chip.y ||
+          chip.x + CHIP_SIZE <= item.x ||
+          item.x + item.w <= chip.x;
+        expect(apart, `chip ${chip.level} meets ${item.id}`).toBe(true);
+      }
+    }
+  };
+
+  it('keeps every chip of a folded section in a slim band under its header', () => {
+    const layout = layoutDiagram(model, all, {
+      ...vertical,
+      sections: { outside: true, departments: false },
+    });
+    expect(layout.chips.map((c) => c.level)).toEqual([1, 1, 2, 3, 4]);
+    const head = layout.positions.get('section:departments')!;
+    const folded = layout.chips.slice(depths[0]!);
+    expect(folded[0]!.y).toBeGreaterThanOrEqual(head.y + head.h);
+    expect(folded[1]!.y - folded[0]!.y).toBe(SLIM_BAND);
+    noOverlap(layout);
+  });
+
+  it('keeps all chips when both sections are folded', () => {
+    const layout = layoutDiagram(model, all, {
+      ...vertical,
+      sections: { outside: false, departments: false },
+    });
+    expect(layout.chips).toHaveLength(depths[0]! + depths[1]!);
+    expect(cards(layout)).toHaveLength(0);
+    noOverlap(layout);
+  });
+
+  it('keeps all chips of sections emptied by the level choice', () => {
+    const layout = layoutDiagram(model, all, {
+      ...vertical,
+      levels: { ...NO_LEVELS, selected: new Set([4]) },
+    });
+    expect(layout.chips).toHaveLength(depths[0]! + depths[1]!);
+    noOverlap(layout);
+  });
+
+  it('keeps a header and all chips of a section emptied by «Только связанные»', () => {
+    const related = relatedFilter(model, emphasisOf(model, 'nB'));
+    const layout = layoutDiagram(model, new Set(), { ...vertical, related });
+    expect(layout.positions.has('section:outside')).toBe(true);
+    expect(cards(layout).filter((c) => c.section === 'outside')).toHaveLength(0);
+    expect(layout.chips).toHaveLength(depths[0]! + depths[1]!);
+    noOverlap(layout);
+    // The horizontal layout is unchanged: an emptied section is dropped, one ruler of chips.
+    const horizontal = layoutDiagram(model, new Set(), { ...base, related });
+    expect(horizontal.positions.has('section:outside')).toBe(false);
+    expect(horizontal.chips).toHaveLength(model.maxLevel);
   });
 });
