@@ -33,6 +33,9 @@ No backend/frontend plan: a docs task. Input: [input-brief.md](input-brief.md)
 - 2026-11-10 [orchestrator] line taken by sync PR #127 (auto-merge); session bound natively (EnterWorktree) to this worktree, branch confirmed. Economy mode: one agent per stage.
 - 2026-11-10 [business-analyst] spec.md (BR-IE-1..-25, OQ-1..-10, decomposition with first-transfer column, feat-005 reworded), stories US-1..US-10, ADR-0039 and ADR-0040 proposed; ADR numbers from this branch only, origin/main not checked (no shell).
 - 2026-11-10 [requirements-reviewer] round 1: needs-human-decision. 7 major, 11 minor, no blocker; all fixed in place but R-7 (custom fields vs doc-010 D-21), now OQ-11; OQ-1..OQ-11 open (review.md).
+- 2026-11-10 [orchestrator] human answers in chat (gate-1 not yet asked): OQ-1 B (managers import into their projects too), OQ-2 «убираем это поле» → drop the external key, keep external links; OQ-3 A (undo purges), OQ-4 A (recode states).
+- 2026-11-10 [orchestrator] human answers in chat: OQ-5 «игнорим» (Срок, Вес D on stories not moved), OQ-6 A, OQ-7 B (one DevEx transfer when its lines land), OQ-8 A, OQ-9 «отдельная задача для уведомлений в телеграмм», OQ-10 A, OQ-11 deferred as a recorded debt.
+- 2026-11-10 [orchestrator] the human asked why the constructor is built for this one file; chose: split the spec into a generic constructor and a DevEx transfer example, and check the converter catalogue on the ТОС sheet and a generic tracker CSV export.
 
 ## Notes
 
