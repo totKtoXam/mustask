@@ -240,7 +240,7 @@ label, show the hint as a permanent helper line.
 header of small grey labels, rows with no rules, a light hover, a framed
 selection. `TableCard` (it owns the `<table>`: `head`, `columns`, `role`,
 `bodyProps`; `maxHeightOffset` makes it scroll inside itself and the header
-sticky), `HeadCell` (`sort`, `separator`, `clip`), `BodyRow` (`selected`, `cue`,
+sticky; `maxRows` caps it at that many rows for a table in a dialog), `HeadCell` (`sort`, `separator`, `clip`), `BodyRow` (`selected`, `cue`,
 `dragging`), `Cell` (`clip` cuts a long text to one line; `wrap` lets it break, even
 an unbroken word, for a free text such as a reason), `TreeCell`, `RowControl` (revealed by the row's hover, focus
 or selection; `focus="tab"` keeps it in the Tab order, `"roving"` leaves focus to
