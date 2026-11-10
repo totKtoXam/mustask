@@ -25,6 +25,9 @@ gate-3: pending
 
 - 2026-11-10 [new-task] task started; branch checked out in the session worktree `.claude/worktrees/kanban-test-case-2c0b58` (new-task.sh's own worktree removed: the session cannot rebind)
 - 2026-11-10 [orchestrator] route confirmed by the human in chat: tech, S, 04 → QA → 06 → QA → 08 review → gate-3 → PR; queue line taken (sync PR #120)
+- 2026-11-10 [backend-developer] D-5: `ScopedAccessRacesTests` (8 race tests on commit gates and Postgres locks: give vs removal both orders, role change vs revoke both orders, move vs switch both orders, a move out of the manager's department refuses the waiting switch); no defect, no production change. Refusal log line already pinned by `RefusalLogTests`; the 500 ms seed not run (pinned by `ScopedAccessStatementCountTests`). File landed in bddd8a3c
+- 2026-11-10 [frontend-developer] G-1 guard matches destructuring (bddd8a3c); G-3 table `maxRows={6}` (new `TableCard`/`DataTable` prop) and `FieldsSkeleton` (871105d7); G-2 no info notice on the team section, team codes notice pinned by a test (680e4b6d); G-4 `deciding` skeleton while the parent read is pending (109cda63). `ScopedAccessDebts.test.tsx` (8) + scopeGuard fixtures; 6 fail with the fixes reverted
+- 2026-11-10 [orchestrator] `bash scripts/verify.sh` → exit 0 (green: backend build, tests incl. integration, coverage floors, frontend lint, build, affected tests, guards)
 
 ## Notes
 
