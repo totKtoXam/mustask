@@ -10,7 +10,7 @@
 
 ## Gates
 
-gate-1: pending
+gate-1: approved (2026-11-10, human in chat, «Да, approve», after review round 2 approved-by-ai; OQ-1..OQ-6 A, OQ-7 B, OQ-8 A)
 gate-2: pending
 gate-3: pending
 
