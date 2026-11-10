@@ -71,6 +71,21 @@ Scenario: An item deleted after the import counts as changed
   When the batch is undone
   Then it stays in the recycle bin and is listed (BR-IE-17)
 
+Scenario: An updated item that left reach is listed, not touched
+  Given the batch updated three items, and since then one was moved to «Удалена», one was purged and one's project was deactivated
+  When the batch is undone
+  Then none of the three is written, and the batch reads «Отменён частично», listing each with its reason (BR-IE-16)
+
+Scenario: An old value that no longer passes the form's checks is not restored
+  Given the batch changed an item's owning team from «Команда 1» to «Команда 2», and «Команда 1» was unlinked from the project since
+  When the batch is undone
+  Then the owning team stays «Команда 2» and is listed (BR-IE-16, BR-IE-12)
+
+Scenario: An undo purge is the mod-005 purge of a live item
+  Given an untouched item the batch created, outside «Удалена»
+  When the batch is undone
+  Then the item is purged through the purge path with its log line, as mod-005 BR-DR-12 is amended for this caller (BR-IE-16, OQ-3)
+
 Scenario: Undo of 5 000 rows completes within 5 minutes and runs alone
   Given a batch of 5 000 rows
   When it is undone

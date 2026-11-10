@@ -32,6 +32,7 @@ No backend/frontend plan: a docs task. Input: [input-brief.md](input-brief.md)
 - 2026-11-10 [orchestrator] route confirmed by the human in chat: docs, L (a new module, ADR-level decisions), BA → requirements review → gate-1 → queue lines → verify → gate-3. No gate-2: screens are designed in the delivery tasks.
 - 2026-11-10 [orchestrator] line taken by sync PR #127 (auto-merge); session bound natively (EnterWorktree) to this worktree, branch confirmed. Economy mode: one agent per stage.
 - 2026-11-10 [business-analyst] spec.md (BR-IE-1..-25, OQ-1..-10, decomposition with first-transfer column, feat-005 reworded), stories US-1..US-10, ADR-0039 and ADR-0040 proposed; ADR numbers from this branch only, origin/main not checked (no shell).
+- 2026-11-10 [requirements-reviewer] round 1: needs-human-decision. 7 major, 11 minor, no blocker; all fixed in place but R-7 (custom fields vs doc-010 D-21), now OQ-11; OQ-1..OQ-11 open (review.md).
 
 ## Notes
 

@@ -64,6 +64,6 @@ Scenario: Templates stay in their organization
 Scenario: Members read templates, only the administrator changes them
   Given an organization «Читатель»
   When they open «Экспорт по шаблону»
-  Then they see the organization's templates
-  And they are offered no create, edit, copy or delete (§ Roles)
+  Then they see the organization's templates by name, with the columns each exports
+  And they see no recoding table or other setting, and are offered no create, edit, copy or delete (§ Roles)
 ```

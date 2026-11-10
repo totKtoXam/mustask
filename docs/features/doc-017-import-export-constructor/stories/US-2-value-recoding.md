@@ -36,6 +36,11 @@ Scenario: A state target must belong to the row's type
   When a row of type «Задача» holds «08. Тестирование»
   Then the row is an error: «Задача» has no state «Разрешена» (BR-IE-7, BR-IE-12)
 
+Scenario: «Удалена» is never a recoding target
+  Given «11. Отменена» in the «Статус» recoding table
+  When the administrator opens the targets
+  Then «Удалена» is not offered (BR-IE-7, mod-005 BR-DR-1)
+
 Scenario: A value missing from the table follows the table's policy
   Given a recoding table for «Исполнитель» whose policy is «Ошибка строки»
   When a later file holds «Пользователь Б», who is in no entry
@@ -85,5 +90,5 @@ Scenario: The owning team must be linked to the row's project
 Scenario: A deactivated target is refused at the dry run
   Given an entry pointing at the project «Архив», deactivated after the template was saved
   When the dry run runs
-  Then every row reaching that entry is an error «Проект не найден.» (BR-IE-7)
+  Then the entry is marked in the table, and every row reaching it is an error «Проект не найден.» (BR-IE-7)
 ```

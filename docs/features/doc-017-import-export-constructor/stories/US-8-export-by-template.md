@@ -45,14 +45,21 @@ Scenario: Columns that do not reverse are named before the file is made
   And in the file the first two are empty and the third holds the field's value (BR-IE-20)
 
 Scenario: The exported file comes back in by key
-  Given a file exported by «DevEx — реестр», edited and uploaded again with the same template
+  Given a file exported by «DevEx — реестр» of items that all carry a «DevEx» key, edited and uploaded again with the same template
   When the dry run runs
   Then every unedited row is «Без изменений» and every edited row «Будет обновлён» (BR-IE-10, BR-IE-11)
+
+Scenario: An item without a key of the template's source is counted before the file is made
+  Given the filtered list holds 40 items, 3 of them created by hand
+  When the member opens the export dialog for «DevEx — реестр»
+  Then the dialog says 3 rows will have an empty «Id» and will not be matched when brought back
+  And in the file those 3 rows have an empty «Id» (BR-IE-19)
 
 Scenario: Only what the user may read is exported
   Given a project the member may not see
   When the member exports the whole list
   Then no row of that project is in the file, and the row count says nothing of it (doc-012 BR-MX-21)
+  # owed by feat-041 if it merges after the export line
 
 Scenario: A reader may export
   Given an organization «Читатель»

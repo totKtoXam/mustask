@@ -39,6 +39,22 @@ Scenario: An empty cell keeps or clears as the mapping says
   When the mapping says «Очистить»
   Then the item has no assignee (BR-IE-6)
 
+Scenario: A multi-value field is merged on update, and a comment is not repeated
+  Given the item «DevEx: 010125 - 01» with the tags FE and QA, and the comment «Согласовать макет» added by an earlier import
+  When a re-import's row holds the tags «FE, BE» and the comment «Согласовать макет»
+  Then the item's tags are FE, QA and BE, and it still has one such comment (BR-IE-11)
+  # tags owed by feat-016, comments by feat-002
+
+Scenario: A created item takes the form's fields in one write
+  Given a row creating a «Задача» with «Вид работ» «Разработка» and «Исходная оценка» 2
+  When the import writes it
+  Then the item is created with both values, in the row's one transaction (BR-IE-12)
+
+Scenario: The importer losing the administrator role stops the run
+  Given an import running for «Пользователь Г»
+  When «Пользователь Г» stops being the organization «Администратор» after row 100
+  Then no row after 100 is written, and the batch reads «Прерван» (BR-IE-14)
+
 Scenario: An imported write is the administrator's
   Given the administrator «Пользователь Г» runs the import
   When an item is created by it
