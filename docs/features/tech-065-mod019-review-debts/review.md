@@ -87,3 +87,26 @@ Minor:
 ### Verdict
 
 **approve** — blockers 0, majors 0, minors open 4 (R-1..R-4) plus QA M-1..M-3; all are debts for gate-3.
+
+## Round 2 (delta)
+
+Delta read of fix round 1 (95cdf06c, `git diff 19bbc820..95cdf06c`), session: code-reviewer, 2026-11-10. Runs: `ScopedAccessRacesTests` 8/8; frontend `features/organizations`, `scopeGuard.test.ts`, `shared/ui/table` 76 files, 1086/1086.
+
+| Item | Status |
+|---|---|
+| M-1 | Fixed. ScopedAccessRacesTests.cs:86 pins 404 `MembershipNotFound`, the code api-contract.md:50,53 documents for a membership removed first. |
+| M-2 | Fixed. ui-kit.md:240-251 re-wrapped at the file's width; content unchanged apart from the R-1 caveat. |
+| M-3 | Fixed. scopeGuard.ts:51-53 states the limits; a rest element takes `Object.keys(object)` (scopeGuard.ts:62-65); fixture scopeGuard.test.ts:227 fails on the old split (member `...rest` resolved nothing). |
+| R-1 | Fixed. TableCard.tsx:46-47 (one-line rows, no foot) and :62 (`maxHeightOffset` or `maxRows`); ui-kit.md carries the same caveat. |
+| R-2 | Fixed for the row count: SwitchOffDialog.tsx:24,34 use `UserLine` with truncation, so rows stay one line and the 6-row cap holds. See R-5. |
+| R-3 | Left, as decided (history only). |
+| R-4 | Fixed. ScopedAccessDebts.test.tsx:36. |
+
+New:
+- R-5 (minor) `SwitchOffDialog.tsx:17-36` `GIVEN_COLUMNS` set no `width`, so `DataTable` passes no `columns` (DataTable.tsx:97) and the table stays `table-layout: auto`: a `nowrap` name widens its cell instead of being cut, and a very long name scrolls the card sideways (the horizontal scrollbar then takes part of the sixth row) rather than showing the ellipsis and tooltip. Fix: give the role column a width (fixed layout), or accept. Not a regression of the cap.
+
+Claims in the fix: the comments added (scopeGuard.ts:51-53, TableCard.tsx:46-47, :62, ui-kit.md:243-244) anchor to the lines cited above; "A rest element is matched" -> scopeGuard.ts:62-65. Direction 2: behaviours changed = the give's race answer (grepped `membership.not_found`: api-contract.md:50,52,53, error-codes.md:70, consistent) and the guard's rest handling (grepped `destructur`: no prose outside this task describes it). None stale.
+
+### Verdict
+
+**approve** — blockers 0, majors 0; open minors: R-3 (left by decision), R-5 (new). Debts for gate-3.

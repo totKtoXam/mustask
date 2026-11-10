@@ -36,6 +36,7 @@ gate-3: pending
 - 2026-11-10 [qa-engineer] light QA: plan covered, affected tests green (frontend 522, backend 10); `VERIFY_FULL=1 bash scripts/verify.sh` -> exit 1 on load-induced flakes outside the diff (workitems 60 s timeouts, AggregateViewVolume 2 s), re-runs alone green; no blocker/major, 3 minors in review.md; E2E: standing answer NO
 - 2026-11-10 [code-reviewer] stage 08 round 1 over the whole diff: approve; 0 blocker, 0 major, 4 minors open (R-1..R-4, plus QA M-1..M-3), all debts for gate-3; see review.md
 - 2026-11-10 [task-executor] fix round 1: M-1 race give pinned to 404 organizations.membership.not_found; M-2 ui-kit.md TableCard re-wrapped; M-3 scopeGuard now matches a rest element (fixture added), other limits documented in its comment; R-1 TableCard comments (maxRows sticky, one-line rows, no foot); R-2 SwitchOffDialog UserLine cells truncate; R-4 test title shortened; R-3 none. Affected tests, tsc, ESLint green.
+- 2026-11-10 [code-reviewer] round 2 (delta over 95cdf06c): approve; M-1..M-3, R-1, R-2, R-4 fixed; open minors R-3 (left) and R-5 (new); see review.md
 
 ## Notes
 
