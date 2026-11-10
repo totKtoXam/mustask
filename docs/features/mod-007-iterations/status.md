@@ -11,7 +11,7 @@
 ## Gates
 
 gate-1: approved (2026-11-10, human in chat, «Да, approve», after review round 2 approved-by-ai; OQ-1..OQ-6 A, OQ-7 B, OQ-8 A)
-gate-2: pending
+gate-2: approved (2026-11-10, human in chat, «Да, approve», after D-1..D-7 A, the prototype reworked into the product shell (left navigation) on the human's remark; the sprint board stays in feat-057 by the human's answer)
 gate-3: pending
 
 ## Plan
