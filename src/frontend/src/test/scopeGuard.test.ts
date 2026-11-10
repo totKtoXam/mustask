@@ -224,6 +224,11 @@ describe('mod-019 BR-SA-18: no surface reads a narrower code from the organizati
       ]);
     });
 
+    it('reads the narrower codes of an object taken whole by a rest element', () => {
+      const text = `const { teamCreate, ...rest } = boardsPermissions;`;
+      expect(narrowerCodesIn(text, CONSTANTS)).toContain('boards.backlog.reorder');
+    });
+
     it('reports an unregistered surface that destructures a narrower code', () => {
       const text = `const { workItemWrite } = workItemsPermissions; access(workItemWrite, 'organization');`;
       const findings = findViolations(new Map([[newcomer, text]]), CONSTANTS, {}, []);

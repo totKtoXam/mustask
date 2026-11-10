@@ -73,9 +73,9 @@ public sealed class ScopedAccessRacesTests(MustaskApiFactory factory)
         Assert.Empty(await HoldersAsync(s, admin.Token));
     }
 
-    // BR-SA-3 · the removal first: a give that read the member before the removal committed is refused cleanly, never a 500.
+    // BR-SA-3 · the removal first: a give that read the member before the removal committed answers the documented 404 membership.not_found (no 500).
     [Fact]
-    public async Task RemovalThenGive_TheGiveIsRefusedWithoutA500_NoGrantIsStored()
+    public async Task RemovalThenGive_TheGiveAnswersMembershipNotFound_NoGrantIsStored()
     {
         var (s, admin, grantee) = await GrantWorldAsync();
 
@@ -83,7 +83,7 @@ public sealed class ScopedAccessRacesTests(MustaskApiFactory factory)
             factory, at => RemoveMemberAsync(s, grantee, admin.Token, at), at => GiveAsync(s, grantee, admin.Token, at));
 
         Assert.Equal(HttpStatusCode.NoContent, removal.Status);
-        Assert.True((int)give.Status is >= 400 and < 500, $"The give answered {(int)give.Status}.");
+        Assert.Equal((HttpStatusCode.NotFound, OrganizationErrorCodes.MembershipNotFound), (give.Status, give.ErrorCode));
         Assert.Null(await MembershipTestData.FindMembershipAsync(factory, s.OrganizationId, grantee));
         Assert.Empty(await HoldersAsync(s, admin.Token));
     }

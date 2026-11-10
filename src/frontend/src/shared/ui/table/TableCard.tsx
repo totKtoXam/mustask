@@ -43,7 +43,8 @@ export interface TableCardProps {
   maxHeightOffset?: number;
   /**
    * Caps the card at this many body rows (and the sticky header) and scrolls the rest inside it: for a
-   * table in a dialog, where the window is no measure. Ignored with `maxHeightOffset`.
+   * table in a dialog, where the window is no measure. Assumes one-line rows and no `foot` (a foot
+   * inside the scrollport would eat rows). Ignored with `maxHeightOffset`.
    */
   maxRows?: number;
   /** With `maxHeightOffset`: the least height. Default `layout.table.minHeight`. */
@@ -58,7 +59,7 @@ export interface TableCardProps {
  * and the body, and a foot below. No feature writes `Table`, `TableHead` or `TableBody`.
  *
  * The header is white with small grey labels and sticky; a sticky header needs
- * `maxHeightOffset`, since the card is what scrolls. `scroll-padding-top` is the header's
+ * `maxHeightOffset` or `maxRows`, since the card is what scrolls. `scroll-padding-top` is the header's
  * height, so a row the browser scrolls to stays clear of it.
  */
 export function TableCard({

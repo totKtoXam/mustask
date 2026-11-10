@@ -33,7 +33,7 @@ function holdAreaRead(areaId: string): () => void {
 }
 
 describe('tech-065 G-2: the grants notice and the codes notice of a team', () => {
-  it('drops «Здесь показан только выданный доступ» on the team, keeps it on the project and the department', async () => {
+  it('drops «Здесь показан только выданный доступ» on the team', async () => {
     openPage({ path: TEAM_PATH });
     expect(
       await screen.findByRole('heading', { level: 2, name: 'Доступ к команде' }),

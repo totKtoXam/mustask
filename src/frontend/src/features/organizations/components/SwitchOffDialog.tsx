@@ -21,7 +21,7 @@ const GIVEN_COLUMNS: DataColumn<GivenGrant>[] = [
   {
     key: 'user',
     header: switchOffDialog.givenColumns.user,
-    render: (row) => <UserLine user={row.user} truncate={false} />,
+    render: (row) => <UserLine user={row.user} />,
   },
   {
     key: 'role',
@@ -31,7 +31,7 @@ const GIVEN_COLUMNS: DataColumn<GivenGrant>[] = [
   {
     key: 'givenBy',
     header: switchOffDialog.givenColumns.givenBy,
-    render: (row) => <UserLine user={row.givenBy} truncate={false} />,
+    render: (row) => <UserLine user={row.givenBy} />,
   },
 ];
 
