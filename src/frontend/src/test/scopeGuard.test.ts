@@ -209,6 +209,32 @@ describe('mod-019 BR-SA-18: no surface reads a narrower code from the organizati
       ]);
     });
 
+    it('reads a code named through a destructuring, renamed and through an alias too', () => {
+      const text = `
+        const { workItemWrite } = workItemsPermissions;
+        const { projectWrite: canWriteProject, teamCreate } = organizationsPermissions;
+        const read = boardsPermissions;
+        const { backlogReorder = 'x' } = read;
+        access(workItemWrite, 'organization');
+      `;
+      expect(narrowerCodesIn(text, CONSTANTS)).toEqual([
+        'boards.backlog.reorder',
+        'organizations.project.write',
+        'workitems.workitem.write',
+      ]);
+    });
+
+    it('reports an unregistered surface that destructures a narrower code', () => {
+      const text = `const { workItemWrite } = workItemsPermissions; access(workItemWrite, 'organization');`;
+      const findings = findViolations(new Map([[newcomer, text]]), CONSTANTS, {}, []);
+      expect(findings.map((finding) => finding.file)).toEqual([newcomer]);
+    });
+
+    it('is silent on a destructured organization code', () => {
+      const text = `const { teamCreate } = organizationsPermissions;`;
+      expect(narrowerCodesIn(text, CONSTANTS)).toEqual([]);
+    });
+
     it('is silent on an organization code', () => {
       const text = `access(organizationsPermissions.teamCreate, 'organization'); access('organizations.area.read', 'organization');`;
       expect(narrowerCodesIn(text, CONSTANTS)).toEqual([]);

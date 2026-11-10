@@ -31,7 +31,7 @@ export interface SurfaceEntry {
   readonly why: string;
 }
 
-/** The narrower codes a source names: by literal, by a permission constant, or by an alias of one. */
+/** The narrower codes a source names: by literal, by a permission constant, by an alias of one, or by destructuring one. */
 export function narrowerCodesIn(text: string, constants: PermissionConstants): string[] {
   const found = new Set<string>();
   for (const match of text.matchAll(/'((?:[a-z]+\.){2,}[a-z]+)'/g)) {
@@ -45,6 +45,21 @@ export function narrowerCodesIn(text: string, constants: PermissionConstants): s
     const [, alias, target] = match;
     if (alias !== undefined && target !== undefined && constants[target] !== undefined) {
       aliases.set(alias, target);
+    }
+  }
+  // `const { workItemWrite, projectWrite: write } = workItemsPermissions;` names members without a dot.
+  for (const match of text.matchAll(/(?:const|let|var)\s*\{([^}]*)\}\s*=\s*(\w+)\s*;/g)) {
+    const [, bindings, target] = match;
+    const object = constants[aliases.get(target ?? '') ?? target ?? ''];
+    if (bindings === undefined || object === undefined) {
+      continue;
+    }
+    for (const binding of bindings.split(',')) {
+      const member = binding.trim().split(/[\s:=]/)[0];
+      const code = member ? object[member] : undefined;
+      if (code !== undefined && NARROWER_CODES.has(code)) {
+        found.add(code);
+      }
     }
   }
   for (const match of text.matchAll(/\b(\w+)\.(\w+)\b/g)) {
