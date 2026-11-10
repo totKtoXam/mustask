@@ -64,6 +64,10 @@ agent per stage, no fan-out. E2E: no (paused).
   Closed sprint's outcome page, the card's «Спринт» field, roles and states;
   7 decisions D-1..D-7 for the human, 16 proposed error codes (§ 10). Stage
   set to 03-ux-design; gate-2 untouched
+- 2026-11-10 [business-analyst] scope delta from the human after gate-2;
+  gate-1 and gate-2 reopen for the delta: BR-14..16, US-9 (results by
+  participant), US-10 (dynamics), US-5 snapshot; OQ-9..OQ-13 added; design.md
+  needs the outcome page's new sections
 
 ## Notes
 

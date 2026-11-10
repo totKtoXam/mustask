@@ -5,7 +5,7 @@
 - shippable: no — US-1..US-5 ship together as `mod-007-iterations` (one L, OQ-8)
 - status: pending
 
-As a **team planner**, I want **to close the Active sprint, choosing where its unfinished items go, and keep a record of what was completed**, so that **the team starts the next sprint with its unfinished work in hand and the finished sprint stays a true history**.
+As a **team planner**, I want **to close the Active sprint, choosing where its unfinished items go, and keep a record of what the sprint held and what was completed**, so that **the team starts the next sprint with its unfinished work in hand and the finished sprint stays a true history, which US-9 and US-10 read**.
 
 ## Acceptance criteria
 
@@ -18,6 +18,15 @@ Scenario: Closing moves the unfinished items and records the outcome
   Then in one operation «Спринт 12» becomes Closed, and integration and the bug move to «Спринт 13»
   And API and notifications stay in «Спринт 12», whose outcome lists API of A at 5 SP and notifications of C at 3 SP
   And the story in «Удалена» stays in «Спринт 12», outside the outcome
+
+Scenario: The close records a snapshot of every item the sprint held, done or moved (BR-6, BR-14)
+  Given «Спринт 12» holds API (5 SP, assignee Анна), notifications (3 SP, Борис), integration (8 SP, Анна), the bug (no story points, no assignee) and the story in «Удалена»
+  When Pavel closes it towards «Спринт 13»
+  Then the record holds four items, each with its project, story points as then, assignee as then, and a done flag
+  And API and notifications are done; integration and the bug, which moved, are not done
+  And the story in «Удалена» is not in the record, and an item without story points records 0 SP and without assignee records no assignee
+  And «Done» is the Completed category at the close, the same rule that decides which items stay recorded as completed
+  And API's later reassignment to Борис, re-estimate or reopening changes nothing in the record
 
 Scenario: A moved item's «Изменён» becomes the close's time
   Given integration was last changed on 2026-11-03 and API on 2026-11-04
@@ -55,6 +64,12 @@ Scenario: The outcome never changes afterwards, and a reopened item keeps its sp
   Then its «Спринт» still reads «Спринт 12» and the outcome still lists it at 5 SP
   When API is re-estimated at 8 SP, put into «Спринт 13», or given the owning team VENUS
   Then the outcome of «Спринт 12» still lists API of A at 5 SP
+
+Scenario: The snapshot holds hidden and deactivated projects' items, which no read shows (BR-9, BR-14)
+  Given B is deactivated and «Спринт 12» holds integration of B and API of A
+  When Pavel closes «Спринт 12»
+  Then the record holds both; reads of the outcome, the participant figures and the dynamics count API alone until B is restored
+  And once B is restored they count integration too, as recorded
 
 Scenario: Closing moves items the closer cannot see, without disclosing them (owed by feat-041)
   Given C is «Ограниченный» with no grant for Pavel, and the Active «Спринт 12» holds integration and notifications in «Активна»
