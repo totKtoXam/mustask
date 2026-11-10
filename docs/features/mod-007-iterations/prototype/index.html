@@ -7,10 +7,20 @@
 <style>
   * { box-sizing: border-box; }
   body { font: 14px/20px "Segoe UI", Arial, sans-serif; background: #f3f2f1; margin: 0; color: #201f1e; }
-  header.top { background: #fff; border-bottom: 1px solid #e1dfdd; padding: 8px 16px; display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
-  header.top b { margin-right: 4px; }
-  header.top label { font-size: 12px; color: #605e5c; }
-  main { padding: 16px 24px 40px; max-width: 1180px; }
+  header.proto { background: #fff4ce; border-bottom: 2px dashed #8a8886; padding: 6px 16px; display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+  header.proto b { margin-right: 4px; }
+  header.proto label { font-size: 12px; color: #323130; }
+  header.proto select { font: inherit; font-size: 12px; max-width: 220px; }
+  .appbar { background: #fff; border-bottom: 1px solid #e1dfdd; height: 44px; padding: 0 16px; display: flex; align-items: center; gap: 16px; }
+  .appbar .logo { font-weight: 600; letter-spacing: .02em; }
+  .appbar .logo i { color: #d98300; font-style: normal; }
+  .shell { display: flex; align-items: flex-start; }
+  nav.side { width: 220px; flex: none; padding: 16px 8px 16px 16px; font-size: 13px; }
+  nav.side h4 { margin: 0 0 6px; font-size: 11px; color: #605e5c; text-transform: uppercase; }
+  nav.side a { display: block; padding: 5px 8px; border-radius: 4px; color: inherit; cursor: pointer; }
+  nav.side a:hover { background: #e9e8e7; }
+  nav.side a.cur { background: #fff; font-weight: 600; box-shadow: inset 3px 0 0 #0078d4; }
+  main { flex: 1; min-width: 0; padding: 16px 24px 40px; max-width: 1180px; }
   button { font: inherit; color: inherit; background: #edebe9; border: 0; border-radius: 4px; padding: 5px 12px; cursor: pointer; }
   button:hover { background: #e1dfdd; }
   button.primary { background: #0078d4; color: #fff; }
@@ -27,9 +37,6 @@
   .grow { flex: 1; }
   .mute { color: #605e5c; }
   .head { display: flex; align-items: center; gap: 8px; margin: 4px 0 8px; flex-wrap: wrap; }
-  .tabs { display: flex; gap: 18px; border-bottom: 1px solid #e1dfdd; margin-bottom: 14px; flex-wrap: wrap; }
-  .tabs a { padding: 6px 2px; color: #201f1e; cursor: pointer; }
-  .tabs a.on { box-shadow: inset 0 -2px 0 #0078d4; font-weight: 600; }
   .crumbs { font-size: 12px; color: #605e5c; margin-bottom: 4px; }
   .card { background: #fff; border-radius: 4px; box-shadow: 0 1px 6px rgba(0,0,0,.18); }
   .wrap { overflow-x: auto; }
@@ -71,12 +78,12 @@
   .facts { display: flex; gap: 24px; flex-wrap: wrap; margin: 6px 0 14px; }
   h3 { font-size: 15px; margin: 14px 0 6px; font-weight: 600; }
   @media (max-width: 720px) { .band { grid-template-columns: 1fr; } }
-  @media (max-width: 640px) { main { padding: 12px; } .dlg .row { display: block; } }
+  @media (max-width: 640px) { main { padding: 12px; } nav.side { width: 120px; padding-left: 8px; } .dlg .row { display: block; } }
 </style>
 </head>
 <body>
-<header class="top">
-  <b>mod-007</b>
+<header class="proto" aria-label="Управление прототипом">
+  <b>Прототип mod-007 (не часть продукта)</b>
   <label>Пользователь <select id="user">
     <option value="ann">Анна: org «Администратор»</option>
     <option value="pavel">Павел: team «Участник» на MARS</option>
@@ -97,7 +104,11 @@
     <option value="team">«Команда не найдена.»</option>
     <option value="forb">403 «Недостаточно прав»</option></select></label>
 </header>
-<main id="main"></main>
+<div class="appbar" aria-label="Верхняя панель"><span class="logo">mus<i>t</i>ask</span><span class="mute">Организация «Ромашка»</span></div>
+<div class="shell">
+  <nav class="side" id="nav" aria-label="Меню команды"></nav>
+  <main id="main"></main>
+</div>
 <div id="dlg"></div>
 <div id="toast" role="status"></div>
 <script>
@@ -162,18 +173,21 @@ var FAILS = { nf: 'Спринт не найден.', notrem: 'Удалить м�
 
 /* ---------- chrome ---------- */
 function head(title, ancestors) {
-  var tabs = ['Обзор', 'Канбан', 'Бэклог', 'Рабочие элементы', 'Спринты', 'Проекты', 'Участники и доступ'];
   return (ancestors ? '<div class="crumbs">' + ancestors + '</div>' : '') +
-    '<div class="head"><h1>' + esc(title) + '</h1><span class="grow"></span>' + (head.cmds || '') + '</div>' +
-    '<nav class="tabs" aria-label="Разделы команды">' + tabs.map(function (t) {
-      return '<a data-act="tab" data-t="' + esc(t) + '"' + (t === 'Спринты' ? ' class="on" aria-current="page"' : '') + '>' + t + '</a>';
-    }).join('') + '</nav>';
+    '<div class="head"><h1>' + esc(title) + '</h1><span class="grow"></span>' + (head.cmds || '') + '</div>';
+}
+function renderNav(cur) {
+  var ent = ['Обзор', 'Канбан', 'Бэклог', 'Рабочие элементы', 'Спринты', 'Проекты', 'Участники и доступ'];
+  document.getElementById('nav').innerHTML = '<h4>Команда ' + esc(S.team) + '</h4>' + ent.map(function (t) {
+    return '<a data-act="tab" data-t="' + esc(t) + '"' + (t === cur ? ' class="cur" aria-current="page"' : '') + '>' + t + '</a>';
+  }).join('');
 }
 function skeleton() { var r = ''; for (var i = 0; i < 6; i++) r += '<div class="skel"></div>'; return '<div class="card" role="status" aria-label="Загрузка данных">' + r + '</div>'; }
 
 function render() {
   var m = document.getElementById('main');
   head.cmds = '';
+  renderNav(S.screen === 'card' ? 'Рабочие элементы' : S.page === 'notfound' ? '' : 'Спринты');
   if (S.screen === 'card') { m.innerHTML = renderCard(); return; }
   if (S.page === 'notfound') { m.innerHTML = '<div class="frame"><h2>Команда не найдена</h2></div>'; return; }
   if (S.screen === 'outcome') { m.innerHTML = renderOutcome(); return; }
@@ -395,7 +409,7 @@ document.addEventListener('click', function (ev) {
   if (a === 'back') { S.screen = 'list'; document.getElementById('screen').value = 'list'; render(); return; }
   if (a === 'retry') { S.page = 'data'; document.getElementById('page').value = 'data'; render(); return; }
   if (a === 'more') { if (S.moreFail) { S.moreErr = true; render(); return; } S.moreErr = false; S.shown += PAGE_SIZE; render(); return; }
-  if (a === 'tab') { toast('Другие разделы команды вне этого прототипа.'); return; }
+  if (a === 'tab') { if (t.getAttribute('data-t') === 'Спринты') { S.screen = 'list'; document.getElementById('screen').value = 'list'; render(); return; } toast('Другие разделы команды вне этого прототипа.'); return; }
   if (a === 'item') { toast('Открывается карточка ' + t.getAttribute('data-id') + ' (feat-029).'); return; }
   if (a === 'cretry') { document.getElementById('cardOpts').value = 'ok'; render(); return; }
   if (a === 'csave') return csave();

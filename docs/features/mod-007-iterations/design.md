@@ -16,7 +16,7 @@ Stage 3 artifact. Rules (BR-n) and scenarios (US-1..US-5) are in `spec.md` and `
 | A Closed sprint | `/teams/:t/sprints/:s` | US-5 | outcome page (§ 6) |
 | The card | `?workitem=` over any view | US-4 | «Спринт» field in the iteration slot (§ 7) |
 
-The team menu (`addressModel.ts`, `team` list) gains `{ id: 'sprints', label: 'Спринты', segment: 'sprints', code: read.teamRead }` between «Рабочие элементы» and «Проекты»: «Обзор», «Канбан», «Бэклог», «Рабочие элементы», «Спринты», «Проекты», «Участники и доступ» (US-3). The outcome page is a child of the entry, no menu item of its own.
+The team menu (`addressModel.ts`, `team` list; rendered in the left navigation, not as tabs) gains `{ id: 'sprints', label: 'Спринты', segment: 'sprints', code: read.teamRead }` between «Рабочие элементы» and «Проекты»: «Обзор», «Канбан», «Бэклог», «Рабочие элементы», «Спринты», «Проекты», «Участники и доступ» (US-3). The outcome page is a child of the entry, no menu item of its own.
 
 ```mermaid
 flowchart LR
@@ -37,17 +37,19 @@ The head is `PageHeader variant="team"` as feat-040 § 3 (the team title, the sh
 
 ### 3.1 Layout
 
+The team's sections are **not tabs**: they are the chosen team's menu in the permanent left navigation column of the shell (`AppLayout`, ADR-0032 § 2), «Спринты» selected. The main region holds only the title, the commands and the content.
+
 ```
-[bars] MARS ⌄                                              [+ Создать спринт]   <- planner only
-Обзор  Канбан  Бэклог  Рабочие элементы  Спринты  Проекты  Участники и доступ
-+----------------------------------------------------------------------------------+
-| №   Название        Состояние     Начало      Окончание   Элементы  Story points  ⋮|
-| 14  Спринт 14       Запланирован  —           —           0         0           ⋮|
-| 13  Релизный        Запланирован  16.11.2026  27.11.2026  2         8           ⋮|
-| 12  Спринт 12       Активен       02.11.2026  13.11.2026  5         18          ⋮|
-| 11  Спринт 11       Завершён      19.10.2026  30.10.2026  3         10          ⋮|
-+----------------------------------------------------------------------------------+
-                         [ Показать ещё ]
++-- top bar -----------------------------------------------------------------------+
+| Обзор          | [bars] MARS ⌄                                [+ Создать спринт]  | <- planner only
+| Канбан         |--------------------------------------------------------------------|
+| Бэклог         | №   Название      Состояние     Начало      Окончание  Элем. SP  ⋮ |
+| Рабочие элем.  | 14  Спринт 14     Запланирован  —           —          0     0    ⋮ |
+| [Спринты]      | 13  Релизный      Запланирован  16.11.2026  27.11.2026 2     8    ⋮ |
+| Проекты        | 12  Спринт 12     Активен       02.11.2026  13.11.2026 5     18   ⋮ |
+| Участники и    | 11  Спринт 11     Завершён      19.10.2026  30.10.2026 3     10   ⋮ |
+| доступ         |                       [ Показать ещё ]                             |
++----------------+--------------------------------------------------------------------+
 ```
 
 ### 3.2 Components
@@ -227,7 +229,8 @@ Every text is quoted by the stories; the codes are **proposals** for `docs/error
 
 ## 12. Decisions for the human (gate-2)
 
-None is taken; each carries a recommendation.
+All taken by the human in chat on 2026-11-10, each the recommended A:
+D-1 A, D-2 A, D-3 A, D-4 A, D-5 A, D-6 A, D-7 A.
 
 - **D-1 The outcome: a page or a dialog.** A) page `teams/:t/sprints/:s` (deep link, back button, room for hundreds of rows) ⭐; B) a `DialogShell` over the list (no new address, cramped for 5 000 rows).
 - **D-2 A large outcome.** A) 200 rows then «Показать ещё», as the list ⭐; B) all rows at once (a 5 000-item outcome loads slowly).
