@@ -8,7 +8,7 @@ namespace Mustask.Application.Features.Organizations.GetAreaTeams;
 public sealed record GetAreaTeamsQuery(string? OrganizationId, string? AreaId);
 
 /// <summary>A team linked to the area.</summary>
-public sealed record AreaTeamResponse(Guid Id, string Name);
+public sealed record AreaTeamResponse(Guid Id, string Name, bool CanUnlink = false);
 
 /// <summary>The handler's outcome: the area's teams.</summary>
 public sealed record GetAreaTeamsResult(IReadOnlyList<AreaTeamResponse> Items);
@@ -17,7 +17,7 @@ public sealed record GetAreaTeamsResult(IReadOnlyList<AreaTeamResponse> Items);
 /// <c>GET /api/organizations/{organizationId}/areas/{areaId}/teams</c> (mod-018 api-contract § 3, US-4): the active teams linked
 /// to this area itself, by name. A deleted team's link ended with it.
 /// </summary>
-public sealed class GetAreaTeamsHandler(IAreaRepository areas, IAreaTreeReadModel readModel)
+public sealed class GetAreaTeamsHandler(IAreaRepository areas, IAreaTreeReadModel readModel, IOrganizationAccess access)
 {
     public async Task<GetAreaTeamsResult> Handle(GetAreaTeamsQuery query, CancellationToken cancellationToken)
     {
@@ -33,7 +33,8 @@ public sealed class GetAreaTeamsHandler(IAreaRepository areas, IAreaTreeReadMode
         }
 
         var rows = await readModel.ListTeamsAsync(organizationId, areaId, cancellationToken);
+        var set = await access.SetAsync(cancellationToken);
 
-        return new GetAreaTeamsResult(rows.Select(row => new AreaTeamResponse(row.Id, row.Name)).ToList());
+        return new GetAreaTeamsResult(rows.Select(row => new AreaTeamResponse(row.Id, row.Name, LinkRules.CanUnlinkAreaTeam(set, areaId, row.Id))).ToList());
     }
 }

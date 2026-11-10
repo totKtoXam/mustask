@@ -1,19 +1,16 @@
 import { describe, expect, it } from 'vitest';
 import { act, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { HttpResponse, http } from 'msw';
-import { server } from '../../../test/mocks/server';
+import { changeServedRole, serveRole } from '../../../test/renderShell';
 import { servedFor, type TestRole } from '../../../test/organizationRoles';
-import { organizationsKeys } from '../../organizations/api/queryKeys';
 import { serveProblem, serveWorkItems } from '../testApi';
-import { API, WORK_ITEMS_URL, emptyDataset, ids, problem } from '../testFixtures';
+import { WORK_ITEMS_URL, emptyDataset, ids, problem } from '../testFixtures';
 import { MSK_LIST, OPS_LIST, projectContext, renderWorkItems } from '../testRender';
 
 // mod-016 design § 6.2, § 6.3 (plan-frontend § 3.3): «Новый рабочий элемент» needs
 // `workitems.workitem.write`; the empty list keeps its heading and tells a reader who
 // creates items, with no action.
 
-const ACCESS_URL = `${API}/api/organizations/:organizationId/access`;
 const HOLDER_HINT = 'Создайте первый рабочий элемент кнопкой «Новый рабочий элемент» выше.';
 const READER_HINT =
   'Рабочие элементы создают участники организации с ролью «Участник» или «Администратор».';
@@ -82,11 +79,7 @@ describe('mod-016 design § 2.2, § 6.2 Scenario: the type picker goes with the 
 
     const reader = servedFor('viewer');
     act(() => {
-      shell.queryClient.setQueryData(organizationsKeys.access(ids.example), {
-        kind: 'member',
-        role: reader.role,
-        permissions: reader.permissions,
-      });
+      changeServedRole(shell.queryClient, ids.example, reader);
     });
 
     await waitFor(() => expect(screen.queryByRole('menu')).not.toBeInTheDocument());
@@ -97,11 +90,7 @@ describe('mod-016 design § 2.2, § 6.2 Scenario: the type picker goes with the 
     // The code coming back does not bring the menu back with it.
     const member = servedFor('member');
     act(() => {
-      shell.queryClient.setQueryData(organizationsKeys.access(ids.example), {
-        kind: 'member',
-        role: member.role,
-        permissions: member.permissions,
-      });
+      changeServedRole(shell.queryClient, ids.example, member);
     });
     expect(await screen.findByRole('button', { name: 'Новый рабочий элемент' })).toBeVisible();
     expect(screen.queryByRole('menu')).not.toBeInTheDocument();
@@ -130,7 +119,7 @@ describe('mod-016 design § 2.3 Scenario: a refused creation turns the member in
       'Новая ошибка',
     );
     // The codes the 403 makes the shell read again are the reader’s.
-    server.use(http.get(ACCESS_URL, () => HttpResponse.json(servedFor('viewer'))));
+    serveRole('viewer');
 
     await userEvent.click(within(dialog).getByRole('button', { name: 'Создать' }));
 

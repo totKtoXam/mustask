@@ -10,12 +10,20 @@ export type NavigationScope = PermissionScope;
  * the current selection (`buildNavigationModel`), so being in it is what "the page exists" means:
  * an entry is absent, not disabled, until a line adds its row. A settings entry carries no icon.
  */
+/** The chosen object whose served `codes` decide an entry (mod-019 BR-SA-18): a node is a project's node or a sub-area. */
+export type NavigationObject = 'department' | 'team' | 'project' | 'node';
+
 export interface NavigationEntry {
   id: string;
   label: string;
   scope: NavigationScope;
   /** The code the shared check must pass; none: any signed-in user. */
   permission?: string;
+  /**
+   * Set when `permission` is decided at that object (a project's, a team's, a department's `Параметры`): the
+   * code is asked of the object's served `codes`, never of the organization answer, which does not carry it.
+   */
+  object?: NavigationObject;
   /**
    * The entry's landing address in the current context; `null` when the context lacks the
    * level the scope needs.

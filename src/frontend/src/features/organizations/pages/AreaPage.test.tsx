@@ -320,7 +320,8 @@ describe('feat-043 design § 6: a department’s «Параметры»', () => 
   it('is empty of commands for a member', async () => {
     serveOrganizations();
     renderPage({ path: `${PLATFORM}/settings`, role: 'member' });
-    await loaded('Департамент: Платформа');
+    // mod-019 design § 6, "Direct address": no `area.write`, no «Параметры».
+    expect(await screen.findByText('Доступ ограничен')).toBeInTheDocument();
 
     expect(screen.queryByRole('button', { name: 'Переименовать' })).not.toBeInTheDocument();
   });

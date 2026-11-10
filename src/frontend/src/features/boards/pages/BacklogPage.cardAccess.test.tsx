@@ -4,9 +4,9 @@ import userEvent from '@testing-library/user-event';
 import { HttpResponse, http } from 'msw';
 import { Route } from 'react-router-dom';
 import { server } from '../../../test/mocks/server';
-import { authValue, renderShell } from '../../../test/renderShell';
-import { READ_CODES, servedFor, servedWith } from '../../../test/organizationRoles';
-import { OrganizationGate, OrganizationPage } from '../../organizations';
+import { authValue, renderShell, serveRole } from '../../../test/renderShell';
+import { READ_CODES, servedWith } from '../../../test/organizationRoles';
+import { OrganizationGate, OrganizationPage, organizationsPermissions } from '../../organizations';
 import { cardTexts } from '../../workitems/lib/cardTexts';
 import { WORK_ITEM_URL } from '../../workitems/testFixtures';
 import { serveBoards } from '../testApi';
@@ -19,7 +19,6 @@ import {
   problem,
   stateId,
 } from '../testFixtures';
-import { boardsPermissions } from '../permissions';
 import { BACKLOG_ROUTE } from '../paths';
 import { backlogAddress, renderBoards, teamContext } from '../testRender';
 import { BacklogPage } from './BacklogPage';
@@ -81,7 +80,7 @@ function renderGated(path: string) {
           path={BACKLOG_ROUTE}
           element={
             <OrganizationPage
-              code={boardsPermissions.workItemRead}
+              code={organizationsPermissions.organizationRead}
               title="Бэклоги"
               skeleton="registry"
             >
@@ -155,7 +154,7 @@ describe('mod-016 design § 2.3 Scenario: a save the card’s dialog is refused'
   it('a changed role: the dialog stays, keeps the typed title under the alert and turns read-only', async () => {
     const { dialog } = await openCard({ role: 'member' });
     refuseSave('organizations.access.forbidden');
-    server.use(http.get(ACCESS_URL, () => HttpResponse.json(servedFor('viewer'))));
+    serveRole('viewer');
 
     await userEvent.clear(title());
     await userEvent.type(title(), 'Другое название');

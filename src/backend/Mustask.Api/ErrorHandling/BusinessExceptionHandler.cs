@@ -1,4 +1,6 @@
+using Mustask.Api.Authorization;
 using Mustask.Api.ErrorHandling.Catalog;
+using Mustask.Domain.Identity;
 using Mustask.Shared.Errors;
 using Mustask.Shared.Exceptions;
 using Microsoft.AspNetCore.Diagnostics;
@@ -70,6 +72,23 @@ public sealed class BusinessExceptionHandler : IExceptionHandler
         }
 
         var detail = RenderDetail(mustaskException.Code, mustaskException.Params);
+
+        // A 403 raised inside a handler (the decision that needs the body or the object) leaves the same refusal line as a policy
+        // refusal (mod-019 NFR Observability); a policy refusal has already written its own.
+        if (mustaskException is ForbiddenException && httpContext.Items[RefusalLog.LoggedKey] is null)
+        {
+            var resolved = httpContext.Items[HttpContextOrganizationAccess.ItemKey] as ResolvedOrganizationAccess;
+
+            RefusalLog.Write(
+                _logger,
+                httpContext,
+                "RaisedInHandler",
+                resolved?.OrganizationId.ToString() ?? "none",
+                resolved?.Code is { Length: > 0 } code ? code : "none",
+                resolved?.Scope ?? ResourceScope.Organization,
+                mustaskException.Code,
+                resolved?.Route);
+        }
 
         // Ожидаемая ошибка, не дефект приложения: Warning, не алертит.
         // InnerException (если автор слайса его передал) уходит сюда как

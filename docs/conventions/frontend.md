@@ -83,13 +83,16 @@ registry, form and dialog in code.
   `useWorkContext()` (`shared/lib/workContext`).
 - **Permissions.** Pages and navigation decide through one check —
   `useAuth().can(code)` for instance codes, `useAccessCheck()`
-  (`shared/lib/access`) for a scoped code — and keep no copy of its
-  answers. An organization's codes are never in the token: the panel reads
-  them from the access endpoint, and every page of an organization sits
+  (`shared/lib/access`) for an organization-scope code — and keep no copy of
+  its answers. An organization's codes are never in the token: the panel
+  reads them from the access endpoint, and every page of an organization sits
   under `OrganizationGate` with an `OrganizationPage` wrapper that names the
   read code the page needs (mod-016, ADR-0027). Below it `useAccessCheck()`
   answers for the organization in the address, so a page passes no
-  organization.
+  organization. A code of a narrower scope (area, project, team — a grant can
+  add it on one object) is read from the object's served `codes`
+  (`useObjectAccess`, `ProjectAccess`; mod-019 BR-SA-18), never from the
+  organization's answer: the guard fails closed when the object serves none.
 - **Work item type look.** A type's icon and colour come from its stored
   appearance token through `theme.workTracking.typeAppearance(token)`, a
   state's colour from its category code through `categoryColour(code)`;

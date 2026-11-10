@@ -5,8 +5,9 @@ namespace Mustask.Application.Features.Organizations.GetOrganizationAccess;
 
 /// <summary>
 /// <c>GET /api/organizations/{organizationId}/access</c> (api-contract § 1.1; US-4 "Mustask.Api serves the role and the
-/// codes of one organization"): the caller's role in the organization of the address and exactly its bundle of
-/// organization codes, sorted. The panel reads it on an organization switch, on window refocus, after the caller's own
+/// codes of one organization"): the caller's role in the organization of the address and the codes of its
+/// bundle whose resource scope is the organization (BR-SA-11, api-contract § 5), in catalog order; project, team and
+/// area codes are served on their own objects. The panel reads it on an organization switch, on window refocus, after the caller's own
 /// role change and after a 403 or 404 (BR-M1-31).
 /// </summary>
 /// <remarks>
@@ -22,7 +23,11 @@ public sealed class GetOrganizationAccessHandler(IOrganizationAccess access)
         ArgumentNullException.ThrowIfNull(query);
 
         var role = access.Role;
-        var permissions = OrganizationRoleBundles.CodesOf(role).Order(StringComparer.Ordinal).ToList();
+        var bundle = OrganizationRoleBundles.CodesOf(role);
+        var permissions = PermissionCatalog.All
+            .Where(definition => definition.Resource == ResourceScope.Organization && bundle.Contains(definition.Code))
+            .Select(definition => definition.Code)
+            .ToList();
 
         return Task.FromResult(new OrganizationAccessResponse(OrganizationRoles.ToCode(role), permissions));
     }

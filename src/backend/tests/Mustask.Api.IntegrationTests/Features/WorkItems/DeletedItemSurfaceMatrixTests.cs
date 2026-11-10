@@ -366,6 +366,15 @@ public sealed class DeletedItemSurfaceMatrixTests(MustaskApiFactory factory)
         ["GET " + Org + "/areas"] = Reads.NoWorkItem,
         ["GET " + Org + "/areas/{areaId}"] = Reads.NoWorkItem,
         ["GET " + Org + "/areas/{areaId}/deletion"] = Reads.NoWorkItem,
+        ["GET " + Org + "/areas/writable-ids"] = Reads.NoWorkItem,
+        ["GET " + Org + "/areas/{areaId}/inherits-access/impact"] = Reads.NoWorkItem,
+        // mod-019 api-contract § 2: the grant lists and their candidate pickers read members and grants, never a work item.
+        ["GET " + Org + "/areas/{areaId}/grants"] = Reads.NoWorkItem,
+        ["GET " + Org + "/areas/{areaId}/grant-candidates"] = Reads.NoWorkItem,
+        ["GET " + Project + "/grants"] = Reads.NoWorkItem,
+        ["GET " + Project + "/grant-candidates"] = Reads.NoWorkItem,
+        ["GET " + OrgTeam + "/grants"] = Reads.NoWorkItem,
+        ["GET " + OrgTeam + "/grant-candidates"] = Reads.NoWorkItem,
         ["GET " + Org + "/areas/{areaId}/teams"] = Reads.NoWorkItem,
         ["GET " + OrgTeam + "/areas"] = Reads.NoWorkItem,
     };

@@ -37,7 +37,7 @@ public sealed class GetTeamEndpointTests(MustaskApiFactory factory)
 
         Assert.Equal(HttpStatusCode.OK, answer.Status);
         Assert.Equal("application/json", answer.MediaType);
-        Assert.Equal(["description", "id", "name"], PropertyNames(answer.Body));
+        Assert.Equal(["codes", "description", "id", "name"], PropertyNames(answer.Body));
         Assert.Equal(structure.ProjectTeamId, answer.Body.GetProperty("id").GetGuid());
         Assert.Equal("Пример проекта", answer.Body.GetProperty("name").GetString());
         Assert.Equal(JsonValueKind.Null, answer.Body.GetProperty("description").ValueKind);

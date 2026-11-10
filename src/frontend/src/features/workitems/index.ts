@@ -4,6 +4,8 @@
 // § Navigation). `app/` imports this slice through this file only.
 export { WorkItemFormPage } from './pages/WorkItemFormPage';
 export { WorkItemsPage } from './pages/WorkItemsPage';
+// mod-019 (BR-SA-18): a host of work-item controls asks the project's served codes through this.
+export { ProjectAccess } from './components/ProjectAccess';
 export { WORK_ITEMS_ROUTE, WORK_ITEM_ROUTE, workItemPath, workItemsPath } from './paths';
 export { workItemsPermissions } from './permissions';
 // mod-006 creates from a team's backlog or board with this slice's dialog,

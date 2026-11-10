@@ -95,10 +95,15 @@ describe.each(ROLES)(
       serveOrganizations();
       renderPage({ path: PRM_SETTINGS, role });
 
-      await screen.findByText('Пример проекта');
-
-      expect(button('Переименовать')).toHaveLength(held(holds));
-      expect(button('Изменить описание')).toHaveLength(held(holds));
+      if (holds) {
+        await screen.findByText('Пример проекта');
+        expect(button('Переименовать')).toHaveLength(1);
+        expect(button('Изменить описание')).toHaveLength(1);
+      } else {
+        // mod-019 design § 6, "Direct address": a page whose entry the caller may not use.
+        expect(await screen.findByText('Доступ ограничен')).toBeVisible();
+        expect(button('Переименовать')).toHaveLength(0);
+      }
       cleanup();
       renderPage({ path: PRM_GENERAL, role });
       expect(await screen.findByRole('link', { name: /Процесс/ })).toBeVisible();
@@ -122,10 +127,15 @@ describe.each(ROLES)(
     it('a team’s pages: its three commands in «Параметры», «Добавить проект», the unlink menus and the members’ controls only with their codes', async () => {
       serveOrganizations();
       renderPage({ path: PLATFORM_SETTINGS, role });
-      await screen.findByRole('heading', { level: 1, name: 'Команда: Платформа' });
-      expect(button('Переименовать')).toHaveLength(held(holds));
-      expect(button('Изменить описание')).toHaveLength(held(holds));
-      expect(button('Удалить команду')).toHaveLength(held(holds));
+      if (holds) {
+        await screen.findByRole('heading', { level: 1, name: 'Команда: Платформа' });
+        expect(button('Переименовать')).toHaveLength(1);
+        expect(button('Изменить описание')).toHaveLength(1);
+        expect(button('Удалить команду')).toHaveLength(1);
+      } else {
+        expect(await screen.findByText('Доступ ограничен')).toBeVisible();
+        expect(button('Переименовать')).toHaveLength(0);
+      }
       cleanup();
 
       renderPage({ path: PLATFORM_PROJECTS, role });
@@ -256,10 +266,15 @@ describe('mod-016 design § 2.3 Scenario: a refused write, then the codes are re
       once: true,
     });
 
-    await lockedAfterRefusal(dialog, 'Сохранить', field, 'Омега', page);
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Сохранить' }));
+    expect(await within(dialog).findByText(REFUSED)).toBeVisible();
 
+    // The re-read shows the code gone: the settings entry is lost under the user (design § 7).
+    page.update({ role: 'member' });
+
+    expect(await screen.findByText('Доступ ограничен')).toBeVisible();
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
     expect(button('Переименовать')).toHaveLength(0);
-    expect(button('Деактивировать')).toHaveLength(0);
   });
 
   // feat-028 BR-OL-5 (doc-012 P-1): «adds a team» at the project's «Команды» is retired by name — a

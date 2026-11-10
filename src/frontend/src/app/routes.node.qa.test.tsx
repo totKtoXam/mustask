@@ -6,9 +6,9 @@ import userEvent from '@testing-library/user-event';
 import { HttpResponse, http } from 'msw';
 import { AuthContext } from '../features/auth/AuthContext';
 import { API, ids } from '../features/organizations/testFixtures';
-import { serveOrganizations } from '../features/organizations/testApi';
+import { serveOrganizations, servedObjectCodes } from '../features/organizations/testApi';
 import { server } from '../test/mocks/server';
-import { servedFor } from '../test/organizationRoles';
+import { ADMIN_CODES, codesOf, servedFor } from '../test/organizationRoles';
 import { authValue, LANGUAGES_READ, LocationProbe } from '../test/renderShell';
 import { AppRoutes } from './routes';
 
@@ -22,6 +22,8 @@ const AREAS = `/organizations/${ids.alfa}/areas`;
 
 afterEach(() => {
   localStorage.clear();
+  servedObjectCodes.current = ADMIN_CODES;
+  servedObjectCodes.pinned = false;
 });
 
 function renderRoutes(path: string) {
@@ -80,6 +82,7 @@ describe('feat-043 QA, US-3 and US-8: what `areas/:areaId` selects', () => {
           'Канбан',
           'Бэклог',
           'Команды',
+          'Участники и доступ',
           'Настройки',
         ]),
       );
@@ -115,6 +118,7 @@ describe('feat-043 QA, US-3 and US-8: what `areas/:areaId` selects', () => {
         'Рабочие элементы',
         'Канбан',
         'Бэклог',
+        'Участники',
         'Настройки',
       ]),
     );
@@ -192,6 +196,9 @@ describe('feat-043 QA, US-1/US-3/US-4/US-5: «Параметры» by role', () 
     ),
   )('a %s sees «Доступ ограничен» at the «Параметры» of %s', async (role, _name, path) => {
     serveOrganizations();
+    // The object reads serve the caller's codes on the object: this role's.
+    servedObjectCodes.current = codesOf(role);
+    servedObjectCodes.pinned = true;
     server.use(
       http.get(`${API}/api/organizations/:organizationId/access`, () =>
         HttpResponse.json(servedFor(role)),

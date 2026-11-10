@@ -15,7 +15,7 @@ export interface WorkItemAccess {
 
 /**
  * The role views of the work item card (mod-016 US-4; design § 6.2, § 6.5; mod-005 design § 9),
- * asked of the served access the organization gate binds to the address: a reader holds none of
+ * asked of the project's served codes (`ProjectAccess` provides them, BR-SA-18): a reader holds none of
  * the write codes, a member holds the writes and the delete, the administrator the purge too, and
  * a bundle may hold the one without the other. A host of the card — the page, the dialog over the
  * backlog or the board — passes them to `WorkItemCard`, which itself asks nothing: it stays

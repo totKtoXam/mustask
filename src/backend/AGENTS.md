@@ -160,13 +160,20 @@ run from there, not from this directory.
   `Mustask.Domain.Identity.InstanceRoles`; unknown names are ignored and raw codes
   in the token grant nothing. The realm holds no realm roles, groups or default
   roles of ours (the company-wide realm allows only clients and client roles);
-  a user gets the roles directly. The panel mirrors the table in
-  `src/frontend/src/shared/api/tokenClaims.ts` — change both together.
+  a user gets the roles directly. The panel reads the tables from
+  `contracts/access/role-bundles.json`, generated from the domain
+  (`MUSTASK_UPDATE_ROLE_BUNDLES=1 dotnet test src/backend/tests/Mustask.Contracts.Tests`)
+  — never edited by hand.
   **Rights inside an organization come from the user's membership in it**
-  (`admin`, `member` or `viewer`), read from the database on every request —
-  nothing about them is in the token — so a role change applies on the next
-  request. **Every route with `{organizationId}` declares an organization code**
-  (`.RequiresOrganizationPermission(PermissionCatalog.X)`); the inventory test
+  (`admin`, `member` or `viewer`) **plus the grants that reach the object**
+  (mod-019, ADR-0038: a role on a department, a project or a team, added to the
+  membership's bundle), read from the database on every request — nothing about
+  them is in the token — so a change applies on the next request. **Every route
+  with `{organizationId}` declares an organization code**
+  (`.RequiresOrganizationPermission(PermissionCatalog.X)`; a route that names an
+  object adds its resource scope, `.RequiresOrganizationPermission(code,
+  ResourceScope.Project)`, and one whose object is in the body uses
+  `RequiresOrganizationPermissionDecidedInHandler(code, reason)`); the inventory test
   fails `scripts/verify.sh` for one that does not, and a non-member of the
   organization of the address gets 404 «Организация не найдена», never a 403.
 - The realm's name is configuration: the stand reads `Keycloak:Realm` (default

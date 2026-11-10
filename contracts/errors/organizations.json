@@ -259,6 +259,34 @@
       "kk": "Мүше табылмады.",
       "kkNeedsReview": true
     },
+    "organizations.grant.self_grant": {
+      "statuses": [400],
+      "params": {},
+      "ru": "Нельзя выдать доступ самому себе.",
+      "kk": "Өзіңізге қолжетімділік беруге болмайды.",
+      "kkNeedsReview": true
+    },
+    "organizations.grant.role_invalid": {
+      "statuses": [400],
+      "params": {},
+      "ru": "Выберите роль: читатель, участник или менеджер",
+      "kk": "Рөлді таңдаңыз: оқырман, қатысушы немесе менеджер",
+      "kkNeedsReview": true
+    },
+    "organizations.grant.scope_not_allowed": {
+      "statuses": [409],
+      "params": {},
+      "ru": "Эту роль нельзя выдать на этом объекте.",
+      "kk": "Бұл рөлді осы нысанда беруге болмайды.",
+      "kkNeedsReview": true
+    },
+    "organizations.grant.changed": {
+      "statuses": [409],
+      "params": {},
+      "ru": "Доступ уже изменён или отозван. Список обновлён.",
+      "kk": "Қолжетімділік бұрын өзгертілген немесе қайтарып алынған. Тізім жаңартылды.",
+      "kkNeedsReview": true
+    },
     "organizations.membership.role_invalid": {
       "statuses": [400],
       "params": {},

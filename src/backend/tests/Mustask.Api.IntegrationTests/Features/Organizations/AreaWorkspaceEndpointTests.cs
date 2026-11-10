@@ -59,7 +59,7 @@ public sealed class AreaWorkspaceEndpointTests(MustaskApiFactory factory)
         var tree = await SendAsync(HttpMethod.Get, OrganizationsApi.Areas(organization));
         Assert.Equal(HttpStatusCode.OK, tree.Status);
         Assert.Equal(
-            ["id", "parentId", "type", "projectId", "projectActive", "name", "description", "path", "depth"],
+            ["id", "parentId", "type", "projectId", "projectActive", "name", "description", "path", "depth", "inheritsAccess"],
             PropertyNames(tree.Body[0]));
         Assert.Equal(
             new[] { ("Пример проекта", "project", 1), ("Пример проекта / Отчёты", "area", 2), ("Разработка", "department", 1) }.Order().ToList(),
@@ -421,7 +421,7 @@ public sealed class AreaWorkspaceEndpointTests(MustaskApiFactory factory)
             Assert.Equal(
                 ["Альфа", "Платформа", "Пример проекта"],
                 answer.Body.EnumerateArray().Select(t => t.GetProperty("name").GetString()!));
-            Assert.All(answer.Body.EnumerateArray(), t => Assert.Equal(["id", "name"], t.EnumerateObject().Select(p => p.Name).Order()));
+            Assert.All(answer.Body.EnumerateArray(), t => Assert.Equal(["canUnlink", "id", "name"], t.EnumerateObject().Select(p => p.Name).Order()));
         }
 
         LinksTestData.AssertRefused(teamsRead, HttpStatusCode.NotFound, "organizations.project.not_found");

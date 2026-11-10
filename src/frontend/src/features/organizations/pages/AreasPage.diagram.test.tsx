@@ -123,9 +123,16 @@ describe('feat-049 US-2: the hierarchy diagram', () => {
     await waitFor(() => expect(within(tree).getAllByRole('treeitem').length).toBeGreaterThan(0));
 
     const gets = api.requests.filter((request) => request.method === 'GET');
-    expect(gets.every((request) => request.path.endsWith('/areas') || isOffers(request.path))).toBe(
-      true,
-    );
+    // The tree's row commands are limited to the writable ids, read once (mod-019 X-4), and the link of teams
+    // asks the role, whose answer is the organization's own read.
+    const isWritableIds = (path: string) =>
+      path.endsWith('/areas/writable-ids') || path.endsWith('/access');
+    expect(
+      gets.every(
+        (request) =>
+          request.path.endsWith('/areas') || isOffers(request.path) || isWritableIds(request.path),
+      ),
+    ).toBe(true);
     expect(gets.filter((request) => isOffers(request.path))).toHaveLength(1);
   });
 

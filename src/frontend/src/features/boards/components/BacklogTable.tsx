@@ -35,14 +35,12 @@ import {
   useSetWorkItemParentIn,
   useWorkItemDialog,
   workItemPath,
-  workItemsPermissions,
   type ParentWriteResult,
   type WorkItem,
   type WorkItemRef,
 } from '../../workitems';
-import { useAccessCheck } from '../../../shared/lib/access';
 import { focusMainRegion } from '../../../shared/lib/mainRegion';
-import { RequiresOrganizationCode } from '../../../shared/ui/RequiresOrganizationCode';
+import { RequiresCode } from '../../../shared/ui/RequiresOrganizationCode';
 import { TypeMark } from '../../../shared/ui/WorkTrackingMarks';
 import type {
   BacklogSurface,
@@ -53,6 +51,7 @@ import type {
 import { backlogKey } from '../api/queryKeys';
 import { useReorderBacklog } from '../hooks/mutations';
 import { useReadAgain } from '../hooks/queries';
+import { useBoardAccess } from '../hooks/useBoardAccess';
 import { useMoveView } from '../hooks/useMoveView';
 import { addEntriesOf, addEntryLabel, type AddEntry } from '../lib/addChild';
 import {
@@ -90,7 +89,6 @@ import {
   toggled,
   treeLines,
 } from '../lib/tree';
-import { boardsPermissions } from '../permissions';
 import { AddChildRow, type AddCancel } from './AddChildRow';
 import { BacklogHeadRow } from './BacklogHeadRow';
 import { BacklogRow } from './BacklogRow';
@@ -295,10 +293,12 @@ export function BacklogTable({
   // `open` keeps its identity, so the memoised rows are not redrawn by the navigation.
   const { open: openItem } = useWorkItemDialog();
   const process = useProcessDefinition(organizationId);
-  const access = useAccessCheck();
-  const canWrite = access(workItemsPermissions.workItemWrite, 'organization');
-  const canLink = access(workItemsPermissions.linkWrite, 'organization');
-  const canReorder = access(boardsPermissions.backlogReorder, 'organization') && !narrowed;
+  // The codes of the projects and the team are read off the objects (mod-019 BR-SA-18): a team's table
+  // holds the rows of several projects, so a write control is offered while any of them allows it.
+  const shownProjects = useMemo(() => [...new Set(items.map((row) => row.project.id))], [items]);
+  const served = useBoardAccess(organizationId, scope, shownProjects);
+  const { canWrite, canLink } = served;
+  const canReorder = served.canReorder && !narrowed;
   const canAdd = canWrite && canLink;
   const view = useMoveView(items);
   const [actions, setActions] = useState<ActionsMenuState | null>(null);
@@ -1266,7 +1266,7 @@ export function BacklogTable({
         ))}
       </Menu>
       {dialog && (
-        <RequiresOrganizationCode code={workItemsPermissions.linkWrite}>
+        <RequiresCode holds={canLink}>
           <ChangeParentDialog
             organizationId={organizationId}
             projectId={dialog.row.project.id}
@@ -1288,7 +1288,7 @@ export function BacklogTable({
               }
             }}
           />
-        </RequiresOrganizationCode>
+        </RequiresCode>
       )}
     </TableContainer>
   );

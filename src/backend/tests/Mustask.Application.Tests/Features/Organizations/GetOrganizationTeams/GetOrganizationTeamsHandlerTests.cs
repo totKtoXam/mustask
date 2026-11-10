@@ -1,3 +1,4 @@
+using Mustask.Domain.Identity;
 using Mustask.Application.Features.Organizations.GetOrganizationTeams;
 using Mustask.Application.Tests.TestDoubles;
 using Mustask.Application.Tests.TestDoubles.Organizations;
@@ -30,7 +31,7 @@ public sealed class GetOrganizationTeamsHandlerTests
         store.Link(beta, mars);
         store.Link(alpha, mars);
         store.Link(old, mars);
-        var handler = new GetOrganizationTeamsHandler(new FakeTeamReadModel(store), new FakeCurrentUser());
+        var handler = new GetOrganizationTeamsHandler(new FakeTeamReadModel(store), new FakeCurrentUser(), new FakeOrganizationAccess(OrganizationRole.Admin));
 
         var result = await handler.Handle(new GetOrganizationTeamsQuery(organization.Id.ToString()), CancellationToken.None);
 
@@ -56,7 +57,7 @@ public sealed class GetOrganizationTeamsHandlerTests
         var caller = new FakeCurrentUser { SubjectId = "u-max" };
         store.AddTeamMember(organization, venus, "u-max");
         store.AddTeamMember(organization, mars, "u-someone-else");
-        var handler = new GetOrganizationTeamsHandler(new FakeTeamReadModel(store), caller);
+        var handler = new GetOrganizationTeamsHandler(new FakeTeamReadModel(store), caller, new FakeOrganizationAccess(OrganizationRole.Admin));
 
         var result = await handler.Handle(new GetOrganizationTeamsQuery(organization.Id.ToString()), CancellationToken.None);
 
@@ -70,7 +71,7 @@ public sealed class GetOrganizationTeamsHandlerTests
     {
         var store = new InMemoryOrganizations();
         var organization = store.AddOrganization();
-        var handler = new GetOrganizationTeamsHandler(new FakeTeamReadModel(store), new FakeCurrentUser());
+        var handler = new GetOrganizationTeamsHandler(new FakeTeamReadModel(store), new FakeCurrentUser(), new FakeOrganizationAccess(OrganizationRole.Admin));
 
         var result = await handler.Handle(new GetOrganizationTeamsQuery(organization.Id.ToString()), CancellationToken.None);
 
@@ -80,7 +81,7 @@ public sealed class GetOrganizationTeamsHandlerTests
     [Fact]
     public async Task Get_MalformedOrganization_IsOrganizationNotFound()
     {
-        var handler = new GetOrganizationTeamsHandler(new FakeTeamReadModel(new InMemoryOrganizations()), new FakeCurrentUser());
+        var handler = new GetOrganizationTeamsHandler(new FakeTeamReadModel(new InMemoryOrganizations()), new FakeCurrentUser(), new FakeOrganizationAccess(OrganizationRole.Admin));
 
         var refusal = await Assert.ThrowsAsync<NotFoundException>(
             () => handler.Handle(new GetOrganizationTeamsQuery("abc"), CancellationToken.None));

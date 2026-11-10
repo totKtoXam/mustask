@@ -35,6 +35,7 @@ export function PlaceProjectDialog({
   organizationId,
   department,
   canFromTop,
+  writableIds,
   submit,
   onSucceeded,
   onClose,
@@ -43,6 +44,8 @@ export function PlaceProjectDialog({
   department: { id: string; name: string };
   /** The user holds `area.create`: a move from the top level needs it. */
   canFromTop: boolean;
+  /** The nodes the caller may write (mod-019 § 5, BR-MX-3): a project is offered only with the code on its node and its current parent. Absent: all. */
+  writableIds?: ReadonlySet<string>;
   submit(nodeId: string): Promise<unknown>;
   onSucceeded(project: { name: string }): void;
   /** `contextGone`: the department answered not found; the page reads itself again. */
@@ -64,7 +67,9 @@ export function PlaceProjectDialog({
         node.type === 'project' &&
         node.projectActive !== false &&
         node.parentId !== department.id &&
-        (canFromTop || node.parentId !== null),
+        (canFromTop || node.parentId !== null) &&
+        (writableIds === undefined ||
+          (writableIds.has(node.id) && (node.parentId === null || writableIds.has(node.parentId)))),
     )
     .map((node) => ({
       nodeId: node.id,

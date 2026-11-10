@@ -1,3 +1,4 @@
+using Mustask.Domain.Identity;
 using Mustask.Application.Features.Organizations.GetAreaTree;
 using Mustask.Application.Tests.TestDoubles.Organizations;
 using Mustask.Domain.Organizations;
@@ -8,7 +9,7 @@ namespace Mustask.Application.Tests.Features.Organizations.GetAreaTree;
 /// <summary>mod-018 US-1 on fakes: the typed tree of an organization as one list in pre-order, with the type, path and level of each node.</summary>
 public sealed class GetAreaTreeHandlerTests
 {
-    private static GetAreaTreeHandler HandlerOver(InMemoryOrganizations store) => new(new FakeAreaTreeReadModel(store));
+    private static GetAreaTreeHandler HandlerOver(InMemoryOrganizations store) => new(new FakeAreaTreeReadModel(store), new FakeOrganizationAccess(OrganizationRole.Admin));
 
     // US-1 · "Every member reads the whole tree": each node before its children, siblings by name, with type, path and level.
     [Fact]

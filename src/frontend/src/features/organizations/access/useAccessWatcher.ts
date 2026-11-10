@@ -3,7 +3,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { organizationsKeys } from '../api/queryKeys';
 import { roleChangeNotice, type OrganizationRole } from '../lib/roles';
 import type { AccessAnswer } from './accessAnswer';
-import { holdNotMember, rereadAccess } from './accessCache';
+import { holdNotMember, rereadAccess, rereadObject } from './accessCache';
 import { forgetRole, lastRole, rememberRole } from './roleMemory';
 import { scopedFailureOf } from './scopedFailure';
 import { accessOrganizationOf } from './servedAccess';
@@ -96,13 +96,21 @@ export function useAccessWatcher({ fallbackShown, organizationName }: AccessWatc
       }
       const previous = lastRole(client, organizationId);
       rememberRole(client, organizationId, answer.role);
+      if (previous !== undefined && previous !== answer.role) {
+        // The role is the floor of every code on every object: the project rows carry codes read under the
+        // old one, so they are read again (mod-019 F-5).
+        void client.invalidateQueries(
+          { queryKey: organizationsKeys.projectLists(organizationId) },
+          { cancelRefetch: false },
+        );
+      }
       if (previous !== undefined && previous !== answer.role && !fallbackShownRef.current) {
         noticeIds.current += 1;
         setPending({ id: noticeIds.current, organizationId, role: answer.role });
       }
     };
 
-    const onFailure = (error: unknown) => {
+    const onFailure = (error: unknown, fromQuery: boolean) => {
       const failure = scopedFailureOf(error);
       if (failure === null) {
         return;
@@ -111,6 +119,12 @@ export function useAccessWatcher({ fallbackShown, organizationName }: AccessWatc
         holdNotMember(client, failure.organizationId);
       }
       void rereadAccess(client, failure.organizationId, { inFlight: 'join' });
+      // A call under an object re-reads that object's codes (mod-019 F-5); the object's own failed read
+      // must not ask for itself again, which would loop on a project that is gone.
+      const { object } = failure;
+      if (object !== undefined && !failure.organizationNotFound && !(fromQuery && object.own)) {
+        void rereadObject(client, failure.organizationId, object);
+      }
     };
 
     const stopQueries = client.getQueryCache().subscribe((event) => {
@@ -135,12 +149,12 @@ export function useAccessWatcher({ fallbackShown, organizationName }: AccessWatc
         return;
       }
       if (event.action.type === 'error') {
-        onFailure(event.action.error);
+        onFailure(event.action.error, true);
       }
     });
     const stopMutations = client.getMutationCache().subscribe((event) => {
       if (event.type === 'updated' && event.action.type === 'error') {
-        onFailure(event.action.error);
+        onFailure(event.action.error, false);
       }
     });
     return () => {

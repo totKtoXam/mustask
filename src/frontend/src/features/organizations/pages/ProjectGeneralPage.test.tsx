@@ -160,7 +160,8 @@ describe('feat-028 US-2 Scenario: A project has a description', () => {
   it('offers neither «Изменить описание» nor the rename to a reader', async () => {
     serveOrganizations();
     renderPage({ path: PRM_SETTINGS, role: 'viewer' });
-    await facts();
+    // mod-019 design § 6, "Direct address": the settings are the holder's of `project.write`.
+    expect(await screen.findByText('Доступ ограничен')).toBeInTheDocument();
 
     expect(screen.queryByRole('button', { name: 'Изменить описание' })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Переименовать' })).not.toBeInTheDocument();

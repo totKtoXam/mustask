@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import TextField from '@mui/material/TextField';
+import { ApiError } from '../../../shared/api/httpClient';
 import { FormDialog, InlineMultiPickerField, InlineTextArea } from '../../../shared/ui';
 import type { CreateProjectBody, Project, TeamListItem } from '../api/organizationsApi';
 import { useFocusInvalid } from '../hooks/useFocusInvalid';
@@ -27,6 +28,9 @@ export function CreateProjectDialog({
   canLink,
   canPlaceInDepartment = false,
   canPlaceAtTop = false,
+  writableIds,
+  presetPlaceId,
+  onForbidden,
   submit,
   onSucceeded,
   onClose,
@@ -38,6 +42,12 @@ export function CreateProjectDialog({
   canPlaceInDepartment?: boolean;
   /** The user holds `area.create`: «Организация», the top level, is offered; without it a department is required. */
   canPlaceAtTop?: boolean;
+  /** The departments the user may write (mod-019 § 5): only these are offered as the place. */
+  writableIds?: ReadonlySet<string>;
+  /** The place chosen at the start: the department whose «Проекты» opened the dialog. */
+  presetPlaceId?: string;
+  /** The write was refused 403: the places are out of date (mod-019 design § 7); the host reads them again. */
+  onForbidden?(): void;
   submit(body: CreateProjectBody): Promise<Project>;
   onSucceeded(project: Project): void;
   onClose(contextGone: boolean): void;
@@ -60,9 +70,13 @@ export function CreateProjectDialog({
     areasQuery.data ?? [],
     canPlaceAtTop,
     canPlaceInDepartment,
+    writableIds,
   );
-  // The first offered place stands until one is chosen; one no longer offered falls back to it.
-  const place = placeOptions.find((option) => option.id === chosenPlace?.id) ?? placeOptions[0];
+  // The preset place (or the first offered) stands until one is chosen; one no longer offered falls back.
+  const place =
+    placeOptions.find((option) => option.id === chosenPlace?.id) ??
+    placeOptions.find((option) => option.id === presetPlaceId) ??
+    placeOptions[0];
 
   async function handleSubmit() {
     const refused: Errors = {
@@ -91,6 +105,9 @@ export function CreateProjectDialog({
     try {
       onSucceeded(await submit(body));
     } catch (error) {
+      if (error instanceof ApiError && error.status === 403) {
+        onForbidden?.();
+      }
       const fields: RefusalField[] = ['name', 'key', 'description'];
       if (canLink) {
         fields.push('teams');
@@ -128,6 +145,7 @@ export function CreateProjectDialog({
             result.data ?? [],
             canPlaceAtTop,
             canPlaceInDepartment,
+            writableIds,
           );
           setPlace((current) =>
             offered.some((candidate) => candidate.id === current?.id) ? current : null,

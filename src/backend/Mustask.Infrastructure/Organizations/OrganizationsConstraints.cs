@@ -68,6 +68,16 @@ internal static class OrganizationsConstraints
     /// <summary>The index of that composite key; it also serves "the teams I am in".</summary>
     public const string TeamMembershipOrganizationUser = "ix_team_memberships_organization_id_user_id";
 
+    /// <summary>BR-SA-1: one grant per member and department, project or team — the primary keys of the grant tables (mod-019).</summary>
+    public const string AreaGrantPrimaryKey = "pk_area_grants";
+    public const string ProjectGrantPrimaryKey = "pk_project_grants";
+    public const string TeamGrantPrimaryKey = "pk_team_grants";
+
+    /// <summary>BR-SA-3: a grant is held by an organization membership — the composite key that cascades a removal and closes the give-versus-remove race.</summary>
+    public const string AreaGrantMembership = "fk_area_grants_organization_memberships";
+    public const string ProjectGrantMembership = "fk_project_grants_organization_memberships";
+    public const string TeamGrantMembership = "fk_team_grants_organization_memberships";
+
     /// <summary>
     /// mod-017 BR-OT-4 (ADR-0028 rule 9), feat-028 BR-OL-7: the key of the project's default-team setting onto one of the
     /// project's own links. A violation is a team that is no longer linked (plan-backend D-10, D-15).

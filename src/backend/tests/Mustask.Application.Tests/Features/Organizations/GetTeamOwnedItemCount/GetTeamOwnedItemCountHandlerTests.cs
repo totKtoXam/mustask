@@ -106,14 +106,17 @@ public sealed class GetTeamOwnedItemCountHandlerTests
         Assert.Equal(OrganizationErrorCodes.ProjectNotFound, refusal.Code);
     }
 
-    // D-7 · the route declares project.link and the handler asks team.link first of all: a role without it learns nothing.
+    // mod-019 BR-SA-9, US-7 · the route declares project.link and the handler asks team.link after the address: a team that names nothing
+    // is 404 whatever the role, a team of the project is 403 for a role without the code.
     [Fact]
-    public async Task Count_WithoutTheSecondCode_Is403_BeforeAnyIdIsLooked_At()
+    public async Task Count_WithoutTheSecondCode_Is403_AfterTheAddress_AndNotFoundComesFirst()
     {
         var f = new Fixture(OrganizationRole.Member);
 
-        var refusal = await Assert.ThrowsAsync<ForbiddenException>(() => f.HandleAsync(f.Query("not-a-team")));
+        var notFound = await Assert.ThrowsAsync<NotFoundException>(() => f.HandleAsync(f.Query("not-a-team")));
+        var refusal = await Assert.ThrowsAsync<ForbiddenException>(() => f.HandleAsync(f.Query()));
 
+        Assert.Equal(OrganizationErrorCodes.TeamNotFound, notFound.Code);
         Assert.Equal(OrganizationErrorCodes.AccessForbidden, refusal.Code);
     }
 }

@@ -1,3 +1,4 @@
+using Mustask.Domain.Identity;
 using Mustask.Application.Features.Organizations.GetTeam;
 using Mustask.Application.Tests.TestDoubles.Organizations;
 using Mustask.Domain.Organizations;
@@ -17,7 +18,7 @@ public sealed class GetTeamHandlerTests
         {
             Organization = Store.AddOrganization();
             Mars = Store.AddTeam(Organization, "MARS");
-            Handler = new GetTeamHandler(new FakeTeamReadModel(Store));
+            Handler = new GetTeamHandler(new FakeTeamReadModel(Store), new FakeOrganizationAccess(OrganizationRole.Admin));
         }
 
         public InMemoryOrganizations Store { get; } = new();
@@ -44,7 +45,7 @@ public sealed class GetTeamHandlerTests
 
         var result = await f.HandleAsync(f.Query());
 
-        Assert.Equal(new TeamResponse(f.Mars.Id, "MARS", "Платформа и инструменты"), result.Response);
+        Assert.Equal(new TeamResponse(f.Mars.Id, "MARS", "Платформа и инструменты"), result.Response with { Codes = null });
     }
 
     [Fact]

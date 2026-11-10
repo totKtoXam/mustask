@@ -32,13 +32,16 @@ import {
   useSetWorkItemStateIn,
   useWorkItemDialog,
   workItemPath,
+  workItemsPermissions,
   type WorkItemStateReference,
 } from '../../workitems';
+import { useProjectCodes } from '../../organizations';
 import { TruncatedText, VisuallyHidden } from '../../../shared/ui';
 import { CategoryMarker, TypeMark } from '../../../shared/ui/WorkTrackingMarks';
 import type { BacklogItem, BoardCardItem, BoardColumn, BoardSurface } from '../api/boardsApi';
 import { boardKey } from '../api/queryKeys';
 import { useReadAgain } from '../hooks/queries';
+import { projectHolds } from '../hooks/useBoardAccess';
 import { useChecklists, type AddField, type ChecklistEnv } from '../hooks/useChecklists';
 import { useMoveView } from '../hooks/useMoveView';
 import type { NewWorkItem } from '../hooks/useNewWorkItem';
@@ -238,6 +241,15 @@ export function BoardColumns({
     }
   }, []);
 
+  // A card is moved by its own project's codes (plan F-6, D-4): a team's board holds the cards of several
+  // projects, and the project rows serve each one's codes once.
+  const { codes: projectCodes } = useProjectCodes(organizationId);
+  const canMoveCard = useCallback(
+    (card: BacklogItem) =>
+      canWrite && projectHolds(projectCodes, card.project.id, workItemsPermissions.workItemWrite),
+    [canWrite, projectCodes],
+  );
+
   const openMenu = useCallback(
     (event: MouseEvent<HTMLElement>, cardId: string) => {
       if (!saving) {
@@ -249,7 +261,7 @@ export function BoardColumns({
 
   const startDrag = useCallback(
     (event: DragEvent<HTMLElement>, card: BacklogItem) => {
-      if (saving || !canWrite) {
+      if (saving || !canMoveCard(card)) {
         event.preventDefault();
         return;
       }
@@ -259,7 +271,7 @@ export function BoardColumns({
       }
       setDrag({ cardId: card.id, over: null });
     },
-    [saving, canWrite],
+    [saving, canMoveCard],
   );
 
   const endDrag = useCallback(() => setDrag(null), []);
@@ -384,7 +396,7 @@ export function BoardColumns({
                   key={card.id}
                   card={card}
                   saving={saving}
-                  canWrite={canWrite}
+                  canWrite={canMoveCard(card)}
                   menuOpen={menu?.cardId === card.id}
                   menuId={menuId}
                   checklistEnv={checklists.env}

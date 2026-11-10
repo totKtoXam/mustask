@@ -1,7 +1,9 @@
-import { useState, type ReactNode } from 'react';
+import { useState, type ComponentProps, type ReactNode } from 'react';
 import Box from '@mui/material/Box';
 import { CardSkeleton, ErrorBanner, NotFound, useNotice } from '../../../shared/ui';
 import { useProjects } from '../../organizations';
+import { ProjectAccess } from './ProjectAccess';
+import type { WorkItem } from '../api/workItemsApi';
 import { useWorkItem } from '../hooks/queries';
 import { useWorkItemAccess } from '../hooks/useWorkItemAccess';
 import { useWorkItemDialog } from '../hooks/useWorkItemDialog';
@@ -124,8 +126,6 @@ function CardDialog({
     enabled: resolved !== undefined,
   });
   const { show } = useNotice();
-  // The role views (mod-016 design § 6.5), as the page's: the host asks, the card shows.
-  const { readOnly, parentReadOnly, canDelete, canPurge } = useWorkItemAccess();
   // The level a save found gone, or the read's own answer.
   const [gone, setGone] = useState<WorkItemsNotFoundLevel | null>(null);
   // The card hands its frame to the shell below; the host draws no shell of its own.
@@ -180,27 +180,19 @@ function CardDialog({
     );
   } else {
     card = (
-      <WorkItemCard
-        organizationId={organizationId}
-        projectId={resolved ?? ''}
-        item={query.data}
-        mode="dialog"
-        readOnly={readOnly}
-        parentReadOnly={parentReadOnly}
-        canDelete={canDelete}
-        canPurge={canPurge}
-        notify={show}
-        onGone={setGone}
-        onClose={close}
-        onOpenItem={dialog.switchTo}
-        onSaved={onChanged}
-        onRefreshed={onChanged}
-        // A Delete, a Restore and a Purge change what the page behind shows (design § 7); a
-        // Purge also leaves nothing to look at, so the card closes (design § 6).
-        onChanged={onChanged}
-        onPurged={close}
-        renderFrame={(content) => <PublishFrame store={frames} frame={content} />}
-      />
+      <ProjectAccess organizationId={organizationId} projectId={resolved ?? ''}>
+        <DialogCard
+          organizationId={organizationId}
+          projectId={resolved ?? ''}
+          item={query.data}
+          notify={show}
+          onGone={setGone}
+          onClose={close}
+          onOpenItem={dialog.switchTo}
+          onChanged={onChanged}
+          frames={frames}
+        />
+      </ProjectAccess>
     );
   }
 
@@ -221,6 +213,57 @@ function CardDialog({
       />
       {card}
     </>
+  );
+}
+
+/**
+ * The card in its dialog. The role views (mod-016 design § 6.5, as the page's) are asked here, below the
+ * project's served codes the host provides (mod-019 BR-SA-18): the card itself asks nothing.
+ */
+function DialogCard({
+  organizationId,
+  projectId,
+  item,
+  notify,
+  onGone,
+  onClose,
+  onOpenItem,
+  onChanged,
+  frames,
+}: {
+  organizationId: string;
+  projectId: string;
+  item: WorkItem;
+  notify: ComponentProps<typeof WorkItemCard>['notify'];
+  onGone: (level: WorkItemsNotFoundLevel) => void;
+  onClose: () => void;
+  onOpenItem: ComponentProps<typeof WorkItemCard>['onOpenItem'];
+  onChanged: (() => void) | undefined;
+  frames: ReturnType<typeof createFrameStore>;
+}) {
+  const { readOnly, parentReadOnly, canDelete, canPurge } = useWorkItemAccess();
+  return (
+    <WorkItemCard
+      organizationId={organizationId}
+      projectId={projectId}
+      item={item}
+      mode="dialog"
+      readOnly={readOnly}
+      parentReadOnly={parentReadOnly}
+      canDelete={canDelete}
+      canPurge={canPurge}
+      notify={notify}
+      onGone={onGone}
+      onClose={onClose}
+      onOpenItem={onOpenItem}
+      onSaved={onChanged}
+      onRefreshed={onChanged}
+      // A Delete, a Restore and a Purge change what the page behind shows (design § 7); a
+      // Purge also leaves nothing to look at, so the card closes (design § 6).
+      onChanged={onChanged}
+      onPurged={onClose}
+      renderFrame={(content) => <PublishFrame store={frames} frame={content} />}
+    />
   );
 }
 

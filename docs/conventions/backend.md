@@ -143,8 +143,8 @@ src/backend/
   authorization — explicit on every endpoint (policy), "forgot it means
   closed." Two kinds of right (ADR-0027): an **instance** code comes from the
   token (`.RequiresPermission(code)`); an **organization** code is derived from
-  the caller's membership in the organization of the address
-  (`.RequiresOrganizationPermission(code)`), and a route with
+  the caller's membership in the organization of the address, plus the grants that reach the object (mod-019, ADR-0038)
+  (`.RequiresOrganizationPermission(code)`; a route that names one object of a narrower code's resource scope declares it, `.RequiresOrganizationPermission(code, ResourceScope.Project)`, and a route whose object is in the body uses `.RequiresOrganizationPermissionDecidedInHandler(code, reason)` and decides through `IOrganizationAccess.HoldsOnAsync`), and a route with
   `{organizationId}` that declares none fails `scripts/verify.sh` (the inventory
   test, `OrganizationAccessInventoryTests`). The scoped check runs before the
   body is read and answers 401, then 404 «Организация не найдена» for a

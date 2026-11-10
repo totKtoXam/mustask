@@ -83,6 +83,7 @@ export const areaPage = {
     columns: { project: 'Проект', key: 'Ключ' },
     empty: 'В департаменте нет проектов',
     add: 'Добавить проект',
+    create: 'Создать проект',
     liftToTop: 'Вынести на верхний уровень',
     deactivatedCount: (count: number) => `${count} деактивирован`,
   },

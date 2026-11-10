@@ -1,6 +1,8 @@
+import type { GrantScope } from '../api/grantsApi';
 import { useDebouncedValue } from './useDebouncedValue';
 import {
   useAppointeeCandidates,
+  useGrantCandidates,
   useMemberCandidates,
   useNewTeamMemberCandidates,
   useTeamMemberCandidates,
@@ -17,6 +19,7 @@ export type UserSearchScope =
   | { kind: 'organization'; organizationId: string }
   | { kind: 'team'; organizationId: string; teamId: string }
   | { kind: 'newTeam'; organizationId: string }
+  | { kind: 'grant'; organizationId: string; grantScope: GrantScope; objectId: string }
   | { kind: 'appointee' };
 
 /**
@@ -51,15 +54,24 @@ export function useUserSearch(
     settled,
     asked && scope.kind === 'newTeam',
   );
+  const inGrant = useGrantCandidates(
+    organizationId,
+    scope.kind === 'grant' ? scope.grantScope : 'project',
+    scope.kind === 'grant' ? scope.objectId : '',
+    settled,
+    asked && scope.kind === 'grant',
+  );
   const inInstance = useAppointeeCandidates(settled, asked && scope.kind === 'appointee');
   const query =
-    scope.kind === 'team'
-      ? inTeam
-      : scope.kind === 'newTeam'
-        ? inNewTeam
-        : scope.kind === 'appointee'
-          ? inInstance
-          : inOrganization;
+    scope.kind === 'grant'
+      ? inGrant
+      : scope.kind === 'team'
+        ? inTeam
+        : scope.kind === 'newTeam'
+          ? inNewTeam
+          : scope.kind === 'appointee'
+            ? inInstance
+            : inOrganization;
 
   let search: UserSearch;
   if (!isSearchable(text)) {

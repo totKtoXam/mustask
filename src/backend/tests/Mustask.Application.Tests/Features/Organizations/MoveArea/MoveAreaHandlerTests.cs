@@ -207,19 +207,19 @@ public sealed class MoveAreaHandlerTests
         Assert.Equal(0, f.Store.SaveCount);
     }
 
-    // US-6 · "Moving to or from the top level needs area.create": a member moves nested nodes, not top-level ones.
+    // US-6 · "Moving to or from the top level needs area.create": a plain member (no grant) moves nothing; a manager holds area.write on the parents by grant.
     [Fact]
-    public async Task Handle_MemberAndTheTopLevel_IsForbidden_ButNestedMovesWork()
+    public async Task Handle_MemberWithoutAGrant_IsForbiddenEverywhere()
     {
         var f = new Fixture(OrganizationRole.Member);
 
         var toTop = await Assert.ThrowsAsync<ForbiddenException>(() => f.HandleAsync(f.Node, null));
         var fromTop = await Assert.ThrowsAsync<ForbiddenException>(() => f.HandleAsync(f.Development, f.Product));
-        var nested = await f.HandleAsync(f.Reports, f.Archive);
+        var nested = await Assert.ThrowsAsync<ForbiddenException>(() => f.HandleAsync(f.Reports, f.Archive));
 
         Assert.Equal(OrganizationErrorCodes.AccessForbidden, toTop.Code);
         Assert.Equal(OrganizationErrorCodes.AccessForbidden, fromTop.Code);
-        Assert.Equal(f.Archive.Id, nested.Response.ParentId);
+        Assert.Equal(OrganizationErrorCodes.AccessForbidden, nested.Code); // mod-019 BR-SA-7: area.write on the current parent and on the destination, held by grant
     }
 
     // ADR-0031: the tree lock, then the two area rows in id order (the moved one FOR UPDATE, the destination FOR SHARE).

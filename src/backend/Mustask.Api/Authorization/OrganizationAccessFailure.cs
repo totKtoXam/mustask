@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Authorization;
+using Mustask.Domain.Identity;
 
 namespace Mustask.Api.Authorization;
 
@@ -22,12 +23,14 @@ public enum OrganizationAccessFailureKind
 /// </summary>
 public sealed class OrganizationAccessFailure : AuthorizationFailureReason
 {
-    public OrganizationAccessFailure(IAuthorizationHandler handler, OrganizationAccessFailureKind kind, string organizationId, string code)
+    public OrganizationAccessFailure(
+        IAuthorizationHandler handler, OrganizationAccessFailureKind kind, string organizationId, string code, ResourceScope scope = ResourceScope.Organization)
         : base(handler, kind.ToString())
     {
         Kind = kind;
         OrganizationId = organizationId;
         Code = code;
+        Scope = scope;
     }
 
     public OrganizationAccessFailureKind Kind { get; }
@@ -37,4 +40,7 @@ public sealed class OrganizationAccessFailure : AuthorizationFailureReason
 
     /// <summary>The code the route required.</summary>
     public string Code { get; }
+
+    /// <summary>The kind of object the route addresses, for the log.</summary>
+    public ResourceScope Scope { get; }
 }

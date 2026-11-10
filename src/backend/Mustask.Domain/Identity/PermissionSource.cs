@@ -7,7 +7,7 @@ namespace Mustask.Domain.Identity;
 /// is derived on every request from the caller's membership in the
 /// organization of the address.
 /// </summary>
-public enum PermissionScope
+public enum PermissionSource
 {
     /// <summary>Granted by the token: the realm's client roles of <c>mustask-api</c>.</summary>
     Instance,

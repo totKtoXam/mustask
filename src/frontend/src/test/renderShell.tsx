@@ -14,7 +14,13 @@ import type { WorkContextSource } from '../shared/lib/workContext';
 import { PageHeader } from '../shared/ui/PageHeader';
 import { AccessDenied, NotFound } from '../shared/ui/StateFrame';
 import { server } from './mocks/server';
-import { servedFor, type ServedAccess, type TestRole } from './organizationRoles';
+import {
+  objectCodesOf,
+  servedFor,
+  servedObjectCodes,
+  type ServedAccess,
+  type TestRole,
+} from './organizationRoles';
 
 export const LANGUAGES_READ = 'dictionaries.languages.read';
 export const LANGUAGES_WRITE = 'dictionaries.languages.write';
@@ -139,6 +145,11 @@ export function primeAccess(
   access: TestRole | ServedAccess,
 ) {
   const served = typeof access === 'string' ? servedFor(access) : access;
+  // The objects the doubles serve carry the caller's codes on them (mod-019 api-contract § 5): the role's
+  // bundle, or exactly the bundle a test pins; the organization answer above carries the organization's only.
+  if (!servedObjectCodes.pinned) {
+    servedObjectCodes.current = objectCodesOf(access);
+  }
   queryClient.setQueryData(organizationsKeys.access(organizationId), {
     kind: 'member',
     role: served.role,
@@ -202,4 +213,59 @@ export function renderShell({
       result.rerender(tree(currentAuth, currentSource));
     },
   };
+}
+
+/**
+ * The served role of the caller changes (mod-019): the objects the doubles serve carry the new codes from
+ * now on, and the access read answers the new bundle. A test that waits for the watcher's re-read uses
+ * this; one that has nothing to wait for uses `changeServedRole`.
+ */
+export function serveRole(access: TestRole | ServedAccess, organizationId = ':organizationId') {
+  servedObjectCodes.current = objectCodesOf(access);
+  const served = typeof access === 'string' ? servedFor(access) : access;
+  server.use(
+    http.get(`http://localhost:5000/api/organizations/${organizationId}/access`, () =>
+      HttpResponse.json(served),
+    ),
+  );
+}
+
+/** `serveRole`, and the cache takes the change at once: the organization's bundle and the project rows are read again. */
+export function changeServedRole(
+  queryClient: QueryClient,
+  organizationId: string,
+  access: TestRole | ServedAccess,
+) {
+  serveRole(access, organizationId);
+  const served = typeof access === 'string' ? servedFor(access) : access;
+  queryClient.setQueryData(organizationsKeys.access(organizationId), {
+    kind: 'member',
+    role: served.role,
+    permissions: served.permissions,
+  });
+  void queryClient.invalidateQueries({ queryKey: organizationsKeys.projectLists(organizationId) });
+}
+
+/**
+ * The reads of the objects a shell test chooses (a project, a team, a department): each answers the caller's
+ * served object codes (`servedObjectCodes`), which the shell's «Параметры» entries are decided by (mod-019
+ * BR-SA-18). For a test that renders the shell alone; a page's own double serves its objects itself.
+ */
+export function serveObjectReads(organizationId: string) {
+  const base = `http://localhost:5000/api/organizations/${organizationId}`;
+  const body = (id: unknown, extra: Record<string, unknown> = {}) =>
+    HttpResponse.json({
+      id,
+      name: 'Объект',
+      description: null,
+      codes: [...servedObjectCodes.current],
+      ...extra,
+    });
+  server.use(
+    http.get(`${base}/projects/:projectId`, ({ params }) =>
+      body(params.projectId, { key: 'OBJ', teams: [], areaId: null }),
+    ),
+    http.get(`${base}/teams/:teamId`, ({ params }) => body(params.teamId)),
+    http.get(`${base}/areas/:areaId`, ({ params }) => body(params.areaId, { parentId: null })),
+  );
 }

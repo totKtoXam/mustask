@@ -444,6 +444,7 @@ export function WorkItemCard({
         <Box sx={(theme) => ({ flex: `0 1 ${theme.spacing(32.5)}`, minWidth: theme.spacing(20) })}>
           <AssigneeField
             organizationId={organizationId}
+            projectId={projectId}
             value={draft.assignee}
             error={errors.assignee}
             onChange={on.assignee}

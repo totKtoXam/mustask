@@ -61,6 +61,10 @@ guarantees it exists and differs from the Russian, not its quality
 |organizations.area.root_is_fixed|409|Корневая область меняется только вместе с проектом|Түбірлік аймақ тек жобамен бірге өзгереді|organizations|—|needs review|
 |organizations.area.type_not_allowed|409|Область этого типа нельзя разместить в выбранном месте. Департамент стоит на верхнем уровне, проект — на верхнем уровне или в департаменте, вложенная область — внутри своего проекта.|Мұндай түрдегі аймақты таңдалған жерге орналастыруға болмайды. Департамент жоғарғы деңгейде, жоба — жоғарғы деңгейде немесе департаментте, ішкі аймақ — өз жобасының ішінде тұрады.|organizations|—|needs review|
 |organizations.description_length|400|Описание должно содержать не более 2000 символов|Сипаттама 2000 таңбадан аспауы керек|organizations|—|needs review|
+|organizations.grant.changed|409|Доступ уже изменён или отозван. Список обновлён.|Қолжетімділік бұрын өзгертілген немесе қайтарып алынған. Тізім жаңартылды.|organizations|—|needs review|
+|organizations.grant.role_invalid|400|Выберите роль: читатель, участник или менеджер|Рөлді таңдаңыз: оқырман, қатысушы немесе менеджер|organizations|—|needs review|
+|organizations.grant.scope_not_allowed|409|Эту роль нельзя выдать на этом объекте.|Бұл рөлді осы нысанда беруге болмайды.|organizations|—|needs review|
+|organizations.grant.self_grant|400|Нельзя выдать доступ самому себе.|Өзіңізге қолжетімділік беруге болмайды.|organizations|—|needs review|
 |organizations.membership.already_member|409|Пользователь уже состоит в организации|Пайдаланушы ұйымның құрамында бұрыннан бар|organizations|—|needs review|
 |organizations.membership.last_admin|409|В организации должен остаться хотя бы один администратор|Ұйымда кемінде бір әкімші қалуы керек|organizations|—|needs review|
 |organizations.membership.not_found|404|Участник не найден.|Мүше табылмады.|organizations|—|needs review|

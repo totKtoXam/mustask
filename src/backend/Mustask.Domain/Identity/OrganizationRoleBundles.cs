@@ -29,6 +29,7 @@ public static class OrganizationRoleBundles
         PermissionCatalog.WorkItemsLinkWrite,
         PermissionCatalog.WorkItemsWorkItemDelete,
         PermissionCatalog.BoardsBacklogReorder,
+        PermissionCatalog.BoardsProjectBacklogReorder,
     };
 
     private static readonly IReadOnlySet<string> Viewer = ReadCodes;

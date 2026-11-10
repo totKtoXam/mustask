@@ -19,6 +19,23 @@ public sealed class AreaTests
 
     private static string CodeOf(Action action) => Assert.Throws<ConflictException>(action).Code;
 
+    // US-2 · BR-SA-6: a project node and a sub-area carry the switch and report whether it changed; a department refuses it.
+    [Fact]
+    public void SetInheritsAccess_ChangesAProjectNodeAndASubArea_AndRefusesADepartment()
+    {
+        var department = Department();
+        var node = ProjectNode(department.Id);
+        var sub = SubArea(node);
+
+        Assert.True(node.SetInheritsAccess(false));
+        Assert.False(node.SetInheritsAccess(false));
+        Assert.True(sub.SetInheritsAccess(false));
+        Assert.True(sub.SetInheritsAccess(true));
+        Assert.False(node.InheritsAccess);
+        Assert.Equal(OrganizationErrorCodes.AreaTypeNotAllowed, CodeOf(() => department.SetInheritsAccess(false)));
+        Assert.True(department.InheritsAccess);
+    }
+
     // US-1 · a department stands at the top with no project; a project node carries its project; a sub-area takes its parent's project.
     [Fact]
     public void Factories_TypeTheNodeAndTakeTheProjectFromTheParent()

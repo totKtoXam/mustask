@@ -4,7 +4,7 @@ import userEvent from '@testing-library/user-event';
 import { HttpResponse, http } from 'msw';
 import { gate } from '../../../test/gate';
 import { server } from '../../../test/mocks/server';
-import { servedFor } from '../../../test/organizationRoles';
+import { codesOf, servedFor, servedObjectCodes } from '../../../test/organizationRoles';
 import { serveWorkItems, type WorkItemsTestApi } from '../testApi';
 import {
   API,
@@ -158,6 +158,8 @@ describe('mod-016 US-5 Scenario: a member whose role has just turned to reader',
       ),
       http.get(ACCESS_URL, async () => {
         await held.opened;
+        // The objects answer the new role too, once the rows are read again.
+        servedObjectCodes.current = codesOf('viewer');
         return HttpResponse.json(servedFor('viewer'));
       }),
     );

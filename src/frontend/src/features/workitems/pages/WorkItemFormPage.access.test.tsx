@@ -6,7 +6,7 @@ import { Route } from 'react-router-dom';
 import { gate } from '../../../test/gate';
 import { server } from '../../../test/mocks/server';
 import { authValue, renderShell } from '../../../test/renderShell';
-import { OrganizationGate, OrganizationPage } from '../../organizations';
+import { OrganizationGate, OrganizationPage, organizationsPermissions } from '../../organizations';
 import { serveProblem, serveWorkItems } from '../testApi';
 import { retype, save, textbox } from '../testFields';
 import {
@@ -18,7 +18,6 @@ import {
   recordOf,
 } from '../testFixtures';
 import { WORK_ITEM_ROUTE } from '../paths';
-import { workItemsPermissions } from '../permissions';
 import { mskForm, projectContext } from '../testRender';
 import { WorkItemFormPage } from './WorkItemFormPage';
 
@@ -53,7 +52,7 @@ function renderGated(path: string) {
           path={WORK_ITEM_ROUTE}
           element={
             <OrganizationPage
-              code={workItemsPermissions.workItemRead}
+              code={organizationsPermissions.organizationRead}
               title="Рабочий элемент"
               skeleton="form"
             >

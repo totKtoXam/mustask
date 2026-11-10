@@ -1,4 +1,5 @@
 using Mustask.Application.Abstractions.Organizations;
+using Mustask.Domain.Identity;
 using Mustask.Domain.Organizations;
 using Mustask.Shared.Exceptions;
 
@@ -34,7 +35,7 @@ public sealed record GetAreaResult(AreaPageResponse Response);
 /// parent and its direct children by name. A malformed, unknown or foreign id is one 404 (BR-AW-1). The organization's rows come in
 /// one statement, the same as the tree's; the page is cut from them.
 /// </summary>
-public sealed class GetAreaHandler(IAreaTreeReadModel readModel)
+public sealed class GetAreaHandler(IAreaTreeReadModel readModel, IOrganizationAccess access)
 {
     public async Task<GetAreaResult> Handle(GetAreaQuery query, CancellationToken cancellationToken)
     {
@@ -60,6 +61,12 @@ public sealed class GetAreaHandler(IAreaTreeReadModel readModel)
                 child.Type == AreaType.Project ? byId[child.Id].ProjectKey : null,
                 child.Type == AreaType.Project ? byId[child.Id].ProjectActive : null))
             .ToList();
+
+        // The caller's codes on this node, the node's switch (a department's is stored and never shown) and the department above a project node (mod-019 BR-SA-6, BR-SA-11).
+        var set = await access.SetAsync(cancellationToken);
+        var department = row.Type == AreaType.Project && row.ParentId is { } above
+            ? new DepartmentRefView(above, byId[above].Name)
+            : null;
 
         return new GetAreaResult(new AreaPageResponse(
                 row.Id,

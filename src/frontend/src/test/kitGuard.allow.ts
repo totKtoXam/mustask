@@ -576,20 +576,6 @@ export const ALLOWED: readonly AllowedEntry[] = [
   },
   {
     file: 'features/organizations/components/TeamMembersSection.tsx',
-    rule: 'KIT-7',
-    count: 2,
-    until: 'tech-017',
-    reason: 'a MUI paper or card; registries and trees move to the kit in tech-017',
-  },
-  {
-    file: 'features/organizations/components/TeamMembersSection.tsx',
-    rule: 'KIT-8',
-    count: 17,
-    until: 'tech-017',
-    reason: 'a MUI table part; registries and trees move to the kit in tech-017',
-  },
-  {
-    file: 'features/organizations/components/TeamMembersSection.tsx',
     rule: 'KIT-21',
     count: 1,
     until: 'tech-017',

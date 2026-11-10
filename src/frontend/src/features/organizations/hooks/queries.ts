@@ -17,6 +17,7 @@ import {
   getTeamLinks,
   getTeams,
   getUnlinkCount,
+  type LinkableFor,
   type ListView,
 } from '../api/organizationsApi';
 import {
@@ -33,6 +34,13 @@ import {
   searchAppointeeCandidates,
 } from '../api/rescueApi';
 import { organizationsKeys } from '../api/queryKeys';
+import {
+  getGrants,
+  getSwitchImpact,
+  getWritableAreaIds,
+  searchGrantCandidates,
+  type GrantScope,
+} from '../api/grantsApi';
 
 // One query hook per read (api-contract § 1–§ 4), on the keys the selectors
 // shares (plan-frontend § 3.3).
@@ -60,11 +68,11 @@ export function useOrganization(organizationId: string, options: { enabled?: boo
 export function useProjects(
   organizationId: string,
   view: ListView,
-  options: { enabled?: boolean; fresh?: boolean } = {},
+  options: { enabled?: boolean; fresh?: boolean; linkableFor?: LinkableFor } = {},
 ) {
   return useQuery({
-    queryKey: organizationsKeys.projects(organizationId, view),
-    queryFn: () => getProjects(organizationId, view),
+    queryKey: [...organizationsKeys.projects(organizationId, view), options.linkableFor ?? 'all'],
+    queryFn: () => getProjects(organizationId, view, options.linkableFor),
     enabled: options.enabled ?? true,
     refetchOnMount: options.fresh ? 'always' : true,
   });
@@ -119,20 +127,25 @@ export function useTeamLinks(
  */
 export function useOrganizationTeams(
   organizationId: string,
-  options: { enabled?: boolean; fresh?: boolean } = {},
+  options: { enabled?: boolean; fresh?: boolean; linkableFor?: LinkableFor } = {},
 ) {
   return useQuery({
-    queryKey: organizationsKeys.orgTeams(organizationId),
-    queryFn: () => getOrganizationTeams(organizationId),
+    queryKey: [...organizationsKeys.orgTeams(organizationId), options.linkableFor ?? 'all'],
+    queryFn: () => getOrganizationTeams(organizationId, options.linkableFor),
     enabled: options.enabled ?? true,
     refetchOnMount: options.fresh ? 'always' : true,
   });
 }
 
-export function useTeam(organizationId: string, teamId: string) {
+export function useTeam(
+  organizationId: string,
+  teamId: string,
+  options: { enabled?: boolean } = {},
+) {
   return useQuery({
     queryKey: organizationsKeys.team(organizationId, teamId),
     queryFn: () => getTeam(organizationId, teamId),
+    enabled: options.enabled ?? true,
   });
 }
 
@@ -184,11 +197,11 @@ export function useUnlinkCount(organizationId: string, projectId: string, teamId
  */
 export function useAreaTree(
   organizationId: string,
-  options: { enabled?: boolean; fresh?: boolean } = {},
+  options: { enabled?: boolean; fresh?: boolean; linkableFor?: LinkableFor } = {},
 ) {
   return useQuery({
-    queryKey: organizationsKeys.areas(organizationId),
-    queryFn: () => getAreaTree(organizationId),
+    queryKey: [...organizationsKeys.areas(organizationId), options.linkableFor ?? 'all'],
+    queryFn: () => getAreaTree(organizationId, options.linkableFor),
     enabled: options.enabled ?? true,
     refetchOnMount: options.fresh ? 'always' : true,
   });
@@ -354,5 +367,47 @@ export function useAppointments(organizationId: string, host: AppointmentsHost) 
         : getOrganizationAppointments(organizationId),
     gcTime: 0,
     retry: false,
+  });
+}
+
+// mod-019: the grants, the switch's impact and the tree's writable ids (api-contract §§ 2, 3, 5).
+
+export function useGrants(organizationId: string, scope: GrantScope, objectId: string) {
+  return useQuery({
+    queryKey: organizationsKeys.grants(organizationId, scope, objectId),
+    queryFn: () => getGrants(organizationId, scope, objectId),
+  });
+}
+
+export function useGrantCandidates(
+  organizationId: string,
+  scope: GrantScope,
+  objectId: string,
+  text: string,
+  enabled: boolean,
+) {
+  return useQuery({
+    queryKey: organizationsKeys.grantCandidates(organizationId, scope, objectId, text),
+    queryFn: () => searchGrantCandidates(organizationId, scope, objectId, text),
+    enabled,
+  });
+}
+
+/** Read each time the dialog opens and never re-judged at confirm (§ 3): no cache between openings. */
+export function useSwitchImpact(organizationId: string, areaId: string) {
+  return useQuery({
+    queryKey: organizationsKeys.switchImpact(organizationId, areaId),
+    queryFn: () => getSwitchImpact(organizationId, areaId),
+    gcTime: 0,
+    staleTime: 0,
+    refetchOnWindowFocus: false,
+  });
+}
+
+export function useWritableAreaIds(organizationId: string, options: { enabled?: boolean } = {}) {
+  return useQuery({
+    queryKey: organizationsKeys.writableAreaIds(organizationId),
+    queryFn: () => getWritableAreaIds(organizationId),
+    enabled: options.enabled ?? true,
   });
 }

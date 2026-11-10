@@ -37,7 +37,7 @@ public sealed class PermissionCatalogTests
     {
         Assert.True(PermissionCode.IsWellFormed(PermissionCatalog.OrganizationsOrganizationCreate));
         Assert.Contains(PermissionCatalog.OrganizationsOrganizationCreate, PermissionCatalog.AllCodes);
-        Assert.Equal(PermissionScope.Instance, PermissionCatalog.ScopeOf(PermissionCatalog.OrganizationsOrganizationCreate));
+        Assert.Equal(PermissionSource.Instance, PermissionCatalog.SourceOf(PermissionCatalog.OrganizationsOrganizationCreate));
         Assert.Equal("Создание организаций", PermissionCatalog.Descriptions[PermissionCatalog.OrganizationsOrganizationCreate]);
     }
 
@@ -53,9 +53,9 @@ public sealed class PermissionCatalogTests
         Assert.All(PermissionCatalog.All, definition =>
         {
             Assert.False(string.IsNullOrWhiteSpace(definition.Description));
-            Assert.True(Enum.IsDefined(definition.Scope));
+            Assert.True(Enum.IsDefined(definition.Source));
             Assert.Equal(definition.Description, PermissionCatalog.Descriptions[definition.Code]);
-            Assert.Equal(definition.Scope, PermissionCatalog.ScopeOf(definition.Code));
+            Assert.Equal(definition.Source, PermissionCatalog.SourceOf(definition.Code));
         });
     }
 
@@ -75,9 +75,9 @@ public sealed class PermissionCatalogTests
     }
 
     [Fact]
-    public void OrganizationCodes_AreTheTwentyFiveOfTheMatrix_AndNoCodeIsInBothScopes()
+    public void OrganizationCodes_AreTheTwentyNineOfTheMatrix_AndNoCodeIsInBothScopes()
     {
-        Assert.Equal(25, PermissionCatalog.OrganizationCodes.Count);
+        Assert.Equal(29, PermissionCatalog.OrganizationCodes.Count);
         Assert.Empty(PermissionCatalog.OrganizationCodes.Intersect(PermissionCatalog.InstanceCodes));
         Assert.Equal(
             PermissionCatalog.AllCodes.Order(StringComparer.Ordinal),
@@ -91,6 +91,7 @@ public sealed class PermissionCatalogTests
     [InlineData("workitems.workitem.read", nameof(PermissionCatalog.WorkItemsWorkItemRead))]
     [InlineData("workitems.workitem.write", nameof(PermissionCatalog.WorkItemsWorkItemWrite))]
     [InlineData("boards.backlog.reorder", nameof(PermissionCatalog.BoardsBacklogReorder))]
+    [InlineData("boards.projectbacklog.reorder", nameof(PermissionCatalog.BoardsProjectBacklogReorder))]
     [InlineData("workitems.link.write", nameof(PermissionCatalog.WorkItemsLinkWrite))]
     [InlineData("workitems.workitem.delete", nameof(PermissionCatalog.WorkItemsWorkItemDelete))]
     [InlineData("workitems.workitem.purge", nameof(PermissionCatalog.WorkItemsWorkItemPurge))]
@@ -99,14 +100,14 @@ public sealed class PermissionCatalogTests
         var constant = (string)typeof(PermissionCatalog).GetField(constantName)!.GetRawConstantValue()!;
 
         Assert.Equal(code, constant);
-        Assert.Equal(PermissionScope.Organization, PermissionCatalog.ScopeOf(code));
+        Assert.Equal(PermissionSource.Organization, PermissionCatalog.SourceOf(code));
         Assert.Contains(code, PermissionCatalog.OrganizationCodes);
     }
 
     [Fact]
-    public void ScopeOf_AnUnknownCode_Throws()
+    public void SourceOf_AnUnknownCode_Throws()
     {
-        Assert.Throws<ArgumentException>(() => PermissionCatalog.ScopeOf("orders.requests.approve"));
-        Assert.Throws<ArgumentException>(() => PermissionCatalog.ScopeOf(string.Empty));
+        Assert.Throws<ArgumentException>(() => PermissionCatalog.SourceOf("orders.requests.approve"));
+        Assert.Throws<ArgumentException>(() => PermissionCatalog.SourceOf(string.Empty));
     }
 }

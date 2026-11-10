@@ -32,12 +32,6 @@ public sealed class LinkAreasToTeamHandler(
 {
     public async Task Handle(LinkAreasToTeamCommand command, CancellationToken cancellationToken)
     {
-        // 0. The second code, first of all (D-7).
-        if (!access.Holds(PermissionCatalog.OrganizationsAreaLink))
-        {
-            throw new ForbiddenException(OrganizationErrorCodes.AccessForbidden);
-        }
-
         _ = await unitOfWork.ExecuteInTransactionAsync(
             async ct =>
             {
@@ -57,6 +51,12 @@ public sealed class LinkAreasToTeamHandler(
 
                 if (areaIds.Count == 0)
                 {
+                    // The second code, after the ids are known to name objects of the organization (BR-SA-9, US-7: not-found first).
+                    if (!await ScopedCodes.HoldsOnAllAsync(access, PermissionCatalog.OrganizationsAreaLink, command.AreaIds, ct))
+                    {
+                        throw new ForbiddenException(OrganizationErrorCodes.AccessForbidden);
+                    }
+
                     return false;
                 }
 
@@ -65,6 +65,12 @@ public sealed class LinkAreasToTeamHandler(
                 if (locked.Count != areaIds.Count)
                 {
                     throw new NotFoundException(OrganizationErrorCodes.AreaNotFound);
+                }
+
+                // The second code, after the ids are known to name objects of the organization (BR-SA-9, US-7: not-found first).
+                if (!await ScopedCodes.HoldsOnAllAsync(access, PermissionCatalog.OrganizationsAreaLink, command.AreaIds, ct))
+                {
+                    throw new ForbiddenException(OrganizationErrorCodes.AccessForbidden);
                 }
 
                 // Teams link to a department only (OQ-8 A, OQ-11 A): one node of another type refuses the whole request.

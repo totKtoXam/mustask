@@ -3,7 +3,12 @@ import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { checkFor, type TestRole } from '../../../test/organizationRoles';
+import {
+  checkFor,
+  codesOf,
+  servedObjectCodes,
+  type TestRole,
+} from '../../../test/organizationRoles';
 import { AccessCheckContext } from '../../../shared/lib/access';
 import { NoticeProvider } from '../../../shared/ui';
 import { useWorkItemDialog } from '../hooks/useWorkItemDialog';
@@ -54,6 +59,7 @@ function Backlog({ onChanged }: { onChanged?: () => void }) {
 async function openAs(role: TestRole, prepare?: (api: WorkItemsTestApi) => void) {
   const api = serveWorkItems(hierarchyDataset());
   prepare?.(api);
+  servedObjectCodes.current = codesOf(role);
   const onChanged = vi.fn();
   const client = new QueryClient({
     defaultOptions: { queries: { retry: false }, mutations: { retry: false } },

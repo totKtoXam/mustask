@@ -1,20 +1,19 @@
-import { useState, type MouseEvent, type ReactNode } from 'react';
+import { useMemo, useState, type MouseEvent, type ReactNode } from 'react';
 import AddIcon from '@mui/icons-material/Add';
 import {
   CreateWorkItemDialog,
   NEW_WORK_ITEM_LABEL,
   TypePickerMenu,
   useCreateWorkItemIn,
-  workItemsPermissions,
   type CreatableType,
   type CreatePlace,
   type WorkItem,
 } from '../../workitems';
-import { useAccessCheck } from '../../../shared/lib/access';
 import type { Command } from '../../../shared/ui/PageHeader';
-import { RequiresOrganizationCode } from '../../../shared/ui/RequiresOrganizationCode';
+import { RequiresCode } from '../../../shared/ui/RequiresOrganizationCode';
 import type { BoardLevel, BoardProject } from '../api/boardsApi';
 import type { BoardScope } from '../lib/scope';
+import { useBoardAccess } from './useBoardAccess';
 
 /**
  * What a surface's read gives the creation: its level, whose types it offers, and — on a team's
@@ -81,8 +80,15 @@ export function useNewWorkItem({
   onContextGone(): void;
 }): NewWorkItem {
   const create = useCreateWorkItemIn(organizationId);
-  const access = useAccessCheck();
-  const canWrite = access(workItemsPermissions.workItemWrite, 'organization');
+  // The create code is a project's (BR-SA-18): the project's own on its views, one of the team's projects
+  // on a team's.
+  const shownProjects = useMemo(
+    () => (surface?.projects ?? []).map((project) => project.id),
+    [surface],
+  );
+  const { canWrite } = useBoardAccess(organizationId, scope, shownProjects, {
+    reorder: false,
+  });
   // A team's views offer a creation only when the team works on a project to create in.
   const canCreate = canWrite && (scope.kind === 'project' || (surface?.projects?.length ?? 0) > 0);
   const [anchor, setAnchor] = useState<HTMLElement | null>(null);
@@ -142,7 +148,7 @@ export function useNewWorkItem({
         onClose={() => setAnchor(null)}
       />
       {creatingTypeId !== null && surface && (
-        <RequiresOrganizationCode code={workItemsPermissions.workItemWrite}>
+        <RequiresCode holds={canWrite}>
           <CreateWorkItemDialog
             organizationId={organizationId}
             place={place}
@@ -160,7 +166,7 @@ export function useNewWorkItem({
               }
             }}
           />
-        </RequiresOrganizationCode>
+        </RequiresCode>
       )}
     </>
   );

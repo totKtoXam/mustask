@@ -5,7 +5,8 @@ import Link from '@mui/material/Link';
 import DriveFileMoveOutlinedIcon from '@mui/icons-material/DriveFileMoveOutlined';
 import FolderOpenOutlinedIcon from '@mui/icons-material/FolderOpenOutlined';
 import LinkOffOutlinedIcon from '@mui/icons-material/LinkOffOutlined';
-import { useAccessCheck } from '../../../shared/lib/access';
+import { ObjectAccess } from '../../../shared/lib/objectAccessProvider';
+import { useObjectAccess } from '../../../shared/lib/objectAccess';
 import { useWorkContext } from '../../../shared/lib/workContext';
 import { apiErrorText } from '../../../shared/lib/apiErrorText';
 import {
@@ -23,8 +24,11 @@ import {
 import { ErrorBanner } from '../../../shared/ui/ErrorBanner';
 import { FormSkeleton } from '../../../shared/ui/FormSkeleton';
 import { PageHeader, type Command } from '../../../shared/ui/PageHeader';
-import { RequiresOrganizationCode } from '../../../shared/ui/RequiresOrganizationCode';
-import { NotFound } from '../../../shared/ui/StateFrame';
+import {
+  RequiresCode,
+  RequiresOrganizationCode,
+} from '../../../shared/ui/RequiresOrganizationCode';
+import { AccessDenied, NotFound } from '../../../shared/ui/StateFrame';
 import type { AreaPage as AreaPageData, LinkedTeam } from '../api/organizationsApi';
 import { AreaLinkDialog, AreaUnlinkDialog } from '../components/AreaLinkDialog';
 import {
@@ -35,10 +39,16 @@ import {
 import { AreaTypeMark, commandIcon } from '../components/AreaTypeMark';
 import { ConfirmAction } from '../components/ConfirmAction';
 import { FactsPanel, type Fact } from '../components/FactsPanel';
+import { InheritAccessControl } from '../components/InheritAccessControl';
 import { useNotify } from '../components/notice';
 import { PlaceProjectDialog } from '../components/PlaceProjectDialog';
 import { useLinkTeamsToArea, useMoveArea, useUnlinkTeamFromArea } from '../hooks/mutations';
-import { useArea, useAreaTeams, useAreaTree } from '../hooks/queries';
+import { useArea, useAreaTeams, useAreaTree, useWritableAreaIds } from '../hooks/queries';
+import { CreateProjectDialog } from '../components/CreateProjectDialog';
+import { useCreateProject } from '../hooks/mutations';
+import { projectGeneralPath } from '../paths';
+import { useObjectCodesNotice } from '../hooks/useObjectCodesNotice';
+import { codesChangedNotice } from '../lib/grantTexts';
 import { useObjectLink } from '../hooks/useObjectLink';
 import { commandKinds, commandLabel } from '../lib/areaCommands';
 import {
@@ -64,6 +74,7 @@ import { organizationsPermissions } from '../permissions';
 type PageDialog =
   | { kind: 'node'; dialog: NodeDialog }
   | { kind: 'place' }
+  | { kind: 'createProject' }
   | { kind: 'lift'; project: { id: string; name: string } }
   | { kind: 'linkTeams' }
   | { kind: 'unlinkTeam'; team: LinkedTeam }
@@ -203,14 +214,34 @@ export function AreaPage() {
   const linkTeams = useLinkTeamsToArea(organizationId, areaId);
   const unlinkTeam = useUnlinkTeamFromArea(organizationId, areaId);
   const moveArea = useMoveArea(organizationId);
+  const createProject = useCreateProject(organizationId);
+  // The writable nodes (mod-019 § 5): the department manager creates in a department they write.
+  const writable = useWritableAreaIds(organizationId, { enabled: isDepartment });
+  const writableIds = new Set(writable.data ?? []);
   const navigate = useNavigate();
   const notify = useNotify();
-  const access = useAccessCheck();
+  const access = useObjectAccess(query.data?.codes);
+  useObjectCodesNotice(
+    areaId,
+    query.data?.type === 'department' ? query.data.name : undefined,
+    query.data?.codes,
+    codesChangedNotice.department,
+  );
   const context = useWorkContext();
   const canWrite = access(organizationsPermissions.areaWrite, 'organization');
   const canCreate = access(organizationsPermissions.areaCreate, 'organization');
   const canLink = access(organizationsPermissions.areaLink, 'organization');
-  const canLinkTeams = canLink && access(organizationsPermissions.teamLink, 'organization');
+  // «Наследовать доступ» needs the node's write code and its parent's (api-contract § 3): the parent's codes are its own read.
+  const parentId = area && area.type !== 'department' ? (area.parent?.id ?? null) : null;
+  const parentQuery = useArea(organizationId, parentId ?? '', { enabled: parentId !== null });
+  const parentAccess = useObjectAccess(parentQuery.data?.codes);
+  const canSwitch =
+    canWrite &&
+    (parentId === null
+      ? canCreate
+      : parentAccess(organizationsPermissions.areaWrite, 'organization'));
+  // The department's end; the team's end is the picker's filter and each row's `canUnlink` (api-contract § 4).
+  const canLinkTeams = canLink;
   const [dialog, setDialog] = useState<PageDialog>(null);
   const section = useLocation().pathname.split('/').filter(Boolean).pop() ?? 'overview';
 
@@ -221,6 +252,10 @@ export function AreaPage() {
   // A deactivated project's node and sub-areas open nothing (BR-NV-13; OQ-3 A).
   if (area?.projectActive === false) {
     return <NotFound level="project" keepNavigation />;
+  }
+
+  if (section === 'settings' && query.isSuccess && !canWrite) {
+    return <AccessDenied />;
   }
 
   const loading = query.isPending || (query.isError && query.isFetching);
@@ -366,26 +401,27 @@ export function AreaPage() {
     },
   ];
   // The department-end unlink is `area.link` alone (api-contract § 5, DELETE /areas/{a}/teams/{t}).
-  if (canLink) {
+  if (canLink || teamRows.some((team) => team.canUnlink)) {
     teamColumns.push({
       key: 'actions',
       header: '',
       align: 'right',
       width: 48,
-      render: (team) => (
-        <MoreActionsMenu
-          label={areaPage.rowMenu(team.name)}
-          size="row"
-          items={[
-            {
-              label: areaPage.teams.unlink,
-              icon: <LinkOffOutlinedIcon />,
-              onSelect: () => setDialog({ kind: 'unlinkTeam', team }),
-              destructive: true,
-            },
-          ]}
-        />
-      ),
+      render: (team) =>
+        (team.canUnlink ?? canLink) ? (
+          <MoreActionsMenu
+            label={areaPage.rowMenu(team.name)}
+            size="row"
+            items={[
+              {
+                label: areaPage.teams.unlink,
+                icon: <LinkOffOutlinedIcon />,
+                onSelect: () => setDialog({ kind: 'unlinkTeam', team }),
+                destructive: true,
+              },
+            ]}
+          />
+        ) : null,
     });
   }
 
@@ -418,6 +454,13 @@ export function AreaPage() {
           <>
             {deactivatedCount > 0 && (
               <Tag label={areaPage.projects.deactivatedCount(deactivatedCount)} />
+            )}
+            {canWrite && (
+              <ActionButton
+                label={areaPage.projects.create}
+                icon={<ThinAddIcon />}
+                onClick={() => setDialog({ kind: 'createProject' })}
+              />
             )}
             {canWrite && (
               <ActionButton
@@ -457,7 +500,7 @@ export function AreaPage() {
   );
 
   return (
-    <>
+    <ObjectAccess codes={query.data?.codes}>
       <PageHeader
         title={area ? areaPage.title(area.type, area.name) : areaPage.titleLoading}
         commands={commands}
@@ -494,6 +537,18 @@ export function AreaPage() {
       {area && ((section === 'overview' && !isDepartment) || section === 'projects') && (
         <Box sx={{ mt: 4 }}>{childrenSection}</Box>
       )}
+      {area &&
+        section === 'overview' &&
+        area.type !== 'department' &&
+        area.inheritsAccess != null && (
+          <Box sx={{ mt: 4 }}>
+            <InheritAccessControl
+              organizationId={organizationId}
+              area={area}
+              canSwitch={canSwitch}
+            />
+          </Box>
+        )}
       {area && section === 'overview' && area.type === 'project' && (
         <Box sx={{ mt: 2 }}>
           <InlineNotice severity="info">{areaPage.projectTeamsHint}</InlineNotice>
@@ -538,12 +593,32 @@ export function AreaPage() {
         onDone={done}
         onClose={closeDialog}
       />
+      {area && dialog?.kind === 'createProject' && (
+        <RequiresCode holds={canWrite}>
+          <CreateProjectDialog
+            organizationId={organizationId}
+            canLink={false}
+            canPlaceInDepartment
+            writableIds={new Set([area.id])}
+            presetPlaceId={area.id}
+            onForbidden={() => void query.refetch()}
+            submit={(body) => createProject.mutateAsync(body)}
+            onSucceeded={(project) => {
+              setDialog(null);
+              notify(`Проект «${project.name}» создан.`);
+              navigate(projectGeneralPath(organizationId, project.id));
+            }}
+            onClose={closeDialog}
+          />
+        </RequiresCode>
+      )}
       {area && dialog?.kind === 'place' && (
         <RequiresOrganizationCode code={organizationsPermissions.areaWrite}>
           <PlaceProjectDialog
             organizationId={organizationId}
             department={{ id: area.id, name: area.name }}
             canFromTop={canCreate}
+            writableIds={writable.isSuccess ? writableIds : undefined}
             submit={(nodeId) => moveArea.mutateAsync({ areaId: nodeId, parentId: area.id })}
             onSucceeded={(project) => {
               setDialog(null);
@@ -618,6 +693,6 @@ export function AreaPage() {
           />
         </RequiresOrganizationCode>
       )}
-    </>
+    </ObjectAccess>
   );
 }

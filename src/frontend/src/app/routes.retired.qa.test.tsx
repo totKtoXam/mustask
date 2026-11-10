@@ -29,10 +29,6 @@ function concrete(pattern: string): string {
 
 const RETIRED = RETIRED_ADDRESSES.map((retired) => [retired.was, concrete(retired.pattern)]);
 const NOT_YET = [
-  [
-    'a department’s «Участники» (mod-019)',
-    `/organizations/${ORG}/areas/${ids.platformArea}/members`,
-  ],
   ['a team’s «Спринты» (mod-007)', `/organizations/${ORG}/teams/${ids.platformTeam}/sprints`],
   ['a project’s «Спринты» (mod-007)', `/organizations/${ORG}/projects/${ids.prm}/sprints`],
 ];

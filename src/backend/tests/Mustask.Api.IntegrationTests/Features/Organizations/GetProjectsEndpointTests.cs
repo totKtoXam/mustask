@@ -65,7 +65,7 @@ public sealed class GetProjectsEndpointTests(MustaskApiFactory factory)
             [alpha.Project.Id, analytics.Project.Id, beta.Project.Id, fir.Project.Id, elk.Project.Id],
             items.Select(item => item.GetProperty("id").GetGuid()));
         Assert.Equal(["ALF", "ANL", "BET", "YOL", "EL"], items.Select(item => item.GetProperty("key").GetString()));
-        Assert.All(items, item => Assert.Equal(["id", "key", "name"], PropertyNames(item)));
+        Assert.All(items, item => Assert.Equal(["codes", "id", "key", "name"], PropertyNames(item)));
     }
 
     // US-3 · "A project is deactivated": it leaves the active list, nothing else in the list changes; when it is restored

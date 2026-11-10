@@ -43,6 +43,10 @@ public sealed class OrganizationErrorCatalogTests
         { OrganizationErrorCodes.AreaTypeNotAllowed, 409, "", "Область этого типа нельзя разместить в выбранном месте. Департамент стоит на верхнем уровне, проект — на верхнем уровне или в департаменте, вложенная область — внутри своего проекта." },
         { OrganizationErrorCodes.AreaOutsideProject, 409, "", "Вложенную область нельзя переместить за пределы её проекта" },
         { OrganizationErrorCodes.AreaLinkTypeNotAllowed, 409, "", "Команду можно связать только с департаментом. Команды проекта подключаются на странице проекта." },
+        { OrganizationErrorCodes.GrantSelfGrant, 400, "", "Нельзя выдать доступ самому себе." },
+        { OrganizationErrorCodes.GrantRoleInvalid, 400, "", "Выберите роль: читатель, участник или менеджер" },
+        { OrganizationErrorCodes.GrantScopeNotAllowed, 409, "", "Эту роль нельзя выдать на этом объекте." },
+        { OrganizationErrorCodes.GrantChanged, 409, "", "Доступ уже изменён или отозван. Список обновлён." },
         { OrganizationErrorCodes.AreaDepthExceeded, 409, "", "Дерево областей не может быть глубже 10 уровней" },
 
         // mod-016 api-contract.md § 5 (the spec's list plus the two field reasons of P-9, status.md D-16 OP-5).

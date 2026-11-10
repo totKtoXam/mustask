@@ -271,17 +271,18 @@ public sealed class CreateAreaHandlerTests
     }
 
     [Fact]
-    public async Task Handle_MemberUnderAParent_NeedsNoSecondCode_ButNamingTeamsIsForbidden()
+    public async Task Handle_MemberWithoutAGrant_IsForbiddenUnderAParent_AndAnAdminPasses()
     {
-        var f = new Fixture(OrganizationRole.Member);
+        // mod-019 BR-SA-12: a sub-area needs area.write on its parent, which a plain member lacks (a project or department manager holds it by grant).
+        var member = new Fixture(OrganizationRole.Member);
 
-        var created = await f.HandleAsync(f.Command(name: "Квартальные", parentId: f.Node.Id.ToString()));
-        var refusal = await Assert.ThrowsAsync<ForbiddenException>(() => f.HandleAsync(
-            f.Command(name: "Годовые", parentId: f.Node.Id.ToString(), teamIds: [f.Platform.Id.ToString()])));
+        var refusal = await Assert.ThrowsAsync<ForbiddenException>(() => member.HandleAsync(member.Command(name: "Квартальные", parentId: member.Node.Id.ToString())));
+        var admin = new Fixture();
+        var created = await admin.HandleAsync(admin.Command(name: "Годовые", parentId: admin.Node.Id.ToString()));
 
-        Assert.Equal(f.Node.Id, created.Response.ParentId);
         Assert.Equal(OrganizationErrorCodes.AccessForbidden, refusal.Code);
-        Assert.Empty(f.Store.AreaTeams);
+        Assert.Equal(admin.Node.Id, created.Response.ParentId);
+        Assert.Empty(member.Store.AreaTeams);
     }
 
     // ADR-0031: the tree, then the parent, then the teams, then one save.

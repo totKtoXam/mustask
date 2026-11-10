@@ -8,12 +8,13 @@ import type { WorkContextSource } from '../shared/lib/workContext';
 import { PageHeader } from '../shared/ui/PageHeader';
 import { gate } from '../test/gate';
 import { server } from '../test/mocks/server';
-import { servedFor } from '../test/organizationRoles';
+import { ADMIN_CODES, servedFor, servedObjectCodes } from '../test/organizationRoles';
 import {
   authValue,
   LANGUAGES_READ,
   LANGUAGES_WRITE,
   renderShell,
+  serveObjectReads,
   stubRoutes,
 } from '../test/renderShell';
 
@@ -85,19 +86,23 @@ describe('mod-016 US-4 Scenario: the three roles see the same navigation', () =>
   it.each(['admin', 'member', 'viewer'] as const)(
     'a %s sees the organization’s, the project’s and the dictionaries’ settings entries and the work entries',
     async (role) => {
+      serveObjectReads(ORG);
       renderShell({ path: GENERAL, auth, contextSource: source(), routes, access: role });
 
       const menu = await screen.findByRole('navigation', { name: 'Меню настроек' });
       // The organization's «Общие» and «Процесс», a «Параметры» for the team and the project chosen
       // (feat-043 ADR-0032 § 2), then the dictionaries and the showcase.
       // «Параметры» asks the object's write code, which only the administrator holds.
-      expect(linksOf(menu)).toEqual([
-        'Общие',
-        'Процесс',
-        ...(role === 'admin' ? ['Параметры', 'Параметры'] : []),
-        'Языки',
-        'Витрина компонентов',
-      ]);
+      // The object reads (mod-019) decide «Параметры», so they are waited for.
+      await waitFor(() =>
+        expect(linksOf(menu)).toEqual([
+          'Общие',
+          'Процесс',
+          ...(role === 'admin' ? ['Параметры', 'Параметры'] : []),
+          'Языки',
+          'Витрина компонентов',
+        ]),
+      );
       // The main menu is a rail beside the settings navigation: its links are
       // named by their label, not by text.
       const main = screen.getByRole('navigation', { name: 'Основное меню' });
@@ -111,6 +116,8 @@ describe('mod-016 US-4 Scenario: the three roles see the same navigation', () =>
 describe('mod-016 design § 6.1 Scenario: unread codes hide the organization’s entries', () => {
   it('shows no «Меню настроек», no marker and no trail on an organization’s settings page until the read answers', async () => {
     const open = holdAccess();
+    servedObjectCodes.current = ADMIN_CODES;
+    serveObjectReads(ORG);
     renderShell({ path: GENERAL, auth, contextSource: source(), routes, access: 'unread' });
 
     expect(await screen.findByRole('heading', { level: 1, name: 'Общие' })).toBeInTheDocument();
@@ -134,6 +141,8 @@ describe('mod-016 design § 6.1 Scenario: unread codes hide the organization’s
 
   it('shows «Справочники» alone on «Языки» from the first frame, and «Организация» and «Проект» join it when the codes arrive', async () => {
     const open = holdAccess();
+    servedObjectCodes.current = ADMIN_CODES;
+    serveObjectReads(ORG);
     renderShell({ path: LANGUAGES, auth, contextSource: source(), access: 'unread' });
 
     const menu = await screen.findByRole('navigation', { name: 'Меню настроек' });
@@ -189,6 +198,7 @@ describe('mod-016 US-4 Scenario: a user in no organization', () => {
 
 describe('mod-016 design § 2.2 Scenario: the navigation follows the served answer without a reload', () => {
   it('drops the organization’s entries when the tab learns the user is no longer a member', async () => {
+    serveObjectReads(ORG);
     const { queryClient } = renderShell({
       path: LANGUAGES,
       auth,
