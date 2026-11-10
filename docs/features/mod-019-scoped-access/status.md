@@ -3,7 +3,7 @@
 - type: module
 - size: L
 - branch: mod/019-scoped-access
-- stage: 06-code-review
+- stage: complete
 - epic: core/org-access
 - deps: mod-018,feat-043
 - gates: gate-1, gate-2, gate-3
@@ -87,6 +87,7 @@ Plans: `plan-backend.md`, `plan-frontend.md`.
 - 2026-11-10 [code-reviewer] code review round 2 (delta) in review.md: approved; C-1..C-4, C-6..C-8 closed, 0 majors open; C-5 reclassified as a spec question for the human at gate-3 (US-2 scenario contradicts the unconditional exclusion). Gates and stage untouched
 - 2026-11-10 [backend-dev] C-5 decided by the human (OQ-12): the switch-off impact (SwitchImpact count, callerIncluded, givenGrants) spares a project-grant holder only when that bundle covers every code the switch takes from them; api-contract § 1, § 3 text updated (response shape unchanged), spec BR-SA-7, BR-SA-19, US-2 and OQ-12 reworded; SwitchImpactReadModel and integration tests changed; Application 863, Infrastructure 467, Organizations/Authorization integration 1933 green. Gates and stage untouched
 - 2026-11-10 [orchestrator] gate-3 approved by the human in chat («останови стенд и approve», answering «Утверждаете gate-3 и ADR-0038?»); ADR-0038 → accepted; the demo stand (own DB mustask_mod019, ports 3200/5200/5020) stopped; its LAN-host AppHost patch was never committed
+- 2026-11-10 [orchestrator] rebased onto origin/main d4f86535 (conflicts: the ADR index, kept both 0037 path base and 0038; the serial test list, kept main's after tech-006 — RefusalLogTests and GrantAuditLogTests capture logs per host); dotnet build, tsc -b, eslint green; no new migrations on main; stage → complete
 
 ## Notes
 
