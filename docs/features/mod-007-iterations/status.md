@@ -84,6 +84,7 @@ agent per stage, no fan-out. E2E: no (paused).
 - 2026-11-12 [ux-designer] human answered D-4 A, D-8 A, D-9 A, D-10 B (decimal comma): recorded in design.md § 12; decimals with a comma in design.md, the prototype and the US-9/US-10 story lines; gates untouched
 - 2026-11-12 [orchestrator] gate-2 for the delta approved by the human in
   chat («Да, approve»); development waits for the human's word
+- 2026-11-12 [backend-developer] stage 4 backend done for US-1..US-5, US-9, US-10: 11 sprint routes, item sprint, close snapshot, outcome reads, migration AddSprints; all test projects green. Deviations and the NU1903 note: commit bodies and the hand-back.
 
 ## Notes
 
