@@ -225,3 +225,33 @@ export const boardErrorCodes = {
 } as const;
 
 export type BoardErrorCode = (typeof boardErrorCodes)[keyof typeof boardErrorCodes];
+
+/**
+ * `iterations.*` — `contracts/errors/iterations.json`, which mod-007 owns (its api-contract § 4,
+ * design § 10). The drift test beside this file checks the constants against that catalog in both
+ * directions. The field and dialog refusals are placed by their code; the text is always the server's.
+ */
+export const iterationErrorCodes = {
+  /** 400 with `errors.name` / `errors.endDate`, every field reason at once. */
+  validationFailed: 'iterations.validation_failed',
+  nameTaken: 'iterations.sprint.name_taken',
+  nameInvalid: 'iterations.sprint.name_invalid',
+  datesUnpaired: 'iterations.sprint.dates_unpaired',
+  datesReversed: 'iterations.sprint.dates_reversed',
+  activeDatesRequired: 'iterations.sprint.active_dates_required',
+  closedDatesLocked: 'iterations.sprint.closed_dates_locked',
+  startDatesRequired: 'iterations.sprint.start_dates_required',
+  activeExists: 'iterations.sprint.active_exists',
+  notPlanned: 'iterations.sprint.not_planned',
+  notActive: 'iterations.sprint.not_active',
+  notRemovable: 'iterations.sprint.not_removable',
+  /** 404: the sprint (or a close destination) names nothing. */
+  notFound: 'iterations.sprint.not_found',
+  closeDestinationInvalid: 'iterations.sprint.close_destination_invalid',
+  /** The item's «Спринт» (api-contract § 3). */
+  otherTeam: 'iterations.sprint.other_team',
+  teamRequired: 'iterations.sprint.team_required',
+  closedTarget: 'iterations.sprint.closed_target',
+} as const;
+
+export type IterationErrorCode = (typeof iterationErrorCodes)[keyof typeof iterationErrorCodes];
