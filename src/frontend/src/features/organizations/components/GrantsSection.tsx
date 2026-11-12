@@ -214,7 +214,9 @@ export function GrantsSection({
 
   return (
     <Section title={title} headingLevel={headingLevel} actions={giveButton}>
-      <InlineNotice severity="info">{grantsSection.noticeOnlyGranted}</InlineNotice>
+      {scope !== 'team' && (
+        <InlineNotice severity="info">{grantsSection.noticeOnlyGranted}</InlineNotice>
+      )}
       {inheritance !== null && !inheritance.inheritsAccess && (
         <InlineNotice severity="info">
           {grantsSection.noticeSwitchedOff(inheritance.departmentName)}

@@ -123,6 +123,15 @@ describe('tech-015 Scenario: TableCard (design § 5.11)', () => {
       expect(px(getComputedStyle(card(container)).minHeight)).toBe(320);
     });
 
+    it('caps at maxRows rows and the header, and scrolls the rest', () => {
+      const { container } = renderCard({ maxRows: 6 });
+      const style = getComputedStyle(card(container));
+      expect(px(style.maxHeight)).toBe(
+        theme.layout.table.headerHeight + 6 * theme.density.registryRowHeight,
+      );
+      expect(style.overflow).toBe('auto');
+    });
+
     it('is as tall as its rows without an offset: no max height, no floor to stretch a short table', () => {
       const { container } = renderCard();
       const style = getComputedStyle(card(container));
