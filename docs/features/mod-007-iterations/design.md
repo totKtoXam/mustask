@@ -162,7 +162,7 @@ Section «Итог спринта» 2 элемента, 8 SP | Идентифи�
 
 ### 6.3 «Динамика» (US-10)
 
-`Section` + `DataTable` `aria-label` «Динамика спринта»: «Спринт» (the others link to their page at the same level), «Окончание», «Элементов», «SP», «Закрыто элементов», «% элементов», «Закрыто SP», «% SP». First row: this sprint, bold, «(этот)» ◆; then the range's sprints, latest end first; then three summary rows «Мин», «Среднее», «Макс» (cells under the four «закрыто» columns only). Percent: whole, «63 %»; «—» when held is 0, and such a sprint is left out of that percent's summary; an average of counts to one decimal, «6.3» (D-10). Empty range: summary cells «—» and an `InlineEmpty` row under this sprint: «В выбранном диапазоне нет завершённых спринтов.»
+`Section` + `DataTable` `aria-label` «Динамика спринта»: «Спринт» (the others link to their page at the same level), «Окончание», «Элементов», «SP», «Закрыто элементов», «% элементов», «Закрыто SP», «% SP». First row: this sprint, bold, «(этот)» ◆; then the range's sprints, latest end first; then three summary rows «Мин», «Среднее», «Макс» (cells under the four «закрыто» columns only). Percent: whole, «63 %»; «—» when held is 0, and such a sprint is left out of that percent's summary; an average of counts to one decimal with a comma, «6,3» (D-10). Empty range: summary cells «—» and an `InlineEmpty` row under this sprint: «В выбранном диапазоне нет завершённых спринтов.»
 
 ### 6.4 «Итоги по участникам» (US-9)
 
@@ -251,8 +251,8 @@ Every text is quoted by the stories; the codes are **proposals** for `docs/error
 
 ## 12. Decisions for the human (gate-2)
 
-All taken by the human in chat on 2026-11-10, each the recommended A:
-D-1 A, D-2 A, D-3 A, D-4 A, D-5 A, D-6 A, D-7 A.
+All taken by the human in chat, each the recommended A (D-1..D-7 on 2026-11-10; D-4 restated, D-8, D-9 on 2026-11-12), except D-10 (B):
+D-1 A, D-2 A, D-3 A, D-4 A, D-5 A, D-6 A, D-7 A, D-8 A, D-9 A, D-10 B.
 
 - **D-1 The outcome: a page or a dialog.** A) page `teams/:t/sprints/:s` (deep link, back button, room for hundreds of rows) ⭐; B) a `DialogShell` over the list (no new address, cramped for 5 000 rows).
 - **D-2 A large outcome.** A) 200 rows then «Показать ещё», as the list ⭐; B) all rows at once (a 5 000-item outcome loads slowly).
@@ -263,7 +263,7 @@ D-1 A, D-2 A, D-3 A, D-4 A, D-5 A, D-6 A, D-7 A.
 - **D-7 A start without dates.** A) the dialog explains and offers «Указать даты» (§ 5.3) ⭐; B) the menu item is disabled with a tooltip (against «nothing is shown disabled» for the roles, and hidden for assistive tech).
 - **D-8 The level of a Closed row's figures.** The list has no level control, the page does. A) rows read at «Истории», the page's default (a click leads to the same numbers; Planned and Active rows still count every level, US-3 is silent) ⭐; B) every level together (a row can differ from the page by a feature's points); C) a level control on the list (a new control, a re-read per change).
 - **D-9 A purged item's row.** A) identifier + «Удалён навсегда», project and points as recorded (the list still sums to its header) ⭐; B) project and points blanked too (the row discloses nothing of the item).
-- **D-10 The decimal mark.** The stories read an average as «6.3»; Russian text writes «6,3». A) keep «6.3» (no spec change) ⭐; B) «6,3» (two story lines reworded, no logic changes).
+- **D-10 The decimal mark.** A) «6.3»; B) «6,3», the Russian mark, taken (the stories' decimals reworded, no logic change).
 
 ## 13. Stories to screens
 

@@ -25,8 +25,8 @@ Scenario: A date range selects the Closed sprints ending inside it, and the page
   Then the figures of «Спринт 12» read 10 items, 40 SP, 6 closed items (60 %), 25 closed SP (63 %)
   And the sprints of the range are listed with their own figures, the latest end date first: «Спринт 11», «Спринт 10», «Спринт 9»; «Спринт 8» is not
   And minimum, average and maximum are shown for the closed items and for their percent, and for the closed SP and for their percent
-  And closed items read min 5, average 6.3, max 8; their percent reads min 50 %, average 67 %, max 100 %
-  And closed SP read min 0, average 16.7, max 30; their percent reads min 40 %, average 70 %, max 100 % (over «Спринт 11» and «Спринт 10» only: «Спринт 9» has no SP percent, next scenario)
+  And closed items read min 5, average 6,3, max 8; their percent reads min 50 %, average 67 %, max 100 %
+  And closed SP read min 0, average 16,7, max 30; their percent reads min 40 %, average 70 %, max 100 % (over «Спринт 11» and «Спринт 10» only: «Спринт 9» has no SP percent, next scenario)
   And the control reads the range and "3 спринта"
 
 Scenario: The default range is the 90 days before this sprint's start
@@ -70,7 +70,7 @@ Scenario: Averages use exact values, rounded only for display
   Given two sprints in the range closed 1 of 6 items and 1 of 2 items
   When Vera opens a later sprint with that range
   Then their percents read 17 % and 50 %, and the average percent reads 33 %, the exact mean 33.33… rounded, not 34 % from the rounded 17 and 50
-  And an average of 2 and 3 closed items reads 2.5, and of 1, 1 and 2 reads 1.3
+  And an average of 2 and 3 closed items reads 2,5, and of 1, 1 and 2 reads 1,3
 
 Scenario: The level changes every figure
   Given «Спринт 12» holds the feature «Платежи» of 13 SP beside its stories
@@ -102,3 +102,5 @@ Scenario: The comparison reads a bounded number of records in a bounded time
   When Vera opens the page
   Then it answers in ≤ 2 s and in a number of statements that does not grow with the range, the projects or the assignees
 ```
+
+<!-- 2026-11-12: decimals written with a comma («6,3»), the human's answer D-10 B on design.md; no logic changed. -->

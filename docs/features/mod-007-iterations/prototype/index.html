@@ -257,7 +257,7 @@ function rowMenu(sp) {
 var LV = { epics: 'Эпики', features: 'Фичи', stories: 'Истории' };
 function pct(a, b) { return b > 0 ? a / b * 100 : null; }
 function fp(x) { return x == null ? '—' : Math.floor(x + 0.5 + 1e-9) + ' %'; }
-function fa(x) { return (Math.floor(x * 10 + 0.5 + 1e-9) / 10).toFixed(1); }
+function fa(x) { return (Math.floor(x * 10 + 0.5 + 1e-9) / 10).toFixed(1).replace('.', ','); }
 function stat(vals, pctMode) {
   var v = vals.filter(function (x) { return x != null; });
   if (!v.length) return ['—', '—', '—'];

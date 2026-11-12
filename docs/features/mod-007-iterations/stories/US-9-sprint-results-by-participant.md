@@ -28,9 +28,9 @@ Scenario: Dynamics of a participant against the range, min, average and max
   When Vera opens «Спринт 12» with `from=2026-09-21&to=2026-10-30`
   Then Анна Иванова's row shows, over the sprints in the range in which she held items («Спринт 11» and «Спринт 10», "2 из 3"):
     | Показатель         | Мин  | Среднее | Макс |
-    | Закрыто элементов  | 1    | 2.0     | 3    |
+    | Закрыто элементов  | 1    | 2,0     | 3    |
     | % элементов        | 25 % | 63 %    | 100 % |
-    | Закрыто SP         | 5    | 7.5     | 10   |
+    | Закрыто SP         | 5    | 7,5     | 10   |
     | % SP               | 25 % | 63 %    | 100 % |
   And a sprint in which a person held nothing is left out of that person's minimum, average and maximum: «Спринт 9» is not counted for Анна
   And the row «Без исполнителя» and the row «Итого» show the same dynamics over their own sprints

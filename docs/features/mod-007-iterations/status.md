@@ -81,6 +81,7 @@ agent per stage, no fan-out. E2E: no (paused).
 - 2026-11-12 [orchestrator] gate-1 for the delta approved by the human in
   chat («Да, approve»); design delta handed to the ux-designer
 - 2026-11-12 [ux-designer] design delta for gate-1 of BR-14..16: outcome page (design § 6) gains the level selector, the date range with dynamics, results by participant (expandable min/avg/max), purged rows; prototype updated; D-4 restated per R-34 (reopened, not taken); new D-8..D-10 for the human; design.md 32.2 KB; gates untouched
+- 2026-11-12 [ux-designer] human answered D-4 A, D-8 A, D-9 A, D-10 B (decimal comma): recorded in design.md § 12; decimals with a comma in design.md, the prototype and the US-9/US-10 story lines; gates untouched
 
 ## Notes
 
