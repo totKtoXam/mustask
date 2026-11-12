@@ -4,7 +4,7 @@ import { ApiError } from '../../../shared/api/httpClient';
 import { apiErrorText } from '../../../shared/lib/apiErrorText';
 import { ConfirmDialog } from '../../../shared/ui/ConfirmDialog';
 import { InlineNotice } from '../../../shared/ui/feedback/InlineNotice';
-import { LoadingBox } from '../../../shared/ui/LoadingBox';
+import { FieldsSkeleton } from '../../../shared/ui/feedback/FieldsSkeleton';
 import { DataTable, type DataColumn } from '../../../shared/ui/table/DataTable';
 import type { AreaPage } from '../api/organizationsApi';
 import type { SwitchImpact } from '../api/grantsApi';
@@ -12,13 +12,16 @@ import { useSwitchImpact } from '../hooks/queries';
 import { GRANT_ROLE_LABELS, switchOffDialog } from '../lib/grantTexts';
 import { UserLine } from './UserLine';
 
+/** Design D-12: the given-access list shows this many rows and scrolls (the server sends up to 50). */
+const GIVEN_VISIBLE_ROWS = 6;
+
 type GivenGrant = SwitchImpact['givenGrants'][number];
 
 const GIVEN_COLUMNS: DataColumn<GivenGrant>[] = [
   {
     key: 'user',
     header: switchOffDialog.givenColumns.user,
-    render: (row) => <UserLine user={row.user} truncate={false} />,
+    render: (row) => <UserLine user={row.user} />,
   },
   {
     key: 'role',
@@ -28,7 +31,7 @@ const GIVEN_COLUMNS: DataColumn<GivenGrant>[] = [
   {
     key: 'givenBy',
     header: switchOffDialog.givenColumns.givenBy,
-    render: (row) => <UserLine user={row.givenBy} truncate={false} />,
+    render: (row) => <UserLine user={row.givenBy} />,
   },
 ];
 
@@ -83,7 +86,7 @@ export function SwitchOffDialog({
             ? switchOffDialog.leadNode(sourceName, area.name)
             : switchOffDialog.leadSubArea(sourceName, area.name)}
         </Typography>
-        {impact.isPending && <LoadingBox />}
+        {impact.isPending && <FieldsSkeleton count={2} />}
         {impact.isError && (
           <InlineNotice
             severity="error"
@@ -124,6 +127,7 @@ export function SwitchOffDialog({
                   aria-label={switchOffDialog.givenTable}
                   columns={GIVEN_COLUMNS}
                   rows={data.givenGrants}
+                  maxRows={GIVEN_VISIBLE_ROWS}
                   rowKey={(row) => row.user.id}
                 />
                 <Typography variant="caption" color="text.secondary">

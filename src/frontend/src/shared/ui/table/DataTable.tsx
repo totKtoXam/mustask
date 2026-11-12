@@ -32,6 +32,8 @@ export interface DataTableProps<R> {
   onSelect?: (key: string) => void;
   /** As `TableCard`: the card scrolls inside itself and its header is sticky. */
   maxHeightOffset?: number;
+  /** As `TableCard`: at most this many rows show, the rest scroll. */
+  maxRows?: number;
   minHeight?: number;
   /** No rows yet: a `TableSkeleton` with the real headers. */
   loading?: boolean;
@@ -68,6 +70,7 @@ export function DataTable<R>({
   selectedKey = null,
   onSelect,
   maxHeightOffset,
+  maxRows,
   minHeight,
   loading = false,
   error,
@@ -102,6 +105,7 @@ export function DataTable<R>({
         aria-label={ariaLabel}
         columns={widths}
         maxHeightOffset={maxHeightOffset}
+        maxRows={maxRows}
         minHeight={minHeight}
         foot={pager && <TablePager {...pager} />}
         head={columns.map((column) => (
