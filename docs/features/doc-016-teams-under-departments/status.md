@@ -42,6 +42,8 @@ gate-2. The task stops at gate-2: nothing is implemented here.
 
 - 2026-11-12 [orchestrator] human asked for colours on teams and projects too, one search field for departments, teams and projects, and «Структура» with a «Список» / «Дерево» switch (one button, not tabs; cards kept as «Список»). Designer: BR-TD-20 for three kinds, BR-TD-21 header search, § 3.0 and § 7.2. Clicked in the browser: dots, the switch, the tree, the search; no console errors. Header layout asked next.
 
+- 2026-11-12 [orchestrator] header reworked to the human's picks Б + В: a borderless context path button with type icons opening a panel (search + four columns, up to 880 px) and a Ctrl+K palette (BR-TD-21, -22). Tree: ± in the header, type icons, remembered view. Clicked: panel, palette, tree; no console errors.
+
 ## Notes
 
 Summary (from the queue line): Analysis of the hierarchy rework: (1) a team belongs strictly to a department instead of standing alone at the organization level, with the migration of existing teams; (2) the header context selectors (organization, department, team, project) cascade: «все» on a level offers every child of every accessible parent, a chosen parent narrows each lower level to its whole subtree (an organization: its departments, all their teams, all their projects), and choosing a lower object selects its parents automatically; (3) a project is created at the organization level or inside a department; (4) a user sees only the organizations, departments, teams and projects they are a participant of or their access level allows, in the selectors and the lists. Amends feat-028 (org-level teams), the team-area links of mod-018/ADR-0031 and mod-019's grants (ADR-0038); decides how feat-041 project visibility fits.

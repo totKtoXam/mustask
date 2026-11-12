@@ -70,11 +70,21 @@ Scenario: A change elsewhere repairs a selection that no longer fits (BR-TD-18)
 
 Scenario: The search field finds and chooses (BR-TD-21)
   Given Ann's selection is «Ромашка» / «Логистика» / MARS / A
-  When she types «jup» in «Найти департамент, команду или проект»
+  When she opens the context path button and types «jup» in «Найти департамент, команду или проект»
   Then the answer shows «Команды»: JUPITER with its colour mark and the grey path «Финансы»
   And she presses ↓ and Enter, and the selection reads «Ромашка» / «Финансы» / JUPITER / «все», with «Выбор сброшен: проект A.»
   And typing «fin» finds the project C by its key FIN, and «фин» finds the department «Финансы», each in its group
   And typing «zzz» shows «Ничего не найдено», and Esc closes the answer
+
+Scenario: The panel columns and the palette (BR-TD-22)
+  Given Ann's selection is «Ромашка» / «Логистика» / MARS / «все»
+  Then the button reads «Ромашка › Логистика › MARS › все» with the colour dot of «Логистика»
+  And its panel shows four columns, each with «все» first, the chosen value marked, and the team and project columns narrowed to «Логистика»
+  When she chooses «Финансы» in the second column
+  Then the panel stays open, the columns to the right narrow to «Финансы», and she sees «Выбор сброшен: команда MARS.»
+  When she presses Ctrl+K and the palette opens
+  Then it lists «Недавние»: the last 5 contexts she chose, as paths, newest first, and Enter on one sets that context
+  And Esc closes the palette, or the panel, and a click outside closes the panel
 
 Scenario: The search finds only what one sees (BR-TD-12..-15)
   Given Olga sees, in «Ромашка», VENUS, MARS, A and «Логистика» only, and in «Другая» ORION and «Склад»
