@@ -31,8 +31,8 @@ export interface AggregateNewWorkItem {
  * board level's types, and «Проект» chosen in the dialog among the active projects the view's scope
  * holds — a department's own projects, or all of the organization's — in which the user holds
  * `workitems.workitem.write` (BR-SA-18). The project list is the shell's `selector-offers` read,
- * which the work context already holds, so nothing is requested here. The address's project filter
- * preselects a single project.
+ * which the work context already holds, so nothing is requested here. No project is preselected: no
+ * filter names one at these levels.
  */
 export function useAggregateNewWorkItem({
   organizationId,
@@ -40,6 +40,7 @@ export function useAggregateNewWorkItem({
   groups,
   enabled,
   onCreated,
+  onContextGone,
 }: {
   organizationId: string;
   selectors: AggregateSelectors;
@@ -48,6 +49,8 @@ export function useAggregateNewWorkItem({
   /** Only the board at the organization and department level creates. */
   enabled: boolean;
   onCreated(item: WorkItem): void;
+  /** The project or organization answered not found meanwhile: the page reads the board again. */
+  onContextGone(): void;
 }): AggregateNewWorkItem {
   const create = useCreateWorkItemIn(organizationId);
   const context = useWorkContext();
@@ -121,7 +124,6 @@ export function useAggregateNewWorkItem({
             place={{
               kind: 'scope',
               projects,
-              filterProjectIds: selectors.projectId ? [selectors.projectId] : [],
             }}
             types={types}
             initialTypeId={creatingTypeId}
@@ -130,7 +132,10 @@ export function useAggregateNewWorkItem({
               setCreatingTypeId(null);
               onCreated(item);
             }}
-            onClose={() => setCreatingTypeId(null)}
+            onClose={(contextGone) => {
+              setCreatingTypeId(null);
+              if (contextGone) onContextGone();
+            }}
           />
         </RequiresCode>
       )}

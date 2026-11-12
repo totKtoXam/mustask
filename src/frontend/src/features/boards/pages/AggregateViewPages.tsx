@@ -40,8 +40,10 @@ export function AggregatePage({
     selectors,
     groups: v.groups,
     enabled: view === 'boards',
+    onContextGone: v.readHeadersAgain,
     onCreated: () => {
-      // The board reads its counts and cells again: the new item stands in its first column.
+      // Accepted debt (feat-060 review m3): a create remounts the whole board, which drops the pages
+      // «Показать ещё» loaded and reads every open cell again — one narrow reload would do.
       v.readHeadersAgain();
       setCreatedSerial((n) => n + 1);
     },

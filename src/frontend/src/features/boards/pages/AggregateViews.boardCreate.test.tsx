@@ -2,7 +2,9 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { HttpResponse, http } from 'msw';
+import { theme } from '../../../app/theme';
 import { server } from '../../../test/mocks/server';
+import { rgb } from '../../../test/kitTesting';
 import type { WorkContextSource } from '../../../shared/lib/workContext';
 import { API } from '../../workitems/testFixtures';
 import { ids } from '../testFixtures';
@@ -113,7 +115,9 @@ describe('feat-060 Scenario: the colours of the aggregate board', () => {
 
     const card = document.querySelector('[data-drag-card="MSK-US-1"]') as HTMLElement;
     expect(getComputedStyle(card).borderLeftStyle).toBe('solid');
-    expect(getComputedStyle(card).borderLeftColor).not.toBe('');
+    expect(getComputedStyle(card).borderLeftColor).toBe(
+      rgb(theme.workTracking.typeAppearance('story').colour),
+    );
   });
 });
 
@@ -128,6 +132,36 @@ describe('feat-060 Scenario: «Новый рабочий элемент» on the
     renderAggregate(orgAddress('backlogs'), { context: contextWithOffers() });
     await screen.findByRole('button', { name: /Группировка/ });
     expect(screen.queryByRole('button', { name: NEW_ITEM })).toBeNull();
+  });
+
+  it('is absent on the aggregate «Рабочие элементы»', async () => {
+    serveAggregate({
+      groups: { none: [header('none', null, null, 0)] },
+      list: { count: 0, data: [] },
+    });
+    renderAggregate(orgAddress('workitems'), { context: contextWithOffers() });
+    await screen.findByRole('heading', { name: 'Рабочие элементы' });
+    expect(screen.queryByRole('button', { name: NEW_ITEM })).toBeNull();
+  });
+
+  it('offers only the projects the user may write in', async () => {
+    serveAggregate({ groups: { project: BOARD }, cardsOf: () => [] });
+    serveCreation();
+    // Write on Мастаск only: Операции carries no code.
+    server.use(
+      http.get(`${ORG_API}/projects`, () =>
+        HttpResponse.json([
+          { id: ids.msk, name: 'Мастаск', key: 'MSK', codes: ['workitems.workitem.write'] },
+          { id: 'p-msk', name: 'Мастаск', key: 'MSK', codes: ['workitems.workitem.write'] },
+          { id: ids.ops, name: 'Операции', key: 'OPS', codes: [] },
+        ]),
+      ),
+    );
+    renderAggregate(orgAddress('boards'), { context: contextWithOffers() });
+
+    const found = await openDialog();
+    const project = await within(found).findByRole('combobox', { name: 'Проект' });
+    expect(await optionsOf(project)).toEqual(['Мастаск']);
   });
 
   it('is absent for a viewer, who holds no write code on any project', async () => {

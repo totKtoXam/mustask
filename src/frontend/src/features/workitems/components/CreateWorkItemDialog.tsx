@@ -52,7 +52,6 @@ export type CreatePlace =
        */
       kind: 'scope';
       projects: readonly TeamProject[];
-      filterProjectIds: readonly string[];
     };
 
 /**
@@ -154,10 +153,12 @@ export function CreateWorkItemDialog({
     const offered: readonly TeamProject[] = scopePlace
       ? scopePlace.projects
       : (projects.data ?? []);
-    const filtered = offered.filter((candidate) =>
-      place.filterProjectIds.some((id) => id.toLowerCase() === candidate.id.toLowerCase()),
-    );
-    // An aggregate board preselects on its filter only: its scope is not «the team's own».
+    // An aggregate board's scope preselects nothing: no filter names a project at its levels.
+    const filtered = teamPlace
+      ? offered.filter((candidate) =>
+          teamPlace.filterProjectIds.some((id) => id.toLowerCase() === candidate.id.toLowerCase()),
+        )
+      : [];
     const preselected =
       filtered.length === 1
         ? filtered[0]
