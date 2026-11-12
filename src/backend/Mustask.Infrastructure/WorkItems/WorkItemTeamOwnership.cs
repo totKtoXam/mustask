@@ -72,7 +72,7 @@ internal sealed class WorkItemTeamOwnership(MustaskDbContext context) : IWorkIte
         return await context.Database.ExecuteSqlInterpolatedAsync(
             $"""
              UPDATE work_items
-             SET owning_team_id = {destinationTeamId}, changed_at = {now}
+             SET owning_team_id = {destinationTeamId}, sprint_id = NULL, changed_at = {now}
              WHERE project_id = ANY({owned.ProjectIds}) AND owning_team_id = {owned.TeamId}
              """,
             cancellationToken);

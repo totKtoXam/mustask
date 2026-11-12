@@ -1,7 +1,9 @@
 using System.Text.Json;
+using Mustask.Domain.Iterations;
 using Mustask.Domain.Organizations;
 using Mustask.Domain.Process;
 using Mustask.Domain.WorkItems;
+using Mustask.Infrastructure.Iterations;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.ChangeTracking;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
@@ -103,6 +105,18 @@ internal sealed class WorkItemConfiguration : IEntityTypeConfiguration<WorkItem>
             .HasConstraintName(WorkItemsConstraints.OwningTeamKey)
             .OnDelete(DeleteBehavior.Restrict);
 
+        // mod-007 (BR-2): the item's sprint is a sprint of its owning team. The key is composite, (sprint_id, owning_team_id) onto the
+        // sprint's alternate key (id, team_id), so the database refuses another team's sprint; a null on either side leaves it
+        // unchecked (MATCH SIMPLE) and the check below says a sprint needs a team. Restrict: a sprint's removal clears the pointers first.
+        builder.HasOne<Sprint>()
+            .WithMany()
+            .HasForeignKey(item => new { item.SprintId, item.OwningTeamId })
+            .HasPrincipalKey(sprint => new { sprint.Id, sprint.TeamId })
+            .HasConstraintName(IterationsConstraints.ItemSprintKey)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        builder.HasIndex(item => item.SprintId, IterationsConstraints.ItemSprint).HasFilter("sprint_id IS NOT NULL");
+
         builder.HasOne<WorkItemType>()
             .WithMany()
             .HasForeignKey(item => item.TypeId)
@@ -168,6 +182,7 @@ internal sealed class WorkItemConfiguration : IEntityTypeConfiguration<WorkItem>
             table.HasCheckConstraint(WorkItemsConstraints.NumberPositive, "number >= 1");
             table.HasCheckConstraint(WorkItemsConstraints.ParentNotSelf, "parent_id IS NULL OR parent_id <> id");
             table.HasCheckConstraint(WorkItemsConstraints.DeletionMarksCheck, WorkItemsConstraints.DeletionMarksSql);
+            table.HasCheckConstraint(IterationsConstraints.ItemSprintNeedsTeam, "sprint_id IS NULL OR owning_team_id IS NOT NULL");
             table.HasCheckConstraint("ck_work_items_title_length", WorkItemsConstraints.TitleLengthCheck);
             table.HasCheckConstraint("ck_work_items_description_length", WorkItemsConstraints.DescriptionLengthCheck);
 
