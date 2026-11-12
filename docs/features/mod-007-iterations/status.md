@@ -11,7 +11,7 @@
 ## Gates
 
 gate-1: approved (2026-11-10, human in chat, «Да, approve», after review round 2 approved-by-ai; OQ-1..OQ-6 A, OQ-7 B, OQ-8 A); delta (US-9, US-10, BR-14..BR-16, OQ-9..OQ-15) approved 2026-11-12, human in chat, «Да, approve»
-gate-2: approved (2026-11-10, human in chat, «Да, approve», after D-1..D-7 A, the prototype reworked into the product shell (left navigation) on the human's remark; the sprint board stays in feat-057 by the human's answer)
+gate-2: approved (2026-11-10, human in chat, «Да, approve», after D-1..D-7 A, the prototype reworked into the product shell (left navigation) on the human's remark; the sprint board stays in feat-057 by the human's answer); delta (outcome page: level, date range, dynamics, participants) approved 2026-11-12, human in chat, «Да, approve», after D-4 A, D-8 A, D-9 A, D-10 B
 gate-3: pending
 
 ## Plan
@@ -82,6 +82,8 @@ agent per stage, no fan-out. E2E: no (paused).
   chat («Да, approve»); design delta handed to the ux-designer
 - 2026-11-12 [ux-designer] design delta for gate-1 of BR-14..16: outcome page (design § 6) gains the level selector, the date range with dynamics, results by participant (expandable min/avg/max), purged rows; prototype updated; D-4 restated per R-34 (reopened, not taken); new D-8..D-10 for the human; design.md 32.2 KB; gates untouched
 - 2026-11-12 [ux-designer] human answered D-4 A, D-8 A, D-9 A, D-10 B (decimal comma): recorded in design.md § 12; decimals with a comma in design.md, the prototype and the US-9/US-10 story lines; gates untouched
+- 2026-11-12 [orchestrator] gate-2 for the delta approved by the human in
+  chat («Да, approve»); development waits for the human's word
 
 ## Notes
 
