@@ -46,6 +46,8 @@ gate-2. The task stops at gate-2: nothing is implemented here.
 
 - 2026-11-12 [orchestrator] «Структура» gets its own filter field (both views, sight-scoped, not remembered); the tree ± sits flush right. Clicked: «mars» filters «Список» and «Дерево»; no console errors. gate-2 requested again.
 
+- 2026-11-12 [orchestrator] human: the Ctrl+K palette should search everything, so it leaves doc-016 as the proposal feat-NNN-global-search (⭐ chosen). Panel columns: short separated colour stripes, no icons; tree ± left of «Название». Clicked; no console errors.
+
 ## Notes
 
 Summary (from the queue line): Analysis of the hierarchy rework: (1) a team belongs strictly to a department instead of standing alone at the organization level, with the migration of existing teams; (2) the header context selectors (organization, department, team, project) cascade: «все» on a level offers every child of every accessible parent, a chosen parent narrows each lower level to its whole subtree (an organization: its departments, all their teams, all their projects), and choosing a lower object selects its parents automatically; (3) a project is created at the organization level or inside a department; (4) a user sees only the organizations, departments, teams and projects they are a participant of or their access level allows, in the selectors and the lists. Amends feat-028 (org-level teams), the team-area links of mod-018/ADR-0031 and mod-019's grants (ADR-0038); decides how feat-041 project visibility fits.
