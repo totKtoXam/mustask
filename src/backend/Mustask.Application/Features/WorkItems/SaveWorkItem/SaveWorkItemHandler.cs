@@ -122,7 +122,7 @@ public sealed class SaveWorkItemHandler(
 
                 // mod-007 (plan-backend, "Locks"): a sent sprint is locked FOR SHARE before the item, so a close or a removal of it
                 // either waits for this save or is seen by it. Judged below, once the item and its team are known.
-                var sprintFacts = await LockSprintAsync(command.Sprint, organizationId, ct);
+                var (sprintFacts, sprintMissing) = await LockSprintAsync(command.Sprint, organizationId, ct);
 
                 if (command.Parent is not null)
                 {
@@ -144,6 +144,12 @@ public sealed class SaveWorkItemHandler(
                 // a live state sent with a parent cannot slip past (tech-012 m1). The domain's Save asks again; it does not rely on
                 // this call, which only fixes the answer's place in the order.
                 item.EnsureLive(type);
+
+                // A sprint that names nothing answers after the deleted item (api-contract § 3): the item's own answer comes first.
+                if (sprintMissing)
+                {
+                    throw new NotFoundException(SprintErrorCodes.NotFound);
+                }
 
                 // 2. The values, every field reason at once.
                 var title = ValidateValues(command, item, type);
@@ -266,22 +272,24 @@ public sealed class SaveWorkItemHandler(
 
     /// <summary>
     /// The sent sprint, locked <c>FOR SHARE</c> by what the lock statement returns. <c>null</c> for no sprint sent and for «Без
-    /// спринта». A string that is no id, or a sprint that is not in this organization, answers 404 <c>sprint.not_found</c> alike.
+    /// спринта». A string that is no id, or a sprint that is not in this organization, answers 404 <c>sprint.not_found</c> alike, once the item is known to be live.
     /// </summary>
-    private async Task<SprintFacts?> LockSprintAsync(SprintChange? change, Guid organizationId, CancellationToken cancellationToken)
+    private async Task<(SprintFacts? Facts, bool Missing)> LockSprintAsync(
+        SprintChange? change, Guid organizationId, CancellationToken cancellationToken)
     {
         if (change?.SprintId is not { } raw)
         {
-            return null;
+            return (null, false);
         }
 
         if (!AddressedId.TryParse(raw, out var sprintId))
         {
-            throw new NotFoundException(SprintErrorCodes.NotFound);
+            return (null, true);
         }
 
-        return await sprints.LockForShareAsync(organizationId, sprintId, cancellationToken)
-            ?? throw new NotFoundException(SprintErrorCodes.NotFound);
+        var facts = await sprints.LockForShareAsync(organizationId, sprintId, cancellationToken);
+
+        return (facts, facts is null);
     }
 
     /// <summary>

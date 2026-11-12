@@ -1,5 +1,6 @@
 using Mustask.Application.Abstractions.Iterations;
 using Mustask.Domain.Iterations;
+using Mustask.Domain.Process;
 using Mustask.Infrastructure.Dictionaries;
 using Mustask.Infrastructure.WorkItems;
 using Mustask.Shared.Exceptions;
@@ -93,35 +94,35 @@ internal sealed class SprintRepository(MustaskDbContext context) : ISprintReposi
     }
 
     public Task ClearItemsAsync(Guid sprintId, CancellationToken cancellationToken) =>
-        context.Database.ExecuteSqlInterpolatedAsync(
-            $"UPDATE work_items SET sprint_id = NULL WHERE sprint_id = {sprintId}",
-            cancellationToken);
+        SprintItemPointers.ClearAsync(context, sprintId, cancellationToken);
 
-    public Task WriteSnapshotAsync(Guid sprintId, CancellationToken cancellationToken) =>
-        context.Database.ExecuteSqlInterpolatedAsync(
+    public async Task WriteSnapshotAsync(Guid sprintId, CancellationToken cancellationToken)
+    {
+        // The categories are named by the ids of the states that hold them: the process tables are read by the process sub-slice's
+        // own SQL only (ProcessStateWritesRules), and a state id is unique to its type.
+        var states = await context.StateDefinitions
+            .AsNoTracking()
+            .Select(state => new { state.Id, state.Category })
+            .ToListAsync(cancellationToken);
+
+        var completed = states.Where(state => state.Category == StateCategory.Completed).Select(state => state.Id).ToArray();
+        var removed = states.Where(state => state.Category == StateCategory.Removed).Select(state => state.Id).ToArray();
+
+        await context.Database.ExecuteSqlInterpolatedAsync(
             $"""
              INSERT INTO sprint_snapshot_items
                  (sprint_id, work_item_id, project_id, type_id, number, level_id, assignee_id, story_points, is_done)
              SELECT item.sprint_id, item.id, item.project_id, item.type_id, item.number, type.backlog_level_id,
-                    item.assignee_id, COALESCE(item.story_points, 0), (state.category = 'Completed')
+                    item.assignee_id, COALESCE(item.story_points, 0), (item.state_id = ANY({completed}))
              FROM work_items AS item
              JOIN work_item_types AS type ON type.id = item.type_id
-             JOIN state_definitions AS state ON state.id = item.state_id
-             WHERE item.sprint_id = {sprintId} AND state.category <> 'Removed'
+             WHERE item.sprint_id = {sprintId} AND item.state_id <> ALL({removed})
              """,
             cancellationToken);
+    }
 
     public Task MoveUnfinishedAsync(Guid sprintId, Guid? destinationId, DateTimeOffset now, CancellationToken cancellationToken) =>
-        context.Database.ExecuteSqlInterpolatedAsync(
-            $"""
-             UPDATE work_items AS item
-             SET sprint_id = {destinationId}, changed_at = {now}
-             FROM state_definitions AS state
-             WHERE item.sprint_id = {sprintId}
-               AND state.id = item.state_id
-               AND state.category IN ('Proposed', 'InProgress', 'Resolved')
-             """,
-            cancellationToken);
+        SprintItemPointers.MoveUnfinishedAsync(context, sprintId, destinationId, now, cancellationToken);
 
     public async Task SaveAsync(CancellationToken cancellationToken)
     {

@@ -39,7 +39,7 @@ public sealed class GetSprintParticipantsHandler(
         var names = await NamesAsync(userIds, cancellationToken);
         var members = userIds.Count == 0
             ? new HashSet<string>(StringComparer.Ordinal)
-            : await sprints.TeamMemberIdsAsync(scope.TeamId, userIds, cancellationToken);
+            : await sprints.OrganizationMemberIdsAsync(SprintAddress.Organization(query.OrganizationId), userIds, cancellationToken);
 
         ParticipantResponse Build(string? userId, string? displayName, bool isMember, SprintCounts own, IReadOnlyCollection<SprintCounts> series)
         {

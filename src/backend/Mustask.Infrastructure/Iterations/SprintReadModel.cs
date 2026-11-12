@@ -213,14 +213,14 @@ internal sealed class SprintReadModel(MustaskDbContext context) : ISprintReadMod
             .ToList();
     }
 
-    public async Task<IReadOnlySet<string>> TeamMemberIdsAsync(
-        Guid teamId, IReadOnlyCollection<string> userIds, CancellationToken cancellationToken)
+    public async Task<IReadOnlySet<string>> OrganizationMemberIdsAsync(
+        Guid organizationId, IReadOnlyCollection<string> userIds, CancellationToken cancellationToken)
     {
         var ids = userIds.ToArray();
 
-        var members = await context.TeamMemberships
+        var members = await context.OrganizationMemberships
             .AsNoTracking()
-            .Where(membership => membership.TeamId == teamId && ids.Contains(membership.UserId))
+            .Where(membership => membership.OrganizationId == organizationId && ids.Contains(membership.UserId))
             .Select(membership => membership.UserId)
             .ToListAsync(cancellationToken);
 

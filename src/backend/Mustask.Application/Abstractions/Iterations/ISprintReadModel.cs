@@ -33,8 +33,8 @@ public interface ISprintReadModel
     /// <summary>The figures per (sprint, assignee) at the level in one statement; <c>AssigneeId</c> is <c>null</c> for no assignee.</summary>
     Task<IReadOnlyList<ParticipantCounts>> CountsByParticipantAsync(IReadOnlyCollection<Guid> sprintIds, Guid levelId, CancellationToken cancellationToken);
 
-    /// <summary>Which of the users are current members of the team (1 statement): the participants' «not a member» mark.</summary>
-    Task<IReadOnlySet<string>> TeamMemberIdsAsync(Guid teamId, IReadOnlyCollection<string> userIds, CancellationToken cancellationToken);
+    
+    Task<IReadOnlySet<string>> OrganizationMemberIdsAsync(Guid organizationId, IReadOnlyCollection<string> userIds, CancellationToken cancellationToken);
 
     /// <summary>One page of a Closed sprint's done items and the totals (2 statements).</summary>
     Task<OutcomeItemsPage> OutcomeItemsAsync(Guid sprintId, int offset, CancellationToken cancellationToken);

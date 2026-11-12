@@ -261,6 +261,7 @@ public sealed class OwningTeamStatementCountTests(OrganizationsDatabaseFixture d
         services.AddApplication();
         services.AddOrganizationsInfrastructure();
         services.AddWorkItemsInfrastructure();
+        services.AddIterationsInfrastructure();
         services.AddBoardsInfrastructure();
 
         return services.BuildServiceProvider();
