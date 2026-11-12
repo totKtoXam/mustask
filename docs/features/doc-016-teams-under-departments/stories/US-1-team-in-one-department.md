@@ -7,7 +7,7 @@
 
 As an **organization administrator or a department «Менеджер»**, I want **every team to stand in one department, chosen when it is created and changed by a move**, so that **the structure reads organization → department → team and nobody has to keep many-to-many department links in step**.
 
-Cast: spec § Stories. Delivered by `mod-NNN-teams-in-departments`. The codes follow OQ-6 A; under OQ-6 B every clause naming a department «Менеджер» reads «Администратор» only.
+Cast: spec § Stories. Delivered by `mod-NNN-teams-in-departments`; the scenarios naming a department «Менеджер» by `mod-NNN-department-managers-run-teams`. The codes follow OQ-6 A; under OQ-6 B every clause naming a department «Менеджер» reads «Администратор» only.
 
 ## Acceptance criteria
 
@@ -28,7 +28,7 @@ Scenario: A department manager creates a team in their department only (OQ-6 A)
   Given Max holds department «Менеджер» on «Логистика» and nothing on «Финансы»
   When he opens «Новая команда»
   Then the «Департамент» picker offers «Логистика» alone
-  And a request to create a team in «Финансы» is refused with «Недостаточно прав» and creates nothing
+  And a request to create a team in «Финансы», in a deleted department or in one of «Другая» is refused with «Недостаточно прав» and creates nothing
   And Vera, with no grant, sees no «Создать команду» anywhere
 
 Scenario: A team is moved to another department (BR-TD-4)
@@ -56,7 +56,13 @@ Scenario: No team-department link remains (BR-TD-2)
 Scenario: A department holding a team is not deleted (BR-TD-5)
   Given «Финансы» holds JUPITER and no project
   When Ann deletes «Финансы»
-  Then she is refused with «Нельзя удалить департамент, в котором есть команды или проекты» and nothing changes
+  Then she is refused with «Нельзя удалить департамент, в котором есть команды» and nothing changes
+  And once JUPITER is deleted, deleting «Финансы» succeeds: a deleted team keeps no department
+
+Scenario: A creation against the department's deletion ends in one order
+  When Ann creates SATURN in «Финансы» while Ivan deletes «Финансы» with no team in it
+  Then either the creation commits and the deletion is refused, or the deletion commits and the creation answers «Область не найдена.»
+  And no server error occurs and no team stands in a deleted department
 
 Scenario: A move against the destination's deletion ends in one order
   When Ann moves MARS to «Финансы» while Ivan deletes «Финансы» with no team in it

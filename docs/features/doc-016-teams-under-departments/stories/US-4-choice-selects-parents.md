@@ -62,14 +62,15 @@ Scenario: Choosing another organization clears the rest
   When she chooses «Другая» in the organization selector
   Then the lower selectors read what she last chose in «Другая», or «все», as ADR-0032 § 6 says
 
-Scenario: Opening an object from a row, a link or an address
+Scenario: Opening an object from a row or a link
   Given Ann's selection is «Ромашка» / «Финансы» / JUPITER / «все»
-  When she opens A from a list row or by its address
+  When she opens A from a list row or a link
+  # An address carrying a query value that does not fit answers not found for its level (ADR-0032 § 1), it does not reset
   Then the selection reads «Ромашка» / «Логистика» / «все» / A, and she sees «Выбор сброшен: команда JUPITER.»
 
 Scenario: A change elsewhere repairs a selection that no longer fits (BR-TD-7)
   Given Olga's selection is «Ромашка» / «Логистика» / VENUS / A
   When Ann moves VENUS to «Финансы», and Olga's panel next reads the offers
-  Then the selection reads «Ромашка» / «Финансы» / VENUS / A if VENUS is still linked to A, the department following its team
+  Then the selection reads «Ромашка» / «Финансы» / VENUS / A if VENUS is still linked to A, the department following its team, with no notice (BR-TD-18)
   And when Ann instead unlinks VENUS from A, the project resets and Olga sees «Выбор сброшен: проект A.»
 ```

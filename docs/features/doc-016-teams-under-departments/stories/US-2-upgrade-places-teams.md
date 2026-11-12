@@ -31,7 +31,13 @@ Scenario: No link and no project in any department: a created department (OQ-1 A
   When the upgrade runs
   Then «Ромашка» gains one department «Команды без департамента», holding PLUTO
   And an organization with no such team gains no such department
-  And if «Команды без департамента» is already a top-level name in «Ромашка», the upgrade names the organization and fails before changing anything
+  And if «Ромашка» already has a department «Команды без департамента», PLUTO is placed in it and none is created
+  And if a top-level project node of «Ромашка» is named «Команды без департамента», the upgrade names the organization and fails before changing anything
+
+Scenario: Deactivated projects count
+  Given MARS2 is linked to «Логистика» and «Финансы», to the deactivated project F in «Финансы» and to nothing else
+  When the upgrade runs
+  Then MARS2 stands in «Финансы»: a linked project counts whether active or deactivated
 
 Scenario: Nothing else changes
   When the upgrade runs

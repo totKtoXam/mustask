@@ -3,7 +3,7 @@
 - type: docs
 - size: L
 - branch: doc/016-teams-under-departments
-- stage: 02-requirements-review
+- stage: gate-1
 - epic: core/org-access
 - deps: mod-019
 - gates: gate-1, gate-2
@@ -29,6 +29,8 @@ gate-2. The task stops at gate-2: nothing is implemented here.
 - 2026-11-10 [orchestrator] queue line taken by scripts/queue.sh take doc-016 (ce5c4935), synced by PR #130 with squash auto-merge.
 - 2026-11-10 [orchestrator] stage 1 started: one business-analyst run on the deep tier.
 - 2026-11-10 [business-analyst] stage 1 done: spec.md, US-1..US-6, ADR-0040 drafted as Proposed (indexed), OQ-1..OQ-7, decomposition of seven lines (proposals, not queued). Stage 2 next: one Opus requirements review in a clean context.
+- 2026-11-12 [orchestrator] the 2026-11-10 review run was cut off by an app restart before writing anything; rerun in a clean context.
+- 2026-11-12 [requirements-reviewer] round 1: needs-human-decision. R-1..R-16 (7 major, 9 minor) in review.md, all fixed but R-3, which became OQ-8; decomposition now nine lines. gate-1 asks OQ-1..OQ-8.
 
 ## Notes
 

@@ -34,6 +34,12 @@ Scenario: A top-level project under a department's team
   When Ann chooses «Финансы»
   Then the project selector offers «все», C, D
 
+Scenario: A top-level project linked to no team is offered with the organization
+  Given the project E stands at the top level of «Ромашка» and no team is linked to it
+  When Ann's selection is «Ромашка» / «все» / «все» / «все»
+  Then the project selector offers E among A, B, C, D
+  And with «Логистика» or «Финансы» chosen it does not offer E
+
 Scenario: The department selector is not narrowed by lower levels
   Given Ann's selection is «Ромашка» / «Логистика» / MARS / A
   Then the department selector still offers «все», «Логистика», «Финансы»

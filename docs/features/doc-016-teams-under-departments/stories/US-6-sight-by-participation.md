@@ -2,7 +2,7 @@
 
 - story: US-6
 - depends-on: US-1
-- shippable: no — the rule (feat-041, reworded) and its application on every surface (`feat-NNN-sight-on-every-surface`) ship in order, and the selectors of US-3 read it
+- shippable: no — the rule (feat-041, reworded) and its application on every surface (`feat-NNN-sight-in-structure-lists`, `feat-NNN-sight-in-work-views`) ship in order, and the selectors of US-3 read it
 - status: pending
 
 As an **organization member**, I want **to see only the departments, teams and projects I take part in or my access allows, everywhere**, so that **the panel shows my work, not the whole organization, and nothing hidden leaks through a count or a name**.
@@ -20,9 +20,9 @@ Scenario: Sight through a team membership (BR-TD-12..-14)
 
 Scenario: Sight through a department grant
   When Max opens «Ромашка»
-  Then he sees «Финансы», its team JUPITER (a grant on its department), its project C (reached through C's node) and MARS (linked to C)
+  Then he sees «Финансы», its team JUPITER (a grant on its department), its project C (reached through C's node), MARS (linked to C) and «Логистика» (holding MARS)
   And he does not see D: seeing JUPITER does not disclose JUPITER's projects
-  And he does not see «Логистика», A, B or VENUS
+  And «Логистика» on his «Структура» shows MARS alone: he does not see A, B or VENUS
 
 Scenario: Sight through a project grant
   When Vera opens «Ромашка»
@@ -46,6 +46,8 @@ Scenario: The organization role applies on what one sees (BR-TD-16)
 Scenario: A hidden object does not exist
   When Olga opens C's address, or a work item of C, or a team page of JUPITER
   Then she gets «Проект не найден.» or «Команда не найдена.», as for an address that names nothing
+  And A's address with `teamId` naming JUPITER answers «Команда не найдена.», and with `departmentId` naming «Финансы», «Область не найдена.»
+  And a request to reorder JUPITER's backlog answers «Команда не найдена.», not «Недостаточно прав»
   And no count, «ещё», heading, empty text or notice is changed by C, JUPITER or «Финансы»
 
 Scenario: Organizations are those one is a member of (BR-TD-15)
@@ -58,5 +60,5 @@ Scenario: Sight changes on the next request
 
 Scenario: The upgrade's effect is named (OQ-5 A)
   When the upgrade sets every existing project's «Видим всей организации» off
-  Then the MR lists, per project, the members who saw it before and do not after
+  Then the upgrade logs, per project, the members who saw it before and do not after, and the MR quotes that log
 ```
