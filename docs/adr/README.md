@@ -44,6 +44,7 @@ anything already fixed by the conventions.
 Keep the list current (append-only, newest on top):
 
 - ADR-0040 — Place every team and project in one department, cascade the context selectors, and let a user see only what they take part in · proposed (supersedes in part ADR-0028 rule 1, ADR-0031 rules 2 and 4, ADR-0032 § 5, ADR-0038 § 3's top-level creation; amends ADR-0029 § 6, ADR-0038 § 1)
+- ADR-0039 — Store the work item description as server-sanitized HTML with closed class palettes, edited with TipTap beside MUI · accepted
 - ADR-0038 — Let the place decide who creates a project, let a project's manager run its subtree, and let a department's manager run the department's projects · accepted (amends ADR-0029 §§ 4, 6, 7, 12)
 - ADR-0037 — Serve the panel and the API under one configured path base · accepted (accepted 2026-11-05)
 - ADR-0036 — Page the aggregate views' group reads by a cursor, and limit those reads per user and per process · proposed (deviates from ADR-0014/0015 for these reads only)
@@ -74,7 +75,7 @@ Keep the list current (append-only, newest on top):
 - ADR-0010 — Implement optimistic concurrency via `xmin` by an automatic convention · accepted
 - ADR-0009 — Use EF Core + Npgsql as the primary data access · accepted
 - ADR-0008 — Issue JWTs ourselves (RS256) instead of plugging in an external IdP · superseded by ADR-0018
-- ADR-0007 — Fix the frontend UI stack and the canonical screen states · accepted, partially narrowed by ADR-0019, amended by ADR-0024
+- ADR-0007 — Fix the frontend UI stack and the canonical screen states · accepted, partially narrowed by ADR-0019, amended by ADR-0024 and ADR-0037
 - ADR-0006 — Error texts live in a shared catalog, not in server code · proposed
 - ADR-0005 — Treat error codes as a stable registry — part of the API contract · accepted
 - ADR-0004 — Business errors are exceptions, mapping to ProblemDetails is centralized · accepted, partially superseded by ADR-0006

@@ -34,8 +34,23 @@ public static class WorkItemErrorCodes
     /// <summary>Field reason of <c>title</c>: a line break in it (BR-M3-3).</summary>
     public const string TitleMultiline = "workitems.workitem.title_multiline";
 
-    /// <summary>Field reason of <c>description</c>: more than 100 000 characters (BR-M3-19).</summary>
+    /// <summary>
+    /// Field reason of <c>description</c>: more than 100 000 characters (BR-M3-19); for html, more than 100 000 code
+    /// points of visible text (feat-018 BR-RT-7).
+    /// </summary>
     public const string DescriptionTooLong = "workitems.workitem.description_too_long";
+
+    /// <summary>
+    /// Field reason of <c>description</c>: an html description whose reduced markup is over 1 000 000 code points, or
+    /// whose request value is over 2 000 000 UTF-16 units (feat-018 BR-RT-7).
+    /// </summary>
+    public const string DescriptionMarkupTooLarge = "workitems.workitem.description_markup_too_large";
+
+    /// <summary>
+    /// Field reason of <c>description</c>: a declared <c>descriptionFormat</c> that is neither <c>plain</c> nor
+    /// <c>html</c>, with or without a description (feat-018 BR-RT-10). A panel defect, not user input.
+    /// </summary>
+    public const string DescriptionFormatUnknown = "workitems.workitem.description_format_unknown";
 
     /// <summary>Field reason of <c>requestId</c>: missing or not a well-formed id (BR-M3-26). A panel defect, not user input.</summary>
     public const string RequestIdInvalid = "workitems.workitem.request_id_invalid";

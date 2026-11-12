@@ -1593,6 +1593,13 @@ namespace Mustask.Infrastructure.Migrations
                         .IsRequired()
                         .HasColumnType("text");
 
+                    b.Property<string>("DescriptionFormat")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)")
+                        .HasDefaultValue("Plain");
+
                     b.Property<decimal?>("Effort")
                         .HasPrecision(6, 2)
                         .HasColumnType("numeric(6,2)");
@@ -1743,15 +1750,21 @@ namespace Mustask.Infrastructure.Migrations
 
                             t.HasCheckConstraint("ck_work_items_deletion_marks", "(deleted_from_state_id IS NULL AND deleted_by IS NULL AND deleted_at IS NULL) OR (deleted_from_state_id IS NOT NULL AND deleted_by IS NOT NULL AND deleted_at IS NOT NULL)");
 
-                            t.HasCheckConstraint("ck_work_items_description_length", "char_length(description) <= 100000");
+                            t.HasCheckConstraint("ck_work_items_description_format", "description_format IN ('Plain', 'Html')");
+
+                            t.HasCheckConstraint("ck_work_items_description_length", "char_length(description) <= 1000000");
 
                             t.HasCheckConstraint("ck_work_items_effort", "effort BETWEEN 0 AND 9999");
+
+                            t.HasCheckConstraint("ck_work_items_empty_description_plain", "description_format = 'Plain' OR description <> ''");
 
                             t.HasCheckConstraint("ck_work_items_number_positive", "number >= 1");
 
                             t.HasCheckConstraint("ck_work_items_original_estimate", "original_estimate BETWEEN 0 AND 9999");
 
                             t.HasCheckConstraint("ck_work_items_parent_not_self", "parent_id IS NULL OR parent_id <> id");
+
+                            t.HasCheckConstraint("ck_work_items_plain_description_length", "description_format = 'Html' OR char_length(description) <= 100000");
 
                             t.HasCheckConstraint("ck_work_items_priority", "priority BETWEEN 1 AND 4");
 
@@ -1823,6 +1836,9 @@ namespace Mustask.Infrastructure.Migrations
 
                             t.Property("Description")
                                 .HasColumnName("description");
+
+                            t.Property("DescriptionFormat")
+                                .HasColumnName("description_format");
 
                             t.Property("Effort")
                                 .HasColumnName("effort");

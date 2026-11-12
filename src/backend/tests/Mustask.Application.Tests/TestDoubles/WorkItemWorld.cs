@@ -240,6 +240,7 @@ public sealed class FakeWorkItemReadModel(WorkItemWorld world) : IWorkItemReadMo
                 null,
                 [])
             {
+                DescriptionFormat = "plain",
                 Priority = 2,
                 Risk = null,
                 StoryPoints = null,

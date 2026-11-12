@@ -15,6 +15,8 @@ export async function openFieldsForm(identifier: string, data: Dataset = hierarc
   const api = serveWorkItems(data);
   const view = renderWorkItems(mskForm(identifier));
   await screen.findByRole('textbox', { name: 'Заголовок' });
+  // The editor of «Описание» is a lazy chunk (feat-018): the form is ready when it is.
+  await screen.findByRole('textbox', { name: 'Описание' }, { timeout: 20_000 });
   return { api, view };
 }
 
