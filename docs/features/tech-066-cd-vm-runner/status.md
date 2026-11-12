@@ -29,6 +29,7 @@ Check: `scripts/tests/cd-runner-cases.sh`. It tests the wrapper's listing and fl
 - 2026-11-12 [orchestrator] Take: PR #134. The human repeated that verify.sh runs only in GitHub Actions. Locally: cd-runner-cases.sh (36/36), shellcheck and actionlint (Docker images, both clean). CI's verify.sh is the gate.
 - 2026-11-12 [orchestrator] Rehearsal in a throwaway ubuntu:24.04 container (removed): runner-setup.sh with the runner marked registered, then sudo -n as mustask-runner. 33/33: the two mustask-cd commands run as root; another subcommand, an argument, bash, install.sh, -E, another user and junk are refused. Not walked: a real registration.
 - 2026-11-12 [qa] Light QA: no blocker or major, 2 minors in review.md; 17 cases added (36 to 53, mutations of deploy.yml now caught); shellcheck and actionlint clean; vm.md and vm.ru.md agree.
+- 2026-11-12 [review] Round 1 on 005e201e: changes requested. Open: 1 blocker (CR-1: an approved fork PR can target the VM runner and get root via mustask-cd deploy; runbook says it cannot), 3 minors. Findings in review.md.
 
 ## Decisions
 

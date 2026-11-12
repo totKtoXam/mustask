@@ -58,3 +58,84 @@ release; deploy.yml: exactly two `runs-on` lines (ubuntu-latest and the VM),
 `needs: build`, the main / v* ref guard, the concurrency group name,
 `contents: read` permissions, the sha256 check, sudo limited to the two
 wrapper commands, `inputs.` only through env.
+
+## Review Round 1
+
+Stage 8, clean session, commit 005e201e (diff `origin/main...HEAD`). Verdict:
+**changes requested** (1 blocker, 3 minors). Checked and sound: sudoers
+argument matching (exact args, `env_reset`, no SETENV so `-E` is refused,
+stdin passes through); the wrapper's root-owned 0700 stage (no TOCTOU against
+the runner user); `${{ }}` reaches `run:` only through `env:`; permissions;
+all five action pins resolve to the tagged commits (`gh api`, 2026-11-12);
+`ACTIONS_RUNNER_INPUT_TOKEN` is read by the runner's `CommandSettings.cs`
+(prefix `ACTIONS_RUNNER_INPUT_`, cleared after reading; checked on GitHub) and
+`runuser -u` without `-l` keeps the environment (util-linux, from memory);
+`fetch-depth: 0` brings the tags `build-release.sh` needs; dotnet-ef on PATH
+through `$GITHUB_PATH`; artifact name/path round trip; smoke runs as root
+through the wrapper. `sh scripts/tests/cd-runner-cases.sh`: all passed.
+
+**CR-1 — blocker — `docs/deploy/vm.md:586-589, 696-700` (vm.ru.md:589-592,
+700-704); no enforcement on the VM.** An approved fork PR runs the workflow
+files *of the PR* (`pull_request` uses the merge ref). A fork that adds
+`on: pull_request` + `runs-on: [self-hosted, linux, mustask-prod]` to any
+workflow (and edits `cd-runner-cases.sh` to match, or simply does not care
+that CI goes red afterwards) gets its job on the VM the moment the owner
+clicks "Approve and run"; the job then runs `sudo -n /usr/local/sbin/mustask-cd
+deploy < own.tar.gz`, whose `kit/install.sh` runs as root. A user-owned repo
+has no runner group to restrict workflows, and the `production` environment
+fences only jobs that name it. The runbook tells the owner the opposite —
+"Even approved, it runs only `ci.yml`", "No pull request reaches the runner …
+cd-runner-cases.sh enforces all of this in CI" — so a routine approval of an
+outside PR is root on production. Fix: (a) enforce on the VM, outside
+anything a PR controls: a root-owned job-started hook
+(`ACTIONS_RUNNER_HOOK_JOB_STARTED` in the runner's `.env`, written by
+runner-setup.sh) that exits non-zero unless `GITHUB_REPOSITORY` is the repo,
+`GITHUB_EVENT_NAME` is `push` or `workflow_dispatch` and `GITHUB_WORKFLOW_REF`
+is `<repo>/.github/workflows/deploy.yml@refs/heads/main` or `…@refs/tags/v*`
+(the hook's env vars: from memory, confirm in the runner docs), plus a case
+for it; (b) rewrite 11.1 item 1 and 11.4 in both languages: approving a fork
+PR run is granting it the runner unless (a) holds, read its `.github/` diff
+first; the cases file is a guard against our own mistakes, not against a
+fork.
+
+**CR-2 — minor — `deploy/vm/runner-setup.sh:126`.** Registration is the
+only idempotency key: if `config.sh` succeeded and `svc.sh install`/`start`
+(line 166) failed, every re-run says "registered already, left as it is" and
+the service is never installed. Fix: after the early-exit check, install and
+start the service when `$dir/.service` is missing (or `systemctl is-enabled`
+fails), and say so in 11.2.
+
+**CR-3 — minor — `docs/deploy/vm.md:687-688` (vm.ru.md:691-692),
+`.github/workflows/deploy.yml:40-42`.** "A second run waits until the first
+ends": true for one; with `cancel-in-progress: false` GitHub keeps one
+*pending* run per group and cancels the older pending one when a newer run
+arrives, so of three quick tags the middle one is never deployed. Fix: say so
+in 11.3 (the latest pending tag wins; re-dispatch a skipped one).
+
+**CR-4 — minor — `docs/deploy/vm.md:284` (vm.ru.md:283).** Direction 2:
+the section-4 table of `kit/` contents still lists install.sh, smoke.sh, unit,
+nginx files and env template; `build-release.sh:135` now also ships
+`mustask-cd.sh` and `runner-setup.sh` (and 11.2 relies on that). Fix: add
+both to the row in both files.
+
+### Claims checked (item 6)
+
+- vm.md 11 "VM gets no SDK/Node/checkout": deploy.yml:125-160 (no checkout, only download) — holds.
+- 11 "may run exactly two commands as root": runner-setup.sh:113 sudoers line — holds (for the runner user's own sudo; see CR-1 for what those two allow).
+- 11.1 item 1 "Even approved, it runs only ci.yml": CR-1.
+- 11.1 item 2 "a run from any other branch cannot reach the deploy job": deploy.yml:49 `if:` + environment ref rule (GitHub setting) — holds.
+- 11.1 item 3 "install.sh deploy refuses a release built for another address": install.sh:378-380 — holds.
+- 11.1 item 5 "guard is that only deploy.yml names the label; cases fail CI otherwise": cd-runner-cases.sh:175-205 — holds for same-repo changes, not for a fork's PR run: CR-1.
+- 11.2 "download refused if checksum differs": runner-setup.sh:138-139 — holds.
+- 11.2 "token never on a command line or in a file": runner-setup.sh:145-161 + CommandSettings.cs env read — holds.
+- 11.2 "refuses if the user is in sudo/docker/lxd": runner-setup.sh:95-97 — holds.
+- 11.2 "re-run refreshes only wrapper, sudoers, flags; keeps flags without --smoke-args": runner-setup.sh:102-129 — holds (CR-2 is the gap beside it).
+- 11.2 service name `actions.runner.<owner>-<repo>.<name>.service`: svc.sh naming (from memory) — not verifiable here, plausible.
+- 11.3 "failed smoke fails the run": deploy.yml:159-160, `set -e` default shell — holds.
+- 11.3 "runner has no right to run rollback": sudoers line runner-setup.sh:113 — holds.
+- 11.3 "Two runs never overlap … never cancelled halfway": deploy.yml:40-42 — holds; pending replacement: CR-3.
+- 11.4 "No pull request reaches the runner": CR-1.
+- 11.4 "wrapper accepts only one mustask-<tag>/ with matching VERSION, fresh root-owned dir": mustask-cd.sh:37-69, 92-111 — holds.
+- Troubleshooting rows (sudo password, refused, cd-smoke-args): mustask-cd.sh:100-110,117 — hold.
+- mustask-cd.sh header "nothing else: no other argument": mustask-cd.sh:122-130 + sudoers exact args — holds.
+- Direction 2: behaviour changed = kit contents (`build-release.sh` kit list), new CD path. Grepped `self-hosted`, `deploy.yml`, `kit/`, `mustask-cd`, `runner-setup` under docs/, .github/, AGENTS.md files: one stale hit, vm.md:284 / vm.ru.md:283 (CR-4); no other prose describes CD or the kit list. Not swept: ci.yml's own comments (file untouched, no CD claim expected).
