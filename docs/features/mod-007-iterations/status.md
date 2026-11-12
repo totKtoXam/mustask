@@ -107,3 +107,4 @@ overview; a deleted team's Closed sprints and their outcomes stay readable on
 the projects' «Спринты». The team's «Спринты» (teams/:t/sprints) and a
 project's «Спринты» (projects/:p/sprints) are sections of their own pages
 (doc-012 BR-MX-13..-15; US-9, US-12, US-10).
+- 2026-11-12 [qa-engineer] frontend QA: FAIL, 3 majors on the outcome page (h1, «Итого» not expandable, purged project blank), 2 minors; 35 tests added (3 it.fails pin the majors); no E2E (standing NO)
