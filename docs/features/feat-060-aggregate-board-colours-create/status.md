@@ -30,6 +30,7 @@ gate-3: pending
 - 2026-11-12 [orchestrator] route confirmed by the human: feature, S (frontend only, one layer, existing APIs; ~5-8 files with tests), frontend-developer → qa-engineer (light) → code-reviewer → gate-3 → PR. Gates: gate-3 only. Queue line taken (scripts/queue.sh take feat-060). Economy mode: one agent per stage, one Opus review, verification by CI.
 - 2026-11-12 [frontend] aggregate board: shared stripes (boardStripes.ts, team board output unchanged), column dot, create command (header label NEW_WORK_ITEM_LABEL as on the team views) + CreatePlace 'scope'; project list from the shell's selector-offers (department board: its projects) ∩ projects with workitems.workitem.write; no new API; commit a6b36501. Vitest: AggregateViews* 42 passed; team/project create and board suites 675 passed, 1 skipped; tsc + eslint clean. verify.sh not run (economy mode, CI).
 - 2026-11-13 [qa] light QA at 27544300: plan items 1-4 covered except the project-filter preselect (unreachable at org/department level — dead branch, minor) and no assertion that aggregate «Рабочие элементы» has no create command (minor); boards suite 70 files / 869 passed, CreateWorkItemDialog 23 passed; no tests added; 0 blocker, 0 major, 2 minor. Stage → 06-code-review.
+- 2026-11-13 [code-review] round 1 (Opus) at c2bdc4e9: approve, 0 blocker, 0 major, 5 minor (m1 dead preselect + doc claim, m2 contextGone ignored, m3 board remount on create, m4 test precision, m5 feat-048 spec.md:95 stale) — review.md, commit ce964c29. Gate-3 requested.
 
 ## Notes
 
