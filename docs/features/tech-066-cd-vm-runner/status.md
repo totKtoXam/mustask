@@ -33,6 +33,7 @@ Check: `scripts/tests/cd-runner-cases.sh`. It tests the wrapper's listing and fl
 - 2026-11-12 [orchestrator] Round 1 fixed (see review.md, "Fixes after round 1"): CR-1 by a job-started hook on the VM (runner-job-guard.sh + a root-owned systemd drop-in), CR-2 to CR-4 and QA M1. Locally: cd-runner-cases.sh 73 cases, shellcheck, actionlint, rehearsal 53/53. Next: a delta review.
 - 2026-11-12 [review] Round 2 (delta) on 5a629ab6: approved. CR-1 to CR-4 resolved; open: 1 minor (CR-5: runner-owned .env can unset the hook; runbook overstates). Findings in review.md.
 - 2026-11-12 [orchestrator] CR-5 reworded in 11.4 (7b5f0001). Gate-3 approved by the human in chat after review round 2 approved; PR next.
+- 2026-11-12 [orchestrator] The push was stopped by pre-push: GHSA-f7vh-h5g3-7jrh (CVE-2026-120006, published 2026-11-10) against Aspire.Hosting < 13.6.5 fails the backend build under TreatWarningsAsErrors. The human said to fix it here. Aspire packages and the AppHost SDK 13.5.1 to 13.6.5; Microsoft.EntityFrameworkCore and .Design 10.0.11 to 10.0.14 (Aspire 13.6.5 needs it, NU1605 otherwise); the tech-040 MessagePack pin dropped as its comment asked, Aspire now resolves 2.5.307. Build clean, `dotnet list package --vulnerable --include-transitive` lists nothing. Tests run in CI.
 
 ## Decisions
 
