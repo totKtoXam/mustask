@@ -1,8 +1,10 @@
 using System.Net;
 using System.Text.Json;
 using Microsoft.Extensions.DependencyInjection;
+using Mustask.Api.IntegrationTests.Kit;
 using Mustask.Application.Abstractions.Organizations;
 using Mustask.Domain.Organizations;
+using Mustask.Testing;
 
 namespace Mustask.Api.IntegrationTests.Features.Organizations;
 
@@ -193,28 +195,22 @@ public sealed class RenameOrganizationEndpointTests(MustaskApiFactory factory)
     [Fact]
     public async Task Rename_TwoConcurrentToSameFreeName_OneWins()
     {
-        var alpha = await OrganizationsTestData.CreateOrganizationAsync(factory, OrganizationsTestData.UniqueName("Альфа"));
-        var beta = await OrganizationsTestData.CreateOrganizationAsync(factory, OrganizationsTestData.UniqueName("Бета"));
-        var gamma = OrganizationsTestData.UniqueName("Гамма");
-        using var gate = factory.CommitGates.Open();
+        // The kit (docs/conventions/testing.md): worlds for the arrangement, the client for the caller, the race helper for the
+        // gate-and-lock choreography, the catalog for the expected text, the fields assertion for the answer's shape.
+        var alpha = (await World.With(factory).Organization(TestData.UniqueName("Альфа")).BuildAsync()).Organization;
+        var beta = (await World.With(factory).Organization(TestData.UniqueName("Бета")).BuildAsync()).Organization;
+        var gamma = TestData.UniqueName("Гамма");
+        var admin = new ApiClient(factory);
 
-        var first = RenameAsync(alpha.Id, gamma, gate);
-        await Task.WhenAny(gate.Reached, first);
-        Assert.False(first.IsCompleted, "The first rename finished before reaching its commit gate.");
-
-        var second = RenameAsync(beta.Id, $" {gamma} ");
-        await PgLocks.WaitUntilBlockedAsync(factory.ConnectionString, second);
-        Assert.False(second.IsCompleted, "The second rename did not wait for the first one's uncommitted name.");
-
-        gate.Release();
-        var (a, b) = (await first, await second);
+        var (a, b) = await Race.TwoAsync(
+            factory,
+            gate => admin.PutAsync($"{OrganizationsApi.Organization(alpha.Id)}/name", new { name = gamma }, gate),
+            () => admin.PutAsync($"{OrganizationsApi.Organization(beta.Id)}/name", new { name = $" {gamma} " }));
 
         Assert.Equal(HttpStatusCode.OK, a.Status);
+        ResponseFields.AssertExactly(a, "id", "name");
         Assert.Equal(gamma, a.Body.GetProperty("name").GetString());
-        Assert.Equal(HttpStatusCode.Conflict, b.Status);
-        Assert.Equal("organizations.organization.name_taken", b.ErrorCode);
-        Assert.Equal($"Название «{gamma}» уже занято", b.Detail);
-        Assert.Equal(gamma, b.Body.GetProperty("params").GetProperty("name").GetProperty("value").GetString());
+        ProblemAssert.Problem(b, HttpStatusCode.Conflict, "organizations.organization.name_taken", ("name", gamma));
 
         Assert.Equal(gamma, await StoredNameAsync(alpha.Id));
         Assert.Equal(beta.Name, await StoredNameAsync(beta.Id));

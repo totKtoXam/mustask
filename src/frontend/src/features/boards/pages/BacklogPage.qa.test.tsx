@@ -90,10 +90,9 @@ describe('feat-040 QA: a project’s own views read the card in the page’s pro
     expect(api.reads('/workitems/').map((request) => request.path)).toEqual([
       `/api/organizations/${ids.example}/projects/${ids.msk}/workitems/OPS-US-1`,
     ]);
-    // The project’s views do not look the key up among the organization’s projects.
-    expect(api.reads('/projects').some((request) => request.path.endsWith('/projects'))).toBe(
-      false,
-    );
+    // The project’s views do not look the key up among the organization’s projects. The project list is read
+    // once, for the codes of the project rows (mod-019 BR-SA-18, F-6), and the card is still read in the page’s project.
+    expect(api.reads('/workitems/')).toHaveLength(1);
   });
 });
 

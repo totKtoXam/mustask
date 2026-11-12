@@ -89,7 +89,7 @@ together with the text fix, in the same commit.
 
 Not an error catalog, and kept here for the same reason: it is read by the
 server and the panel alike (feat-018,
-[ADR-0037](../docs/adr/0037-rich-text-as-sanitized-html-with-tiptap.md),
+[ADR-0039](../docs/adr/0039-rich-text-as-sanitized-html-with-tiptap.md),
 decision 6).
 
 - `rich-text/vocabularies.json` — the closed class vocabularies (text colour,
@@ -99,9 +99,19 @@ decision 6).
   after matching the input exactly; the panel imports the same file. No token
   literal appears in server code (a test scans for it). An entry added,
   renamed or removed is a contract change: it needs its theme mapping and copy
-  on the panel and an ADR-0037 amendment.
+  on the panel and an ADR-0039 amendment.
 - `rich-text/fixtures/` — the cases both suites run: `canonical.json` (input,
   canonical, editor output), `visible-count.json` (html, count by code
   point), `hostile-corpus.json` (payloads and what must not survive),
   `legacy.json` (plain text and its html conversion). A case added by either
   side runs on both; each file's `$comment` says how.
+
+## contracts/access/ — the role bundles
+
+`access/role-bundles.json` (mod-019, api-contract § 9) carries the instance
+table (the four client roles of `mustask-api`), the organization bundles, the
+scoped bundles per grant scope and role, and the catalog with each code's
+source and resource scope. It is generated from `Mustask.Domain.Identity` and
+committed; `Mustask.Contracts.Tests` fails on a drift. Regenerate with
+`MUSTASK_UPDATE_ROLE_BUNDLES=1 dotnet test src/backend/tests/Mustask.Contracts.Tests`.
+The panel imports it in place of its hand-kept mirrors (stage 6).

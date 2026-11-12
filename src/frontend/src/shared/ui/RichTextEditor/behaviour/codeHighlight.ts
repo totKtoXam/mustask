@@ -17,7 +17,7 @@ import { createLowlight } from 'lowlight';
 import { codePointLength } from '../../../lib/richText';
 
 /**
- * Code colouring (ADR-0037 decision 4, design § Syntax colouring, F-3):
+ * Code colouring (ADR-0039 decision 4, design § Syntax colouring, F-3):
  * `lowlight` over the twelve closed languages, applied as ProseMirror
  * **decorations** over the block's text — never inserted markup, never stored
  * (`getHTML()` and the normaliser never see it), so a colour-only repaint is

@@ -310,11 +310,38 @@ describe('feat-049 US-2: levels, sections and the deactivated node', () => {
       header.focus();
       await userEvent.keyboard('{ArrowLeft}');
     }
-    expect(screen.queryAllByRole('button', { name: 'Уровень 1' })).toHaveLength(0);
+    // tech-052: the folded sections keep their chips, pressed ones included.
+    const pressed = screen.getAllByRole('button', { name: 'Уровень 1' });
+    expect(pressed.length).toBeGreaterThan(0);
+    expect(pressed.every((c) => c.getAttribute('aria-pressed') === 'true')).toBe(true);
 
     await userEvent.click(screen.getByRole('button', { name: 'Все уровни' }));
 
     await waitFor(() => expect(frameOf(tree).contains(document.activeElement)).toBe(true));
+  });
+
+  it('unpresses a chip of a folded section from the keyboard (tech-052)', async () => {
+    window.localStorage.setItem(structureStorageKey('layout', ACTING_USER, ids.alfa), 'v');
+    serveOrganizations();
+    renderPage({ path: AREAS });
+    const tree = await openDiagram();
+    await userEvent.click(chip(1));
+    for (const header of within(tree)
+      .getAllByRole('treeitem')
+      .filter((node) => node.getAttribute('aria-level') === '1')) {
+      header.focus();
+      await userEvent.keyboard('{ArrowLeft}');
+    }
+
+    chip(1).focus();
+    await userEvent.keyboard('{Enter}');
+
+    expect(screen.getByRole('button', { name: 'Все уровни' })).toBeDisabled();
+    expect(
+      screen
+        .getAllByRole('button', { name: 'Уровень 1' })
+        .every((c) => c.getAttribute('aria-pressed') === 'false'),
+    ).toBe(true);
   });
 
   it('folds a section from its header with the arrow keys and announces it', async () => {

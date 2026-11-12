@@ -25,11 +25,11 @@
     <!-- GridifyQueryableAsync и co. — асинхронное применение
          пагинации/сортировки/фильтрации к EF-запросам reader'ов (ADR-0015). -->
     <PackageReference Include="Gridify.EntityFramework" />
-    <!-- feat-018 / ADR-0037: the HTML5 parser of the rich-text reduction (RichText/). -->
+    <!-- feat-018 / ADR-0039: the HTML5 parser of the rich-text reduction (RichText/). -->
     <PackageReference Include="AngleSharp" />
   </ItemGroup>
 
-  <!-- feat-018 / ADR-0037 decision 6: the closed vocabularies are shared with the panel, embedded like the dictionaries. -->
+  <!-- feat-018 / ADR-0039 decision 6: the closed vocabularies are shared with the panel, embedded like the dictionaries. -->
   <ItemGroup>
     <EmbeddedResource Include="$(MSBuildThisFileDirectory)..\..\..\contracts\rich-text\vocabularies.json"
                        LogicalName="RichText/vocabularies.json"

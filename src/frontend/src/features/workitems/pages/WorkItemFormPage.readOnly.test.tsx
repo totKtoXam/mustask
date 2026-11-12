@@ -1,11 +1,9 @@
 import { describe, expect, it, vi } from 'vitest';
 import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { HttpResponse, http } from 'msw';
-import { server } from '../../../test/mocks/server';
+import { serveRole } from '../../../test/renderShell';
 import {
   READ_CODES,
-  servedFor,
   servedWith,
   type ServedAccess,
   type TestRole,
@@ -13,7 +11,7 @@ import {
 import { cardTexts } from '../lib/cardTexts';
 import { serveProblem, serveWorkItems } from '../testApi';
 import { ITEM_OF_TYPE, retype, save, textbox } from '../testFields';
-import { API, WORK_ITEM_URL, hierarchyDataset, ids, problem, recordOf } from '../testFixtures';
+import { WORK_ITEM_URL, hierarchyDataset, ids, problem, recordOf } from '../testFixtures';
 import { mskForm, renderWorkItems } from '../testRender';
 
 // mod-016 US-4, design § 6.5 as the card draws it (feat-029 BR-C-19): without
@@ -28,7 +26,6 @@ vi.setConfig({ testTimeout: 120_000 });
 
 const STORY = mskForm(ITEM_OF_TYPE['Пользовательская история']);
 const HEADING = 'Пользовательская история MSK-US-2';
-const ACCESS_URL = `${API}/api/organizations/:organizationId/access`;
 
 /** MSK-US-2 with a parent, a child, an assignee and a stored 1.5 — and everything else empty. */
 function storyDataset() {
@@ -175,7 +172,7 @@ describe('mod-016 design § 2.3 Scenario: a member turned reader after a refused
     await userEvent.type(title(), 'Письмо со ссылкой для входа');
     await retype('Оценка в пунктах', '2.5');
     // The codes the 403 makes the shell read again are the reader’s.
-    server.use(http.get(ACCESS_URL, () => HttpResponse.json(servedFor('viewer'))));
+    serveRole('viewer');
     await userEvent.click(save());
 
     // The role-change notice stays 6 s: it is looked for first, while it is on screen.

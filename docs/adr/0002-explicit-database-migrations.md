@@ -82,10 +82,14 @@ without revisiting this ADR.
 - Local workflow: after `dotnet run --project src/backend/Mustask.AppHost`
   (brings up an empty DB) the developer runs
   `dotnet ef database update --project src/backend/Mustask.Infrastructure`,
-  passing the current `ConnectionStrings__mustask` (Aspire assigns the
-  Postgres container a random port and password on every run — there is
-  no fixed value). The full procedure for obtaining this string and the
-  command are documented in `AGENTS.md`.
+  passing `ConnectionStrings__mustask` for the stand's Postgres container
+  (its port is `Ports:Db` and its password the `Parameters:mustask-db-password`
+  user secret, both fixed). The full procedure for assembling this string
+  and the command are in `docs/runbooks/local-migrations.md`.
+  (Corrected by tech-004, 2026-11-06: this used to say Aspire assigns a
+  random port and password on every run and point to `AGENTS.md`; the stand
+  has used fixed ports and secrets since, and the procedure moved to the
+  runbook. The decision itself is unchanged.)
   (Previously `--startup-project src/backend/Mustask.Api` was specified here —
   it does not work: `Mustask.Api` does not reference
   `Microsoft.EntityFrameworkCore.Design`, the command fails with a

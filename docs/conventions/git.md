@@ -50,13 +50,12 @@ numbering rules — [../features/numbering.md](../features/numbering.md).
 - The queue is not part of a task branch's diff: the orchestrator
   removes the taken task's line with a separate commit on `main` at the
   start, so a merge conflict over the queue is impossible.
-- **After merge, the branch on the server is NOT deleted.** Squash
-  collapses the task into a single commit on `main`, and the fine-grained
-  history is the only place where you can see how the task went: the
-  rounds of review changes, what got fixed after QA, which commit broke
-  what. Deleting the branch loses that forever. The local copy can be
-  removed after syncing (`git branch -d`), the server one cannot; in the
-  MR "Delete source branch" must be unchecked. The task history in
+- **After merge, the branch on the server is NOT deleted.** The merge
+  commit keeps the task's commits in `main`'s history, but the branch is
+  the pointer to them and to the rounds of review changes, what got fixed
+  after QA, which commit broke what. Deleting it loses that name. The
+  local copy can be removed after syncing (`git branch -d`), the server
+  one cannot; in the PR "Delete branch" must stay off. The task history in
   `docs/features/<id>/` supplements the branch, it does not replace it.
 - Independent tasks are worked in separate worktrees, so that parallel
   agent sessions don't collide in the same working directory.
@@ -69,8 +68,9 @@ numbering rules — [../features/numbering.md](../features/numbering.md).
 - Subject line — imperative, ≤ 72 characters, no trailing period:
   `Add order balance handler`.
 - Body (when needed) — **why**, not what: the diff shows what.
-- Granularity is free: the branch collapses on merge, so fine-grained
-  "wip" commits are allowed. But every commit must build — otherwise
+- Granularity: the branch's commits land in `main` as they are (merge
+  commit), so each one is read by the next human and agent — one logical
+  step per commit, no "wip" noise. Every commit must build — otherwise
   `git bisect` is useless.
 - Never commit secrets, `.env`, database dumps.
 
@@ -100,14 +100,14 @@ session.
 3. Title: `feat|fix|tech|chore(<scope>): <gist> (<short id>)` —
    `feat(orders): calculate remaining order balance (feat-001)` — the
    title, like the commits, is English (rule from AGENTS.md; the
-   `commit-msg` hook rejects Cyrillic in a squash commit's title).
+   `commit-msg` hook rejects Cyrillic in a commit's title).
 4. Description: a link to `docs/features/<id>/`, a summary of the
    changes, a gate checklist, manual-verification instructions, and
    knowingly open items. Passed **as a file** (`--description-file`):
    line breaks in `--description` and in
    `git push -o merge_request.description` don't survive.
-5. Squash — **enable it in the MR itself** (`--squash-before-merge`) and
-   verify it took. Branch deletion — **disable**.
+5. Merge method — **a merge commit**, not squash: the branch keeps its
+   commits. Branch deletion — **disable**.
 6. **Red CI — stop.** An MR is not opened and not merged with failing
    tests or linters.
 7. **The human presses the Merge button**, not the agent.
@@ -148,27 +148,36 @@ Three gotchas, each one cost a session:
 
 ## Merge into main
 
-**Method — squash merge.** One task = one commit on `main`; `main`'s
-history reads as a list of completed tasks, not a stream of "wip" noise.
-Rebase-merge and merge-commit are not used.
+**Method — merge with a merge commit (2026-11-09).** A task PR is merged
+as a merge commit: the branch keeps its commits, `main`'s first-parent
+history reads as a list of completed tasks, and a change is found in a small
+commit rather than in one large squash (a large commit is harder for a
+human and an agent to search, and costs tokens to read). Squash and
+rebase-merge are not used for task PRs. The commits are therefore written
+to be read: see "Commits within a branch".
 
-With a remote, the squash happens in GitLab and the button is the human's.
+Two things stay as they were: queue PRs made by `scripts/queue.sh` are
+still squash (one queue line = one commit), and the no-remote ending
+`scripts/finish-task.sh` (`finish-task.ps1` in PowerShell) is still a local
+squash.
+
+With a remote, the merge happens on GitHub and the button is the human's.
 With no remote configured it happens locally, through
-`scripts/finish-task.sh` (`finish-task.ps1` in PowerShell): the same rule,
-enforced by a script instead of a button — it merges only when the task's own
+`scripts/finish-task.sh`: it merges only when the task's own
 `status.md` records `gate-3: approved` or a standing approval, and only with
 a green `verify.sh`.
 
-The squash commit's title = the PR's title (with the short id) — it is
-what reconstructs the link commit → task → `docs/features/<id>/`:
+The merge commit's title = the PR's title (with the short id `(tech-NNN)`) —
+it is what reconstructs the link commit → task → `docs/features/<id>/`; the
+task's own commits stay under it:
 
 ```
 git log --oneline --grep 'feat-001'
 ```
 
-The merge is performed **in GitLab, by the human**. `stage: complete` in
+The merge is performed **on GitHub, by the human**. `stage: complete` in
 `status.md` is set on the branch BEFORE the merge, so it travels along in
-the same squash commit; newly found debt is a request to the
+the same merge; newly found debt is a request to the
 orchestrator, who adds it as lines to the `main` queue with a separate
 commit, with numbers right away (§ Branches above).
 
@@ -203,15 +212,26 @@ The value is **relative**, and git takes a relative `core.hooksPath` from the
 root of the working tree the hook runs in. The setting is stored in the shared
 `.git/config`, so every worktree of the clone gets it and **each worktree runs
 its own checkout's copy** of the hooks: a hook edited on a task branch is the
-one that runs for that worktree's commits and pushes. A machine can hold an
-**absolute** path instead (set by hand or by a script): then every worktree
-runs the copy in that one checkout, usually the hub, on whatever branch it is,
-and a hook edited on a task branch does not run in its worktree until it
-reaches that checkout. What is live here: `git config --show-origin
-core.hooksPath`; the next build rewrites it to the relative form, and the same
-command by hand restores it. The hooks that call `scripts/verify.sh` run the
-one of the tree being pushed from (`git rev-parse --show-toplevel`) either
-way, so an edit to `verify.sh` is live at once.
+one that runs for that worktree's commits and pushes.
+
+An **absolute** path can still end up live. With `extensions.worktreeConfig`
+on, the tool that creates a worktree can write `core.hooksPath` into that
+worktree's own `config.worktree` as the absolute `.githooks` of the checkout it
+was created from (the hub, or another task's worktree). That override wins over
+the shared value, and the build's `git config` does not touch it, because it
+writes to the shared config. What is live here: `git config --show-origin
+core.hooksPath`. Two things handle it (tech-060):
+
+- Every hook hands over to the copy of the tree it runs in
+  (`$(git rev-parse --show-toplevel)/.githooks/<hook>`) when it was started
+  from another checkout's `.githooks`. A pinned path is therefore harmless once
+  the pinned checkout has this hand-over.
+- `bash scripts/fix-hooks-path.sh` (once per clone, idempotent, `--dry-run` to
+  look first) sets the shared value to `.githooks` and removes `core.hooksPath`
+  from every `config.worktree` of the clone.
+
+The hooks that call `scripts/verify.sh` run the one of the tree being pushed
+from either way, so an edit to `verify.sh` is live at once.
 
 | Hook | What it checks |
 |-----|---------------|
@@ -387,8 +407,10 @@ are changed by the human, never by an agent):
 
 The repository's merge settings: squash, merge-commit and rebase-merge are
 all allowed, auto-merge is allowed, and "delete head branches on merge" is
-**off**. "Squash only" and "the branch is not deleted" are therefore this
-document's rules, held by the MR step and by agents — not by the server.
+**off**. "Task PRs merge with a merge commit" and "the branch is not
+deleted" are therefore this document's rules, held by the PR step and by
+agents — not by the server (merge-commit is the method the human picks on
+the Merge button; the settings also allow squash, which queue PRs use).
 
 What follows for the work:
 

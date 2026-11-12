@@ -1,6 +1,5 @@
 using System.Net;
 using System.Net.Http.Json;
-using Mustask.Api.IntegrationTests.Features.Process;
 using Mustask.Application.Abstractions.Organizations;
 using Mustask.Domain.Identity;
 using Mustask.Domain.Organizations;
@@ -30,8 +29,6 @@ public sealed class AppointmentRecordAtomicityTests(MustaskApiFactory factory)
         var (_, token) = RescueTestData.NewRescuer();
         var before = await RescueTestData.MembershipsAsync(factory, organization.Id);
 
-        // The derived host replaces Serilog's static logger and disposes it: put it back (see the guard).
-        using var loggerGuard = new StaticLoggerGuard();
         using var host = factory.WithWebHostBuilder(builder =>
             builder.ConfigureTestServices(services =>
                 services.AddScoped<IAppointmentRecordRepository>(provider =>

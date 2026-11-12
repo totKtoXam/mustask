@@ -6,6 +6,9 @@
 # Git hooks are shell scripts: a CRLF hook fails on Windows because the
 # interpreter treats the trailing carriage return as part of the command.
 .githooks/* text eol=lf
+# The VM kit is copied verbatim into the release tarball: a CRLF env file or
+# unit puts a carriage return into every value on Linux.
+deploy/vm/* text eol=lf
 
 # Always CRLF (Windows-specific scripts)
 *.ps1 text eol=crlf

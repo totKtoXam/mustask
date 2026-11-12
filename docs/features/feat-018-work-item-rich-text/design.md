@@ -155,7 +155,7 @@ the exact text on the clipboard and announces «Код скопирован» (p
 Colouring: § Syntax colouring. Nothing is executed or fetched. Entry announces
 and shows the Tab hint (§ Keyboard).
 
-#### Syntax colouring (ADR-0037; supersedes the earlier D-2)
+#### Syntax colouring (ADR-0039; supersedes the earlier D-2)
 
 The grammars are lowlight's; the result is applied as **editor decorations over
 the text nodes**, never as a highlighter's HTML string, and **never stored**:
@@ -395,7 +395,7 @@ placeholder, helper). Additions, final wording:
 | # | Decision | Why / cost |
 |---|---|---|
 | D-1 | Table operations are one toolbar button with a `Menu`, not eight buttons | eight glyph-only buttons do not fit the toolbar's two rows; names are exactly US-6's; the cost is one extra click and a new name «Операции с таблицей» |
-| D-2 | ~~No syntax colouring~~ **Superseded at gate-2:** colouring is in this task (lowlight decorations, ADR-0037), 8 token classes as theme tokens, not stored | see § Syntax colouring |
+| D-2 | ~~No syntax colouring~~ **Superseded at gate-2:** colouring is in this task (lowlight decorations, ADR-0039), 8 token classes as theme tokens, not stored | see § Syntax colouring |
 | D-3 | «Язык кода» and «Копировать код» live in the toolbar; the in-block strip repeats them for the pointer only (`tabIndex=-1`) | otherwise Tab leaving the editor would stop on every block's controls, against BR-RT-16 |
 | D-4 | Markdown input rules on for `### `, `#### `, `- `, `* `, `1. `, backticks, ``` ``` ```; `#`, `##` stay text | familiar to tracker users; each yields only what the toolbar offers; Backspace right after reverts |
 | D-5 | A text colour on a highlight is the member's choice, not blocked | 64 pairs, worst 3.09:1; blocking would hide valid pairs; a note, not a rule |

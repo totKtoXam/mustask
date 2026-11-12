@@ -1,5 +1,5 @@
 // The emoji picker's data, built from `emojibase-data` by the Vite plugin in
-// `vite.config.ts` (ADR-0037 decision 4, plan-frontend § 10.1). Loaded only
+// `vite.config.ts` (ADR-0039 decision 4, plan-frontend § 10.1). Loaded only
 // through a dynamic `import()` so it is a chunk of its own.
 declare module 'virtual:rich-text-emoji' {
   /** Russian group names; an emoji's last tuple member indexes this list. */

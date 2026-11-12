@@ -15,7 +15,10 @@ import {
   type DataColumn,
 } from '../../../shared/ui';
 import { PageHeader } from '../../../shared/ui/PageHeader';
-import { RequiresOrganizationCode } from '../../../shared/ui/RequiresOrganizationCode';
+import {
+  RequiresCode,
+  RequiresOrganizationCode,
+} from '../../../shared/ui/RequiresOrganizationCode';
 import { NotFound } from '../../../shared/ui/StateFrame';
 import type { ListView } from '../api/organizationsApi';
 import { ConfirmAction } from '../components/ConfirmAction';
@@ -25,7 +28,8 @@ import { useNotify } from '../components/notice';
 import { RestoreButton } from '../components/RestoreButton';
 import { useCreateProject, useDeactivateProject, useRestoreProject } from '../hooks/mutations';
 import { useSelectorOffers } from '../hooks/navigationQueries';
-import { useProjects } from '../hooks/queries';
+import { RoleFloorAccess } from '../access/RoleFloorAccess';
+import { useProjects, useWritableAreaIds } from '../hooks/queries';
 import { useObjectLink } from '../hooks/useObjectLink';
 import { projectsList } from '../lib/navigationTexts';
 import { notFoundLevel } from '../lib/notFoundLevel';
@@ -82,6 +86,15 @@ function DeactivateProject({
  */
 export function ProjectListPage({ view }: { view: ListView }) {
   const { organizationId = '' } = useParams<{ organizationId: string }>();
+  // The list's rows carry each project's codes; the link dialog's two ends ask the role's floor (BR-SA-18).
+  return (
+    <RoleFloorAccess organizationId={organizationId}>
+      <ProjectList view={view} organizationId={organizationId} />
+    </RoleFloorAccess>
+  );
+}
+
+function ProjectList({ view, organizationId }: { view: ListView; organizationId: string }) {
   const offers = useSelectorOffers(organizationId, { enabled: view === 'active' });
   const deactivated = useProjects(organizationId, 'deactivated', {
     enabled: view === 'deactivated',
@@ -95,6 +108,12 @@ export function ProjectListPage({ view }: { view: ListView }) {
   const [, setParams] = useSearchParams();
   const access = useAccessCheck();
   const [creating, setCreating] = useState(false);
+  // mod-019 BR-SA-12, BR-SA-17: a project is created where the caller may write — the top level with
+  // `area.create`, a department with `area.write` on it; with no place the command is absent.
+  const canTop = access(organizationsPermissions.areaCreate, 'organization');
+  const writable = useWritableAreaIds(organizationId);
+  const writableIds = new Set(writable.data ?? []);
+  const hasPlace = canTop || writableIds.size > 0;
   const [deactivating, setDeactivating] = useState<ProjectRow | null>(null);
   const [text, setText] = useState('');
   const pageRef = useRef<HTMLDivElement>(null);
@@ -125,7 +144,7 @@ export function ProjectListPage({ view }: { view: ListView }) {
 
   // mod-016 design § 6.2: «Создать проект» needs `organizations.project.write`, the other view
   // and «Деактивировать» `organizations.project.deactivate`.
-  const canCreate = access(organizationsPermissions.projectWrite, 'organization');
+  const canCreate = hasPlace;
   const canDeactivate = access(organizationsPermissions.projectDeactivate, 'organization');
   const needle = text.trim().toLowerCase();
   const shown = (rows ?? []).filter(
@@ -256,15 +275,17 @@ export function ProjectListPage({ view }: { view: ListView }) {
         />
       )}
       {creating && (
-        <RequiresOrganizationCode code={organizationsPermissions.projectWrite}>
+        <RequiresCode holds={hasPlace}>
           <CreateProjectDialog
             organizationId={organizationId}
             canLink={
               access(organizationsPermissions.teamLink, 'organization') &&
               access(organizationsPermissions.projectLink, 'organization')
             }
-            canPlaceInDepartment={access(organizationsPermissions.areaWrite, 'organization')}
-            canPlaceAtTop={access(organizationsPermissions.areaCreate, 'organization')}
+            canPlaceInDepartment={writableIds.size > 0}
+            canPlaceAtTop={canTop}
+            writableIds={writableIds}
+            onForbidden={() => void writable.refetch()}
             submit={(body) => createProject.mutateAsync(body)}
             onSucceeded={(project) => {
               setCreating(false);
@@ -278,7 +299,7 @@ export function ProjectListPage({ view }: { view: ListView }) {
               }
             }}
           />
-        </RequiresOrganizationCode>
+        </RequiresCode>
       )}
     </Box>
   );

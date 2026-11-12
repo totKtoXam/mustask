@@ -79,7 +79,9 @@ public sealed class SaveWorkItemHandler(
         // workitems.workitem.write, and a save that carries a parent needs workitems.link.write as well. It is checked first,
         // before the project, the item or the parent is looked at and before any 400, so a role without it learns nothing about
         // any of them and nothing changes. Under the bundles of D-8 the two codes never differ.
-        if (command.Parent is not null && !access.Holds(PermissionCatalog.WorkItemsLinkWrite))
+        if (command.Parent is not null
+            && !await access.HoldsOnAsync(
+                PermissionCatalog.WorkItemsLinkWrite, AddressedId.TryParse(command.ProjectId, out var addressedProject) ? addressedProject : Guid.Empty, cancellationToken))
         {
             throw new ForbiddenException(OrganizationErrorCodes.AccessForbidden);
         }

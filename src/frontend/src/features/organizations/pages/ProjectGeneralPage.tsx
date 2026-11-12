@@ -5,13 +5,14 @@ import Link from '@mui/material/Link';
 import DriveFileMoveOutlinedIcon from '@mui/icons-material/DriveFileMoveOutlined';
 import EditOutlinedIcon from '@mui/icons-material/EditOutlined';
 import NotesOutlinedIcon from '@mui/icons-material/NotesOutlined';
-import { useAccessCheck } from '../../../shared/lib/access';
+import { ObjectAccess } from '../../../shared/lib/objectAccessProvider';
+import { useObjectAccess } from '../../../shared/lib/objectAccess';
 import { ActionButton, InlineEmpty, Section } from '../../../shared/ui';
 import { ErrorBanner } from '../../../shared/ui/ErrorBanner';
 import { FormSkeleton } from '../../../shared/ui/FormSkeleton';
 import { PageHeader, type Command } from '../../../shared/ui/PageHeader';
 import { RequiresOrganizationCode } from '../../../shared/ui/RequiresOrganizationCode';
-import { NotFound } from '../../../shared/ui/StateFrame';
+import { AccessDenied, NotFound } from '../../../shared/ui/StateFrame';
 import { processDefinitionPath } from '../../process';
 import { DefaultTeamDialog } from '../components/DefaultTeamDialog';
 import { DescriptionDialog } from '../components/DescriptionDialog';
@@ -20,7 +21,9 @@ import { FactsPanel } from '../components/FactsPanel';
 import { NameDialog } from '../components/NameDialog';
 import { useNotify } from '../components/notice';
 import { useDescribeProject, useRenameProject, useSetDefaultTeam } from '../hooks/mutations';
-import { useProject, useProjectAreaTree, useTeams } from '../hooks/queries';
+import { useArea, useProject, useProjectAreaTree, useTeams } from '../hooks/queries';
+import { useObjectCodesNotice } from '../hooks/useObjectCodesNotice';
+import { codesChangedNotice } from '../lib/grantTexts';
 import { useObjectLink } from '../hooks/useObjectLink';
 import { commandKinds } from '../lib/areaCommands';
 import { placementField } from '../lib/areaTexts';
@@ -54,12 +57,24 @@ export function ProjectGeneralPage() {
   const tree = useProjectAreaTree(organizationId, projectId);
   const node = tree.data?.find((entry) => entry.type === 'project');
   const notify = useNotify();
-  const access = useAccessCheck();
+  const access = useObjectAccess(query.data?.codes);
+  useObjectCodesNotice(projectId, query.data?.name, query.data?.codes, codesChangedNotice.project);
+  // The node's own codes: a project manager holds the area codes there (ADR-0038 § 2).
+  const nodeQuery = useArea(organizationId, node?.id ?? '', { enabled: node !== undefined });
+  const nodeAccess = useObjectAccess(nodeQuery.data?.codes);
   const [dialog, setDialog] = useState<Dialog>(null);
 
   const level = query.isError ? notFoundLevel(query.error) : null;
   if (level) {
     return <NotFound level={level} />;
+  }
+  // The settings are the project manager's (design § 6, "Direct address"): the route lets any reader in.
+  if (
+    section === 'settings' &&
+    query.isSuccess &&
+    !access(organizationsPermissions.projectWrite, 'organization')
+  ) {
+    return <AccessDenied />;
   }
 
   function closeDialog(contextGone: boolean) {
@@ -93,8 +108,8 @@ export function ProjectGeneralPage() {
       section === 'general' &&
       node &&
       commandKinds(node, {
-        canWrite: access(organizationsPermissions.areaWrite, 'organization'),
-        canCreate: access(organizationsPermissions.areaCreate, 'organization'),
+        canWrite: nodeAccess(organizationsPermissions.areaWrite, 'organization'),
+        canCreate: nodeAccess(organizationsPermissions.areaCreate, 'organization'),
       }).includes('move')
     ) {
       commands.push({
@@ -118,7 +133,7 @@ export function ProjectGeneralPage() {
   const defaultTeam = teams.data?.find((team) => team.defaultMark === 'named');
 
   return (
-    <>
+    <ObjectAccess codes={query.data?.codes}>
       <PageHeader title={section === 'settings' ? 'Параметры' : 'Общие'} commands={commands} />
       {loading ? (
         <FormSkeleton fields={4} />
@@ -252,6 +267,6 @@ export function ProjectGeneralPage() {
           />
         </RequiresOrganizationCode>
       )}
-    </>
+    </ObjectAccess>
   );
 }

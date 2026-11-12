@@ -19,8 +19,8 @@ namespace Mustask.Api.Authorization;
 /// endpoint carries — <see cref="OrganizationAccessFailureKind.OrganizationNotFound"/> throws the business
 /// 404 <see cref="OrganizationErrorCodes.OrganizationNotFound"/> (the same bytes for every
 /// cause), <see cref="OrganizationAccessFailureKind.RoleLacksCode"/> the business 403
-/// <see cref="OrganizationErrorCodes.AccessForbidden"/>. Each is logged once at Information with
-/// the reason, the organization and the code the route required — never a name.
+/// <see cref="OrganizationErrorCodes.AccessForbidden"/>. Each is logged once at Information (<see cref="RefusalLog"/>) with the route,
+/// the code, the resource scope, the user id, the reason and the organization — never a name.
 /// </para>
 /// </summary>
 public sealed class ForbiddenErrorCodeResultHandler(ILogger<ForbiddenErrorCodeResultHandler> logger) : IAuthorizationMiddlewareResultHandler
@@ -32,13 +32,18 @@ public sealed class ForbiddenErrorCodeResultHandler(ILogger<ForbiddenErrorCodeRe
         if (authorizeResult.Forbidden
             && authorizeResult.AuthorizationFailure?.FailureReasons.OfType<OrganizationAccessFailure>().FirstOrDefault() is { } failure)
         {
-            logger.LogInformation(
-                "Organization access refused: {Reason}, organization {OrganizationId}, code {Code}",
-                failure.Kind,
-                failure.OrganizationId,
-                failure.Code);
+            var notFound = failure.Kind == OrganizationAccessFailureKind.OrganizationNotFound;
 
-            throw failure.Kind == OrganizationAccessFailureKind.OrganizationNotFound
+            RefusalLog.Write(
+                logger,
+                context,
+                failure.Kind.ToString(),
+                failure.OrganizationId,
+                failure.Code,
+                failure.Scope,
+                notFound ? OrganizationErrorCodes.OrganizationNotFound : OrganizationErrorCodes.AccessForbidden);
+
+            throw notFound
                 ? new NotFoundException(OrganizationErrorCodes.OrganizationNotFound)
                 : new ForbiddenException(OrganizationErrorCodes.AccessForbidden);
         }

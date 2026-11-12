@@ -3,14 +3,13 @@ import { act, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { HttpResponse, http } from 'msw';
 import { server } from '../../../test/mocks/server';
+import { changeServedRole, serveRole } from '../../../test/renderShell';
 import { servedFor, type TestRole } from '../../../test/organizationRoles';
-import { organizationsKeys } from '../../organizations/api/queryKeys';
 import { WORK_ITEM_URL } from '../../workitems/testFixtures';
 import { serveBoards } from '../testApi';
 import { cardMenuButton, cardOf, columnBox, findBoard } from '../testBoard';
 import { dataTransfer, fireDrag } from '../testDrag';
 import {
-  API,
   PROBLEM_HEADERS,
   boardsDataset,
   ids,
@@ -39,7 +38,6 @@ function activeDataset() {
   return data;
 }
 
-const ACCESS_URL = `${API}/api/organizations/:organizationId/access`;
 const EMPTY_HINT = 'Новые рабочие элементы этого уровня появятся в колонке «Новая».';
 
 describe.each([
@@ -151,7 +149,7 @@ describe('mod-016 design § 2.4 Scenario: a refused card move, then the codes ar
     renderBoards(boardAddress(), { role: 'member' });
     const board = await findBoard();
     refuseMoves();
-    server.use(http.get(ACCESS_URL, () => HttpResponse.json(servedFor('viewer'))));
+    serveRole('viewer');
 
     await moveCardToWork();
 
@@ -207,11 +205,7 @@ describe('mod-016 design § 2.2 Scenario: the card menu goes with the code', () 
 
     const served = servedFor('viewer');
     act(() => {
-      shell.queryClient.setQueryData(organizationsKeys.access(ids.example), {
-        kind: 'member',
-        role: 'viewer',
-        permissions: served.permissions,
-      });
+      changeServedRole(shell.queryClient, ids.example, served);
     });
 
     await waitFor(() => expect(screen.queryByRole('menu')).not.toBeInTheDocument());

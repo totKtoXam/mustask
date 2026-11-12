@@ -12,7 +12,24 @@ export interface ScopedFailure {
    * § 0.1 row 2). Another 404 (a project, a team) is not this.
    */
   organizationNotFound: boolean;
+  /**
+   * mod-019 (F-5): the object the call was about, when the path names one — a project, a team or a
+   * department (`…/projects/<id>/…`). Its served codes may have changed; `own` marks the object's own
+   * read or write (no segment after the id), whose failure must not re-read itself.
+   */
+  object?: { kind: ScopedObjectKind; id: string; own: boolean };
 }
+
+export type ScopedObjectKind = 'project' | 'team' | 'area';
+
+const OBJECT_SEGMENTS: Readonly<Record<string, ScopedObjectKind>> = {
+  projects: 'project',
+  teams: 'team',
+  areas: 'area',
+};
+
+/** A segment after the list that is a route of its own, not an object's id. */
+const NOT_AN_OBJECT = new Set(['writable-ids', 'deactivated']);
 
 const PREFIX = `${ORGANIZATIONS_API}/`;
 
@@ -59,10 +76,20 @@ export function scopedFailureOf(error: unknown): ScopedFailure | null {
   } catch {
     return null;
   }
-  return {
+  const failure: ScopedFailure = {
     organizationId,
     status: error.status,
     organizationNotFound:
       error.status === 404 && error.errorCode === organizationErrorCodes.notFound,
   };
+  const kind = OBJECT_SEGMENTS[rest[0] ?? ''];
+  const objectId = rest[1];
+  if (kind !== undefined && objectId && !NOT_AN_OBJECT.has(objectId)) {
+    try {
+      failure.object = { kind, id: decodeURIComponent(objectId), own: rest.length === 2 };
+    } catch {
+      // An id that does not decode names no object.
+    }
+  }
+  return failure;
 }

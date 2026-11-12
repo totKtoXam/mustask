@@ -11,6 +11,7 @@ import {
 } from '../../../shared/ui';
 import type { WorkItem } from '../api/workItemsApi';
 import { PageFrame } from '../components/card/KitFrames';
+import { ProjectAccess } from '../components/ProjectAccess';
 import { WorkItemCard } from '../components/card/WorkItemCard';
 import { useWorkItem } from '../hooks/queries';
 import { useWorkItemAccess } from '../hooks/useWorkItemAccess';
@@ -73,12 +74,18 @@ function WorkItemPage({
     );
   }
   return (
-    <PageCard
+    <ProjectAccess
       organizationId={organizationId}
       projectId={projectId}
-      item={query.data}
-      onGone={setGone}
-    />
+      pending={<PageLoading identifier={identifier} />}
+    >
+      <PageCard
+        organizationId={organizationId}
+        projectId={projectId}
+        item={query.data}
+        onGone={setGone}
+      />
+    </ProjectAccess>
   );
 }
 

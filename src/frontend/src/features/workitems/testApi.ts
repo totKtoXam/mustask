@@ -19,6 +19,7 @@
 // It keeps the contract's answers, not every rule of the backend.
 import { HttpResponse, http, type HttpHandler } from 'msw';
 import { server } from '../../test/mocks/server';
+import { servedObjectCodes } from '../../test/organizationRoles';
 import type { AreaNode } from '../organizations';
 import { checkDescription, normaliseRichText } from '../../shared/lib/richText';
 import {
@@ -35,6 +36,7 @@ import {
   AREAS_URL,
   ASSIGNEE_OPTIONS_URL,
   CANDIDATES_URL,
+  ORGANIZATION_URL,
   PARENT_CANDIDATES_URL,
   PROBLEM_HEADERS,
   PROCESS_URL,
@@ -1067,6 +1069,30 @@ export class WorkItemsTestApi {
     const pr = (p: Params) => this.project(one(p, 'organizationId'), one(p, 'projectId'));
 
     return [
+      // The organization's active projects, each with the caller's codes on it (mod-019 api-contract § 5): the
+      // work-item surfaces ask these, never the organization answer (BR-SA-18).
+      http.get(
+        `${ORGANIZATION_URL}/projects`,
+        answer((p) => {
+          const organization = this.organization(one(p, 'organizationId'));
+          return this.data.projects
+            .filter((project) => project.active && project.organizationId === organization.id)
+            .map(({ id, name, key }) => ({ id, name, key, codes: [...servedObjectCodes.current] }));
+        }),
+      ),
+      // The project's own read, which the shell makes for its «Параметры» entry (mod-019 BR-SA-18).
+      http.get(
+        `${ORGANIZATION_URL}/projects/:projectId`,
+        answer((p) => {
+          const project = this.data.projects.find((row) => row.id === one(p, 'projectId'));
+          return {
+            id: project?.id ?? one(p, 'projectId'),
+            name: project?.name ?? '',
+            key: project?.key ?? '',
+            codes: [...servedObjectCodes.current],
+          };
+        }),
+      ),
       http.get(
         PROCESS_URL,
         answer((p) => {

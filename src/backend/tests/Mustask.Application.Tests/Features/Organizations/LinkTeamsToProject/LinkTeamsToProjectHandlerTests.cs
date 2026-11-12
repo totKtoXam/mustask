@@ -144,16 +144,19 @@ public sealed class LinkTeamsToProjectHandlerTests
         Assert.Empty(f.Store.Links);
     }
 
-    // D-7 · the second code (team.link) is asked first of all, before the project or any id is looked at.
+    // mod-019 BR-SA-9, US-7 · the second code (team.link) is judged on a team that exists: 403 for an active team the caller lacks the
+    // code on, nothing linked; an id that names no team answers its own 404 first.
     [Fact]
-    public async Task Link_WithoutTheSecondCode_Is403_BeforeAnyIdIsLooked_At()
+    public async Task Link_WithoutTheSecondCode_Is403_AfterTheTeamsAreFound_AndNotFoundComesFirst()
     {
         var f = new Fixture(OrganizationRole.Member);
 
-        var refusal = await Assert.ThrowsAsync<ForbiddenException>(() => f.HandleAsync(f.Command(["not-an-id"], projectId: "abc")));
+        var notFound = await Assert.ThrowsAsync<NotFoundException>(() => f.HandleAsync(f.Command(["not-an-id"])));
+        var refusal = await Assert.ThrowsAsync<ForbiddenException>(() => f.HandleAsync(f.Command([f.Mars.Id.ToString()])));
 
+        Assert.Equal(OrganizationErrorCodes.TeamNotFound, notFound.Code);
         Assert.Equal(OrganizationErrorCodes.AccessForbidden, refusal.Code);
-        Assert.Empty(f.Store.Calls);
+        Assert.Empty(f.Store.Links);
     }
 
     // plan-backend § 7.2 · the teams are locked FOR SHARE in one statement ordered by id, then one INSERT for all the pairs.

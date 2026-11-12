@@ -30,7 +30,12 @@ describe('scopedFailureOf (mod-016 plan P-4)', () => {
           `/api/organizations/${ORG}/projects/p1`,
         ),
       ),
-    ).toEqual({ organizationId: ORG, status: 404, organizationNotFound: false });
+    ).toEqual({
+      organizationId: ORG,
+      status: 404,
+      organizationNotFound: false,
+      object: { kind: 'project', id: 'p1', own: true },
+    });
   });
 
   it('reads the organization itself and a path with a query string', () => {
@@ -76,5 +81,29 @@ describe('scopedFailureOf (mod-016 plan P-4)', () => {
     expect(
       scopedFailureOf(new ApiError(403, FORBIDDEN, '/api/organizations/%E0%A4%A/members')),
     ).toBeNull();
+  });
+});
+
+describe('scopedFailureOf names the object a failure is under (mod-019 X-2)', () => {
+  const ID = 'b0000000-0000-4000-8000-000000000001';
+  const objectOf = (path: string) =>
+    scopedFailureOf(new ApiError(403, FORBIDDEN, `/api/organizations/${ORG}${path}`))?.object;
+
+  it('reads a project, a team and an area, and whether the call was the object’s own read', () => {
+    expect(objectOf(`/projects/${ID}`)).toEqual({ kind: 'project', id: ID, own: true });
+    expect(objectOf(`/projects/${ID}/workitems/3`)).toEqual({
+      kind: 'project',
+      id: ID,
+      own: false,
+    });
+    expect(objectOf(`/teams/${ID}/backlogs/stories`)).toEqual({ kind: 'team', id: ID, own: false });
+    expect(objectOf(`/areas/${ID}`)).toEqual({ kind: 'area', id: ID, own: true });
+  });
+
+  it('names no object for a call that is not under one, or for the lists that are not an object', () => {
+    expect(objectOf('/members')).toBeUndefined();
+    expect(objectOf('/projects')).toBeUndefined();
+    expect(objectOf('/areas/writable-ids')).toBeUndefined();
+    expect(objectOf('/projects/deactivated')).toBeUndefined();
   });
 });

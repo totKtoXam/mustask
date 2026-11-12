@@ -78,7 +78,7 @@ then separate QA and review sessions are not started:
   `## Log`);
 - the review — the human sees the full diff in the MR itself;
 - everything else unchanged: the task folder, the branch, the worktree,
-  writing the plan before the changes, squash merge, the branch on the server
+  writing the plan before the changes, merge commit, the branch on the server
   is not deleted.
 
 There is no QA session to ask the E2E question in, and no runtime change for

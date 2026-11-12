@@ -43,7 +43,7 @@ read it before your first task. In short:
 ## Hard rules
 
 - Never commit to main — only task branches `<prefix>/<NNN>-<slug>`
-  (`feat/001-order-form`); merging is a squash MR after `gate-3`. The single
+  (`feat/001-order-form`); merging is a PR with a merge commit after `gate-3`. The single
   exception is an orchestrator's or human's commit that changes only queue
   files (`docs/backlog.md`, `docs/backlog/*.md`): the queue lives in main, and
   a task gets its number by having its line put there. The queue is edited with
@@ -102,9 +102,9 @@ read it before your first task. In short:
   `docs/`, `.claude/`, `scripts/` and hooks change; runtime code is not
   touched. This extends the F logic to S
   (`docs/ai-workflow/stages/s-route.md`, § "Light cycle").
-- **The last stage of a task is an MR in GitLab, not a chat message.** After
-  `gate-3: approved` the agent pushes the branch and opens a merge request
-  through `glab` (squash on, branch deletion off), then sends a short
+- **The last stage of a task is a PR on GitHub, not a chat message.** After
+  `gate-3: approved` the agent pushes the branch and opens a pull request
+  through `gh` (merge commit, branch deletion off), then sends a short
   notification with the link to the chat — the format and the commands are in
   `docs/ai-workflow/stages/07-mr-complete.md`, § "Opening the MR". **With no
   remote configured** there is nothing to push to and the task ends as a local
@@ -113,8 +113,8 @@ read it before your first task. In short:
 - **Only a human presses Merge.** The agent does not merge, does not delete
   the branch — neither locally nor on the server — and does not consider the
   task finished until that is confirmed. A task's branch lives on the server
-  after the merge too: the squash collapses it into a single commit, and the
-  fine-grained history stays only in the branch.
+  after the merge too: the merge commit keeps the branch's commits in
+  `main`'s history, and the branch stays as a pointer to them.
 - Do not search the whole disk or the whole home directory: never start a
   `find` / `grep -r` / recursive walk at `/`, `/c`, `C:\`, `/c/Users` or `~` —
   narrow it to a specific subtree (`find src -name '*.cs'`). In Claude Code a
@@ -126,7 +126,9 @@ read it before your first task. In short:
   the system sees — stays Russian: the strings quoted in `spec.md`, its
   stories and `design.md`, the texts in `docs/error-codes.md` and
   `contracts/errors/*.json`, and the Keycloak login theme under
-  `deploy/keycloak/`.
+  `deploy/keycloak/`. One more Russian file: `docs/deploy/vm.ru.md`, the
+  runbook translated for the company DevOps; the English `vm.md` is the
+  source, and a change to it updates the translation in the same change.
 - **The reference product is never named.** The tracker that doc-001..007
   studied is not named in anything written from 2026-09-25 on: artifacts,
   code, identifiers, comments, tests, commit messages, UI copy. Say «the

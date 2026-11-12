@@ -1,5 +1,5 @@
 {
-  "$comment": "feat-018 / ADR-0037 decision 6: the closed vocabularies of the rich-text subset, the only source of a class token. The server embeds this file (Mustask.Infrastructure/RichText) and writes a token from this table, never from the input; the panel imports the same file. Adding, renaming or removing an entry is a contract change (docs/features/feat-018-work-item-rich-text/spec.md BR-RT-14, BR-RT-16).",
+  "$comment": "feat-018 / ADR-0039 decision 6: the closed vocabularies of the rich-text subset, the only source of a class token. The server embeds this file (Mustask.Infrastructure/RichText) and writes a token from this table, never from the input; the panel imports the same file. Adding, renaming or removing an entry is a contract change (docs/features/feat-018-work-item-rich-text/spec.md BR-RT-14, BR-RT-16).",
   "version": 1,
   "markOrder": ["link", "bold", "italic", "underline", "strike", "highlight", "textColor", "fontSize"],
   "families": [

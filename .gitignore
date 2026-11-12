@@ -46,3 +46,6 @@ Thumbs.db
 
 # Local state of other agent tools (teamwork runs), never committed.
 .agents/teamwork/
+
+# Release tarballs of deploy/vm/build-release.sh (tech-058)
+/out/

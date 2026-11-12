@@ -117,7 +117,7 @@ public static class MembershipEndpoints
             .ProducesProblem(StatusCodes.Status404NotFound);
 
         team.MapGet("/member-candidates", SearchTeamMemberCandidatesAsync)
-            .RequiresOrganizationPermission(PermissionCatalog.OrganizationsTeamWrite)
+            .RequiresOrganizationPermission(PermissionCatalog.OrganizationsTeamWrite, ResourceScope.Team)
             .Produces<TeamMemberCandidatesResponse>()
             .ProducesProblem(StatusCodes.Status400BadRequest)
             .ProducesProblem(StatusCodes.Status401Unauthorized)
@@ -125,7 +125,7 @@ public static class MembershipEndpoints
             .ProducesProblem(StatusCodes.Status404NotFound);
 
         team.MapPost("/members", AddTeamMemberAsync)
-            .RequiresOrganizationPermission(PermissionCatalog.OrganizationsTeamWrite)
+            .RequiresOrganizationPermission(PermissionCatalog.OrganizationsTeamWrite, ResourceScope.Team)
             .Produces<UserRefView>(StatusCodes.Status201Created)
             .ProducesProblem(StatusCodes.Status400BadRequest)
             .ProducesProblem(StatusCodes.Status401Unauthorized)
@@ -134,7 +134,7 @@ public static class MembershipEndpoints
             .ProducesProblem(StatusCodes.Status409Conflict);
 
         team.MapDelete("/members/{userId}", RemoveTeamMemberAsync)
-            .RequiresOrganizationPermission(PermissionCatalog.OrganizationsTeamWrite)
+            .RequiresOrganizationPermission(PermissionCatalog.OrganizationsTeamWrite, ResourceScope.Team)
             .Produces(StatusCodes.Status204NoContent)
             .ProducesProblem(StatusCodes.Status401Unauthorized)
             .ProducesProblem(StatusCodes.Status403Forbidden)

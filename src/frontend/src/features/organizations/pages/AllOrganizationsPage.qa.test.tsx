@@ -310,13 +310,18 @@ describe('QA D-9, D-10: paging and filtering (design § 3.3)', () => {
       'aria-disabled',
       'true',
     );
-    expect(screen.getByRole('button', { name: /предыдущую страницу/i })).toBeDisabled();
+    expect(screen.getByRole('button', { name: /предыдущую страницу/i })).toHaveAttribute(
+      'aria-disabled',
+      'true',
+    );
     expect(screen.getByText('1–25 из 120')).toBeVisible();
 
     held.release();
     expect(await within(root).findByText('Организация 026')).toBeVisible();
     expect(screen.getByText('26–50 из 120')).toBeVisible();
-    expect(screen.getByRole('button', { name: /следующую страницу/i })).toBeEnabled();
+    expect(screen.getByRole('button', { name: /следующую страницу/i })).not.toHaveAttribute(
+      'aria-disabled',
+    );
   });
 
   it('sends no request with the old filter when it changes on page 2', async () => {

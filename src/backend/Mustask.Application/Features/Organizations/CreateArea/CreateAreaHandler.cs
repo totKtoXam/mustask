@@ -55,10 +55,14 @@ public sealed class CreateAreaHandler(
 {
     public async Task<CreateAreaResult> Handle(CreateAreaCommand command, CancellationToken cancellationToken)
     {
-        // 0. The second codes, first of all (D-7): a role lacking one learns nothing about any id, and nothing changes.
+        // 0. The second codes, first of all (D-7): a role lacking one learns nothing about any id, and nothing changes. The route is
+        // decided here (mod-019 BR-SA-12): area.create for a department, area.write on the parent for a sub-area (a project manager or a
+        // department manager holds it), and the link codes when teams are named. An unknown parent is judged by the role alone.
         var teamsNamed = command.TeamIds is { Count: > 0 };
+        var parentGuess = AddressedId.TryParse(command.ParentId, out var guessed) ? guessed : Guid.Empty;
 
         if ((command.ParentId is null && !access.Holds(PermissionCatalog.OrganizationsAreaCreate))
+            || (command.ParentId is not null && !await access.HoldsOnAsync(PermissionCatalog.OrganizationsAreaWrite, parentGuess, cancellationToken))
             || (teamsNamed
                 && (!access.Holds(PermissionCatalog.OrganizationsAreaLink) || !access.Holds(PermissionCatalog.OrganizationsTeamLink))))
         {

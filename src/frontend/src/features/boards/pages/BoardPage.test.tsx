@@ -276,7 +276,8 @@ describe('US-4 Scenario: Entry, levels and the link to the backlog (feat-001 US-
     expect(
       await screen.findByRole('heading', { level: 1, name: 'Страница не найдена' }),
     ).toBeInTheDocument();
-    expect(api.requests).toEqual([]);
+    // Nothing of the view: the shell reads the chosen team for its «Параметры» entry (mod-019 BR-SA-18), no more.
+    expect(api.requests.filter((request) => !/\/teams\/[^/]+$/.test(request.path))).toEqual([]);
   });
 });
 

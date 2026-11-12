@@ -101,7 +101,7 @@ public static class DependencyInjection
         services.AddScoped<IAreaUsage, WorkItemAreaUsage>();
         services.AddScoped<IWorkItemTeamOwnership, WorkItemTeamOwnership>();
 
-        // feat-018 / ADR-0037: the rich-text reduction. A singleton: it holds the vocabulary and the concurrency gate.
+        // feat-018 / ADR-0039: the rich-text reduction. A singleton: it holds the vocabulary and the concurrency gate.
         services.AddSingleton<IRichTextReducer>(provider =>
         {
             var options = new RichTextOptions();
@@ -155,6 +155,11 @@ public static class DependencyInjection
         services.AddScoped<ITeamMembershipRepository, TeamMembershipRepository>();
         services.AddScoped<IMemberReadModel, MemberReadModel>();
         services.AddScoped<IOrganizationAccessReadModel, OrganizationAccessReadModel>();
+
+        // mod-019: grants and the grants that reach an object.
+        services.AddScoped<IGrantRepository, GrantRepository>();
+        services.AddScoped<IScopedAccessReadModel, ScopedAccessReadModel>();
+        services.AddScoped<ISwitchImpactReadModel, SwitchImpactReadModel>();
 
         // feat-033: the appointment record of a system administrator's rescue.
         services.AddScoped<IAppointmentRecordRepository, AppointmentRecordRepository>();

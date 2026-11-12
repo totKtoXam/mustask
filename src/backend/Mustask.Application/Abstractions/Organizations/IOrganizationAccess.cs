@@ -37,4 +37,17 @@ public interface IOrganizationAccess
 
     /// <summary>Whether the caller's role bundle holds <paramref name="code"/> (an organization code).</summary>
     bool Holds(string code);
+
+    /// <summary>
+    /// Whether the caller holds <paramref name="code"/> <b>on the object</b> (mod-019, ADR-0029 § 6): the role's bundle plus the bundles of
+    /// the grants that reach it, the object being of the code's resource scope. An object that does not exist is judged by the role alone,
+    /// so the second code of a nested id never discloses it. The default judges the role alone (a double without grants).
+    /// </summary>
+    Task<bool> HoldsOnAsync(string code, Guid objectId, CancellationToken cancellationToken) => Task.FromResult(Holds(code));
+
+    /// <summary>The caller's grants and the tree, read once per request, for per-row flags and the set form (BR-SA-11).</summary>
+    Task<AccessSet> SetAsync(CancellationToken cancellationToken) =>
+        Task.FromResult(new AccessSet(Role, [], Empty, Empty, Empty));
+
+    private static readonly IReadOnlyDictionary<Guid, IReadOnlyList<GrantRole>> Empty = new Dictionary<Guid, IReadOnlyList<GrantRole>>();
 }

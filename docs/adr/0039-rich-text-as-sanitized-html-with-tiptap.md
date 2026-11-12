@@ -1,4 +1,4 @@
-# ADR-0037: Store the work item description as server-sanitized HTML with closed class palettes, edited with TipTap beside MUI
+# ADR-0039: Store the work item description as server-sanitized HTML with closed class palettes, edited with TipTap beside MUI
 
 - Status: accepted
 - Date: 2026-10-12 (amended 2026-10-13 for the widened scope, D-5..D-7;
@@ -435,7 +435,7 @@ This ADR adds the TipTap/ProseMirror family, lowlight and one emoji data
 package as the exception, scoped to the rich-text editor. On acceptance (not
 before): `docs/conventions/frontend.md` § MUI gets a sentence naming the
 editor and linking this ADR; the index entry of ADR-0007 gets "amended by
-ADR-0037"; `docs/conventions/backend.md` gets a reference to where the
+ADR-0039"; `docs/conventions/backend.md` gets a reference to where the
 reduction lives and to `contracts/rich-text/` (and `contracts/README.md`
 the same). The mod-003 api-contract amendments and doc-002 BR-M3-4's widened
 subset are BR-RT-13 and not repeated here.

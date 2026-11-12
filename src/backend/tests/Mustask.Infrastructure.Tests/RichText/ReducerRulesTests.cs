@@ -126,7 +126,7 @@ public sealed class ReducerRulesTests
         Assert.Throws<InvalidOperationException>(() => RichTextVocabulary.Parse(json.Replace("rt-color-pink", "evil", StringComparison.Ordinal)));
     }
 
-    // ADR-0037 decision 6: no token literal in server code; the file is the only source.
+    // ADR-0039 decision 6: no token literal in server code; the file is the only source.
     [Fact]
     public void ServerCode_HoldsNoTokenLiteral()
     {

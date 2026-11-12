@@ -543,8 +543,13 @@ export function purgeWorkItem(
 export function getAssigneeCandidates(
   organizationId: string,
   text: string,
+  /** mod-019 OQ-11: the project the item belongs to, so the server offers who may work on it. */
+  projectId?: string,
 ): Promise<AssigneeCandidates> {
   const query = new URLSearchParams({ text });
+  if (projectId) {
+    query.set('projectId', projectId);
+  }
   return apiFetch(`${organizationApiPath(organizationId)}/workitems/assignee-candidates?${query}`);
 }
 

@@ -6,7 +6,7 @@ import { configDefaults, coverageConfigDefaults, defineConfig } from 'vitest/con
 import { loadEnv, searchForWorkspaceRoot, type Plugin } from 'vite';
 import react from '@vitejs/plugin-react';
 
-// feat-018 (ADR-0037 decisions 6 and 10). The rich-text vocabulary is imported
+// feat-018 (ADR-0039 decisions 6 and 10). The rich-text vocabulary is imported
 // from `contracts/` beside the panel, so the dev server may serve the
 // repository root; a deployment build context must include `contracts/`.
 const REPOSITORY_ROOT = fileURLToPath(new URL('../..', import.meta.url));
@@ -32,7 +32,7 @@ interface EmojibaseGroup {
 }
 
 /**
- * `virtual:rich-text-emoji` — the picker's data as one module (ADR-0037
+ * `virtual:rich-text-emoji` — the picker's data as one module (ADR-0039
  * decision 4, M1): `[emoji, Russian label, Russian tags, group index]`,
  * flags and the component group omitted, skin tones dropped, ordered by the
  * data set's own order. Used only through a dynamic `import()`, so Rollup
@@ -127,6 +127,13 @@ const slowFiles: string[] =
       }).files
     : [];
 
+// VITE_BASE_PATH (ADR-0037): the path the panel is served under, `/` by default.
+// `/mustask` and `/mustask/` both become `/mustask/`.
+function normaliseBase(value: string | undefined): string {
+  const trimmed = (value ?? '').trim().replace(/^\/+|\/+$/g, '');
+  return trimmed === '' ? '/' : `/${trimmed}/`;
+}
+
 // https://vite.dev/config/
 export default defineConfig(({ command, mode }) => {
   // VITE_API_BASE_URL вшивается на этапе сборки, и прод-бандл без неё
@@ -143,6 +150,7 @@ export default defineConfig(({ command, mode }) => {
   }
 
   return {
+    base: normaliseBase(loadEnv(mode, process.cwd(), 'VITE_').VITE_BASE_PATH),
     plugins: [react(), emojiDataPlugin(), bundleReportPlugin()],
     server: {
       // Порт пришпилен: он внесён в CORS-список Mustask.Api
@@ -163,8 +171,9 @@ export default defineConfig(({ command, mode }) => {
       // allowedHosts не нужен: проверка Host в Vite пропускает localhost и
       // любые IP-адреса, а по имени этот стенд не открывают.
       host: true,
+      // contracts/ (rich-text vocabularies, access/role-bundles.json) lives above the project root.
       fs: {
-        allow: [searchForWorkspaceRoot(process.cwd()), REPOSITORY_ROOT],
+        allow: [searchForWorkspaceRoot(process.cwd()), REPOSITORY_ROOT, '../..'],
       },
     },
     test: {

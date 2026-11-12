@@ -273,16 +273,21 @@ public sealed class UnlinkTeamHandlerTests
         Assert.Empty(f.Store.Calls);
     }
 
-    // D-7 · the second code, organizations.team.link, is asked first of all: a role without it learns nothing.
+    // mod-019 BR-SA-9, US-7 · the address is judged first (404 for a project or a team that names nothing), then the second code,
+    // organizations.team.link (403 for a role without it), then the body; nothing is locked or changed on a refusal.
     [Fact]
-    public async Task Unlink_WithoutTheSecondCode_Is403_BeforeAnyIdIsLooked_At()
+    public async Task Unlink_WithoutTheSecondCode_Is403_AfterTheAddress_AndNotFoundComesFirst()
     {
         var f = new Fixture(OrganizationRole.Member);
 
-        var refusal = await Assert.ThrowsAsync<ForbiddenException>(() => f.HandleAsync(f.Command(null, projectId: "abc", teamId: "abc")));
+        var noProject = await Assert.ThrowsAsync<NotFoundException>(() => f.HandleAsync(f.Command(null, projectId: "abc")));
+        var noTeam = await Assert.ThrowsAsync<NotFoundException>(() => f.HandleAsync(f.Command(null, teamId: "abc")));
+        var refusal = await Assert.ThrowsAsync<ForbiddenException>(() => f.HandleAsync(f.Command(null)));
 
+        Assert.Equal(OrganizationErrorCodes.ProjectNotFound, noProject.Code);
+        Assert.Equal(OrganizationErrorCodes.TeamNotFound, noTeam.Code);
         Assert.Equal(OrganizationErrorCodes.AccessForbidden, refusal.Code);
-        Assert.Empty(f.Store.Calls);
+        Assert.DoesNotContain(f.Store.Calls, call => call.StartsWith("lock", StringComparison.Ordinal));
     }
 
     // plan-backend § 7.2 · the links of the pair in ONE statement ordered by team id, no team row, then the setting (the project row —

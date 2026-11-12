@@ -92,7 +92,12 @@ describe('the slice’s test API answers per api-contract (a check of the test d
       description: ' Первая\nВторая',
       projectIds: [project.id],
     });
-    expect(team).toEqual({ id: team.id, name: 'Сервис', description: ' Первая\nВторая' });
+    expect(team).toEqual({
+      id: team.id,
+      name: 'Сервис',
+      description: ' Первая\nВторая',
+      codes: expect.any(Array),
+    });
     expect(await getAreaTree(ids.beta)).toEqual(treeBefore);
     // One linked team and no setting: it is the project's default as the only one.
     expect((await getTeams(ids.beta, project.id)).map((t) => [t.name, t.defaultMark])).toEqual([

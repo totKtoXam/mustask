@@ -88,7 +88,9 @@ public sealed class CreateWorkItemHandler(
     {
         // 0. The second code of a parent write (mod-016 api-contract § 4.2): checked first, before the project or the parent is
         // looked at, so a role without it learns nothing about either. Under the bundles of D-8 the two codes never differ.
-        if (command.ParentId is not null && !access.Holds(PermissionCatalog.WorkItemsLinkWrite))
+        if (command.ParentId is not null
+            && !await access.HoldsOnAsync(
+                PermissionCatalog.WorkItemsLinkWrite, AddressedId.TryParse(command.ProjectId, out var addressedProject) ? addressedProject : Guid.Empty, cancellationToken))
         {
             throw new ForbiddenException(OrganizationErrorCodes.AccessForbidden);
         }

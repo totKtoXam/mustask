@@ -1,4 +1,4 @@
-﻿using Microsoft.EntityFrameworkCore.Migrations;
+using Microsoft.EntityFrameworkCore.Migrations;
 
 #nullable disable
 
@@ -46,7 +46,7 @@ namespace Mustask.Infrastructure.Migrations
         /// <inheritdoc />
         protected override void Down(MigrationBuilder migrationBuilder)
         {
-            // feat-018, ADR-0037 Consequences "Rollback": the old bound is 100 000 characters. Refuse with a message
+            // feat-018, ADR-0039 Consequences "Rollback": the old bound is 100 000 characters. Refuse with a message
             // that names the cause, before anything is dropped, rather than let the restored check fail on a row.
             // Html rows that fit stay as strings in a plain field (docs/runbooks/rich-text-rollback.md).
             migrationBuilder.Sql(

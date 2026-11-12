@@ -34,6 +34,7 @@ const EXPECTED: Record<MenuKind, [label: string, segment: string][]> = {
     ['Рабочие элементы', 'workitems'],
     ['Канбан', 'boards/:level'],
     ['Бэклог', 'backlogs/:level'],
+    ['Участники', 'members'],
   ],
   team: [
     ['Обзор', 'overview'],
@@ -50,6 +51,7 @@ const EXPECTED: Record<MenuKind, [label: string, segment: string][]> = {
     ['Канбан', 'boards/:level'],
     ['Бэклог', 'backlogs/:level'],
     ['Команды', 'teams'],
+    ['Участники и доступ', 'access'],
   ],
 };
 

@@ -2,6 +2,7 @@ using Mustask.Application.Abstractions;
 using Mustask.Application.Abstractions.Organizations;
 using Mustask.Application.Features.Boards;
 using Mustask.Application.Features.WorkItems;
+using Mustask.Domain.Identity;
 using Mustask.Domain.Organizations;
 using Mustask.Shared.Exceptions;
 
@@ -48,6 +49,7 @@ public sealed class DeleteTeamHandler(
     IProjectTeamRepository links,
     IAreaLinkRepository areaLinks,
     ITeamMembershipRepository teamMemberships,
+    IGrantRepository grants,
     IWorkItemTeamOwnership ownership,
     ITeamBacklogPlaces places,
     IClock clock,
@@ -101,6 +103,7 @@ public sealed class DeleteTeamHandler(
                 await links.RemoveTeamLinksAsync(organizationId, team.Id, ct);
                 await areaLinks.RemoveTeamLinksAsync(organizationId, team.Id, ct);
                 await teamMemberships.EndAllAsync(team.Id, ct);
+                await grants.RemoveAllAsync(ResourceScope.Team, team.Id, ct);
 
                 team.Delete();
 

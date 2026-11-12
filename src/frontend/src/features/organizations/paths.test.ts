@@ -19,7 +19,7 @@ const RETIRED_SHAPE =
   /\/settings\/(teams|areas|projects|members)|\/projects\/:projectId\/settings\/(general|teams|areas)/;
 
 describe('mod-002 design § 1, mod-016 design § 1 and feat-028 design § 1: the slice’s routes', () => {
-  it('are exactly the nineteen of feat-043, one prefix per kind (ADR-0032 § 1)', () => {
+  it('are the nineteen of feat-043 and the two of mod-019, one prefix per kind (ADR-0032 § 1)', () => {
     expect(ORGANIZATIONS_ROUTES).toEqual([
       '/organizations',
       '/organizations/deactivated',
@@ -33,6 +33,7 @@ describe('mod-002 design § 1, mod-016 design § 1 and feat-028 design § 1: the
       '/organizations/:organizationId/areas/:areaId/projects',
       '/organizations/:organizationId/areas/:areaId/teams',
       '/organizations/:organizationId/areas/:areaId/settings',
+      '/organizations/:organizationId/areas/:areaId/members',
       '/organizations/:organizationId/teams/:teamId/overview',
       '/organizations/:organizationId/teams/:teamId/projects',
       '/organizations/:organizationId/teams/:teamId/members',
@@ -40,6 +41,7 @@ describe('mod-002 design § 1, mod-016 design § 1 and feat-028 design § 1: the
       '/organizations/:organizationId/projects/:projectId/general',
       '/organizations/:organizationId/projects/:projectId/teams',
       '/organizations/:organizationId/projects/:projectId/settings',
+      '/organizations/:organizationId/projects/:projectId/access',
     ]);
   });
 
@@ -66,7 +68,11 @@ describe('mod-002 US-1 Scenario: No screen grants the right to create organizati
     // «Участники» (mod-016) is the one route that names the people of an
     // organization; it is a list of memberships, not a screen of rights.
     for (const route of ORGANIZATIONS_ROUTES.filter(
-      (candidate) => candidate !== MEMBERS_ROUTE && !candidate.endsWith('/teams/:teamId/members'),
+      (candidate) =>
+        candidate !== MEMBERS_ROUTE &&
+        !candidate.endsWith('/teams/:teamId/members') &&
+        !candidate.endsWith('/areas/:areaId/members') &&
+        !candidate.endsWith('/projects/:projectId/access'),
     )) {
       expect(route).not.toMatch(/right|role|group|member|permission|access/i);
     }
@@ -93,6 +99,9 @@ describe('mod-002 US-1 Scenario: No screen grants the right to create organizati
       'organizations.area.write',
       'organizations.area.create',
       'organizations.area.link',
+      'organizations.area.grant',
+      'organizations.project.grant',
+      'organizations.team.grant',
       'organizations.organization.create',
       'organizations.organization.rescue',
     ]);

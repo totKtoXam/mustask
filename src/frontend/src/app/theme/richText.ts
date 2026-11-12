@@ -5,9 +5,9 @@ import { colourRoles, typeScale } from './tokens';
  * stored class tokens of the rich-text subset stand for, one keyed table for
  * light and dark. The token is the contract (`contracts/rich-text/
  * vocabularies.json`); the colour is the theme's, so a palette can change
- * without a data change (ADR-0037 decision 2). The table is keyed by the
+ * without a data change (ADR-0039 decision 2). The table is keyed by the
  * vocabulary's own class names and `richText.test.ts` fails when a token has no
- * entry here or an entry has no token (ADR-0037 decision 6).
+ * entry here or an entry has no token (ADR-0039 decision 6).
  *
  * The panel has no dark theme yet (`mode: 'light'`): the dark column is
  * specified and tested now and read when it ships.

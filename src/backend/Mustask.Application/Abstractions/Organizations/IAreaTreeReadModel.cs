@@ -31,7 +31,8 @@ public sealed record AreaTreeRow(
     AreaType Type = AreaType.Area,
     Guid? ProjectId = null,
     bool? ProjectActive = null,
-    string? ProjectKey = null)
+    string? ProjectKey = null,
+    bool InheritsAccess = true)
 {
     /// <summary>The row as <see cref="AreaTree"/> takes it.</summary>
     public AreaNode ToNode() => new(Id, ParentId, Name, Type, ProjectId);

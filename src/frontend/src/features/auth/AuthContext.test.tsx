@@ -300,3 +300,50 @@ describe('AuthContext', () => {
     expect(screen.getByTestId('can:organizations.membership.read')).toHaveTextContent('false');
   });
 });
+
+describe('AuthContext under a path base (ADR-0037)', () => {
+  afterEach(() => {
+    vi.unstubAllEnvs();
+    resetSessionModule();
+    setUrl('/');
+  });
+
+  it('returnUrl carries the path inside the panel, without the base', async () => {
+    vi.stubEnv('BASE_URL', '/mustask/');
+    setUrl('/mustask/dictionaries/languages/kk?x=1');
+    server.use(
+      http.post(`${api}/api/session/token`, () =>
+        HttpResponse.json({ errorCode: 'session.anonymous' }, { status: 401 }),
+      ),
+    );
+    const navigate = vi.fn();
+    setNavigateImpl(navigate);
+
+    renderAuth();
+
+    await waitFor(() => expect(navigate).toHaveBeenCalledTimes(1));
+    expect(navigate).toHaveBeenCalledWith(
+      `${api}/api/session/login?returnUrl=${encodeURIComponent('/dictionaries/languages/kk?x=1')}`,
+    );
+  });
+
+  it('/mustask/signed-out → signed_out', () => {
+    vi.stubEnv('BASE_URL', '/mustask/');
+    setUrl('/mustask/signed-out');
+
+    renderAuth();
+
+    expect(screen.getByTestId('reason')).toHaveTextContent('signed_out');
+  });
+
+  it('authError is removed from the address bar and the base stays', async () => {
+    vi.stubEnv('BASE_URL', '/mustask/');
+    setUrl('/mustask/home?authError=sign_in_failed&foo=bar');
+
+    renderAuth();
+
+    await waitFor(() => expect(screen.getByTestId('reason')).toHaveTextContent('login_failed'));
+    expect(window.location.pathname).toBe('/mustask/home');
+    expect(window.location.search).toBe('?foo=bar');
+  });
+});

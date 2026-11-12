@@ -1,6 +1,7 @@
 using Mustask.Application.Features.Organizations.DeleteTeam;
 using Mustask.Application.Tests.TestDoubles;
 using Mustask.Application.Tests.TestDoubles.Organizations;
+using Mustask.Domain.Identity;
 using Mustask.Domain.Organizations;
 using Mustask.Shared.Exceptions;
 
@@ -32,6 +33,7 @@ public sealed class DeleteTeamHandlerTests
                 new FakeProjectTeamRepository(Store),
                 new FakeAreaLinkRepository(Store),
                 new FakeTeamMembershipRepository(Store),
+                Grants,
                 Ownership,
                 new FakeTeamBacklogPlaces(Store),
                 Clock,
@@ -39,6 +41,8 @@ public sealed class DeleteTeamHandlerTests
         }
 
         public InMemoryOrganizations Store { get; } = new();
+
+        public FakeGrantRepository Grants { get; } = new();
 
         public Organization Organization { get; }
 
@@ -82,6 +86,17 @@ public sealed class DeleteTeamHandlerTests
         Assert.Empty(f.Store.Links);
         Assert.Equal(areasBefore, f.Store.Areas.Select(area => (area.Id, area.ParentId, area.Name)).ToList());
         Assert.Contains(f.Mars, f.Store.Teams);
+    }
+
+    // mod-019 BR-SA-3, QA D-2 · the team's grants end in the same transaction as the deletion.
+    [Fact]
+    public async Task Handle_EndsTheTeamsGrants()
+    {
+        var f = new Fixture();
+
+        await f.HandleAsync(f.Command());
+
+        Assert.Equal([(ResourceScope.Team, f.Mars.Id)], f.Grants.RemovedAll);
     }
 
     // US-5 · "a project's last team can be deleted" (BR-OL-10): no guard — the only team of a project goes, and the project stays

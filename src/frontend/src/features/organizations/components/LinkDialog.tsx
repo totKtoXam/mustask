@@ -50,8 +50,16 @@ export function LinkDialog({
 }) {
   const forProject = end === 'project';
   const texts = forProject ? linkDialog.project : linkDialog.team;
-  const teams = useOrganizationTeams(organizationId, { enabled: forProject, fresh: true });
-  const projects = useProjects(organizationId, 'active', { enabled: !forProject, fresh: true });
+  const teams = useOrganizationTeams(organizationId, {
+    enabled: forProject,
+    fresh: true,
+    linkableFor: 'project',
+  });
+  const projects = useProjects(organizationId, 'active', {
+    enabled: !forProject,
+    fresh: true,
+    linkableFor: 'team',
+  });
   const query = forProject ? teams : projects;
   const [chosen, setChosen] = useState<LinkOption[]>([]);
   const [typed, setTyped] = useState('');

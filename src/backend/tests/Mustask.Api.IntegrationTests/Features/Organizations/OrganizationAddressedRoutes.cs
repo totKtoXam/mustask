@@ -54,7 +54,7 @@ public static class OrganizationAddressedRoutes
         new("GET", Org + "/selector-offers", PermissionCatalog.OrganizationsOrganizationRead),
         new("GET", Org + "/projects", PermissionCatalog.OrganizationsProjectRead),
         new("GET", Org + "/projects/deactivated", PermissionCatalog.OrganizationsProjectDeactivate),
-        new("POST", Org + "/projects", PermissionCatalog.OrganizationsProjectWrite),
+        new("POST", Org + "/projects", PermissionCatalog.OrganizationsAreaWrite),
         new("GET", Project, PermissionCatalog.OrganizationsProjectRead),
         new("PUT", Project + "/name", PermissionCatalog.OrganizationsProjectWrite),
         new("POST", Project + "/deactivate", PermissionCatalog.OrganizationsProjectDeactivate),
@@ -85,6 +85,10 @@ public static class OrganizationAddressedRoutes
         new("POST", OrgTeam + "/projects", PermissionCatalog.OrganizationsTeamLink),
         new("GET", Org + "/areas", PermissionCatalog.OrganizationsAreaRead),
         new("POST", Org + "/areas", PermissionCatalog.OrganizationsAreaWrite),
+        // mod-019 api-contract § 3, § 5: the switch of «Наследовать доступ» and its impact read, and the ids of the nodes the caller may write.
+        new("PUT", Area + "/inherits-access", PermissionCatalog.OrganizationsAreaWrite),
+        new("GET", Area + "/inherits-access/impact", PermissionCatalog.OrganizationsAreaWrite),
+        new("GET", Org + "/areas/writable-ids", PermissionCatalog.OrganizationsAreaRead),
         new("GET", Area, PermissionCatalog.OrganizationsAreaRead),
         new("PUT", Area + "/name", PermissionCatalog.OrganizationsAreaWrite),
         new("PUT", Area + "/description", PermissionCatalog.OrganizationsAreaWrite),
@@ -129,7 +133,7 @@ public static class OrganizationAddressedRoutes
 
         // feat-039 api-contract § 5: the project's own backlog, its reorder and its board (no team in the address).
         new("GET", Project + "/backlogs/{level}", PermissionCatalog.WorkItemsWorkItemRead),
-        new("POST", Project + "/backlogs/{level}/reorder", PermissionCatalog.BoardsBacklogReorder),
+        new("POST", Project + "/backlogs/{level}/reorder", PermissionCatalog.BoardsProjectBacklogReorder),
         new("GET", Project + "/boards/{level}", PermissionCatalog.WorkItemsWorkItemRead),
 
         // feat-048 api-contract § 2: the aggregate views' grouped counts, group and cell pages, the organization-wide work-item list
@@ -157,6 +161,24 @@ public static class OrganizationAddressedRoutes
         new("GET", OrgTeam + "/member-candidates", PermissionCatalog.OrganizationsTeamWrite),
         new("POST", OrgTeam + "/members", PermissionCatalog.OrganizationsTeamWrite),
         new("DELETE", OrgTeam + "/members/{userId}", PermissionCatalog.OrganizationsTeamWrite),
+
+        // mod-019 api-contract § 2: the grants of a department, a project and a team. Reads of an area and a team carry their
+        // organization-wide read code; the project's read, the writes and the candidate searches are checked on the object.
+        new("GET", Area + "/grants", PermissionCatalog.OrganizationsAreaRead),
+        new("POST", Area + "/grants", PermissionCatalog.OrganizationsAreaGrant),
+        new("PUT", Area + "/grants/{userId}", PermissionCatalog.OrganizationsAreaGrant),
+        new("DELETE", Area + "/grants/{userId}", PermissionCatalog.OrganizationsAreaGrant),
+        new("GET", Area + "/grant-candidates", PermissionCatalog.OrganizationsAreaGrant),
+        new("GET", Project + "/grants", PermissionCatalog.OrganizationsProjectRead),
+        new("POST", Project + "/grants", PermissionCatalog.OrganizationsProjectGrant),
+        new("PUT", Project + "/grants/{userId}", PermissionCatalog.OrganizationsProjectGrant),
+        new("DELETE", Project + "/grants/{userId}", PermissionCatalog.OrganizationsProjectGrant),
+        new("GET", Project + "/grant-candidates", PermissionCatalog.OrganizationsProjectGrant),
+        new("GET", OrgTeam + "/grants", PermissionCatalog.OrganizationsTeamRead),
+        new("POST", OrgTeam + "/grants", PermissionCatalog.OrganizationsTeamGrant),
+        new("PUT", OrgTeam + "/grants/{userId}", PermissionCatalog.OrganizationsTeamGrant),
+        new("DELETE", OrgTeam + "/grants/{userId}", PermissionCatalog.OrganizationsTeamGrant),
+        new("GET", OrgTeam + "/grant-candidates", PermissionCatalog.OrganizationsTeamGrant),
     ];
 
     /// <summary>The ten routes of mod-016's own access and memberships (api-contract § 1-§ 2), the last of <see cref="All"/>.</summary>

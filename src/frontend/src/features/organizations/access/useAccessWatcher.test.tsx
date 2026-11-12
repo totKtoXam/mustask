@@ -2,6 +2,7 @@ import type { ReactNode } from 'react';
 import { describe, expect, it, vi } from 'vitest';
 import { act, renderHook, waitFor } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { ApiError } from '../../../shared/api/httpClient';
 import { organizationsKeys } from '../api/queryKeys';
 import type { OrganizationRole } from '../lib/roles';
 import type { AccessAnswer } from './accessAnswer';
@@ -278,5 +279,89 @@ describe('a turn to «not a member» (mod-016 plan P-15)', () => {
     answer(OTHER, { kind: 'not-member' });
 
     expect(listReads()).toBe(1);
+  });
+});
+
+describe('a scoped failure under an object re-reads the object’s codes (mod-019 F-5, X-2)', () => {
+  const PROJECT = 'b0000000-0000-4000-8000-000000000001';
+  const FORBIDDEN = { errorCode: 'organizations.access.forbidden' };
+
+  /** The keys the watcher asked to be read again. */
+  function invalidated(client: QueryClient): string[] {
+    return vi
+      .mocked(client.invalidateQueries)
+      .mock.calls.map(([filters]) => JSON.stringify(filters?.queryKey));
+  }
+
+  async function failQuery(client: QueryClient, path: string) {
+    await client
+      .fetchQuery({
+        queryKey: ['x', path],
+        queryFn: () => Promise.reject(new ApiError(403, FORBIDDEN, path)),
+        retry: false,
+      })
+      .catch(() => undefined);
+  }
+
+  it('reads the project and the project rows again after a refused write under the project', async () => {
+    const { client } = setup();
+    vi.spyOn(client, 'invalidateQueries');
+
+    await act(async () => {
+      await client
+        .getMutationCache()
+        .build(client, {
+          mutationFn: () =>
+            Promise.reject(
+              new ApiError(
+                403,
+                FORBIDDEN,
+                `/api/organizations/${ORG}/projects/${PROJECT}/workitems/3`,
+              ),
+            ),
+        })
+        .execute(undefined)
+        .catch(() => undefined);
+    });
+
+    const keys = invalidated(client);
+    expect(keys).toContain(JSON.stringify(organizationsKeys.project(ORG, PROJECT)));
+    expect(keys).toContain(JSON.stringify(organizationsKeys.projectLists(ORG)));
+  });
+
+  it('does not ask for the object a failed read of the object itself came from, which would loop', async () => {
+    const { client } = setup();
+    vi.spyOn(client, 'invalidateQueries');
+
+    await act(async () => {
+      await failQuery(client, `/api/organizations/${ORG}/projects/${PROJECT}`);
+    });
+
+    expect(invalidated(client)).not.toContain(
+      JSON.stringify(organizationsKeys.project(ORG, PROJECT)),
+    );
+    // The access itself is still read again.
+    expect(invalidated(client)).toContain(JSON.stringify(organizationsKeys.access(ORG)));
+  });
+
+  it('reads a page of the object again when it fails below the object', async () => {
+    const { client } = setup();
+    vi.spyOn(client, 'invalidateQueries');
+
+    await act(async () => {
+      await failQuery(client, `/api/organizations/${ORG}/projects/${PROJECT}/backlogs/stories`);
+    });
+
+    expect(invalidated(client)).toContain(JSON.stringify(organizationsKeys.project(ORG, PROJECT)));
+  });
+
+  it('reads the project rows again when the role turns, since their codes were read under the old one', () => {
+    const { client, answer } = setup();
+    answer(ORG, member('member'));
+    vi.spyOn(client, 'invalidateQueries');
+
+    answer(ORG, member('viewer'));
+
+    expect(invalidated(client)).toContain(JSON.stringify(organizationsKeys.projectLists(ORG)));
   });
 });

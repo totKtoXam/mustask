@@ -10,7 +10,7 @@ function emojiButtons(dialog: HTMLElement): HTMLElement[] {
   return Array.from(dialog.querySelectorAll<HTMLElement>('button[data-emoji-index]'));
 }
 
-describe('emoji data (BR-RT-19, ADR-0037)', () => {
+describe('emoji data (BR-RT-19, ADR-0039)', () => {
   it('is bundled with Russian names, without flags and the component group', async () => {
     const { emoji, groups } = await import('virtual:rich-text-emoji');
 

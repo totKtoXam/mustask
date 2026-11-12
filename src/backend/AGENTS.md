@@ -18,8 +18,7 @@ run from there, not from this directory.
   shards (`ApiTestCollectionFactory`; half the cores, at most eight, so two
   on a 4-core runner; `MUSTASK_API_TEST_SHARDS` overrides the count, and 1
   still runs the serial classes apart, after the shard). A new class that
-  captures the console, sets an environment variable, asserts on log entries
-  of a host it builds, builds a host straight from
+  captures the console, sets an environment variable, builds a host straight from
   `WebApplicationFactory<Program>`, shares a static flag with another class
   or holds a timing budget goes into `ApiTestCollectionFactory.SerialClasses`
   (a `*VolumeTests` name goes there by itself) — in
@@ -65,8 +64,9 @@ run from there, not from this directory.
   takes them from user secrets instead of hardcoding them (`dotnet
   user-secrets set Parameters:mustask-db-password <password> --project
   src/backend/Mustask.AppHost`, likewise for `Parameters:keycloak-admin-password`
-  and `Parameters:keycloak-panel-client-secret`); without this step the
-  start fails with "missing configuration value".
+  and `Parameters:keycloak-panel-client-secret`); without this step AppHost
+  cannot resolve those parameters: the Aspire dashboard reports them as
+  unresolved and the resources that need them do not start.
 - External database (a PostgreSQL server that already runs on the machine, for
   example on 5432): set the user secret `ConnectionStrings:mustask` — `dotnet
   user-secrets set ConnectionStrings:mustask
@@ -144,6 +144,13 @@ run from there, not from this directory.
   environment in both directions). The base address of a running
   `Mustask.Api` — from the Aspire dashboard or from the Information line in
   the log at startup.
+- Path base (tech-057, ADR-0037): `Hosting:PathBase` (env `Hosting__PathBase`) serves
+  the API under a prefix, e.g. `/mustask`; empty or absent is the root (the stand and
+  CI leave it empty). It must start with `/`, not end with `/`, and be a plain path;
+  when set, `Session:PanelUrl` must carry the same path (`https://host/mustask`), or the
+  API refuses to start. The proxy passes the path unchanged; a request without the
+  prefix (`/health` from the VM itself) still works. The session cookie path becomes
+  `{PathBase}/api/session`; the Keycloak redirect URI is `https://host{PathBase}/api/session/callback`.
 - The access model (mod-016, ADR-0027; tech-024, ADR-0033) in three lines.
   **Instance rights come from the token's client roles**: `resource_access.
   mustask-api.roles` carries up to four names — `user` (signing in and the
@@ -153,13 +160,20 @@ run from there, not from this directory.
   `Mustask.Domain.Identity.InstanceRoles`; unknown names are ignored and raw codes
   in the token grant nothing. The realm holds no realm roles, groups or default
   roles of ours (the company-wide realm allows only clients and client roles);
-  a user gets the roles directly. The panel mirrors the table in
-  `src/frontend/src/shared/api/tokenClaims.ts` — change both together.
+  a user gets the roles directly. The panel reads the tables from
+  `contracts/access/role-bundles.json`, generated from the domain
+  (`MUSTASK_UPDATE_ROLE_BUNDLES=1 dotnet test src/backend/tests/Mustask.Contracts.Tests`)
+  — never edited by hand.
   **Rights inside an organization come from the user's membership in it**
-  (`admin`, `member` or `viewer`), read from the database on every request —
-  nothing about them is in the token — so a role change applies on the next
-  request. **Every route with `{organizationId}` declares an organization code**
-  (`.RequiresOrganizationPermission(PermissionCatalog.X)`); the inventory test
+  (`admin`, `member` or `viewer`) **plus the grants that reach the object**
+  (mod-019, ADR-0038: a role on a department, a project or a team, added to the
+  membership's bundle), read from the database on every request — nothing about
+  them is in the token — so a change applies on the next request. **Every route
+  with `{organizationId}` declares an organization code**
+  (`.RequiresOrganizationPermission(PermissionCatalog.X)`; a route that names an
+  object adds its resource scope, `.RequiresOrganizationPermission(code,
+  ResourceScope.Project)`, and one whose object is in the body uses
+  `RequiresOrganizationPermissionDecidedInHandler(code, reason)`); the inventory test
   fails `scripts/verify.sh` for one that does not, and a non-member of the
   organization of the address gets 404 «Организация не найдена», never a 403.
 - The realm's name is configuration: the stand reads `Keycloak:Realm` (default

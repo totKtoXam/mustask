@@ -1,3 +1,4 @@
+using Mustask.Domain.Identity;
 using Mustask.Application.Features.Organizations.GetProject;
 using Mustask.Application.Tests.TestDoubles.Organizations;
 using Mustask.Domain.Organizations;
@@ -18,7 +19,7 @@ public sealed class GetProjectHandlerTests
         {
             Organization = Store.AddOrganization();
             Project = Store.AddProject(Organization);
-            Handler = new GetProjectHandler(new FakeProjectReadModel(Store));
+            Handler = new GetProjectHandler(new FakeProjectReadModel(Store), new FakeOrganizationAccess(OrganizationRole.Admin), new FakeGrantRepository());
         }
 
         public InMemoryOrganizations Store { get; } = new();
@@ -43,7 +44,7 @@ public sealed class GetProjectHandlerTests
 
         var result = await f.HandleAsync(f.Query());
 
-        Assert.Equal(new ProjectResponse(f.Project.Project.Id, f.Organization.Id, "Пример проекта", "PRM", null), result.Response);
+        Assert.Equal(new ProjectResponse(f.Project.Project.Id, f.Organization.Id, "Пример проекта", "PRM", null), result.Response with { Codes = null }); // the served codes are asserted in ServedCodesTests
     }
 
     // US-3 · "The project settings": the project addressed is the one answered, whatever else the organization holds.
@@ -56,7 +57,7 @@ public sealed class GetProjectHandlerTests
 
         var result = await f.HandleAsync(f.Query(projectId: second.Project.Id.ToString().ToUpperInvariant()));
 
-        Assert.Equal(new ProjectResponse(second.Project.Id, f.Organization.Id, "Платформа данных", "DATA", null), result.Response);
+        Assert.Equal(new ProjectResponse(second.Project.Id, f.Organization.Id, "Платформа данных", "DATA", null), result.Response with { Codes = null }); // the served codes are asserted in ServedCodesTests
     }
 
     // BR-M1-20: behind the filter the organization id is well formed; if it were not, the outermost level answers,

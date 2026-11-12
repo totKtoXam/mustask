@@ -56,10 +56,10 @@ describe('targetAfterChoice', () => {
         organizationId: ORG,
         pathname: `${BASE}/teams/t-1/members`,
         from: TEAM,
-        to: PROJECT,
-        canOpen: (code) => code !== organizationsPermissions.projectRead,
+        to: { ...NONE, department: 'd-1' },
+        canOpen: (code) => code !== organizationsPermissions.areaRead,
       }),
-    ).toBe(`${BASE}/projects/p-1/workitems`);
+    ).toBe(`${BASE}/areas/d-1/projects`);
   });
 
   it('lands on the organization «Обзор» when nothing in the new menu may be opened', () => {

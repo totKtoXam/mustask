@@ -40,7 +40,7 @@ public sealed class RichTextReductionAbortedException : Exception
 }
 
 /// <summary>
-/// <see cref="IRichTextReducer"/> on AngleSharp's WHATWG parser (ADR-0037 decision 5, plan-backend § 5): bound the raw
+/// <see cref="IRichTextReducer"/> on AngleSharp's WHATWG parser (ADR-0039 decision 5, plan-backend § 5): bound the raw
 /// string structurally (deterministic, before the parser sees it), normalise, parse once on a dedicated thread with a
 /// large stack, walk the document into the canonical model, write it under the output budget.
 /// </summary>

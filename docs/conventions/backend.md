@@ -143,8 +143,8 @@ src/backend/
   authorization — explicit on every endpoint (policy), "forgot it means
   closed." Two kinds of right (ADR-0027): an **instance** code comes from the
   token (`.RequiresPermission(code)`); an **organization** code is derived from
-  the caller's membership in the organization of the address
-  (`.RequiresOrganizationPermission(code)`), and a route with
+  the caller's membership in the organization of the address, plus the grants that reach the object (mod-019, ADR-0038)
+  (`.RequiresOrganizationPermission(code)`; a route that names one object of a narrower code's resource scope declares it, `.RequiresOrganizationPermission(code, ResourceScope.Project)`, and a route whose object is in the body uses `.RequiresOrganizationPermissionDecidedInHandler(code, reason)` and decides through `IOrganizationAccess.HoldsOnAsync`), and a route with
   `{organizationId}` that declares none fails `scripts/verify.sh` (the inventory
   test, `OrganizationAccessInventoryTests`). The scoped check runs before the
   body is read and answers 401, then 404 «Организация не найдена» for a
@@ -303,7 +303,7 @@ from it for every code that reads or writes work items:
 ### Rich text
 
 A field that stores user-formatted text keeps sanitized HTML under an explicit
-format marker ([ADR-0037](../adr/0037-rich-text-as-sanitized-html-with-tiptap.md)).
+format marker ([ADR-0039](../adr/0039-rich-text-as-sanitized-html-with-tiptap.md)).
 The reduction to the safe subset is the port `IRichTextReducer`
 (`Mustask.Application/Abstractions/RichText`), implemented in
 `Mustask.Infrastructure/RichText` on the AngleSharp parser, so the domain stays
@@ -354,6 +354,8 @@ change — the developer or a ministry employee?"
 - Every endpoint — an integration test through WebApplicationFactory +
   Testcontainers (a real Postgres). External integrations — stubs.
 - Naming: `Method_Scenario_ExpectedResult`.
+- New tests: the layer ownership, the kit and the anti-patterns are in
+  [testing.md](testing.md).
 
 ## Miscellaneous
 

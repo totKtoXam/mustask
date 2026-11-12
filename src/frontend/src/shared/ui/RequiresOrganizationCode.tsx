@@ -37,3 +37,12 @@ export function RequiresOrganizationCode({
 export function useDialogLocked(): boolean {
   return useContext(DialogLockedContext);
 }
+
+/**
+ * The same lock for a dialog that needs a code of one object (a project's, a team's, a department's): the
+ * page decides `holds` from the object's served codes (mod-019 F-3). Once a re-read drops the code the dialog
+ * stays and its primary action is disabled.
+ */
+export function RequiresCode({ holds, children }: { holds: boolean; children: ReactNode }) {
+  return <DialogLockedContext.Provider value={!holds}>{children}</DialogLockedContext.Provider>;
+}

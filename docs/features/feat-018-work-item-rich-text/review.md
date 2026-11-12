@@ -619,7 +619,7 @@ Resolution:
 - **m-7** BR-RT-4 (spec.md:87) cites "D-8"; this spec has D-1..D-7. Write
   "doc-002 D-8".
 - **m-8** New dependencies: an emoji picker/data set and a syntax highlighter
-  are not in D-2's accepted set, and ADR-0037 (still `proposed`) does not
+  are not in D-2's accepted set, and ADR-0039 (still `proposed`) does not
   mention them. Owe them to the ADR (or state built in-house). Add: emoji data
   bundled, native glyphs, no request to a CDN; highlighting applied as
   decorations over text nodes, never by inserting a highlighter's HTML string.
@@ -773,7 +773,7 @@ already armed; a second Esc may bubble and close), and test it with the card
 inside `DialogFrame`.
 
 ### CR-2 (major) — the rollback runbook's "safe" code rollback is not safe
-`docs/runbooks/rich-text-rollback.md:24-33` (also ADR-0037:474-478,
+`docs/runbooks/rich-text-rollback.md:24-33` (also ADR-0039:474-478,
 plan-backend.md:414-420) says the previous release ignores the column, writes
 `Plain`, and the release can be rolled forward "with no data repair". The old
 code never writes `description_format` (EF updates changed columns only), so:
@@ -825,7 +825,7 @@ bounded by `workitems.workitem.write` and the gate, so this is a cost, not a lea
 Fix (optional): an unlocked existence read before reducing.
 
 ### Nits
-- n-1 `src/frontend/vite.config.ts:35` still cites "ADR-0027 decision 4"; it is ADR-0037.
+- n-1 `src/frontend/vite.config.ts:35` still cites "ADR-0027 decision 4"; it is ADR-0039.
 - n-2 `Mustask.Infrastructure/DependencyInjection.cs:6-8` adds the
   `Mustask.Infrastructure.RichText` and `Microsoft.Extensions.Configuration`
   usings in the middle of the `Mustask.Application` ones.
@@ -865,7 +865,7 @@ Fix (optional): an unlocked existence read before reducing.
 - contracts/README.md "no token literal in server code (a test scans)" → `ReducerRulesTests.cs:131`; holds.
 - frontend.md:50 "bundle:check holds the build" → CR-5.
 - frontend.md:51-53 no raw html sinks → `noRawHtml.test.ts`, eslint config; holds.
-- ADR-0037 "safety net answers 500, never 400" → `HtmlRichTextReducer.cs:148-155`, probe above; holds.
+- ADR-0039 "safety net answers 500, never 400" → `HtmlRichTextReducer.cs:148-155`, probe above; holds.
 - Rollback statements in the runbook, ADR and plan → CR-2.
 - api-contract § 3 structural bounds → `RichTextInputGuard.cs:9-79` defaults; holds (the values match).
 - bundle-budget.json measured numbers → CR-5.
@@ -874,7 +874,7 @@ Fix (optional): an unlocked existence read before reducing.
 ### Direction 2
 - Behaviour: Описание may be html. Grepped `BR-M3-19` and "plain text" for
   Описание: hits in the mod-003 spec and api-contract and the feat-022 spec → CR-3.
-  The ADR-0007 index line already says "amended by ADR-0037".
+  The ADR-0007 index line already says "amended by ADR-0039".
 - Behaviour: the form moved into the card host (merge). Grepped `Escape` and
   `escapeKeyDown` in `shared/ui/dialog` and the card → CR-1. Not swept: board and
   backlog docs that describe the card dialog's keyboard (no identifier ties them to

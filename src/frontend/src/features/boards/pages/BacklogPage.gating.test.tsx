@@ -3,13 +3,8 @@ import { act, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { HttpResponse, http } from 'msw';
 import { server } from '../../../test/mocks/server';
-import {
-  READ_CODES,
-  servedFor,
-  servedWith,
-  type ServedAccess,
-} from '../../../test/organizationRoles';
-import { organizationsKeys } from '../../organizations/api/queryKeys';
+import { changeServedRole, serveRole } from '../../../test/renderShell';
+import { READ_CODES, servedWith, type ServedAccess } from '../../../test/organizationRoles';
 import { serveBoards } from '../testApi';
 import {
   CELL,
@@ -28,14 +23,7 @@ import {
 } from '../testBacklog';
 import { dataTransfer, fireDrag } from '../testDrag';
 import { WORK_ITEM_PARENT_URL } from '../../workitems/testFixtures';
-import {
-  API,
-  PROBLEM_HEADERS,
-  fullTreeDataset,
-  ids,
-  problem,
-  storiesDataset,
-} from '../testFixtures';
+import { PROBLEM_HEADERS, fullTreeDataset, ids, problem, storiesDataset } from '../testFixtures';
 import { backlogAddress, renderBoards } from '../testRender';
 
 // mod-016 design § 6.2 and § 12 ("Backlog gating"), the backlog as in main
@@ -336,11 +324,7 @@ describe('mod-016 plan § 3.5 Scenario: «+» goes while an add row is open', ()
     expect(field).toHaveValue('Черновик');
 
     act(() => {
-      shell.queryClient.setQueryData(organizationsKeys.access(ids.example), {
-        kind: 'member',
-        role: 'member',
-        permissions: WRITE_AND_REORDER.permissions,
-      });
+      changeServedRole(shell.queryClient, ids.example, WRITE_AND_REORDER);
     });
 
     await waitFor(() => expect(addRowOf(table)).toBeNull());
@@ -348,11 +332,7 @@ describe('mod-016 plan § 3.5 Scenario: «+» goes while an add row is open', ()
     await waitFor(() => expect(document.getElementById('main-content')).toHaveFocus());
 
     act(() => {
-      shell.queryClient.setQueryData(organizationsKeys.access(ids.example), {
-        kind: 'member',
-        role: 'member',
-        permissions: EVERYTHING.permissions,
-      });
+      changeServedRole(shell.queryClient, ids.example, EVERYTHING);
     });
     press(await addControl('MSK-EPIC-1'));
     expect(within(addRowOf(table) as HTMLElement).getByRole('textbox')).toHaveValue('');
@@ -369,11 +349,7 @@ describe('mod-016 design § 2.2, § 6.2 Scenario: the type picker goes with the 
     expect(await screen.findByRole('menu', { name: 'Новый рабочий элемент' })).toBeVisible();
 
     act(() => {
-      shell.queryClient.setQueryData(organizationsKeys.access(ids.example), {
-        kind: 'member',
-        role: 'viewer',
-        permissions: READER.permissions,
-      });
+      changeServedRole(shell.queryClient, ids.example, READER);
     });
 
     await waitFor(() => expect(screen.queryByRole('menu')).not.toBeInTheDocument());
@@ -390,7 +366,6 @@ describe('mod-016 design § 2.2, § 6.2 Scenario: the type picker goes with the 
 
 const REFUSED = 'Недостаточно прав';
 const ROLE_CHANGED = 'Ваша роль в организации «Пример организации» изменилась: «Читатель».';
-const ACCESS_URL = `${API}/api/organizations/:organizationId/access`;
 
 function refuseParentWrites() {
   server.use(
@@ -412,7 +387,7 @@ describe('mod-016 design § 2.4 Scenario: a refusal on the backlog, then the cod
   it('a changed role: the role-change notice stands alone, the refusal notice is gone', async () => {
     await open(EVERYTHING);
     refuseParentWrites();
-    server.use(http.get(ACCESS_URL, () => HttpResponse.json(servedFor('viewer'))));
+    serveRole('viewer');
 
     await clearParent('MSK-FEAT-8');
 

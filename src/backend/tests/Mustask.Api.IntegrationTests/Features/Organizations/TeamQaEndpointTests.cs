@@ -215,13 +215,13 @@ public sealed class TeamQaEndpointTests(MustaskApiFactory factory)
             ProjectBoardsTestData.AllCards(board.Body).Order(StringComparer.Ordinal));
     }
 
-    // US-8 · "GET …/access lists the four new codes for «Администратор» and for no one else": the four codes of ADR-0029 and the
-    // narrowed `team.write` are served to the administrator alone, and a member and a viewer hold none of them.
+    // US-8 · "GET …/access lists the new codes for «Администратор» and for no one else" (BR-SA-11: the organization-scope ones only): the
+    // team create and delete are served to the administrator alone, and a member and a viewer hold none of them; link and write codes are served on their objects.
     [Theory]
     [InlineData(OrganizationRole.Admin, true)]
     [InlineData(OrganizationRole.Member, false)]
     [InlineData(OrganizationRole.Viewer, false)]
-    public async Task Access_ListsTheFourDeliveryCodes_ForTheAdministratorAlone(OrganizationRole role, bool listed)
+    public async Task Access_ListsTheOrganizationScopeDeliveryCodes_ForTheAdministratorAlone(OrganizationRole role, bool listed)
     {
         var organization = await OrganizationsTestData.CreateOrganizationAsync(factory);
         var caller = await MembershipTestData.NewMemberAsync(factory, organization.Id, role);
@@ -235,10 +235,6 @@ public sealed class TeamQaEndpointTests(MustaskApiFactory factory)
                  {
                      "organizations.team.create",
                      "organizations.team.delete",
-                     "organizations.team.link",
-                     "organizations.project.link",
-                     "organizations.team.write",
-                     "organizations.project.write",
                  })
         {
             Assert.Equal(listed, served.Contains(code));

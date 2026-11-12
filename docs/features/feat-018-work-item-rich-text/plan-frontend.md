@@ -2,7 +2,7 @@
 
 Stage 6a, size L: a separate deep pass, no production code. Written
 2026-10-13 against `spec.md` (BR-RT-1..20), US-1..US-7, `design.md`,
-ADR-0037 (accepted), `api-contract.md` (fixed), `plan-backend.md` § 5, § 6.2
+ADR-0039 (accepted), `api-contract.md` (fixed), `plan-backend.md` § 5, § 6.2
 ("as built"), the shared files in `contracts/rich-text/`, and the code as it
 stands (`WorkItemFormPage.tsx`, `lib/draft.ts`, `lib/rules.ts`,
 `lib/refusals.ts`, `api/workItemsApi.ts`, `shared/ui/FormDialog.tsx`,
@@ -48,7 +48,7 @@ rely on it; nothing here changes `api-contract.md`.
 |---|---|---|---|
 | F-1 | The client normaliser is a **port** of the server pass, not a second interpretation of the spec | BR-RT-5 demands byte equality; § 6.2 of the backend plan lists seven choices the spec is silent on; a port makes them the same by construction and lets the server's own `input` column be the client's oracle too | frontend |
 | F-2 | Editor documents are **loaded as ProseMirror JSON** built by our own `DOMParser` + `preserveWhitespace: 'full'`, never as a string through TipTap's `content:` | TipTap's string path strips some whitespace-only text nodes (a text node of exactly `"\n"` or `"\n  "` — a one-line-feed code block would be lost) and its parse options are not the whole story; JSON is exact and also keeps `getSchema` as the single source of what the editor can hold. Re-checked at pin time (S1) | frontend |
-| F-3 | Code colouring is an **own ProseMirror plugin** (`RtCodeHighlight`) calling `lowlight` directly; `@tiptap/extension-code-block-lowlight` is not a dependency | its plugin recomputes every code block synchronously on any change inside one, with no cap and no idle delay; design § Syntax colouring (D-9) requires both. Still "lowlight as decorations" (ADR-0037 decision 4, H1) and `highlight.js` grammars for the 12 languages; one package fewer. ADR decision 4 names the extension in its list, so this is an **implementation deviation to record**, not a new decision | orchestrator: a `status.md` note; human informed at gate-3 |
+| F-3 | Code colouring is an **own ProseMirror plugin** (`RtCodeHighlight`) calling `lowlight` directly; `@tiptap/extension-code-block-lowlight` is not a dependency | its plugin recomputes every code block synchronously on any change inside one, with no cap and no idle delay; design § Syntax colouring (D-9) requires both. Still "lowlight as decorations" (ADR-0039 decision 4, H1) and `highlight.js` grammars for the 12 languages; one package fewer. ADR decision 4 names the extension in its list, so this is an **implementation deviation to record**, not a new decision | orchestrator: a `status.md` note; human informed at gate-3 |
 | F-4 | `react/no-danger` (spec NFR Safety) is delivered by ESLint `no-restricted-syntax` on the JSX attribute `dangerouslySetInnerHTML` and `no-restricted-properties` on `innerHTML`/`outerHTML`/`insertAdjacentHTML`, plus a source-scan test `src/test/noRawHtml.test.ts` in the style of `colourLiterals.test.ts` | `eslint-plugin-react` is not in the stack (`eslint.config.js` has only `react-hooks` and `react-refresh`); the equivalent needs no package. If the human prefers the plugin literally: one devDependency, one rule | orchestrator/human, low stakes |
 | F-5 | Bundle claim "the entry and shared vendor chunks grow by zero bytes" (ADR decision 10) is checked as: **no editor-library module is reachable from the entry chunk** (module-level check from a build report) and the entry's gzipped growth is a **stated small figure** (target ≤ 8 KB, the pure library's size), measured, not zero | the pure library (`normalise`, vocabulary JSON, `legacyToHtml`) must be in the main bundle because `lib/draft.ts` runs on the form route without the editor (baseline, dirty, save check). A literal zero would need the whole form route lazy (routes are not lazy anywhere today) or a draft that carries counts from the editor chunk | human confirms the proxy (or picks the all-lazy variant, § 10.3) |
 | F-6 | Auto-link scans **plain-text** pastes only (clipboard has no `text/html`), plus a single address over a non-empty selection | spec BR-RT-18 says "pasted (alone or inside plain text)"; an html paste already carries its own links and link-ifying its text would rewrite structure. Spec silent for html | analyst may confirm; low risk |
@@ -56,7 +56,7 @@ rely on it; nothing here changes `api-contract.md`.
 | F-8 | In a code block, **Tab with a non-empty selection indents every selected line** (tab at each line start); with a caret it inserts a tab | spec says only "Tab inserts a tab character" and Shift+Tab "on every selected line"; replacing a selection by a tab is destructive, and symmetry with Shift+Tab is the least surprising | analyst/design may confirm (G-4) |
 | F-9 | Exit by Enter-twice removes **all trailing line feeds** of the block, as the prototype does | spec: "the two trailing line feeds are removed"; with exactly one trailing LF before the second Enter this is identical | frontend |
 | F-10 | `www.` rule: accepted when at least one character that is not `/?#` or whitespace follows `www.`; the result is `https://` + input and must then pass the server's address rule | spec: "non-empty host"; the prototype's `www.x.y` regex is stricter than spec. Pinned by a table test | frontend |
-| F-11 | The editor uses an **explicit extension list**, not `StarterKit` | v3 `StarterKit` also brings link, underline, trailing node and list keymaps with their own Tab bindings; ADR-0037 decision 7 needs each of those configured. A test asserts the extension name list so an accidental addition fails | frontend |
+| F-11 | The editor uses an **explicit extension list**, not `StarterKit` | v3 `StarterKit` also brings link, underline, trailing node and list keymaps with their own Tab bindings; ADR-0039 decision 7 needs each of those configured. A test asserts the extension name list so an accidental addition fails | frontend |
 | F-12 | Mark input rules (`**`, `*`, `_`, `~~`, `==`) are **off**; only the design's D-4 rules stay (`### `, `#### `, `- `, `* `, `1. `, backticks, ```` ``` ````) | design D-4 lists exactly those | frontend |
 
 ## 3. Files
@@ -144,7 +144,7 @@ underline,strike,code,link,code-block,table}`, `@tiptap/extension-list`
 `extension-highlight`, `extension-text-style`, `extension-color` (they write
 `style`), `extension-code-block-lowlight` (F-3), any TipTap Pro/Cloud package.
 Licences are read from each package manifest, transitive `prosemirror-*`
-included, at pin time (ADR-0037 decision 4). The lock file change is large;
+included, at pin time (ADR-0039 decision 4). The lock file change is large;
 `scripts/warm-worktree.sh` keys its cache on it, so the first install is one
 `npm ci`-class cost.
 
@@ -153,7 +153,7 @@ included, at pin time (ADR-0037 decision 4). The lock file change is large;
 ### 4.1 Vocabulary
 
 `vocabulary.ts` imports `contracts/rich-text/vocabularies.json` (Vite JSON
-import, ADR-0037 decision 6) and exports typed families: `TEXT_COLOURS`,
+import, ADR-0039 decision 6) and exports typed families: `TEXT_COLOURS`,
 `HIGHLIGHTS`, `FONT_SIZES` (`{ name, class }[]`), `CODE_LANGUAGES`,
 `MARK_ORDER`, and `firstToken(family, classAttr)`: split on **ASCII
 whitespace only** (` \t\n\f\r`; U+00A0 is not a separator — fixture
@@ -327,7 +327,7 @@ node, `Selection`/`Focus`/`CharacterCount`, `Image`. A test lists
 `editor.extensionManager.extensions.map(e => e.name)` and compares it with the
 table, so a bump that re-adds one fails.
 
-### 5.2 Schema rules, one line each (ADR-0037 decision 7 → where it is enforced)
+### 5.2 Schema rules, one line each (ADR-0039 decision 7 → where it is enforced)
 
 | Rule | Schema | Normaliser (second line) |
 |---|---|---|
@@ -1028,7 +1028,7 @@ its test per commit; one control group per commit in 4–5).
 | Emoji chunk | **46 857 B** | Loaded on first open of the picker |
 | Editor chunk projected at the end | ≈ 185–200 KB | 161 + 24 + the slices 4–5 code |
 
-Proposed ceilings, for the human (ADR-0037 decision 10): entry growth **10 KB**, editor chunk **220 KB**, emoji chunk **52 KB**. A cheap way to cut ~20 KB from the editor chunk, **not taken** (it replaces a planned package, so it is the human's call): write the link mark in-house (a mark with `href`, parse, render, two commands: ~40 lines) instead of `@tiptap/extension-link`, which only brings `linkifyjs` here.
+Proposed ceilings, for the human (ADR-0039 decision 10): entry growth **10 KB**, editor chunk **220 KB**, emoji chunk **52 KB**. A cheap way to cut ~20 KB from the editor chunk, **not taken** (it replaces a planned package, so it is the human's call): write the link mark in-house (a mark with `href`, parse, render, two commands: ~40 lines) instead of `@tiptap/extension-link`, which only brings `linkifyjs` here.
 
 ### 14.1c Slices 4–5: choices the plan left open (all in code, none changes the contract)
 
@@ -1093,11 +1093,11 @@ and the four fixture files exist. Remaining, none a blocker:
 
 | # | Item | Who |
 |---|---|---|
-| 1 | Record F-3 (own highlight plugin instead of `extension-code-block-lowlight`) as an implementation deviation from ADR-0037 decision 4's list; same for F-4 and F-5's wording | orchestrator note in `status.md`; human at gate-3 |
+| 1 | Record F-3 (own highlight plugin instead of `extension-code-block-lowlight`) as an implementation deviation from ADR-0039 decision 4's list; same for F-4 and F-5's wording | orchestrator note in `status.md`; human at gate-3 |
 | 2 | Confirm or change the bundle ceilings once the first measurement exists (slice 3) — ADR decision 10 requires the human's confirmation | human |
 | 3 | Design copy gaps, none invented: **G-1** no text for an **emoji chunk** load failure (the plan reuses «Не удалось загрузить редактор.» + «Повторить» until design says otherwise); **G-2** no text or announcement for **copy failure** (clipboard denied): the plan is silent; **G-3** loading text for the emoji popover: spinner only; **G-4** Tab with a selection in a code block (F-8) | designer/analyst, minor |
 | 4 | `app/theme/{theme.ts,muiAugmentation.d.ts}` and `vite.config.ts`, `package.json`, `setup.ts` are shared files a neighbouring session may change: re-read before each edit; the additions are small and additive | frontend (self) |
-| 5 | `docs/conventions/frontend.md` § MUI sentence naming the editor and ADR-0037 and the ADR-0007 index line are owed "on acceptance"; the sentence is a slice 7 commit unless the orchestrator already did it | orchestrator |
+| 5 | `docs/conventions/frontend.md` § MUI sentence naming the editor and ADR-0039 and the ADR-0007 index line are owed "on acceptance"; the sentence is a slice 7 commit unless the orchestrator already did it | orchestrator |
 | 6 | The Kazakh texts of the two new reasons are `kkNeedsReview` (backend plan § 14.6); the panel shows only the server's `detail`, so no frontend change | human at gate-3 |
 | 7 | Run economy: the plan assumes targeted vitest runs until the CPU all-clear (tech-028); a full `verify.sh` is owed once, at the end of slice 7 | orchestrator |
 
@@ -1161,7 +1161,7 @@ The entry growth is the pure library (normaliser, vocabulary, legacy conversion,
 wrapper, and `theme.richText`; no editor-library module is reachable from the entry (`bundle:check`
 passes). The editor chunk is below the isolated measurement (223 654) because the MUI parts the entry
 already holds are not counted again. The ceilings stay *proposed* in `bundle-budget.json` until the human
-confirms them (ADR-0037 decision 10).
+confirms them (ADR-0039 decision 10).
 
 Re-measured on 2026-11-09 on the merged tree (code review CR-5; the table above is that measurement,
 replacing slice 7's 289 381 / +9 862 against the pre-merge baseline 279 519). The baseline is main's

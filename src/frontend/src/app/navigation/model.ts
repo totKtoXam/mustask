@@ -129,6 +129,7 @@ function objectSettingsEntry(kind: ObjectKind, nodeOpen: boolean): NavigationEnt
     label: 'Параметры',
     scope: 'organization',
     permission: KIND_WRITE_CODES[kind],
+    object: kind,
     landing: (selection) => {
       const chosen = selectionUpTo(objectsOf(selection), kind);
       return selection.organizationId && chosen[kind]
@@ -214,6 +215,7 @@ export function buildNavigationModel(selection: WorkContextSelection): Navigatio
                   label: 'Параметры',
                   scope: 'organization' as const,
                   permission: organizationsPermissions.areaWrite,
+                  object: 'node' as const,
                   landing: (current: WorkContextSelection) =>
                     current.organizationId && current.nodeId
                       ? `/organizations/${encodeURIComponent(current.organizationId)}/areas/${encodeURIComponent(current.nodeId)}/${OBJECT_SETTINGS_SEGMENT}`

@@ -30,6 +30,7 @@ import { cardTexts } from '../../lib/cardTexts';
  */
 function AssigneeFieldView({
   organizationId,
+  projectId,
   value,
   error,
   busy,
@@ -38,6 +39,8 @@ function AssigneeFieldView({
   inputRef,
 }: {
   organizationId: string;
+  /** The item's project (mod-019 OQ-11): the candidates are those who may work on it. */
+  projectId?: string;
   value: WorkItemAssignee | null;
   error: string | undefined;
   busy: boolean;
@@ -62,7 +65,7 @@ function AssigneeFieldView({
   }
   const text = searchTextOf(typed);
   const settled = useDebouncedValue(text);
-  const query = useAssigneeCandidates(organizationId, settled, isSearchable(settled));
+  const query = useAssigneeCandidates(organizationId, settled, isSearchable(settled), projectId);
 
   let search: AssigneeSearch;
   if (!isSearchable(text)) {

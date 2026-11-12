@@ -1,0 +1,30 @@
+# /etc/systemd/system/mustask-api.service (docs/deploy/vm.md, section 6).
+# Installed by `install.sh deploy`; /opt/mustask/current points at the active
+# release under /opt/mustask/releases/.
+[Unit]
+Description=MUSTASK API
+After=network-online.target postgresql.service
+Wants=network-online.target
+
+[Service]
+Type=exec
+# Rendered by `install.sh deploy` from /etc/mustask/run-as (prepare --run-as).
+# No Group=: systemd takes the user's primary group.
+User=@RUN_USER@
+WorkingDirectory=/opt/mustask/current/api
+EnvironmentFile=/etc/mustask/mustask.env
+Environment=HOME=/var/lib/mustask
+Environment=DOTNET_PRINT_TELEMETRY_MESSAGE=false
+ExecStart=/usr/bin/dotnet /opt/mustask/current/api/Mustask.Api.dll
+Restart=on-failure
+RestartSec=5
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+# The Data Protection keys of the session cookie live here.
+ReadWritePaths=/var/lib/mustask
+LimitNOFILE=65536
+
+[Install]
+WantedBy=multi-user.target

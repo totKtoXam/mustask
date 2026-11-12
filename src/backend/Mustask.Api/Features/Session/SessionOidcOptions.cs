@@ -33,6 +33,13 @@ public sealed class SessionOidcOptions
     public required string PanelUrl { get; init; }
 
     /// <summary>
+    /// <c>Hosting:PathBase</c> (ADR-0037): the path the whole deployment is served under, e.g. <c>/mustask</c>;
+    /// empty means the root. Validated by <see cref="ParsePathBase"/> and matched against the path of
+    /// <see cref="PanelUrl"/> at start.
+    /// </summary>
+    public string PathBase { get; init; } = "";
+
+    /// <summary>
     /// Values that must never reach the confidential
     /// client's secret outside Development — the realm import's own
     /// placeholder (<c>deploy/keycloak/realms/mustask-realm.json</c>, no default
@@ -81,10 +88,56 @@ public sealed class SessionOidcOptions
                 ?? throw new InvalidOperationException("Missing configuration value Session:PanelUrl."))
             .TrimEnd('/');
 
+        var pathBase = ParsePathBase(configuration["Hosting:PathBase"]);
+
+        // The panel and the API share one public address (ADR-0037), so the path of PanelUrl is the path base.
+        // Caught here, not at the first sign-in: a mismatch would only show as a redirect_uri error in Keycloak.
+        // With an empty base, PanelUrl's own path must be empty too (a forgotten Hosting__PathBase).
+        var panelPath = Uri.TryCreate(panelUrl, UriKind.Absolute, out var parsedPanelUrl)
+            ? parsedPanelUrl.AbsolutePath.TrimEnd('/')
+            : null;
+
+        if (pathBase.Length > 0 ? !string.Equals(panelPath, pathBase, StringComparison.Ordinal) : panelPath is { Length: > 0 })
+        {
+            throw new InvalidOperationException(
+                $"Session:PanelUrl ('{panelUrl}') must be an absolute address whose path equals Hosting:PathBase ('{pathBase}').");
+        }
+
         return new SessionOidcOptions
         {
             ClientSecret = clientSecret,
             PanelUrl = panelUrl,
+            PathBase = pathBase,
         };
     }
+
+    /// <summary>
+    /// Empty or absent is the root. Otherwise a plain path: a leading <c>/</c>, no trailing <c>/</c>, segments of
+    /// letters, digits and <c>- . _ ~</c> only — so no query, fragment, escape, backslash or empty segment.
+    /// </summary>
+    public static string ParsePathBase(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return "";
+        }
+
+        var segments = value.Split('/');
+        var wellFormed = value.StartsWith('/')
+            && segments.Length > 1
+            && segments.Skip(1).All(segment =>
+                segment.Length > 0 && segment is not ("." or "..") && segment.All(IsPathBaseCharacter));
+
+        if (!wellFormed)
+        {
+            throw new InvalidOperationException(
+                $"Hosting:PathBase ('{value}') must be empty (the root) or a plain path that starts with '/' and does not "
+                + "end with '/', for example '/mustask'.");
+        }
+
+        return value;
+    }
+
+    private static bool IsPathBaseCharacter(char c) =>
+        char.IsAsciiLetterOrDigit(c) || c is '-' or '.' or '_' or '~';
 }

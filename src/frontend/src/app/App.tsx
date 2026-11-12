@@ -1,4 +1,5 @@
 import { BrowserRouter } from 'react-router-dom';
+import { getBasePath } from '../shared/config/basePath';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import CssBaseline from '@mui/material/CssBaseline';
 import { ThemeProvider } from '@mui/material/styles';
@@ -24,7 +25,7 @@ export function App() {
       <ErrorBoundary>
         <QueryClientProvider client={queryClient}>
           <AuthProvider>
-            <BrowserRouter>
+            <BrowserRouter basename={getBasePath() || undefined}>
               <AppRoutes />
             </BrowserRouter>
           </AuthProvider>

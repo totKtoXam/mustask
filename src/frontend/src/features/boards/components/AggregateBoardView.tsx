@@ -1,10 +1,9 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link as RouterLink } from 'react-router-dom';
 import Box from '@mui/material/Box';
 import Link from '@mui/material/Link';
 import Typography from '@mui/material/Typography';
 import ViewWeekOutlinedIcon from '@mui/icons-material/ViewWeekOutlined';
-import { useAccessCheck } from '../../../shared/lib/access';
 import {
   InlineNotice,
   MoreActionsMenu,
@@ -21,6 +20,7 @@ import {
   workItemPath,
   workItemsPermissions,
 } from '../../workitems';
+import { useProjectCodes } from '../../organizations';
 import { getCells, type AggregateCard, type GroupHeader } from '../api/aggregateApi';
 import { useGroupRead, isProjectGone, type UseGroupRead } from '../hooks/useGroupRead';
 import { useNarrowedTag, type AggregateViewState } from '../hooks/useAggregateView';
@@ -69,7 +69,7 @@ function BoardCell({
   enabled: boolean;
   stream: boolean;
   registry: CellRegistry;
-  canMove: boolean;
+  canMove: (card: AggregateCard) => boolean;
   onMove: MoveCard;
   dragged: Dragged | null;
   onDragged(next: Dragged | null): void;
@@ -153,7 +153,7 @@ function BoardCell({
               return (
                 <Box
                   key={card.id}
-                  draggable={canMove && targets.length > 0}
+                  draggable={canMove(card) && targets.length > 0}
                   data-drag-card={card.identifier}
                   onDragStart={(event) => {
                     event.dataTransfer.effectAllowed = 'move';
@@ -170,7 +170,7 @@ function BoardCell({
                       >
                         {card.identifier}
                       </Link>
-                      {canMove && targets.length > 0 && (
+                      {canMove(card) && targets.length > 0 && (
                         <MoreActionsMenu label={aggregateTexts.moveActions} items={entries} />
                       )}
                     </Box>
@@ -208,7 +208,7 @@ function BoardColumns({
   columns: readonly AggregateColumn[];
   enabled: boolean;
   stream: boolean;
-  canMove: boolean;
+  canMove: (card: AggregateCard) => boolean;
   announce(text: string): void;
 }) {
   const { show } = useNotice();
@@ -277,11 +277,17 @@ function laneName(header: GroupHeader, grouping: AggregateViewState['grouping'])
 
 /** «Канбан» at the organization, department and team level (BR-AV-7, design § 3, § 5). */
 export function AggregateBoardView({ v }: { v: AggregateViewState }) {
-  const access = useAccessCheck();
+  // A card is moved by its own project's codes (plan F-6, D-4): the board of several projects serves them
+  // once per project, on the project rows, and never per card.
+  const { codes: projectCodes } = useProjectCodes(v.organizationId);
   const columns = useMemo(() => columnsOf(v.groups ?? []), [v.groups]);
   const { announcement, announce } = useAnnouncement(v.grouping);
   const narrowedTag = useNarrowedTag(v.organizationId, v.selectors);
-  const canMove = access(workItemsPermissions.workItemWrite, 'organization');
+  const canMove = useCallback(
+    (card: AggregateCard) =>
+      projectCodes?.get(card.project.id)?.includes(workItemsPermissions.workItemWrite) ?? false,
+    [projectCodes],
+  );
   const groups = v.groups;
 
   let body;

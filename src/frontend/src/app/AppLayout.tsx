@@ -26,6 +26,7 @@ import {
 import { buildNavigationModel } from './navigation/model';
 import { useNavigationSource } from './navigation/useNavigationSource';
 import { useNavigationLayout } from './navigation/useNavigationLayout';
+import { useObjectCodes } from './navigation/useObjectCodes';
 import { deriveTrail, isSettingsPage, visibleModel } from './navigation/visibility';
 import { MainNavigation } from './shell/MainNavigation';
 import { NavigationOverlay } from './shell/NavigationOverlay';
@@ -135,9 +136,11 @@ export function AppLayout({ contextSource }: AppLayoutProps) {
     () => ({ roleChangeId: roleChange?.id ?? null, claim: dismissRoleChange }),
     [roleChange?.id, dismissRoleChange],
   );
+  // «Параметры» of a chosen object is decided by that object's served codes (BR-SA-18).
+  const objectCodes = useObjectCodes(selection, isReal);
   const visible = useMemo(
-    () => visibleModel(model, access, { isReal, selection }),
-    [model, access, isReal, selection],
+    () => visibleModel(model, access, { isReal, selection, objectCodes }),
+    [model, access, isReal, selection, objectCodes],
   );
 
   // A not-found frame registers here: no page serves the address, so none is

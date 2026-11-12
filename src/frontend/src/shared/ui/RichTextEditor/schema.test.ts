@@ -34,7 +34,7 @@ afterEach(() => {
   for (const editor of created.splice(0)) editor.destroy();
 });
 
-describe('the extension list (F-11, ADR-0037 decision 7)', () => {
+describe('the extension list (F-11, ADR-0039 decision 7)', () => {
   it('registers exactly the planned extensions, so a dependency bump that re-adds one fails', () => {
     const names = open()
       .extensionManager.extensions.map((extension) => extension.name)

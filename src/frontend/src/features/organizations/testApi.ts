@@ -7,7 +7,14 @@
 // (`Dataset.teams`, `Dataset.links`); the routes follow its api-contract.
 import { HttpResponse, http, type HttpHandler } from 'msw';
 import { server } from '../../test/mocks/server';
-import { servedFor } from '../../test/organizationRoles';
+import { codesOf, servedFor, servedObjectCodes, servedRole } from '../../test/organizationRoles';
+
+/**
+ * The codes the object reads serve as the caller's own on the object (mod-019 api-contract § 5). The pages ask
+ * the object's `codes`, not the organization answer, for a code decided at that object (BR-SA-18); the render
+ * helper sets this from the test's role, so the old role-driven tests keep their meaning.
+ */
+export { servedObjectCodes };
 import type { Overview, SelectorOffers } from './api/navigationApi';
 import type {
   Area,
@@ -26,6 +33,7 @@ import type {
   LinkedTeam,
   TeamProject,
 } from './api/organizationsApi';
+import type { GrantRow } from './api/grantsApi';
 import {
   AREAS_URL,
   AREA_URL,
@@ -51,6 +59,7 @@ import {
   validationProblem,
   type AreaRecord,
   type Dataset,
+  type UserRecord,
   type OrganizationRecord,
   type ProblemBody,
   type ProjectRecord,
@@ -149,9 +158,14 @@ function idList(value: unknown): string[] {
 export class OrganizationsTestApi {
   readonly data: Dataset;
   readonly requests: RecordedRequest[] = [];
+  /** The grants by `scope:objectId` (mod-019 § 2); the dataset may seed them. */
+  readonly grants: Record<string, GrantRow[]>;
+  /** The «Наследовать доступ» switches by node id (mod-019 § 3); a node with none is on. */
+  readonly inherits: Record<string, boolean> = {};
 
   constructor(data: Dataset = exampleDataset()) {
     this.data = data;
+    this.grants = data.grants ?? {};
     this.data.links ??= [];
     this.ensureProjectNodes();
   }
@@ -166,6 +180,23 @@ export class OrganizationsTestApi {
         this.data.areas.push(projectNode(newId('e'), project.organizationId, project.id, null));
       }
     }
+  }
+
+  private grantRow(user: UserRecord, role: unknown): GrantRow {
+    const giver = (this.data.users ?? []).find((u) => u.id === this.data.actingUserId);
+    return {
+      user: { id: user.id, displayName: user.displayName, email: user.email, state: user.state },
+      role: role as GrantRow['role'],
+      origin: 'held',
+      department: null,
+      givenBy: {
+        id: giver?.id ?? 'acting',
+        displayName: giver?.displayName ?? 'Администратор',
+        email: giver?.email ?? null,
+        state: 'active',
+      },
+      givenAt: '2026-11-01T10:00:00Z',
+    };
   }
 
   // ---- lookups, from the outside in (api-contract § 0.3)
@@ -348,6 +379,27 @@ export class OrganizationsTestApi {
       .map(({ id, name, key }) => ({ id, name, key }));
   }
 
+  /**
+   * The codes an object read serves (mod-019 § 5): the caller's role in the object's organization when the dataset
+   * names memberships and the caller, else the codes the render set (an explicit bundle pins them).
+   */
+  private objectCodes(organizationId: string): string[] {
+    const role = servedObjectCodes.pinned
+      ? undefined
+      : this.data.memberships?.find(
+          (m) => m.organizationId === organizationId && m.userId === this.data.actingUserId,
+        )?.role;
+    return [...(role ? codesOf(role) : servedObjectCodes.current)];
+  }
+
+  /** The caller's organization-wide codes: their role's in the dataset, else what the render served. */
+  private organizationCodes(organizationId: string): readonly string[] {
+    const role = this.data.memberships?.find(
+      (m) => m.organizationId === organizationId && m.userId === this.data.actingUserId,
+    )?.role;
+    return role ? codesOf(role) : servedObjectCodes.current;
+  }
+
   private projectAnswer(project: ProjectRecord): Project {
     return {
       id: project.id,
@@ -355,11 +407,17 @@ export class OrganizationsTestApi {
       name: project.name,
       key: project.key,
       description: project.description ?? null,
+      codes: this.objectCodes(project.organizationId),
     };
   }
 
   private teamAnswer(team: TeamRecord): Team {
-    return { id: team.id, name: team.name, description: team.description ?? null };
+    return {
+      id: team.id,
+      name: team.name,
+      description: team.description ?? null,
+      codes: this.objectCodes(team.organizationId),
+    };
   }
 
   /** The active projects a team is linked to, by name (feat-028 § 1.2). */
@@ -555,6 +613,10 @@ export class OrganizationsTestApi {
     const parent = area.parentId ? this.data.areas.find((c) => c.id === area.parentId) : undefined;
     return {
       ...this.areaAnswer(area),
+      codes: this.objectCodes(area.organizationId),
+      department:
+        parent?.type === 'department' ? { id: parent.id, name: this.nodeName(parent) } : null,
+      inheritsAccess: area.type === 'department' ? null : (this.inherits[area.id] ?? true),
       projectActive: this.projectActive(area),
       parent: parent
         ? { id: parent.id, name: this.nodeName(parent), path: this.pathOf(parent) }
@@ -1175,7 +1237,7 @@ export class OrganizationsTestApi {
         `${ORGANIZATION_URL}/access`,
         answer(200, (p) => {
           this.organization(o(p));
-          return servedFor('admin');
+          return servedFor(servedRole.current);
         }),
       ),
       http.put(
@@ -1333,6 +1395,16 @@ export class OrganizationsTestApi {
         AREAS_URL,
         answer(201, (p, b) => this.createArea(this.organization(o(p)), b)),
       ),
+      // mod-019 § 5: the nodes the caller may write — every node for who holds `area.write` in the organization, else the dataset's.
+      http.get(
+        `${AREAS_URL}/writable-ids`,
+        answer(200, (p) => {
+          const organization = this.organization(o(p));
+          return this.organizationCodes(organization.id).includes('organizations.area.write')
+            ? this.data.areas.filter((a) => a.organizationId === organization.id).map((a) => a.id)
+            : (this.data.writableAreaIds ?? []);
+        }),
+      ),
       http.get(
         AREA_URL,
         answer(200, (p) => this.areaPage(ar(p).area)),
@@ -1415,6 +1487,91 @@ export class OrganizationsTestApi {
           this.unlinkArea(area.id, team.id);
         }),
       ),
+      // mod-019 api-contract § 3: the switch and what turning it off would do.
+      http.put(
+        `${AREA_URL}/inherits-access`,
+        answer(200, (p, b) => {
+          const { area } = ar(p);
+          this.inherits[area.id] = b.value === true;
+          return { inheritsAccess: this.inherits[area.id] };
+        }),
+      ),
+      http.get(
+        `${AREA_URL}/inherits-access/impact`,
+        answer(
+          200,
+          () =>
+            this.data.switchImpact ?? {
+              holderCount: 0,
+              callerIncluded: false,
+              givenGrants: [],
+              givenGrantsTotal: 0,
+            },
+        ),
+      ),
+      // mod-019 api-contract § 2: the grants of a department, a project and a team.
+      ...(
+        [
+          ['department', AREA_URL, 'areaId'],
+          ['project', PROJECT_URL, 'projectId'],
+          ['team', ORG_TEAM_URL, 'teamId'],
+        ] as const
+      ).flatMap(([scope, url, idName]) => {
+        const key = (p: Params) => `${scope}:${one(p, idName)}`;
+        const list = (p: Params) => (this.grants[key(p)] ??= []);
+        const member = (userId: unknown) => {
+          const user = (this.data.users ?? []).find((u) => u.id === userId);
+          if (!user) refuse('organizations.membership.not_found');
+          return user;
+        };
+        return [
+          http.get(
+            `${url}/grants`,
+            answer(200, (p) => ({
+              items: list(p),
+              inheritance: scope === 'project' ? (this.data.grantInheritance ?? null) : null,
+            })),
+          ),
+          http.get(
+            `${url}/grant-candidates`,
+            answer(200, (p) => ({
+              items: (this.data.users ?? []).filter(
+                (u) => u.id !== this.data.actingUserId && !list(p).some((g) => g.user.id === u.id),
+              ),
+              moreMatched: false,
+            })),
+          ),
+          http.post(
+            `${url}/grants`,
+            answer(201, (p, b) => {
+              if (b.userId === this.data.actingUserId) refuse('organizations.grant.self_grant');
+              const user = member(b.userId);
+              if (list(p).some((g) => g.user.id === user.id)) refuse('organizations.grant.changed');
+              const row = this.grantRow(user, b.role);
+              list(p).push(row);
+              return row;
+            }),
+          ),
+          http.put(
+            `${url}/grants/:userId`,
+            answer(200, (p, b) => {
+              const row = list(p).find((g) => g.user.id === one(p, 'userId'));
+              if (!row) refuse('organizations.grant.changed');
+              row.role = b.role as GrantRow['role'];
+              return row;
+            }),
+          ),
+          http.delete(
+            `${url}/grants/:userId`,
+            answer(204, (p) => {
+              const rows = list(p);
+              const at = rows.findIndex((g) => g.user.id === one(p, 'userId'));
+              if (at < 0) refuse('organizations.grant.changed');
+              rows.splice(at, 1);
+            }),
+          ),
+        ];
+      }),
     ];
   }
 

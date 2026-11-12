@@ -12,6 +12,7 @@ using Mustask.Api.Features.Organizations;
 using Mustask.Api.Features.Process;
 using Mustask.Api.Features.Session;
 using Mustask.Api.Features.WorkItems;
+using Mustask.Api.Hosting;
 using Gridify;
 using Mustask.Application;
 using Mustask.Domain.UserDirectory;
@@ -73,7 +74,11 @@ builder.AddServiceDefaults();
 builder.Host.UseSerilog((context, services, configuration) => configuration
     .ReadFrom.Configuration(context.Configuration)
     .ReadFrom.Services(services),
-    writeToProviders: true);
+    writeToProviders: true,
+    // tech-006: the host logger lives and dies with the host. Without this Serilog assigns it to the static
+    // Log.Logger on Build() and runs Log.CloseAndFlush() on dispose, so disposing any WebApplicationFactory
+    // child host silenced every ILogger<T> created later on a sibling host.
+    preserveStaticLogger: true);
 
 builder.AddInfrastructure();
 builder.Services.AddApplication();
@@ -192,28 +197,19 @@ builder.Services.AddHealthChecks().AddCheck<RealmReadinessHealthCheck>(RealmRead
 
 var app = builder.Build();
 
-// Found running the real test suite against Docker:
-// Serilog.AspNetCore's UseSerilogRequestLogging middleware, when
-// options.Logger isn't set explicitly, uses the AMBIENT STATIC
-// Serilog.Log.Logger fresh on EVERY request rather than a properly
-// host-scoped logger from DI — and UseSerilog(...) above reassigns that
-// SAME static property on every host Build() (preserveStaticLogger isn't
-// passed). A single production process only ever builds one host, so this
-// never mattered there — but the integration test suite builds many
-// WebApplicationFactory-backed hosts within ONE process
-// (WithWebHostBuilder clones for Production/Staging scenarios across many
-// test classes), and whichever host was built — or even already disposed —
-// MOST RECENTLY anywhere in the run silently became every OTHER host's
-// request logger too. A disposed Serilog logger discards writes entirely,
-// which is exactly why this surfaced as "no console output at all",
-// reliably in isolation (few hosts built) but intermittently in the full
-// suite (many). Capturing Log.Logger right here — this host's own,
-// correctly-configured value at the exact moment its own Build() call just
-// finished — and pinning it via options.Logger below makes this host's
-// request logging immune to any later host build/dispose elsewhere in the
-// process; behavior for a single-host process (production) is unchanged,
-// since that's the same value the ambient fallback would have used anyway.
-var requestLoggingLogger = Log.Logger;
+// tech-006: the request-log line is written through this host's own Serilog logger, taken from DI.
+// UseSerilog(..., preserveStaticLogger: true) above registers it there and never touches the static
+// Serilog.Log.Logger, so another host's build or dispose cannot change where this host logs.
+var requestLoggingLogger = app.Services.GetRequiredService<Serilog.ILogger>();
+
+// ADR-0037: served under Hosting:PathBase (e.g. /mustask) when it is set; empty is the root and adds nothing.
+// First in the pipeline, so every later middleware, the router and the OIDC handler see Request.PathBase. The proxy
+// passes the path unchanged; a request without the prefix (/health from the VM itself) is left as it is.
+if (sessionOptions.PathBase.Length > 0)
+{
+    app.UsePathBase(sessionOptions.PathBase);
+    app.UsePathBaseOnRelativeLocation();
+}
 
 // UseSerilogRequestLogging стоит СНАРУЖИ обработчика исключений — иначе оно
 // видит исключение до того, как UseMustaskErrorHandling превратит его в
@@ -310,6 +306,7 @@ app.MapDictionaryEndpoints();
 app.MapOrganizationEndpoints();
 app.MapRescueEndpoints();
 app.MapMembershipEndpoints();
+app.MapGrantEndpoints();
 app.MapProcessEndpoints();
 app.MapSessionEndpoints();
 app.MapWorkItemEndpoints();

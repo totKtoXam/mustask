@@ -4,6 +4,7 @@
 import { Route } from 'react-router-dom';
 import { HttpResponse, http, type JsonBodyType } from 'msw';
 import { server } from '../../test/mocks/server';
+import { servedObjectCodes } from '../../test/organizationRoles';
 import { authValue, renderShell } from '../../test/renderShell';
 import { OrganizationGate } from '../organizations';
 import { sampleProcessDefinition } from '../process/testFixtures';
@@ -194,6 +195,17 @@ export function serveAggregate(options: {
       answer('list', request.url, () => options.list ?? { count: 0, data: [] }),
     ),
     http.get(PROCESS_URL, () => HttpResponse.json(sampleProcessDefinition)),
+    // The project rows carry the caller's codes (mod-019 api-contract § 5): the cards are judged by their own.
+    http.get(`${ORG_API}/projects`, () =>
+      HttpResponse.json(
+        [
+          { id: ids.msk, name: 'Мастаск', key: 'MSK' },
+          // The group headers of these tests name the project 'p-msk' (the real header id is the project's).
+          { id: 'p-msk', name: 'Мастаск', key: 'MSK' },
+          { id: ids.ops, name: 'Операции', key: 'OPS' },
+        ].map((project) => ({ ...project, codes: [...servedObjectCodes.current] })),
+      ),
+    ),
   );
   return { seen, of: (kind: SeenRequest['kind']) => seen.filter((r) => r.kind === kind) };
 }

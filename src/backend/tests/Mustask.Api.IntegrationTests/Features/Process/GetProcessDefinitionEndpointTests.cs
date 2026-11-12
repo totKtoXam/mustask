@@ -441,8 +441,6 @@ public sealed class GetProcessDefinitionEndpointTests(MustaskApiFactory factory)
     {
         var (organizationId, _) = await SeedOrganizationAsync();
 
-        // The derived host replaces Serilog's static logger and disposes it: put it back (see the guard).
-        using var loggerGuard = new StaticLoggerGuard();
         using var failing = factory.WithWebHostBuilder(builder =>
             builder.ConfigureTestServices(services => services.AddScoped<IProcessDefinitionReadModel, ThrowingReadModel>()));
 

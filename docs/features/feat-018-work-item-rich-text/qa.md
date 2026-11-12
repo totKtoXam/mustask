@@ -4,7 +4,7 @@
 
 Session: separate, clean context, 2026-10-13, size L deep pass. The plan was
 written from `spec.md`, US-2, US-3 (server half), US-4, US-7, `api-contract.md`
-and ADR-0037 before any implementation file was opened (stage 04-backend § 5);
+and ADR-0039 before any implementation file was opened (stage 04-backend § 5);
 coverage was then checked against commits `05a68cd..4569225` and plan-backend
 § 6.2. E2E: not run, not asked: the human's standing answer is NO
 (paused 2026-10-12), and this is not the last QA stage before review (frontend

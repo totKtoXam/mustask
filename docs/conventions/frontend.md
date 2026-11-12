@@ -44,7 +44,7 @@ feature (`src/frontend/src/features/dictionaries`) is the reference
 registry, form and dialog in code.
 
 The one exception to that stack is the rich-text editor of a work item's
-«Описание» ([ADR-0037](../adr/0037-rich-text-as-sanitized-html-with-tiptap.md)):
+«Описание» ([ADR-0039](../adr/0039-rich-text-as-sanitized-html-with-tiptap.md)):
 TipTap on ProseMirror, `lowlight` and a bundled emoji data set, only as
 `shared/ui/RichTextEditor` — one lazy chunk, never reachable from the entry
 chunk (`npm run bundle:check`, run by hand after `npm run build` and at the task's final
@@ -93,13 +93,16 @@ to the page: no `dangerouslySetInnerHTML`, `innerHTML`, `outerHTML` or
   `useWorkContext()` (`shared/lib/workContext`).
 - **Permissions.** Pages and navigation decide through one check —
   `useAuth().can(code)` for instance codes, `useAccessCheck()`
-  (`shared/lib/access`) for a scoped code — and keep no copy of its
-  answers. An organization's codes are never in the token: the panel reads
-  them from the access endpoint, and every page of an organization sits
+  (`shared/lib/access`) for an organization-scope code — and keep no copy of
+  its answers. An organization's codes are never in the token: the panel
+  reads them from the access endpoint, and every page of an organization sits
   under `OrganizationGate` with an `OrganizationPage` wrapper that names the
   read code the page needs (mod-016, ADR-0027). Below it `useAccessCheck()`
   answers for the organization in the address, so a page passes no
-  organization.
+  organization. A code of a narrower scope (area, project, team — a grant can
+  add it on one object) is read from the object's served `codes`
+  (`useObjectAccess`, `ProjectAccess`; mod-019 BR-SA-18), never from the
+  organization's answer: the guard fails closed when the object serves none.
 - **Work item type look.** A type's icon and colour come from its stored
   appearance token through `theme.workTracking.typeAppearance(token)`, a
   state's colour from its category code through `categoryColour(code)`;
@@ -160,6 +163,8 @@ does not pass QA.
   `src/test/testingLibrary.tsx`, so every `render` and `renderHook` runs
   under the app theme; `src/test/viewport.ts` sets the window width and
   reduced motion that `useMediaQuery` reads (1440 px by default).
+- New tests: the layer ownership, the kit and the anti-patterns are in
+  [testing.md](testing.md).
 - E2E happy path of the feature — Playwright (`src/frontend/e2e/`,
   `npm run e2e`), at the QA stage and only if the human answered yes to the
   E2E question there (`docs/ai-workflow/stages/05-frontend.md`). Not part of

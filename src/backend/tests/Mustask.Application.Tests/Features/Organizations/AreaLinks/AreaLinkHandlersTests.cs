@@ -73,10 +73,10 @@ public sealed class AreaLinkHandlersTests
             _unitOfWork);
 
         public UnlinkTeamFromAreaHandler UnlinkTeamFromArea() => new(
-            new FakeOrganizationReadModel(Store), new FakeOrganizationStructure(Store), Areas, new FakeAreaLinkRepository(Store), _unitOfWork);
+            new FakeOrganizationReadModel(Store), new FakeOrganizationStructure(Store), Areas, new FakeAreaLinkRepository(Store), Access, _unitOfWork);
 
         public UnlinkAreaFromTeamHandler UnlinkAreaFromTeam() => new(
-            new FakeOrganizationReadModel(Store), new FakeOrganizationStructure(Store), Areas, new FakeAreaLinkRepository(Store), _unitOfWork);
+            new FakeOrganizationReadModel(Store), new FakeOrganizationStructure(Store), Areas, new FakeAreaLinkRepository(Store), Access, _unitOfWork);
     }
 
     private static CancellationToken Ct => CancellationToken.None;
@@ -125,10 +125,13 @@ public sealed class AreaLinkHandlersTests
         var refusal = await Assert.ThrowsAsync<NotFoundException>(() =>
             w.LinkTeamsToArea().Handle(new LinkTeamsToAreaCommand(w.Org, w.Reports.Id.ToString(), [w.Team.Id.ToString()]), Ct));
         var member = new World(OrganizationRole.Member);
+        var memberUnknown = await Assert.ThrowsAsync<NotFoundException>(() =>
+            member.LinkTeamsToArea().Handle(new LinkTeamsToAreaCommand(member.Org, member.Reports.Id.ToString(), [Guid.CreateVersion7().ToString()]), Ct));
         var forbidden = await Assert.ThrowsAsync<ForbiddenException>(() =>
-            member.LinkTeamsToArea().Handle(new LinkTeamsToAreaCommand("abc", "x", []), Ct));
+            member.LinkTeamsToArea().Handle(new LinkTeamsToAreaCommand(member.Org, member.Reports.Id.ToString(), [member.Team.Id.ToString()]), Ct));
 
         Assert.Equal(OrganizationErrorCodes.TeamNotFound, refusal.Code);
+        Assert.Equal(OrganizationErrorCodes.TeamNotFound, memberUnknown.Code);
         Assert.Equal(OrganizationErrorCodes.AccessForbidden, forbidden.Code);
         Assert.Empty(w.Store.AreaTeams);
     }
@@ -205,7 +208,7 @@ public sealed class AreaLinkHandlersTests
     }
 
     [Fact]
-    public async Task LinkAreasToTeam_DeletedTeamOrVanishedArea_Is404_AndMemberIsForbidden()
+    public async Task LinkAreasToTeam_DeletedTeamOrVanishedArea_Is404_AndMemberIsForbiddenAfterTheLookup()
     {
         var w = new World();
         w.Areas.VanishedAfterTheLock.Add(w.Reports.Id);
@@ -215,11 +218,15 @@ public sealed class AreaLinkHandlersTests
         w.Team.Delete();
         var team = await Assert.ThrowsAsync<NotFoundException>(() =>
             w.LinkAreasToTeam().Handle(new LinkAreasToTeamCommand(w.Org, w.Team.Id.ToString(), [w.Reports.Id.ToString()]), Ct));
+        var member = new World(OrganizationRole.Member);
+        var memberUnknown = await Assert.ThrowsAsync<NotFoundException>(() =>
+            member.LinkAreasToTeam().Handle(new LinkAreasToTeamCommand(member.Org, member.Team.Id.ToString(), [Guid.CreateVersion7().ToString()]), Ct));
         var forbidden = await Assert.ThrowsAsync<ForbiddenException>(() =>
-            new World(OrganizationRole.Member).LinkAreasToTeam().Handle(new LinkAreasToTeamCommand("abc", "x", []), Ct));
+            member.LinkAreasToTeam().Handle(new LinkAreasToTeamCommand(member.Org, member.Team.Id.ToString(), [member.Reports.Id.ToString()]), Ct));
 
         Assert.Equal(OrganizationErrorCodes.AreaNotFound, area.Code);
         Assert.Equal(OrganizationErrorCodes.TeamNotFound, team.Code);
+        Assert.Equal(OrganizationErrorCodes.AreaNotFound, memberUnknown.Code);
         Assert.Equal(OrganizationErrorCodes.AccessForbidden, forbidden.Code);
         Assert.Empty(w.Store.AreaTeams);
     }

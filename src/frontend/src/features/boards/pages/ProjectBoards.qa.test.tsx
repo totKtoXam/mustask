@@ -50,7 +50,10 @@ describe('OQ-5 / BR-PB-3: the row actions of the team backlog work on the projec
     expect(api.data.places).toEqual([]);
     await waitFor(() => expect(api.reads('/backlogs/stories').length).toBeGreaterThan(readsBefore));
     // Every read of the page was the project's own, none a team's.
-    expect(api.reads('/teams/')).toEqual([]);
+    // (the shell's read of the chosen team, for its «Параметры», is not a view read)
+    expect(
+      api.reads('/teams/').filter((request) => /\/teams\/[^/]+\/./.test(request.path)),
+    ).toEqual([]);
     await waitFor(() => expect(outline(table)).toEqual(['MSK-US-2', '  MSK-US-9', 'MSK-US-3']));
   });
 
@@ -68,7 +71,10 @@ describe('OQ-5 / BR-PB-3: the row actions of the team backlog work on the projec
       { parentId: api.item(ids.msk, 3).id },
     ]);
     expect(api.writes().filter((request) => request.path.endsWith('/reorder'))).toEqual([]);
-    expect(api.reads('/teams/')).toEqual([]);
+    // (the shell's read of the chosen team, for its «Параметры», is not a view read)
+    expect(
+      api.reads('/teams/').filter((request) => /\/teams\/[^/]+\/./.test(request.path)),
+    ).toEqual([]);
   });
 });
 

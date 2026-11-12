@@ -30,6 +30,7 @@ using Mustask.Application.Features.Organizations.DeactivateProject;
 using Mustask.Application.Features.Organizations.DeleteArea;
 using Mustask.Application.Features.Organizations.DeleteTeam;
 using Mustask.Application.Features.Organizations.GetAreaTree;
+using Mustask.Application.Features.Organizations.GetWritableAreaIds;
 using Mustask.Application.Features.Organizations.GetDeactivatedOrganizations;
 using Mustask.Application.Features.Organizations.GetDeactivatedProjects;
 using Mustask.Application.Features.Organizations.GetMembers;
@@ -58,6 +59,13 @@ using Mustask.Application.Features.Organizations.RemoveMember;
 using Mustask.Application.Features.Organizations.LinkProjectsToTeam;
 using Mustask.Application.Features.Organizations.LinkTeamsToProject;
 using Mustask.Application.Features.Organizations.RemoveTeamMember;
+using Mustask.Application.Features.Organizations.ChangeGrantRole;
+using Mustask.Application.Features.Organizations.GetGrants;
+using Mustask.Application.Features.Organizations.GetSwitchImpact;
+using Mustask.Application.Features.Organizations.SetInheritsAccess;
+using Mustask.Application.Features.Organizations.GiveGrant;
+using Mustask.Application.Features.Organizations.RevokeGrant;
+using Mustask.Application.Features.Organizations.SearchGrantCandidates;
 using Mustask.Application.Features.Organizations.RenameArea;
 using Mustask.Application.Features.Organizations.RenameOrganization;
 using Mustask.Application.Features.Organizations.RenameProject;
@@ -143,6 +151,7 @@ public static class DependencyInjection
         services.AddScoped<LinkProjectsToTeamHandler>();
         services.AddScoped<UnlinkTeamHandler>();
         services.AddScoped<GetAreaTreeHandler>();
+        services.AddScoped<GetWritableAreaIdsHandler>();
         services.AddScoped<GetOverviewHandler>();
         services.AddScoped<GetSelectorOffersHandler>();
         services.AddScoped<CreateAreaHandler>();
@@ -177,6 +186,15 @@ public static class DependencyInjection
         services.AddScoped<SearchNewTeamMemberCandidatesHandler>();
         services.AddScoped<AddTeamMemberHandler>();
         services.AddScoped<RemoveTeamMemberHandler>();
+
+        // Scoped grants (mod-019).
+        services.AddScoped<GetGrantsHandler>();
+        services.AddScoped<SetInheritsAccessHandler>();
+        services.AddScoped<GetSwitchImpactHandler>();
+        services.AddScoped<GiveGrantHandler>();
+        services.AddScoped<ChangeGrantRoleHandler>();
+        services.AddScoped<RevokeGrantHandler>();
+        services.AddScoped<SearchGrantCandidatesHandler>();
 
         // Work items (mod-003): one handler per route of WorkItemEndpoints.cs.
         services.AddScoped<GetWorkItemsHandler>();

@@ -19,7 +19,7 @@ internal enum MarkKind
 /// <summary>One entry of a closed vocabulary: the stored class and the name the editor and the theme know it by.</summary>
 internal sealed record VocabularyToken(string Name, string Class);
 
-/// <summary>A closed set of class tokens that belong to one element (ADR-0037 decision 6).</summary>
+/// <summary>A closed set of class tokens that belong to one element (ADR-0039 decision 6).</summary>
 internal sealed class TokenFamily
 {
     private readonly Dictionary<string, int> byClass;
@@ -93,7 +93,7 @@ internal sealed class TokenFamily
 }
 
 /// <summary>
-/// <c>contracts/rich-text/vocabularies.json</c> as the server holds it (ADR-0037 decision 6): the only source of a
+/// <c>contracts/rich-text/vocabularies.json</c> as the server holds it (ADR-0039 decision 6): the only source of a
 /// class token, embedded like the dictionaries. No token literal appears in server code; the reducer asks this table.
 /// A file the reduction cannot implement fails the load, so the start fails, not a save.
 /// </summary>

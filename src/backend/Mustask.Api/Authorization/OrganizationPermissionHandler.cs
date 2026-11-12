@@ -29,10 +29,38 @@ namespace Mustask.Api.Authorization;
 /// </remarks>
 public sealed class OrganizationPermissionHandler(
     IOrganizationAccessReadModel accessReadModel,
+    IScopedAccessReadModel scopedAccess,
     ICurrentUser currentUser) : AuthorizationHandler<OrganizationPermissionRequirement>
 {
     /// <summary>The route parameter every organization-addressed route names (mod-015 BR-18).</summary>
     public const string RouteParameter = "organizationId";
+
+    private async Task<bool> HoldsAsync(
+        HttpContext httpContext, OrganizationPermissionRequirement requirement, Guid organizationId, OrganizationRole role)
+    {
+        if (requirement.Scope == ResourceScope.Organization)
+        {
+            return OrganizationRoleBundles.Holds(role, requirement.Code);
+        }
+
+        var parameter = requirement.Scope switch
+        {
+            ResourceScope.Area => "areaId",
+            ResourceScope.Project => "projectId",
+            _ => "teamId",
+        };
+
+        IReadOnlyList<ReachingGrant> reaching = [];
+
+        // An object that cannot be addressed leaves the organization role alone to answer; the handler then reports the 404.
+        if (AddressedId.TryParse(httpContext.Request.RouteValues[parameter] as string, out var objectId) && role != OrganizationRole.Admin)
+        {
+            reaching = await scopedAccess.ReachingGrantsAsync(
+                organizationId, currentUser.SubjectId, requirement.Scope, objectId, httpContext.RequestAborted) ?? [];
+        }
+
+        return EffectivePermissions.Holds(role, requirement.Scope, reaching, requirement.Code);
+    }
 
     protected override async Task HandleRequirementAsync(AuthorizationHandlerContext context, OrganizationPermissionRequirement requirement)
     {
@@ -48,7 +76,7 @@ public sealed class OrganizationPermissionHandler(
 
         if (!AddressedId.TryParse(raw, out var organizationId))
         {
-            context.Fail(new OrganizationAccessFailure(this, OrganizationAccessFailureKind.OrganizationNotFound, "malformed", requirement.Code));
+            context.Fail(new OrganizationAccessFailure(this, OrganizationAccessFailureKind.OrganizationNotFound, "malformed", requirement.Code, requirement.Scope));
 
             return;
         }
@@ -65,23 +93,25 @@ public sealed class OrganizationPermissionHandler(
         if (row is not { Role: { } role } || !accepted)
         {
             context.Fail(new OrganizationAccessFailure(
-                this, OrganizationAccessFailureKind.OrganizationNotFound, organizationId.ToString(), requirement.Code));
+                this, OrganizationAccessFailureKind.OrganizationNotFound, organizationId.ToString(), requirement.Code, requirement.Scope));
 
             return;
         }
 
-        if (!OrganizationRoleBundles.Holds(role, requirement.Code))
+        if (!requirement.MembershipOnly && !await HoldsAsync(httpContext, requirement, organizationId, role))
         {
             context.Fail(new OrganizationAccessFailure(
-                this, OrganizationAccessFailureKind.RoleLacksCode, organizationId.ToString(), requirement.Code));
+                this, OrganizationAccessFailureKind.RoleLacksCode, organizationId.ToString(), requirement.Code, requirement.Scope));
 
             return;
         }
 
-        httpContext.Items[HttpContextOrganizationAccess.ItemKey] = new ResolvedOrganizationAccess(organizationId, role);
+        httpContext.Items[HttpContextOrganizationAccess.ItemKey] = new ResolvedOrganizationAccess(
+            organizationId, role, requirement.Code, requirement.Scope, RefusalLog.RouteOf(httpContext));
         context.Succeed(requirement);
     }
 }
 
-/// <summary>What the scoped check resolved for one request: the organization of the address and the caller's role in it.</summary>
-internal sealed record ResolvedOrganizationAccess(Guid OrganizationId, OrganizationRole Role);
+/// <summary>What the scoped check resolved for one request: the organization, the caller's role in it, and the route's code and scope (for the refusal log).</summary>
+internal sealed record ResolvedOrganizationAccess(
+    Guid OrganizationId, OrganizationRole Role, string Code = "", ResourceScope Scope = ResourceScope.Organization, string Route = "unmatched");

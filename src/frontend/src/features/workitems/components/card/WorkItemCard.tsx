@@ -56,6 +56,7 @@ import { PurgeWorkItemDialog } from './PurgeWorkItemDialog';
 import { RestoreWorkItemDialog } from './RestoreWorkItemDialog';
 import { StateField } from './StateField';
 import type { WorkItemCardSlots } from './cardSlots';
+import { withBase } from '../../../../shared/config/basePath';
 
 /** Which of mod-005's three dialogs is open over the card, if any. */
 type DeletionDialog = 'delete' | 'restore' | 'purge';
@@ -282,10 +283,8 @@ export function WorkItemCard({
   }
 
   async function copyLink() {
-    const address = `${window.location.origin}${workItemPath(
-      organizationId,
-      projectId,
-      item.identifier,
+    const address = `${window.location.origin}${withBase(
+      workItemPath(organizationId, projectId, item.identifier),
     )}`;
     try {
       await navigator.clipboard.writeText(address);
@@ -473,6 +472,7 @@ export function WorkItemCard({
         <Box sx={(theme) => ({ flex: `0 1 ${theme.spacing(32.5)}`, minWidth: theme.spacing(20) })}>
           <AssigneeField
             organizationId={organizationId}
+            projectId={projectId}
             value={draft.assignee}
             error={errors.assignee}
             onChange={on.assignee}
@@ -557,7 +557,7 @@ export function WorkItemCard({
     busy: saving,
     dirty: state.isDirty,
     dirtyNow,
-    pagePath: workItemPath(organizationId, projectId, item.identifier),
+    pagePath: withBase(workItemPath(organizationId, projectId, item.identifier)),
   };
 
   return (

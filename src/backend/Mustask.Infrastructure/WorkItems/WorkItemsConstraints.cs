@@ -81,7 +81,7 @@ internal static class WorkItemsConstraints
     public static readonly string TitleLengthCheck = $"char_length(title) BETWEEN 1 AND {WorkItemLimits.TitleMaxLength}";
 
     /// <summary>
-    /// The physical ceiling of the column (feat-018 ADR-0037 decision 8): 1 000 000 characters, the unit of
+    /// The physical ceiling of the column (feat-018 ADR-0039 decision 8): 1 000 000 characters, the unit of
     /// <c>char_length</c> being the application's unit for html. A plain description keeps its own bound below.
     /// </summary>
     public static readonly string DescriptionLengthCheck = $"char_length(description) <= {WorkItemLimits.DescriptionMarkupMaxLength}";

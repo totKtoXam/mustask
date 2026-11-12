@@ -107,7 +107,7 @@ const RtItalic = Italic.extend(noRules);
 const RtStrike = Strike.extend(noRules);
 
 /**
- * Inline code keeps only a link (ADR-0037 decision 7): it excludes every mark
+ * Inline code keeps only a link (ADR-0039 decision 7): it excludes every mark
  * but link, and link does not exclude code. ProseMirror's own check then makes
  * "code wins" in both directions.
  */
@@ -119,7 +119,7 @@ const RtCode = Code.extend({
 /**
  * The editor's explicit extension list (F-11), not `StarterKit`: the starter
  * set also brings link, underline, a trailing node and list keymaps with
- * their own Tab bindings, which BR-RT-20 and ADR-0037 decision 7 switch off.
+ * their own Tab bindings, which BR-RT-20 and ADR-0039 decision 7 switch off.
  * Not registered, so no shortcut or rule can create them: blockquote,
  * horizontal rule, task list, text align, trailing node, image
  * (`extensions.test.ts` pins the list).

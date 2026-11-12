@@ -46,7 +46,7 @@ describe('mod-016 US-3 Scenario: the members of a team', () => {
       within(table)
         .getAllByRole('columnheader')
         .map((header) => header.textContent),
-    ).toEqual(['Имя', 'Почта', '']);
+    ).toEqual(['Имя', 'Почта', 'Роль в команде', '']);
   });
 
   it('lists the members in the server’s order with the marks, an unknown user last with an empty «Почта»', async () => {
@@ -202,7 +202,7 @@ describe('mod-016 design § 6.2: the role views of the team page', () => {
         expect(screen.queryByRole('button', { name })).not.toBeInTheDocument();
       }
       expect(within(table).queryAllByRole('button')).toHaveLength(0);
-      expect(within(table).getAllByRole('columnheader')).toHaveLength(2);
+      expect(within(table).getAllByRole('columnheader')).toHaveLength(3);
       expect(screen.getByRole('heading', { level: 1, name: /^Команда: / })).toBeVisible();
       expect(rowsOf(table)).toHaveLength(2);
     },
@@ -285,7 +285,7 @@ describe('mod-016 US-3 Scenario: adding to a team (design § 4.4)', () => {
     await waitFor(() =>
       expect(within(section()).getByRole('button', { name: 'Добавить в команду' })).toHaveFocus(),
     );
-    expect(screen.queryByRole('heading', { level: 3 })).not.toBeInTheDocument();
+    expect(within(section()).queryByRole('heading', { level: 3 })).not.toBeInTheDocument();
   });
 
   it('puts «Пользователь уже состоит в команде» on the field, keeps the chosen user and reads the table in the background', async () => {

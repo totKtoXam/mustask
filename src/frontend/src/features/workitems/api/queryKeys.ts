@@ -53,8 +53,8 @@ export const workItemsKeys = {
     [ROOT, 'item', organizationId, projectId] as const,
   item: (organizationId: string, projectId: string, identifier: string) =>
     [ROOT, 'item', organizationId, projectId, identifier] as const,
-  assigneeCandidates: (organizationId: string, text: string) =>
-    [ROOT, 'assigneeCandidates', organizationId, text] as const,
+  assigneeCandidates: (organizationId: string, text: string, projectId?: string) =>
+    [ROOT, 'assigneeCandidates', organizationId, projectId ?? null, text] as const,
   /** feat-001 § 3.4: one item's parent search; the form's and the dialog's never share. */
   parentCandidates: (
     organizationId: string,

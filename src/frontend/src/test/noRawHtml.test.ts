@@ -6,7 +6,7 @@ import { describe, expect, it } from 'vitest';
 
 /**
  * Stored html is never assigned to the page (spec NFR Safety, BR-RT-12,
- * ADR-0037 "mXSS"): no `dangerouslySetInnerHTML` attribute, no write of
+ * ADR-0039 "mXSS"): no `dangerouslySetInnerHTML` attribute, no write of
  * `innerHTML`, `outerHTML` or `insertAdjacentHTML`, and no `document.write`
  * anywhere under `src/` outside the test files. `react/no-danger` is not in the
  * stack (plan-frontend F-4); ESLint's `no-restricted-syntax` and

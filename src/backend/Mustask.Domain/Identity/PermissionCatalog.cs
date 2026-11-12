@@ -1,17 +1,17 @@
 namespace Mustask.Domain.Identity;
 
 /// <summary>
-/// One code of the catalog: its name, where it comes from and a human-readable
+/// One code of the catalog: its name, where it comes from (<see cref="PermissionSource"/>), the kind of object it is checked on (<see cref="ResourceScope"/>, organization codes only) and a human-readable
 /// description (diagnostics, logs).
 /// </summary>
-public sealed record PermissionDefinition(string Code, PermissionScope Scope, string Description);
+public sealed record PermissionDefinition(string Code, PermissionSource Source, string Description, ResourceScope? Resource = null);
 
 /// <summary>
 /// The one catalog of permission codes, fixed in code: the source of truth,
 /// changed only by a release (ADR-0027, status.md D-8). Every code carries its
-/// <see cref="PermissionScope"/>. <see cref="PermissionScope.Instance"/> codes
+/// <see cref="PermissionSource"/>. <see cref="PermissionSource.Instance"/> codes
 /// are held through the four client roles of <c>mustask-api</c> (<see cref="InstanceRoles"/>); a test fails for one
-/// no role reaches; <see cref="PermissionScope.Organization"/>
+/// no role reaches; <see cref="PermissionSource.Organization"/>
 /// codes never reach the realm or the token — an organization membership's role
 /// bundle (<see cref="OrganizationRoleBundles"/>) is their only source. A code is
 /// added here together with its scope and its bundles, in the change that first
@@ -107,8 +107,14 @@ public static class PermissionCatalog
     /// <summary>Creating and saving work items, and the assignee candidates a save needs (mod-003 BR-M3-27).</summary>
     public const string WorkItemsWorkItemWrite = "workitems.workitem.write";
 
-    /// <summary>Reordering a team's backlog (mod-006 BR-M4-27).</summary>
+    /// <summary>Reordering a team's backlog (mod-006 BR-M4-27; the team's alone since mod-019 BR-SA-10).</summary>
     public const string BoardsBacklogReorder = "boards.backlog.reorder";
+
+    /// <summary>
+    /// Reordering a project's backlog (mod-019 BR-SA-10, ADR-0029 § 4): held by admin, member and the project roles «Участник»
+    /// and «Менеджер»; not by viewer or a department role. It replaces boards.backlog.reorder on the project backlog.
+    /// </summary>
+    public const string BoardsProjectBacklogReorder = "boards.projectbacklog.reorder";
 
     /// <summary>Setting, replacing and clearing a work item's parent (feat-001 BR-H-18).</summary>
     public const string WorkItemsLinkWrite = "workitems.link.write";
@@ -125,38 +131,51 @@ public static class PermissionCatalog
     /// </summary>
     public const string WorkItemsWorkItemPurge = "workitems.workitem.purge";
 
+    /// <summary>Giving, changing and removing grants on a department (mod-019 BR-SA-2: scope A, the «Менеджер» bundles).</summary>
+    public const string OrganizationsAreaGrant = "organizations.area.grant";
+
+    /// <summary>Giving, changing and removing grants on a project (mod-019 BR-SA-2: scope P).</summary>
+    public const string OrganizationsProjectGrant = "organizations.project.grant";
+
+    /// <summary>Giving, changing and removing grants on a team (mod-019 BR-SA-2: scope T).</summary>
+    public const string OrganizationsTeamGrant = "organizations.team.grant";
+
     /// <summary>Every code of the catalog, in a stable order: instance codes first, then organization codes.</summary>
     public static IReadOnlyList<PermissionDefinition> All { get; } =
     [
-        new(DictionariesLanguagesRead, PermissionScope.Instance, "Просмотр справочника языков"),
-        new(DictionariesLanguagesWrite, PermissionScope.Instance, "Изменение справочника языков"),
-        new(OrganizationsOrganizationCreate, PermissionScope.Instance, "Создание организаций"),
-        new(OrganizationsOrganizationRescue, PermissionScope.Instance, "Назначение администратора в любую организацию"),
-        new(OrganizationsOrganizationRead, PermissionScope.Organization, "Просмотр организации"),
-        new(OrganizationsOrganizationWrite, PermissionScope.Organization, "Переименование организации"),
-        new(OrganizationsOrganizationDeactivate, PermissionScope.Organization, "Деактивация и восстановление организации"),
-        new(OrganizationsMembershipRead, PermissionScope.Organization, "Просмотр участников организации"),
-        new(OrganizationsMembershipWrite, PermissionScope.Organization, "Добавление, смена роли и удаление участников организации"),
-        new(OrganizationsProjectRead, PermissionScope.Organization, "Просмотр проектов организации"),
-        new(OrganizationsProjectWrite, PermissionScope.Organization, "Создание, переименование и описание проектов, команда по умолчанию"),
-        new(OrganizationsProjectLink, PermissionScope.Organization, "Связи проекта с командами"),
-        new(OrganizationsProjectDeactivate, PermissionScope.Organization, "Деактивация и восстановление проектов"),
-        new(OrganizationsTeamRead, PermissionScope.Organization, "Просмотр команд и их участников"),
-        new(OrganizationsTeamWrite, PermissionScope.Organization, "Название, описание и участники команды"),
-        new(OrganizationsTeamCreate, PermissionScope.Organization, "Создание команд"),
-        new(OrganizationsTeamDelete, PermissionScope.Organization, "Удаление команд"),
-        new(OrganizationsTeamLink, PermissionScope.Organization, "Связи команды с проектами"),
-        new(OrganizationsAreaRead, PermissionScope.Organization, "Просмотр областей организации"),
-        new(OrganizationsAreaWrite, PermissionScope.Organization, "Изменение, перемещение и удаление областей, дочерние области"),
-        new(OrganizationsAreaCreate, PermissionScope.Organization, "Создание областей верхнего уровня"),
-        new(OrganizationsAreaLink, PermissionScope.Organization, "Связи департаментов с командами"),
-        new(ProcessDefinitionRead, PermissionScope.Organization, "Просмотр определения процесса организации"),
-        new(WorkItemsWorkItemRead, PermissionScope.Organization, "Просмотр рабочих элементов проекта"),
-        new(WorkItemsWorkItemWrite, PermissionScope.Organization, "Создание и изменение рабочих элементов проекта"),
-        new(WorkItemsLinkWrite, PermissionScope.Organization, "Изменение связей рабочих элементов проекта"),
-        new(WorkItemsWorkItemDelete, PermissionScope.Organization, "Удаление и восстановление рабочих элементов проекта"),
-        new(WorkItemsWorkItemPurge, PermissionScope.Organization, "Окончательное удаление рабочих элементов проекта"),
-        new(BoardsBacklogReorder, PermissionScope.Organization, "Изменение порядка бэклога команды"),
+        new(DictionariesLanguagesRead, PermissionSource.Instance, "Просмотр справочника языков"),
+        new(DictionariesLanguagesWrite, PermissionSource.Instance, "Изменение справочника языков"),
+        new(OrganizationsOrganizationCreate, PermissionSource.Instance, "Создание организаций"),
+        new(OrganizationsOrganizationRescue, PermissionSource.Instance, "Назначение администратора в любую организацию"),
+        new(OrganizationsOrganizationRead, PermissionSource.Organization, "Просмотр организации", ResourceScope.Organization),
+        new(OrganizationsOrganizationWrite, PermissionSource.Organization, "Переименование организации", ResourceScope.Organization),
+        new(OrganizationsOrganizationDeactivate, PermissionSource.Organization, "Деактивация и восстановление организации", ResourceScope.Organization),
+        new(OrganizationsMembershipRead, PermissionSource.Organization, "Просмотр участников организации", ResourceScope.Organization),
+        new(OrganizationsMembershipWrite, PermissionSource.Organization, "Добавление, смена роли и удаление участников организации", ResourceScope.Organization),
+        new(OrganizationsProjectRead, PermissionSource.Organization, "Просмотр проектов организации", ResourceScope.Project),
+        new(OrganizationsProjectWrite, PermissionSource.Organization, "Создание, переименование и описание проектов, команда по умолчанию", ResourceScope.Project),
+        new(OrganizationsProjectLink, PermissionSource.Organization, "Связи проекта с командами", ResourceScope.Project),
+        new(OrganizationsProjectDeactivate, PermissionSource.Organization, "Деактивация и восстановление проектов", ResourceScope.Organization),
+        new(OrganizationsTeamRead, PermissionSource.Organization, "Просмотр команд и их участников", ResourceScope.Organization),
+        new(OrganizationsTeamWrite, PermissionSource.Organization, "Название, описание и участники команды", ResourceScope.Team),
+        new(OrganizationsTeamCreate, PermissionSource.Organization, "Создание команд", ResourceScope.Organization),
+        new(OrganizationsTeamDelete, PermissionSource.Organization, "Удаление команд", ResourceScope.Organization),
+        new(OrganizationsTeamLink, PermissionSource.Organization, "Связи команды с проектами", ResourceScope.Team),
+        new(OrganizationsAreaRead, PermissionSource.Organization, "Просмотр областей организации", ResourceScope.Organization),
+        new(OrganizationsAreaWrite, PermissionSource.Organization, "Изменение, перемещение и удаление областей, дочерние области", ResourceScope.Area),
+        new(OrganizationsAreaCreate, PermissionSource.Organization, "Создание областей верхнего уровня", ResourceScope.Organization),
+        new(OrganizationsAreaLink, PermissionSource.Organization, "Связи департаментов с командами", ResourceScope.Area),
+        new(ProcessDefinitionRead, PermissionSource.Organization, "Просмотр определения процесса организации", ResourceScope.Organization),
+        new(WorkItemsWorkItemRead, PermissionSource.Organization, "Просмотр рабочих элементов проекта", ResourceScope.Project),
+        new(WorkItemsWorkItemWrite, PermissionSource.Organization, "Создание и изменение рабочих элементов проекта", ResourceScope.Project),
+        new(WorkItemsLinkWrite, PermissionSource.Organization, "Изменение связей рабочих элементов проекта", ResourceScope.Project),
+        new(WorkItemsWorkItemDelete, PermissionSource.Organization, "Удаление и восстановление рабочих элементов проекта", ResourceScope.Project),
+        new(WorkItemsWorkItemPurge, PermissionSource.Organization, "Окончательное удаление рабочих элементов проекта", ResourceScope.Project),
+        new(BoardsBacklogReorder, PermissionSource.Organization, "Изменение порядка бэклога команды", ResourceScope.Team),
+        new(BoardsProjectBacklogReorder, PermissionSource.Organization, "Изменение порядка бэклога проекта", ResourceScope.Project),
+        new(OrganizationsAreaGrant, PermissionSource.Organization, "Доступ к департаменту: выдача, смена роли и отзыв", ResourceScope.Area),
+        new(OrganizationsProjectGrant, PermissionSource.Organization, "Доступ к проекту: выдача, смена роли и отзыв", ResourceScope.Project),
+        new(OrganizationsTeamGrant, PermissionSource.Organization, "Доступ к команде: выдача, смена роли и отзыв", ResourceScope.Team),
     ];
 
     /// <summary>The descriptions by code (diagnostics, logs).</summary>
@@ -167,26 +186,34 @@ public static class PermissionCatalog
     public static IReadOnlyCollection<string> AllCodes { get; } = All.Select(definition => definition.Code).ToList();
 
     /// <summary>The codes the token's client roles give (<see cref="InstanceRoles"/>, ADR-0033).</summary>
-    public static IReadOnlyCollection<string> InstanceCodes { get; } = CodesOf(PermissionScope.Instance);
+    public static IReadOnlyCollection<string> InstanceCodes { get; } = CodesOf(PermissionSource.Instance);
 
     /// <summary>The codes a membership's role bundle grants; never in the realm import or the token (ADR-0027).</summary>
-    public static IReadOnlyCollection<string> OrganizationCodes { get; } = CodesOf(PermissionScope.Organization);
+    public static IReadOnlyCollection<string> OrganizationCodes { get; } = CodesOf(PermissionSource.Organization);
 
-    /// <summary>The scope of a code of the catalog.</summary>
+    /// <summary>The source of a code of the catalog: the token or an organization membership.</summary>
     /// <exception cref="ArgumentException">The code is not in the catalog.</exception>
-    public static PermissionScope ScopeOf(string code)
+    public static PermissionSource SourceOf(string code) => DefinitionOf(code).Source;
+
+    /// <summary>The kind of object an organization code is checked on (ADR-0029 § 2, ADR-0038).</summary>
+    /// <exception cref="ArgumentException">The code is not in the catalog, or is an instance code (no resource scope).</exception>
+    public static ResourceScope ResourceScopeOf(string code) =>
+        DefinitionOf(code).Resource
+        ?? throw new ArgumentException($"'{code}' is an instance code and has no resource scope.", nameof(code));
+
+    private static PermissionDefinition DefinitionOf(string code)
     {
         foreach (var definition in All)
         {
             if (string.Equals(definition.Code, code, StringComparison.Ordinal))
             {
-                return definition.Scope;
+                return definition;
             }
         }
 
         throw new ArgumentException($"'{code}' is not a code of the permission catalog.", nameof(code));
     }
 
-    private static List<string> CodesOf(PermissionScope scope) =>
-        All.Where(definition => definition.Scope == scope).Select(definition => definition.Code).ToList();
+    private static List<string> CodesOf(PermissionSource source) =>
+        All.Where(definition => definition.Source == source).Select(definition => definition.Code).ToList();
 }

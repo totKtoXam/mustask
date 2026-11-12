@@ -32,13 +32,15 @@ public static class WorkItemEndpoints
 {
     private const string Tag = "WorkItems";
 
+    private const string PickerOfAProject = "the picker is judged on the project the request names (`projectId`, mod-019 OQ-11), or on the organization role when it names none; decided in the handler";
+
     public static IEndpointRouteBuilder MapWorkItemEndpoints(this IEndpointRouteBuilder app)
     {
         var workItems = app.MapGroup("/api/organizations/{organizationId}/projects/{projectId}/workitems").WithTags(Tag);
 
         // § 2.1. The project's list.
         workItems.MapGet("/", GetWorkItemsAsync)
-            .RequiresOrganizationPermission(PermissionCatalog.WorkItemsWorkItemRead)
+            .RequiresOrganizationPermission(PermissionCatalog.WorkItemsWorkItemRead, ResourceScope.Project)
             .Produces<Paging<WorkItemListItemView>>()
             .ProducesProblem(StatusCodes.Status400BadRequest)
             .ProducesProblem(StatusCodes.Status401Unauthorized)
@@ -48,7 +50,7 @@ public static class WorkItemEndpoints
         // feat-003 § 2.2. The options of the list's «Исполнитель» filter: the people assigned to the project's items. A read
         // inside one project, so the read code alone (ADR-0029 § 7); not the card's picker (`assignee-candidates`, below).
         workItems.MapGet("/assignee-options", GetAssigneeOptionsAsync)
-            .RequiresOrganizationPermission(PermissionCatalog.WorkItemsWorkItemRead)
+            .RequiresOrganizationPermission(PermissionCatalog.WorkItemsWorkItemRead, ResourceScope.Project)
             .Produces<IReadOnlyList<AssigneeFilterOptionView>>()
             .ProducesProblem(StatusCodes.Status401Unauthorized)
             .ProducesProblem(StatusCodes.Status403Forbidden)
@@ -59,7 +61,7 @@ public static class WorkItemEndpoints
         // is workitems.workitem.write; a `parentId` is a parent write, which the handler also holds to
         // workitems.link.write, first of all its answers (api-contract § 4.2, "The second code of rows 29 and 31").
         workItems.MapPost("/", CreateWorkItemAsync)
-            .RequiresOrganizationPermission(PermissionCatalog.WorkItemsWorkItemWrite)
+            .RequiresOrganizationPermission(PermissionCatalog.WorkItemsWorkItemWrite, ResourceScope.Project)
             .Produces<WorkItemView>(StatusCodes.Status201Created)
             .Produces<WorkItemView>()
             .ProducesProblem(StatusCodes.Status400BadRequest)
@@ -70,7 +72,7 @@ public static class WorkItemEndpoints
 
         // § 2.3. One item by its identifier.
         workItems.MapGet("/{identifier}", GetWorkItemAsync)
-            .RequiresOrganizationPermission(PermissionCatalog.WorkItemsWorkItemRead)
+            .RequiresOrganizationPermission(PermissionCatalog.WorkItemsWorkItemRead, ResourceScope.Project)
             .Produces<WorkItemView>()
             .ProducesProblem(StatusCodes.Status401Unauthorized)
             .ProducesProblem(StatusCodes.Status403Forbidden)
@@ -79,7 +81,7 @@ public static class WorkItemEndpoints
         // § 2.4. Save the form: exactly the fields sent; feat-001 § 3.3 adds the parent, which the handler also holds
         // to workitems.link.write, first of all its answers (feat-001 BR-H-18).
         workItems.MapPatch("/{identifier}", SaveWorkItemAsync)
-            .RequiresOrganizationPermission(PermissionCatalog.WorkItemsWorkItemWrite)
+            .RequiresOrganizationPermission(PermissionCatalog.WorkItemsWorkItemWrite, ResourceScope.Project)
             .Produces<WorkItemView>()
             .ProducesProblem(StatusCodes.Status400BadRequest)
             .ProducesProblem(StatusCodes.Status401Unauthorized)
@@ -89,7 +91,7 @@ public static class WorkItemEndpoints
 
         // feat-001 § 3.2. The parent write: set, replace or clear the item's parent.
         workItems.MapPut("/{identifier}/parent", SetWorkItemParentAsync)
-            .RequiresOrganizationPermission(PermissionCatalog.WorkItemsLinkWrite)
+            .RequiresOrganizationPermission(PermissionCatalog.WorkItemsLinkWrite, ResourceScope.Project)
             .Produces<SetWorkItemParentResponse>()
             .ProducesProblem(StatusCodes.Status401Unauthorized)
             .ProducesProblem(StatusCodes.Status403Forbidden)
@@ -99,7 +101,7 @@ public static class WorkItemEndpoints
         // mod-005 § 2.1. Delete: moves the item into «Удалена» and records the way back on its row. A sub-command, not
         // `DELETE …/{identifier}` (plan-backend D-P1): the item stays, read-only, until a purge removes it. No body.
         workItems.MapPost("/{identifier}/delete", DeleteWorkItemAsync)
-            .RequiresOrganizationPermission(PermissionCatalog.WorkItemsWorkItemDelete)
+            .RequiresOrganizationPermission(PermissionCatalog.WorkItemsWorkItemDelete, ResourceScope.Project)
             .Produces<WorkItemView>()
             .ProducesProblem(StatusCodes.Status401Unauthorized)
             .ProducesProblem(StatusCodes.Status403Forbidden)
@@ -109,7 +111,7 @@ public static class WorkItemEndpoints
         // mod-005 § 2.2. Restore: takes the item out of «Удалена» into the chosen state, else the held one, else the type's
         // first. The body is optional (`stateId` only); the route holds the same code as Delete.
         workItems.MapPost("/{identifier}/restore", RestoreWorkItemAsync)
-            .RequiresOrganizationPermission(PermissionCatalog.WorkItemsWorkItemDelete)
+            .RequiresOrganizationPermission(PermissionCatalog.WorkItemsWorkItemDelete, ResourceScope.Project)
             .Produces<WorkItemView>()
             .ProducesProblem(StatusCodes.Status401Unauthorized)
             .ProducesProblem(StatusCodes.Status403Forbidden)
@@ -119,7 +121,7 @@ public static class WorkItemEndpoints
         // mod-005 § 2.3. Purge: removes a deleted item for good, in one transaction. The organization administrator's code
         // alone; 204, and nothing of the item is kept. No body.
         workItems.MapPost("/{identifier}/purge", PurgeWorkItemAsync)
-            .RequiresOrganizationPermission(PermissionCatalog.WorkItemsWorkItemPurge)
+            .RequiresOrganizationPermission(PermissionCatalog.WorkItemsWorkItemPurge, ResourceScope.Project)
             .Produces(StatusCodes.Status204NoContent)
             .ProducesProblem(StatusCodes.Status401Unauthorized)
             .ProducesProblem(StatusCodes.Status403Forbidden)
@@ -128,19 +130,19 @@ public static class WorkItemEndpoints
 
         // feat-001 § 3.4. The «Родитель» picker: this item's possible parents.
         workItems.MapGet("/{identifier}/parent-candidates", GetParentCandidatesAsync)
-            .RequiresOrganizationPermission(PermissionCatalog.WorkItemsWorkItemRead)
+            .RequiresOrganizationPermission(PermissionCatalog.WorkItemsWorkItemRead, ResourceScope.Project)
             .Produces<ParentCandidatesResponse>()
             .ProducesProblem(StatusCodes.Status400BadRequest)
             .ProducesProblem(StatusCodes.Status401Unauthorized)
             .ProducesProblem(StatusCodes.Status403Forbidden)
             .ProducesProblem(StatusCodes.Status404NotFound);
 
-        // § 2.5. The assignee picker: organization-level, narrowed to the organization's active members (mod-016
+        // § 2.5. The assignee picker (mod-019 OQ-11: judged on `projectId` when given): organization-level, narrowed to the organization's active members (mod-016
         // BR-M1-26). A GET with a write code is legitimate: the picker is a write control, so a viewer is refused
         // (api-contract § 4.2 row 34).
         app.MapGet("/api/organizations/{organizationId}/workitems/assignee-candidates", GetAssigneeCandidatesAsync)
             .WithTags(Tag)
-            .RequiresOrganizationPermission(PermissionCatalog.WorkItemsWorkItemWrite)
+            .RequiresOrganizationPermissionDecidedInHandler(PermissionCatalog.WorkItemsWorkItemWrite, PickerOfAProject)
             .Produces<AssigneeCandidatesResponse>()
             .ProducesProblem(StatusCodes.Status400BadRequest)
             .ProducesProblem(StatusCodes.Status401Unauthorized)
@@ -304,8 +306,8 @@ public static class WorkItemEndpoints
             cancellationToken));
 
     private static async Task<IResult> GetAssigneeCandidatesAsync(
-        string organizationId, string? text, GetAssigneeCandidatesHandler handler, CancellationToken cancellationToken) =>
-        Results.Ok(await handler.Handle(new GetAssigneeCandidatesQuery(organizationId, text), cancellationToken));
+        string organizationId, string? text, string? projectId, GetAssigneeCandidatesHandler handler, CancellationToken cancellationToken) =>
+        Results.Ok(await handler.Handle(new GetAssigneeCandidatesQuery(organizationId, text, projectId), cancellationToken));
 
     // --- Request bodies: every field nullable, so a missing one reaches the handler as a validation answer -----
 

@@ -1,11 +1,12 @@
 using Mustask.Application.Abstractions.Organizations;
+using Mustask.Domain.Identity;
 using Mustask.Domain.Organizations;
 using Mustask.Shared.Exceptions;
 
 namespace Mustask.Application.Features.Organizations.GetAreaTree;
 
 /// <summary>The query of <c>GET /api/organizations/{organizationId}/areas</c>.</summary>
-public sealed record GetAreaTreeQuery(string? OrganizationId);
+public sealed record GetAreaTreeQuery(string? OrganizationId, string? LinkableFor = null);
 
 /// <summary>One node of the tree (mod-018 api-contract § 1): <paramref name="Depth"/> is 1 for a top-level node.</summary>
 public sealed record AreaNodeResponse(
@@ -17,7 +18,8 @@ public sealed record AreaNodeResponse(
     string Name,
     string? Description,
     string Path,
-    int Depth);
+    int Depth,
+    bool? InheritsAccess = null);
 
 /// <summary>The handler's outcome: the whole tree, pre-order.</summary>
 public sealed record GetAreaTreeResult(IReadOnlyList<AreaNodeResponse> Items);
@@ -27,7 +29,7 @@ public sealed record GetAreaTreeResult(IReadOnlyList<AreaNodeResponse> Items);
 /// pre-order, siblings by name in Russian collation. One statement for the rows; the pre-order, the levels and the paths are
 /// assembled from them by <see cref="AreaTree"/>, so the number of statements does not grow with the tree (NFR Query shape).
 /// </summary>
-public sealed class GetAreaTreeHandler(IAreaTreeReadModel readModel)
+public sealed class GetAreaTreeHandler(IAreaTreeReadModel readModel, IOrganizationAccess access)
 {
     public async Task<GetAreaTreeResult> Handle(GetAreaTreeQuery query, CancellationToken cancellationToken)
     {
@@ -40,7 +42,11 @@ public sealed class GetAreaTreeHandler(IAreaTreeReadModel readModel)
         var byId = rows.ToDictionary(row => row.Id);
         var tree = AreaRequests.TreeOf(rows);
 
+        var filtered = LinkableFor.IsRequested(query.LinkableFor);
+        var set = await access.SetAsync(cancellationToken);
+
         var items = tree.PreOrder()
+            .Where(node => !filtered || (node.Type == AreaType.Department && set.Holds(PermissionCatalog.OrganizationsAreaLink, node.Id)))
             .Select(node => new AreaNodeResponse(
                 node.Id,
                 node.ParentId,
@@ -50,7 +56,8 @@ public sealed class GetAreaTreeHandler(IAreaTreeReadModel readModel)
                 node.Name,
                 byId[node.Id].Description,
                 tree.PathOf(node.Id),
-                tree.LevelOf(node.Id)))
+                tree.LevelOf(node.Id),
+                node.Type == AreaType.Department ? null : byId[node.Id].InheritsAccess))
             .ToList();
 
         return new GetAreaTreeResult(items);

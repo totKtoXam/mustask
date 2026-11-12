@@ -310,7 +310,7 @@ function setLang(lang) {
   const cb = closest((selRange() || {}).startContainer, '.cb'); if (!cb) return;
   cb.dataset.lang = lang; cb.querySelector('.cb-chrome span').textContent = LANGS.find(x => x[0] === lang)[1]; commit();
 }
-/* ----- syntax colouring: PROTOTYPE tokenizer, hand-rolled and approximate. The build uses lowlight grammars (ADR-0037)
+/* ----- syntax colouring: PROTOTYPE tokenizer, hand-rolled and approximate. The build uses lowlight grammars (ADR-0039)
    and applies the result as editor decorations; here the tokens are spans inside the code element, which serialize()
    never reads (it takes textContent), so the stored value is unchanged either way. Plain, unknown language and
    blocks over HL_CAP characters get no colouring. ----- */

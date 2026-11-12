@@ -197,6 +197,21 @@ describe('feat-029 US-5: «Ещё действия»', () => {
     expect(notify).toHaveBeenCalledWith(cardTexts.notices.linkCopied);
   });
 
+  it('puts the path base into the copied link', async () => {
+    vi.stubEnv('BASE_URL', '/mustask/');
+    try {
+      const user = userEvent.setup();
+      await openCard();
+      await user.click(screen.getByRole('button', { name: 'Ещё действия' }));
+      await user.click(within(await screen.findByRole('menu')).getByRole('menuitem'));
+      expect(await navigator.clipboard.readText()).toBe(
+        `${window.location.origin}/mustask/organizations/${ids.example}/projects/${ids.msk}/workitems/MSK-US-2`,
+      );
+    } finally {
+      vi.unstubAllEnvs();
+    }
+  });
+
   it('says so when the browser refuses the clipboard', async () => {
     const user = userEvent.setup();
     const { notify } = await openCard();

@@ -26,7 +26,7 @@ interface EmojiPopoverProps {
   onClose: (reason: 'escape' | 'other') => void;
 }
 
-/** The module is loaded on the first open and kept (its own chunk, ADR-0037 decision 4). */
+/** The module is loaded on the first open and kept (its own chunk, ADR-0039 decision 4). */
 let loaded: Promise<EmojiData> | null = null;
 
 function loadEmoji(): Promise<EmojiData> {

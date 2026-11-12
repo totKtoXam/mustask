@@ -4,4 +4,4 @@ namespace Mustask.Application.Features.Organizations.GetTeamProjects;
 public sealed record GetTeamProjectsResult(IReadOnlyList<TeamProjectResponse> Items);
 
 /// <summary><c>TeamProject</c> of feat-028 api-contract § 1.2.</summary>
-public sealed record TeamProjectResponse(Guid Id, string Name, string Key);
+public sealed record TeamProjectResponse(Guid Id, string Name, string Key, bool CanUnlink = false, IReadOnlyList<string>? Codes = null);

@@ -48,9 +48,24 @@ public sealed class CreateProjectHandler(
 {
     public async Task<CreateProjectResult> Handle(CreateProjectCommand command, CancellationToken cancellationToken)
     {
-        // 0. The second codes, first of all (D-7): a project that links needs both ends' link codes; its node's place needs the area
-        // code of the placement (spec § Roles, US-6): area.write on the department, area.create at the top level (TC-2).
-        if (!access.Holds(command.ParentAreaId is null ? PermissionCatalog.OrganizationsAreaCreate : PermissionCatalog.OrganizationsAreaWrite))
+        // 0. The second codes, first of all (D-7). The place decides who creates (mod-019 BR-SA-17, ADR-0038): area.write on the
+        // department named, area.create at the top level, judged before any lookup; a non-admin who lacks it gets 403 for every place —
+        // unknown, deleted, foreign or not a department included — so nothing is disclosed. A project that links needs both ends' link codes.
+        var placeGuess = AddressedId.TryParse(command.ParentAreaId, out var guessedPlace) ? guessedPlace : Guid.Empty;
+
+        if (command.ParentAreaId is null
+                ? !access.Holds(PermissionCatalog.OrganizationsAreaCreate)
+                : !await access.HoldsOnAsync(PermissionCatalog.OrganizationsAreaWrite, placeGuess, cancellationToken))
+        {
+            throw new ForbiddenException(OrganizationErrorCodes.AccessForbidden);
+        }
+
+        // A non-administrator's area.write reaches project nodes and sub-areas as well (a project manager holds it on its subtree), but a
+        // project is created in a department: any other place is refused 403 to them, the administrator getting the 409 below.
+        if (command.ParentAreaId is not null
+            && access.Role != OrganizationRole.Admin
+            && (placeGuess == Guid.Empty
+                || await areas.FindAsync(AddressedId.TryParse(command.OrganizationId, out var scopeOrg) ? scopeOrg : Guid.Empty, placeGuess, cancellationToken) is not { Type: AreaType.Department }))
         {
             throw new ForbiddenException(OrganizationErrorCodes.AccessForbidden);
         }

@@ -96,10 +96,15 @@ export function useRefreshWorkItem(
  * § 2.5: the candidates for `text`, asked only from 2 characters on — below
  * that the server answers nobody, and the picker shows its hint instead.
  */
-export function useAssigneeCandidates(organizationId: string, text: string, enabled: boolean) {
+export function useAssigneeCandidates(
+  organizationId: string,
+  text: string,
+  enabled: boolean,
+  projectId?: string,
+) {
   return useQuery({
-    queryKey: workItemsKeys.assigneeCandidates(organizationId, text),
-    queryFn: () => getAssigneeCandidates(organizationId, text),
+    queryKey: workItemsKeys.assigneeCandidates(organizationId, text, projectId),
+    queryFn: () => getAssigneeCandidates(organizationId, text, projectId),
     enabled,
   });
 }

@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { HttpResponse, http } from 'msw';
+import { problemText, serveProblem } from '../../../test/api';
 import { server } from '../../../test/mocks/server';
 import { renderWithProviders } from '../../../test/renderWithProviders';
 import { sampleLanguages } from '../testFixtures';
@@ -77,18 +78,10 @@ describe('DefaultLanguageDialog', () => {
   });
 
   it('отказ 409 (язык неактивен) показывает текст сервера и не закрывает диалог', async () => {
-    server.use(
-      http.put(defaultUrl, () =>
-        HttpResponse.json(
-          {
-            errorCode: 'dictionaries.languages.default_must_be_active',
-            detail:
-              'Языком по умолчанию может стать только активный язык (код «kk»).',
-          },
-          { status: 409 },
-        ),
-      ),
-    );
+    // The reference component test of the kit (tech-035): the refusal and its text come from the catalog.
+    serveProblem('put', '/api/dictionaries/languages/default', 'dictionaries.languages.default_must_be_active', {
+      code: 'kk',
+    });
     const onAssigned = vi.fn();
     const onClose = vi.fn();
     renderWithProviders(<DefaultLanguageDialog language={target} onClose={onClose} onAssigned={onAssigned} />);
@@ -97,7 +90,7 @@ describe('DefaultLanguageDialog', () => {
 
     expect(
       await screen.findByText(
-        'Языком по умолчанию может стать только активный язык (код «kk»).',
+        problemText('dictionaries.languages.default_must_be_active', { code: 'kk' }),
       ),
     ).toBeInTheDocument();
     expect(onAssigned).not.toHaveBeenCalled();
