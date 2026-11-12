@@ -99,6 +99,9 @@ cmd_deploy() {
     listing=$(tar -tzf "$stage/release.tar.gz") || die "not a gzip tarball"
     top=$(release_of_listing "$listing") || die "refused: the tarball is not one release"
     tag=${top#mustask-}
+    # The listing checks names, not member types: a symlink or hardlink member
+    # is unpacked as root unchecked. It gives nothing the release's own
+    # install.sh, run as root below, does not give already.
     mkdir "$stage/unpacked"
     tar -xzf "$stage/release.tar.gz" -C "$stage/unpacked" --no-same-owner
     rm -f "$stage/release.tar.gz"

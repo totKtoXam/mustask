@@ -155,6 +155,43 @@ if [ "$(id -u)" != 0 ]; then
     if bash "$wrapper" deploy < /dev/null >/dev/null 2>&1; then bad "run as a user: accepted"; else ok "run as a user: refused"; fi
 fi
 
+# --- the job guard (the runner's job-started hook) ----------------------------------
+# A pull_request run takes its workflows from the PR, so the workflow checks
+# below cannot stop a fork's PR once it is approved to run; the guard on the VM
+# does. It is sourced like the wrapper.
+guard=$root/deploy/vm/runner-job-guard.sh
+want=totKtoXam/mustask
+wf=$want/.github/workflows/deploy.yml
+job() { # <name> <0 allowed | 1 refused> <want> <repository> <event> <workflow ref>
+    if bash -c '. "$1"; shift; job_allowed "$@"' cd-cases "$guard" "$3" "$4" "$5" "$6" >/dev/null 2>&1; then got=0; else got=1; fi
+    [ "$got" = "$2" ] && ok "guard: $1" || bad "guard: $1 (expected $([ "$2" = 0 ] && echo allowed || echo refused))"
+}
+job "a tag push of deploy.yml" 0 $want $want push "$wf@refs/tags/v0.2.0"
+job "a dispatch from main" 0 $want $want workflow_dispatch "$wf@refs/heads/main"
+job "a dispatch from a tag" 0 $want $want workflow_dispatch "$wf@refs/tags/v0.1.0"
+job "the repository in another case" 0 totktoxam/MUSTASK $want push "$wf@refs/tags/v1"
+job "a pull_request" 1 $want $want pull_request "$wf@refs/pull/7/merge"
+job "a pull_request_target" 1 $want $want pull_request_target "$wf@refs/heads/main"
+job "a fork PR's own workflow" 1 $want $want pull_request "$want/.github/workflows/evil.yml@refs/pull/7/merge"
+job "another workflow on push" 1 $want $want push "$want/.github/workflows/ci.yml@refs/heads/main"
+job "deploy.yml of another repository" 1 $want $want push "evil/mustask/.github/workflows/deploy.yml@refs/tags/v1"
+job "another repository" 1 $want evil/mustask push "evil/mustask/.github/workflows/deploy.yml@refs/tags/v1"
+job "a dispatch from a branch" 1 $want $want workflow_dispatch "$wf@refs/heads/feature"
+job "a tag not v*" 1 $want $want push "$wf@refs/tags/release-1"
+job "a v tag with odd characters" 1 $want $want push "$wf@refs/tags/v1;id"
+job "a schedule" 1 $want $want schedule "$wf@refs/heads/main"
+job "no variables (fails closed)" 1 $want "" "" ""
+job "no recorded repository" 1 "" $want push "$wf@refs/tags/v1"
+job "a ref with no @" 1 $want $want push "$wf"
+# Run as the hook, it reads the recorded repository and the runner's variables.
+hook() { GITHUB_REPOSITORY=$1 GITHUB_EVENT_NAME=$2 GITHUB_WORKFLOW_REF=$3 bash -c \
+    '. "$1"; repository_file=$2; main' cd-cases "$guard" "$sandbox/cd-repository" >/dev/null 2>&1; }
+printf '%s\n' $want > "$sandbox/cd-repository"
+hook $want push "$wf@refs/tags/v1" && ok "guard hook: exits 0 for a tag push" || bad "guard hook: refused a tag push"
+if hook $want pull_request "$wf@refs/pull/1/merge"; then bad "guard hook: allowed a pull_request"; else ok "guard hook: exits non-zero for a pull_request"; fi
+rm -f "$sandbox/cd-repository"
+if hook $want push "$wf@refs/tags/v1"; then bad "guard hook: allowed with no recorded repository"; else ok "guard hook: refuses with no recorded repository"; fi
+
 # --- the workflows ---------------------------------------------------------------
 # The lines of a file without comments and blank lines.
 code() { sed -e 's/[[:space:]]#.*$//' -e '/^[[:space:]]*#/d' -e '/^[[:space:]]*$/d' "$1"; }

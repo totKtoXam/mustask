@@ -139,3 +139,29 @@ both to the row in both files.
 - Troubleshooting rows (sudo password, refused, cd-smoke-args): mustask-cd.sh:100-110,117 — hold.
 - mustask-cd.sh header "nothing else: no other argument": mustask-cd.sh:122-130 + sudoers exact args — holds.
 - Direction 2: behaviour changed = kit contents (`build-release.sh` kit list), new CD path. Grepped `self-hosted`, `deploy.yml`, `kit/`, `mustask-cd`, `runner-setup` under docs/, .github/, AGENTS.md files: one stale hit, vm.md:284 / vm.ru.md:283 (CR-4); no other prose describes CD or the kit list. Not swept: ci.yml's own comments (file untouched, no CD claim expected).
+
+### Fixes after round 1 (author)
+
+- **CR-1:** a job-started hook on the VM. `deploy/vm/runner-job-guard.sh`,
+  installed by runner-setup.sh as root-owned
+  `/usr/local/libexec/mustask-runner/job-started.sh`, is set as
+  `ACTIONS_RUNNER_HOOK_JOB_STARTED` by a root-owned systemd drop-in of the
+  runner unit. It fails every job unless the repository matches
+  `/etc/mustask/cd-repository`, the event is `push` or `workflow_dispatch`,
+  and `GITHUB_WORKFLOW_REF` is that repository's
+  `.github/workflows/deploy.yml` at `refs/heads/main` or `refs/tags/v*`. A
+  missing variable is a refusal. The runbook's 11.1 item 1, item 5, 11.2,
+  11.4, 11.5, a troubleshooting row and the "does not verify" bullet say so,
+  in both languages. Cases: 17 `job` and 3 `hook` cases in
+  cd-runner-cases.sh.
+- **CR-2:** the service step runs on every run: `svc.sh install` when
+  `$dir/.service` is missing, then the drop-in and a restart when it changed
+  or the unit is down.
+- **CR-3:** 11.3 says a newer run replaces a waiting one; push tags one at a
+  time, re-run a cancelled one.
+- **CR-4:** the `kit/` row lists the three section 11 scripts.
+- QA M1: a comment in mustask-cd.sh says why member types are not checked.
+
+Checked locally: cd-runner-cases.sh (73 cases), shellcheck and actionlint
+(Docker), and the container rehearsal, 53/53 (guard and drop-in with
+`systemctl` and `svc.sh` stubbed). verify.sh runs in CI only.

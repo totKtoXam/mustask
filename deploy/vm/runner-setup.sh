@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
 # Sets up the self-hosted GitHub Actions runner that deploys MUSTASK on this
 # VM (docs/deploy/vm.md, section 11). Run as root on the VM, once; a re-run
-# refreshes the wrapper, the sudoers file and the smoke flags and leaves a
-# registered runner as it is.
+# refreshes the wrapper, the job guard, the sudoers file and the smoke flags,
+# installs the service if an earlier run stopped before it, and leaves the
+# registration as it is.
 #
 # Usage:
 #   runner-setup.sh --url https://github.com/<owner>/<repo>
@@ -26,11 +27,18 @@
 #   - the system user mustask-runner (no password, no login shell, no sudo
 #     beyond the one rule below), home /var/lib/mustask-runner;
 #   - /usr/local/sbin/mustask-cd from mustask-cd.sh next to this script;
+#   - the job guard: runner-job-guard.sh as
+#     /usr/local/libexec/mustask-runner/job-started.sh, the repository in
+#     /etc/mustask/cd-repository, and a root-owned systemd drop-in of the
+#     runner service that sets ACTIONS_RUNNER_HOOK_JOB_STARTED to it. Every job
+#     but deploy.yml of that repository, from main or a v* tag, fails before
+#     its first step (section 11.4);
 #   - /etc/sudoers.d/mustask-runner: mustask-runner may run exactly
 #     `mustask-cd deploy` and `mustask-cd smoke` as root, checked by visudo;
 #   - the runner under /var/lib/mustask-runner/actions-runner, registered with
 #     the label mustask-prod, installed as a systemd service run as
-#     mustask-runner.
+#     mustask-runner. A re-run restarts the service only when the drop-in
+#     changed: do not re-run it while a deploy is running.
 
 set -euo pipefail
 
@@ -40,6 +48,8 @@ dir=$home/actions-runner
 wrapper=/usr/local/sbin/mustask-cd
 sudoers=/etc/sudoers.d/mustask-runner
 smoke_args_file=/etc/mustask/cd-smoke-args
+guard=/usr/local/libexec/mustask-runner/job-started.sh
+repository_file=/etc/mustask/cd-repository
 label=mustask-prod
 kit=$(cd "$(dirname "$0")" && pwd)
 
@@ -74,8 +84,11 @@ for w in $smoke_args; do
         *) die "--smoke-args: '$w' is not --resolve-local or --insecure" ;;
     esac
 done
-[ -f "$kit/mustask-cd.sh" ] || die "no mustask-cd.sh next to $0"
+for f in mustask-cd.sh runner-job-guard.sh; do
+    [ -f "$kit/$f" ] || die "no $f next to $0"
+done
 command -v visudo >/dev/null || die "no visudo: install sudo"
+repository=${url#https://github.com/}
 
 registered=0
 [ -f "$dir/.runner" ] && registered=1
@@ -100,10 +113,17 @@ chmod 0750 "$home"
 tmp=$(mktemp)
 trap 'rm -f "$tmp"' EXIT
 
-say "$wrapper"
 # LF whatever the checkout did, as build-release.sh does for the kit.
+say "$wrapper"
 tr -d '\r' < "$kit/mustask-cd.sh" > "$tmp"
 install -o root -g root -m 0755 "$tmp" "$wrapper"
+
+say "$guard (jobs of $repository only)"
+mkdir -p "$(dirname "$guard")" "$(dirname "$repository_file")"
+tr -d '\r' < "$kit/runner-job-guard.sh" > "$tmp"
+install -o root -g root -m 0755 "$tmp" "$guard"
+printf '%s\n' "$repository" > "$tmp"
+install -o root -g root -m 0644 "$tmp" "$repository_file"
 
 say "$sudoers"
 cat > "$tmp" <<EOF
@@ -124,46 +144,68 @@ chmod 0644 "$smoke_args_file"
 say "smoke flags: '$(tr -d '\n' < "$smoke_args_file")' ($smoke_args_file)"
 
 if [ "$registered" = 1 ]; then
-    say "the runner in $dir is registered already, left as it is"
-    exit 0
-fi
-
-command -v curl >/dev/null || die "no curl"
-say "runner $version"
-mkdir -p "$dir"
-chown "$user:" "$dir"
-archive=$home/actions-runner-linux-x64-$version.tar.gz
-curl -fsSL -o "$archive" \
-    "https://github.com/actions/runner/releases/download/v$version/actions-runner-linux-x64-$version.tar.gz"
-printf '%s  %s\n' "$sha" "$archive" | sha256sum -c --quiet - \
-    || { rm -f "$archive"; die "the runner download does not match --runner-sha256; nothing installed"; }
-runuser -u "$user" -- tar -xzf "$archive" -C "$dir"
-rm -f "$archive"
-# The runner's own list of system packages it needs (libicu and the like).
-"$dir/bin/installdependencies.sh" >/dev/null
-
-token=''
-if [ -t 0 ]; then
-    read -rsp 'Registration token (not echoed): ' token
-    echo
+    say "the runner in $dir is registered already, the registration is left as it is"
 else
-    IFS= read -r token || true
-fi
-[ -n "$token" ] || die "no registration token"
-say "registering $name with the label $label"
-# ACTIONS_RUNNER_INPUT_TOKEN is how config.sh takes --token from the
-# environment: the token never shows in ps or in a shell history.
-(
-    cd "$dir"
-    ACTIONS_RUNNER_INPUT_TOKEN=$token runuser -u "$user" -- ./config.sh --unattended \
-        --url "$url" --name "$name" --labels "$label" --work _work --replace
-)
-token=''
+    command -v curl >/dev/null || die "no curl"
+    say "runner $version"
+    mkdir -p "$dir"
+    chown "$user:" "$dir"
+    archive=$home/actions-runner-linux-x64-$version.tar.gz
+    curl -fsSL -o "$archive" \
+        "https://github.com/actions/runner/releases/download/v$version/actions-runner-linux-x64-$version.tar.gz"
+    printf '%s  %s\n' "$sha" "$archive" | sha256sum -c --quiet - \
+        || { rm -f "$archive"; die "the runner download does not match --runner-sha256; nothing installed"; }
+    runuser -u "$user" -- tar -xzf "$archive" -C "$dir"
+    rm -f "$archive"
+    # The runner's own list of system packages it needs (libicu and the like).
+    "$dir/bin/installdependencies.sh" >/dev/null
 
-say "systemd service"
-(
-    cd "$dir"
-    ./svc.sh install "$user"
-    ./svc.sh start
-)
-say "done: the runner $name is online with the labels self-hosted, Linux, X64, $label"
+    token=''
+    if [ -t 0 ]; then
+        read -rsp 'Registration token (not echoed): ' token
+        echo
+    else
+        IFS= read -r token || true
+    fi
+    [ -n "$token" ] || die "no registration token"
+    say "registering $name with the label $label"
+    # ACTIONS_RUNNER_INPUT_TOKEN is how config.sh takes --token from the
+    # environment: the token never shows in ps or in a shell history.
+    (
+        cd "$dir"
+        ACTIONS_RUNNER_INPUT_TOKEN=$token runuser -u "$user" -- ./config.sh --unattended \
+            --url "$url" --name "$name" --labels "$label" --work _work --replace
+    )
+    token=''
+fi
+
+# The service, also when an earlier run registered the runner and stopped
+# before this point. svc.sh records the unit's name in .service.
+if [ ! -f "$dir/.service" ]; then
+    say "systemd service"
+    (
+        cd "$dir"
+        ./svc.sh install "$user"
+    )
+fi
+unit=$(head -n 1 "$dir/.service" | tr -d '\r')
+printf '%s' "$unit" | grep -Eq '^actions\.runner\.[A-Za-z0-9._-]+\.service$' \
+    || die "$dir/.service names '$unit', not an actions.runner.*.service unit"
+
+# The hook is set from a drop-in outside the runner's directory: the runner
+# user owns that directory, root owns this file.
+dropin=/etc/systemd/system/$unit.d/mustask-job-guard.conf
+printf '# tech-066: every job starts with the guard (docs/deploy/vm.md, section 11.4).\n[Service]\nEnvironment=ACTIONS_RUNNER_HOOK_JOB_STARTED=%s\n' \
+    "$guard" > "$tmp"
+changed=1
+cmp -s "$tmp" "$dropin" && changed=0
+mkdir -p "$(dirname "$dropin")"
+install -o root -g root -m 0644 "$tmp" "$dropin"
+systemctl daemon-reload
+if [ "$changed" = 1 ] || ! systemctl is-active --quiet "$unit"; then
+    say "restart $unit (the job guard is set)"
+    systemctl restart "$unit"
+else
+    say "$unit is running with the job guard, left as it is"
+fi
+say "done: the runner is online with the labels self-hosted, Linux, X64, $label"

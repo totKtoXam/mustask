@@ -281,7 +281,7 @@ repository. The result is one file, `out/mustask-v0.1.0.tar.gz`:
 | `api/` | `dotnet publish` of `Mustask.Api`, framework-dependent: it runs on the VM through `dotnet` |
 | `panel/` | the panel build |
 | `efbundle` | the migrations bundle, linux-x64, self-contained |
-| `kit/` | `install.sh`, `smoke.sh`, the unit, the nginx site and the nginx locations snippet, the env template, taken from the checkout the script runs in |
+| `kit/` | `install.sh`, `smoke.sh`, the unit, the nginx site and the nginx locations snippet, the env template, and the three scripts of section 11 (`mustask-cd.sh`, `runner-setup.sh`, `runner-job-guard.sh`), taken from the checkout the script runs in |
 | `VERSION` | tag, commit, kit commit, site address, build time |
 
 Copy it to the VM and unpack it:
@@ -554,6 +554,7 @@ under `/opt/mustask/releases/`; delete the ones you no longer need by hand
 | Deploy run: `sudo: a password is required` | `runner-setup.sh` has not run on this VM, or `/etc/sudoers.d/mustask-runner` is gone: run it again (section 11.2). |
 | Deploy run: `mustask-cd: refused: …` | The artifact is not one release made by `build-release.sh`; the message names what is wrong. Nothing was installed. |
 | Deploy run: `mustask-cd: refused: /etc/mustask/cd-smoke-args` | That file holds something other than `--resolve-local` / `--insecure`: re-run `runner-setup.sh --smoke-args "…"`. |
+| A job fails in "Set up runner" with `mustask runner guard: this job may not run on the production runner` | Working as intended for anything but `deploy.yml` from `main` or a `v*` tag (section 11.4). For a real deploy, check that `/etc/mustask/cd-repository` names this repository (it changes if the repository is renamed or moved: re-run `runner-setup.sh` with the new `--url`). |
 
 ## 11. Continuous deployment (GitHub Actions)
 
@@ -585,8 +586,11 @@ All of these are in the repository's **Settings**.
 
 1. **Actions → General → Approval for running fork pull request workflows
    from contributors:** "Require approval for all external contributors". A
-   fork's PR then runs nothing until you approve it. Even approved, it runs
-   only `ci.yml`, which uses GitHub-hosted runners.
+   fork's PR then runs nothing until you approve it. Approving runs the
+   workflows *as the PR has them*, so a PR can add a workflow that asks for
+   this runner. The job guard on the VM (11.4) fails any such job before its
+   first step. Still, read every PR that touches `.github/` before you
+   approve its run.
 2. **Environments → New environment `production`:**
    - *Required reviewers*: yourself. Leave "Prevent self-review" off,
      because you push the tag and approve it.
@@ -604,9 +608,8 @@ All of these are in the repository's **Settings**.
    deletions", with Repository admin in the bypass list. Only you can then
    create or move a release tag.
 5. **Runner groups.** A repository owned by a user, as this one is, has
-   none, and its runner serves only this repository. Here the guard is
-   that only `deploy.yml` names the label `mustask-prod`.
-   `scripts/tests/cd-runner-cases.sh` fails CI otherwise. If the repository
+   none, and its runner serves only this repository. Here the job guard on
+   the VM (11.4) does what a group would. If the repository
    moves to an organization, put the runner in a group of its own. Give that
    group access to this repository only, with "Allow public repositories" on
    and "Restrict to selected workflows" =
@@ -614,8 +617,9 @@ All of these are in the repository's **Settings**.
 
 ### 11.2 The runner on the VM (once, root)
 
-The two scripts are in the repository's `deploy/vm/`, and in the `kit/` of
-any release that carries them. On the VM:
+The three scripts (`runner-setup.sh`, `mustask-cd.sh`,
+`runner-job-guard.sh`) are in the repository's `deploy/vm/`, and in the
+`kit/` of any release that carries them. Keep them side by side. On the VM:
 
 ```bash
 sudo bash runner-setup.sh --url https://github.com/totKtoXam/mustask \
@@ -651,21 +655,32 @@ What the script does:
   registers the runner with the label `mustask-prod` and installs it as a
   systemd service (`actions.runner.totKtoXam-mustask.<name>.service`) run as
   `mustask-runner`.
+- It installs the job guard (11.4): `runner-job-guard.sh` as
+  `/usr/local/libexec/mustask-runner/job-started.sh` (root, 0755), the
+  repository name in `/etc/mustask/cd-repository` (root, 0644), and the
+  systemd drop-in
+  `/etc/systemd/system/actions.runner.<…>.service.d/mustask-job-guard.conf`
+  (root, 0644). The drop-in sets `ACTIONS_RUNNER_HOOK_JOB_STARTED` to the
+  guard. It restarts the service when the drop-in is new or changed.
 
 Check:
 
 ```bash
 sudo -u mustask-runner sudo -n -l     # exactly the two mustask-cd commands
 systemctl status 'actions.runner.*'   # active (running)
+systemctl cat 'actions.runner.*'      # ends with mustask-job-guard.conf
 ```
 
 On GitHub, Settings → Actions → Runners shows the runner Idle, with the
 labels `self-hosted`, `Linux`, `X64` and `mustask-prod`.
 
-A re-run of `runner-setup.sh` on a registered runner refreshes only the
-wrapper, the sudoers file and the smoke flags. A re-run without
-`--smoke-args` keeps the recorded flags. Re-run it when `mustask-cd.sh`
-changes: a deploy never replaces the wrapper.
+A re-run of `runner-setup.sh` on a registered runner keeps the registration.
+It refreshes the wrapper, the guard, the sudoers file and the smoke flags,
+and installs the service if an earlier run stopped before it. A re-run
+without `--smoke-args` keeps the recorded flags. Re-run it when
+`mustask-cd.sh` or `runner-job-guard.sh` changes: a deploy never replaces
+them. A re-run restarts the runner service when the drop-in changed, so do
+not re-run it while a deploy is running.
 
 ### 11.3 Releasing, redeploying, rolling back
 
@@ -685,7 +700,10 @@ schema. The quick way back is still `install.sh rollback` on the VM
 (section 9): it is not in CI, and the runner has no right to run it.
 
 Two runs never overlap. A second run waits until the first ends, and it is
-never cancelled halfway through `install.sh deploy`.
+never cancelled halfway through `install.sh deploy`. Only one run waits,
+though: a third run replaces a waiting second run, and the second is
+cancelled before it starts. Push release tags one at a time. If a run was
+cancelled this way, start it again from Run workflow.
 
 ### 11.4 Trust model
 
@@ -693,11 +711,25 @@ Whoever can start the deploy job can run code as root on this VM. That is
 not a flaw of the runner: `install.sh deploy` and the migrations bundle of
 the release run as root by hand too. So the job is fenced off:
 
-- **No pull request reaches the runner.** `deploy.yml` triggers only on
-  `push` of `v*` tags and on `workflow_dispatch`. Both need write access to
-  the repository, which a fork does not have. Every other workflow runs on
-  GitHub-hosted runners. `scripts/tests/cd-runner-cases.sh` enforces all of
-  this in CI.
+- **The VM runs only our deploy job.** A workflow file decides which runner
+  it asks for, and a pull request runs the workflow files *from the PR*. So
+  the repository's own files cannot keep a PR off the runner. The VM itself
+  does that. Before every job, the runner runs the job guard
+  (`job-started.sh`, from the root-owned drop-in of 11.2). The guard lets a
+  job start only when all of these hold:
+  - the repository is the one in `/etc/mustask/cd-repository`;
+  - the event is `push` or `workflow_dispatch`;
+  - the workflow is that repository's `.github/workflows/deploy.yml`, from
+    `main` or a `v*` tag.
+
+  Anything else, a pull request included, fails before its first step with
+  `mustask runner guard: …`. A missing variable is also a refusal. Pushing a
+  tag or dispatching a workflow needs write access to the repository, which
+  a fork does not have. The guard and the drop-in belong to root, and
+  `mustask-runner` can change neither. `deploy.yml` triggers only on `push`
+  of `v*` tags and on `workflow_dispatch`. `scripts/tests/cd-runner-cases.sh`
+  checks that in CI and that no other workflow names the runner. Those CI
+  checks catch only our own mistakes; the guard is what stops a hostile PR.
 - **Only you create release tags**, through the tag ruleset (11.1, item 4).
 - **Every deploy waits for your approval**, and only from `main` or a `v*`
   tag: the `production` environment (11.1, item 2).
@@ -727,7 +759,10 @@ On the VM:
 cd /var/lib/mustask-runner/actions-runner
 sudo ./svc.sh stop && sudo ./svc.sh uninstall
 sudo -u mustask-runner ./config.sh remove     # prompts for the removal token
-sudo rm /etc/sudoers.d/mustask-runner /usr/local/sbin/mustask-cd /etc/mustask/cd-smoke-args
+sudo rm /etc/sudoers.d/mustask-runner /usr/local/sbin/mustask-cd /etc/mustask/cd-smoke-args \
+    /etc/mustask/cd-repository
+sudo rm -r /usr/local/libexec/mustask-runner /etc/systemd/system/actions.runner.*.service.d
+sudo systemctl daemon-reload
 ```
 
 ## What this runbook does not verify
@@ -772,9 +807,16 @@ Still unverified, because a rehearsal cannot have them:
   `sudo -n`. The two `mustask-cd` commands ran a release's `install.sh`
   (a stub) and `smoke.sh` as root. Everything else was refused: another
   subcommand, an extra argument, `bash`, `install.sh` itself, `-E`, another
-  target user. Not walked: a real registration, the runner service, and a
-  run of `deploy.yml` with the `production` approval. The first tag after
-  setup is that check.
+  target user. The job guard and its drop-in were installed with
+  `systemctl` and `svc.sh` stubbed. The service was restarted only when the
+  drop-in changed or the unit was down. The guard, run as `mustask-runner`,
+  let a tag push and a dispatch of `deploy.yml` start and refused a pull
+  request, another workflow and a job with no variables. Not walked: a real
+  registration, the real runner service and whether it hands the guard
+  those variables, and a run of `deploy.yml` with the `production`
+  approval. The first tag after setup is that check. Push a branch with a
+  test workflow naming `mustask-prod` once, too: it must fail in "Set up
+  runner".
 
 The first real deployment should walk section 8 again and fix this document
 where it differs.
