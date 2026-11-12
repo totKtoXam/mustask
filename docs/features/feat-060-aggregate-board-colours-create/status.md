@@ -10,7 +10,7 @@
 
 ## Gates
 
-gate-3: approved · 2026-11-13 (fix m1, m2, m4, m5 before the PR; m3 debt)
+gate-3: approved · 2026-11-13 (fix m1, m2, m4, m5 before the PR; m3 debt) · PR #144 https://github.com/totKtoXam/mustask/pull/144
 
 ## Plan
 
