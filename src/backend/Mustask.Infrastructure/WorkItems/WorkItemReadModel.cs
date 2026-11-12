@@ -226,6 +226,7 @@ internal sealed class WorkItemReadModel(MustaskDbContext context, IUserDirectory
             team == null ? null : team.Name,
             item.Title,
             includeDescription ? item.Description : string.Empty,
+            item.DescriptionFormat,
             item.CreatedBy,
             item.CreatedAt,
             item.ChangedAt,
@@ -313,6 +314,7 @@ internal sealed class WorkItemReadModel(MustaskDbContext context, IUserDirectory
             parent,
             children)
         {
+            DescriptionFormat = DescriptionFormats.Key(row.DescriptionFormat),
             Project = new WorkItemProjectView(row.ProjectId, row.ProjectName),
             Deletion = DeletionOf(row.Deletion, assignees),
             Priority = fields.Priority,
@@ -465,6 +467,7 @@ internal sealed class WorkItemReadModel(MustaskDbContext context, IUserDirectory
         string? TeamName,
         string Title,
         string Description,
+        DescriptionFormat DescriptionFormat,
         string CreatedBy,
         DateTimeOffset CreatedAt,
         DateTimeOffset ChangedAt,

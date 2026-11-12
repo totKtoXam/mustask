@@ -85,6 +85,27 @@ copied from the Russian, but not its quality — proofreading by a native
 speaker is a separate step. After proofreading, the field is removed
 together with the text fix, in the same commit.
 
+## `rich-text/` — the shared vocabularies and fixtures of the rich-text subset
+
+Not an error catalog, and kept here for the same reason: it is read by the
+server and the panel alike (feat-018,
+[ADR-0039](../docs/adr/0039-rich-text-as-sanitized-html-with-tiptap.md),
+decision 6).
+
+- `rich-text/vocabularies.json` — the closed class vocabularies (text colour,
+  highlight, font size, code language) with the element each belongs to, and
+  the canonical mark order. The only source of a class token: the server embeds
+  it (`Mustask.Infrastructure/RichText`) and writes a token from this table
+  after matching the input exactly; the panel imports the same file. No token
+  literal appears in server code (a test scans for it). An entry added,
+  renamed or removed is a contract change: it needs its theme mapping and copy
+  on the panel and an ADR-0039 amendment.
+- `rich-text/fixtures/` — the cases both suites run: `canonical.json` (input,
+  canonical, editor output), `visible-count.json` (html, count by code
+  point), `hostile-corpus.json` (payloads and what must not survive),
+  `legacy.json` (plain text and its html conversion). A case added by either
+  side runs on both; each file's `$comment` says how.
+
 ## contracts/access/ — the role bundles
 
 `access/role-bundles.json` (mod-019, api-contract § 9) carries the instance

@@ -21,12 +21,15 @@ import { HttpResponse, http, type HttpHandler } from 'msw';
 import { server } from '../../test/mocks/server';
 import { servedObjectCodes } from '../../test/organizationRoles';
 import type { AreaNode } from '../organizations';
-import type {
-  WorkItem,
-  WorkItemFieldName,
-  WorkItemFields,
-  WorkItemListItem,
-  WorkItemRef,
+import { checkDescription, normaliseRichText } from '../../shared/lib/richText';
+import {
+  DESCRIPTION_FORMATS,
+  type DescriptionFormat,
+  type WorkItem,
+  type WorkItemFieldName,
+  type WorkItemFields,
+  type WorkItemListItem,
+  type WorkItemRef,
 } from './api/workItemsApi';
 import { LIST_FIELDS, WORK_ITEM_FIELD_NAMES, fieldsOf, kindOf } from './lib/fields';
 import {
@@ -130,6 +133,53 @@ function fieldReason(name: WorkItemFieldName, value: unknown): string | null {
       return typeof value === 'string' && value >= '2000-01-01' && value <= '2099-12-31'
         ? null
         : 'workitems.workitem.date_out_of_range';
+  }
+}
+
+/**
+ * feat-018 api-contract § 1.1, § 3: what a save's `description` and
+ * `descriptionFormat` store, or the reason. An unknown format is refused alone,
+ * with or without a description; `plain` is stored as sent under the 100 000
+ * UTF-16 unit bound; `html` is reduced first (the mock's reducer is the
+ * panel's own normaliser — a scenario that needs a different answer puts one
+ * in front with `server.use`), then the markup ceiling, the visible limit, and
+ * blank is `("", plain)`. `null`: nothing to write.
+ */
+function descriptionWrite(
+  body: Record<string, unknown>,
+  reasons: Record<string, string>,
+): { value: string; format: DescriptionFormat } | null {
+  const declared = body.descriptionFormat;
+  if (
+    declared !== undefined &&
+    declared !== null &&
+    !DESCRIPTION_FORMATS.some((f) => f === declared)
+  ) {
+    reasons.description = 'workitems.workitem.description_format_unknown';
+    return null;
+  }
+  if (typeof body.description !== 'string') return null;
+
+  if (declared !== 'html') {
+    if (body.description.length > 100_000) {
+      reasons.description = 'workitems.workitem.description_too_long';
+      return null;
+    }
+    return { value: body.description, format: 'plain' };
+  }
+
+  const reduced = normaliseRichText(body.description);
+  switch (checkDescription(reduced)) {
+    case 'markup-too-large':
+      reasons.description = 'workitems.workitem.description_markup_too_large';
+      return null;
+    case 'too-long':
+      reasons.description = 'workitems.workitem.description_too_long';
+      return null;
+    default:
+      return reduced.hasContent
+        ? { value: reduced.html, format: 'html' }
+        : { value: '', format: 'plain' };
   }
 }
 
@@ -359,6 +409,7 @@ export class WorkItemsTestApi {
       // feat-040 api-contract § 4.2: the project with its name, beside `projectId`.
       project: { id: record.projectId, name: project?.name ?? '' },
       description: record.description,
+      descriptionFormat: record.descriptionFormat ?? 'plain',
       createdBy: 'e2e-test-user',
       createdAt: record.createdAt,
       parent: parent ? this.ref(parent) : null,
@@ -873,9 +924,7 @@ export class WorkItemsTestApi {
       const title = titleReason(body.title);
       if (title) reasons.title = title;
     }
-    if (typeof body.description === 'string' && body.description.length > 100_000) {
-      reasons.description = 'workitems.workitem.description_too_long';
-    }
+    const description = descriptionWrite(body, reasons);
     const fields = this.fieldsSent(record, body, reasons);
     if (Object.keys(reasons).length > 0) {
       throw new Refusal(validationProblem(reasons));
@@ -912,10 +961,16 @@ export class WorkItemsTestApi {
       this.checkParent(record, parent, parentChange.seenParentId);
     }
 
-    const before = JSON.stringify(record);
+    // The absent format is `plain`: only a change of the pair moves `changedAt` (§ 1.2).
+    const stored = () =>
+      JSON.stringify({ ...record, descriptionFormat: record.descriptionFormat ?? 'plain' });
+    const before = stored();
     const parentBefore = record.parentId ?? null;
     if (typeof body.title === 'string') record.title = body.title.trim();
-    if (typeof body.description === 'string') record.description = body.description;
+    if (description !== null) {
+      record.description = description.value;
+      record.descriptionFormat = description.format;
+    }
     if (typeof body.stateId === 'string') record.stateId = body.stateId;
     if (assigneeId !== undefined) record.assigneeId = assigneeId;
     if (typeof body.areaId === 'string') record.areaId = body.areaId;
@@ -923,7 +978,7 @@ export class WorkItemsTestApi {
     const parentAfter = parentChange ? (parent?.id ?? null) : parentBefore;
     if (parentAfter !== parentBefore) record.parentId = parentAfter;
     record.fields = { ...record.fields, ...fields };
-    if (JSON.stringify(record) !== before) {
+    if (stored() !== before) {
       const now = this.now();
       record.changedAt = now;
       // BR-H-5: each live parent the save adds or removes moves «Изменён» too.

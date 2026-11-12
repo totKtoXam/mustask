@@ -1,7 +1,9 @@
 /* eslint-disable react-refresh/only-export-components -- a test-only module: the host
    component lives beside the helper that mounts it. */
 import { vi } from 'vitest';
-import { fireEvent, screen } from '@testing-library/react';
+import { act, fireEvent, screen } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
+import { pasteInto } from '../../../../test/richTextEditor';
 import { renderWithProviders } from '../../../../test/renderWithProviders';
 import { useWorkItem } from '../../hooks/queries';
 import { serveWorkItems, type WorkItemsTestApi } from '../../testApi';
@@ -57,6 +59,8 @@ export async function openCard(
     /** Prepares the stored data before the card reads it. */
     prepare?: (api: WorkItemsTestApi) => void;
     card?: CardOptions;
+    /** False for a card whose «Описание» is not on screen: the lazy editor is not awaited. */
+    editor?: boolean;
   } = {},
 ) {
   const api = serveWorkItems(options.data ?? hierarchyDataset());
@@ -70,7 +74,45 @@ export async function openCard(
     />,
   );
   await screen.findByRole('textbox', { name: 'Заголовок' });
+  if (options.editor !== false) {
+    await findDescription();
+  }
   return { api, view, notify, onGone };
+}
+
+/**
+ * The «Описание» editor's body (feat-018). The editor is a lazy chunk, so a card is ready for
+ * it only once it has arrived; the first card of a file also pays the chunk's first transform.
+ */
+export function findDescription(): Promise<HTMLElement> {
+  return screen.findByRole('textbox', { name: 'Описание' }, { timeout: 20_000 });
+}
+
+/**
+ * Inserts `text` into the description at the caret in one paste (one editor transaction, not one per key) and
+ * lets the editor report it after its 150 ms delay.
+ */
+export async function typeDescription(text: string): Promise<void> {
+  const body = await findDescription();
+  await userEvent.click(body);
+  pasteInto(body, { text });
+  await act(async () => {
+    await new Promise((resolve) => setTimeout(resolve, 200));
+  });
+}
+
+/**
+ * The live region that says `text`. A card holds more than one `role="status"`: the
+ * description editor keeps its own notice line (feat-018), always in the DOM.
+ */
+export function statusSaying(text: string): HTMLElement {
+  const match = screen
+    .getAllByRole('status')
+    .find((element) => element.textContent?.includes(text));
+  if (!match) {
+    throw new Error(`No status region says ${JSON.stringify(text)}.`);
+  }
+  return match;
 }
 
 /** The record of «Мастаск»'s item `number`, for a test that makes it change under the card. */

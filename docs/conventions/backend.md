@@ -300,6 +300,22 @@ from it for every code that reads or writes work items:
   for a reference to `work_items` that is neither, nor cleared by the
   purge, nor listed as kept with a reason.
 
+### Rich text
+
+A field that stores user-formatted text keeps sanitized HTML under an explicit
+format marker ([ADR-0039](../adr/0039-rich-text-as-sanitized-html-with-tiptap.md)).
+The reduction to the safe subset is the port `IRichTextReducer`
+(`Mustask.Application/Abstractions/RichText`), implemented in
+`Mustask.Infrastructure/RichText` on the AngleSharp parser, so the domain stays
+free of third-party packages; the domain keeps the format enum, the limits and
+the order they are applied in (`WorkItemText`). The closed class vocabularies and
+the shared fixtures live in `contracts/rich-text/` (see `contracts/README.md`):
+a token is never written as a literal in server code. The reduction is a
+security boundary: what it accepts or refuses is decided by deterministic
+structural bounds computed from the input (never by a clock), the parser runs on
+a dedicated large-stack thread behind an async gate, the walkers are iterative,
+and the hostile corpus is a permanent test input.
+
 ## Named values
 
 A literal in code is acceptable only if it carries no domain meaning (a

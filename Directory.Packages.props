@@ -71,6 +71,13 @@
          release line as JwtBearer 10.0.11 (both ship from dotnet/aspnetcore). -->
     <PackageVersion Include="Microsoft.AspNetCore.Authentication.OpenIdConnect" Version="10.0.11" />
 
+    <!-- feat-018 / ADR-0039: the HTML5 parser the rich-text reduction runs on
+         (Mustask.Infrastructure/RichText). MIT. Alone, not through HtmlSanitizer:
+         the spike (plan-backend.md § 6.1) found the allow-list, link and
+         canonical rules are ours anyway. 1.7.2 is the version the spike and the
+         hostile corpus ran on; bump it only with the corpus green. -->
+    <PackageVersion Include="AngleSharp" Version="1.7.2" />
+
     <!-- Tests -->
     <PackageVersion Include="Microsoft.NET.Test.Sdk" Version="17.14.1" />
     <PackageVersion Include="xunit" Version="2.9.3" />

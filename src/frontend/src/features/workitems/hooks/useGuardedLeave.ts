@@ -17,18 +17,18 @@ export interface GuardedLeave {
 }
 
 /** One question before leaving a card with unsaved edits. */
-export function useGuardedLeave(dirty: boolean): GuardedLeave {
+export function useGuardedLeave(dirty: boolean, isDirtyNow?: () => boolean): GuardedLeave {
   const [held, setHeld] = useState<(() => void) | null>(null);
 
   const ask = useCallback(
     (leave: () => void) => {
-      if (dirty) {
+      if (isDirtyNow ? isDirtyNow() : dirty) {
         setHeld(() => leave);
       } else {
         leave();
       }
     },
-    [dirty],
+    [dirty, isDirtyNow],
   );
   const confirm = useCallback(() => {
     setHeld(null);

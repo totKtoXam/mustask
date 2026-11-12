@@ -203,6 +203,169 @@ describe('the fields per type (feat-022 api-contract § 2, § 3.2)', () => {
   });
 });
 
+describe('the description and its format (feat-018 api-contract § 1..§ 4)', () => {
+  const html = '<p>Шаги:</p><ol><li><p>открыть форму</p></li></ol>';
+
+  /** The first reason code of `errors.description` of a refused save. */
+  function descriptionReason(refusal: unknown): string | undefined {
+    return (refusal as ApiError).body?.errors?.description?.[0]?.code;
+  }
+
+  it('every read carries `descriptionFormat`: `plain` for a legacy or empty description', async () => {
+    const data = hierarchyDataset();
+    recordOf(data, 2).description = 'старый\nтекст';
+    serveWorkItems(data);
+
+    const legacy = await getWorkItem(ORG, MSK, 'MSK-US-2');
+    const empty = await getWorkItem(ORG, MSK, 'MSK-FEAT-6');
+
+    expect(legacy).toMatchObject({ description: 'старый\nтекст', descriptionFormat: 'plain' });
+    expect(empty).toMatchObject({ description: '', descriptionFormat: 'plain' });
+  });
+
+  it('no declaration stores the text exactly as sent, as plain (§ 1.1)', async () => {
+    serveWorkItems(hierarchyDataset());
+
+    const saved = await saveWorkItem(ORG, MSK, 'MSK-US-2', { description: '<b>x</b>\n' });
+
+    expect(saved).toMatchObject({ description: '<b>x</b>\n', descriptionFormat: 'plain' });
+  });
+
+  it('`html` is reduced and stored as html; the answer is the reduced value (§ 1.1)', async () => {
+    const data = hierarchyDataset();
+    serveWorkItems(data);
+
+    const saved = await saveWorkItem(ORG, MSK, 'MSK-US-2', {
+      description: '<b>a</b><script>x()</script>',
+      descriptionFormat: 'html',
+    });
+
+    expect(saved).toMatchObject({
+      description: '<p><strong>a</strong></p>',
+      descriptionFormat: 'html',
+    });
+    expect(recordOf(data, 2).descriptionFormat).toBe('html');
+  });
+
+  it('a blank html value is stored as the empty plain description (BR-RT-6)', async () => {
+    const data = hierarchyDataset();
+    recordOf(data, 2).description = html;
+    recordOf(data, 2).descriptionFormat = 'html';
+    serveWorkItems(data);
+
+    const saved = await saveWorkItem(ORG, MSK, 'MSK-US-2', {
+      description: '<p></p><p> </p>',
+      descriptionFormat: 'html',
+    });
+
+    expect(saved).toMatchObject({ description: '', descriptionFormat: 'plain' });
+  });
+
+  it('the (value, format) pair decides a change: the same html moves nothing, the same text as plain does (§ 1.2)', async () => {
+    const data = hierarchyDataset();
+    recordOf(data, 2).description = '<p>a</p>';
+    recordOf(data, 2).descriptionFormat = 'html';
+    serveWorkItems(data);
+    const before = recordOf(data, 2).changedAt;
+
+    const same = await saveWorkItem(ORG, MSK, 'MSK-US-2', {
+      description: '<p>a</p>',
+      descriptionFormat: 'html',
+    });
+    expect(same.changedAt).toBe(before);
+
+    const asPlain = await saveWorkItem(ORG, MSK, 'MSK-US-2', { description: '<p>a</p>' });
+    expect(asPlain).toMatchObject({ description: '<p>a</p>', descriptionFormat: 'plain' });
+    expect(asPlain.changedAt).not.toBe(before);
+  });
+
+  it('an html re-send of "" over ("", plain) changes nothing (§ 1.1)', async () => {
+    const data = hierarchyDataset();
+    serveWorkItems(data);
+    const before = recordOf(data, 2).changedAt;
+
+    const saved = await saveWorkItem(ORG, MSK, 'MSK-US-2', {
+      description: '',
+      descriptionFormat: 'html',
+    });
+
+    expect(saved.changedAt).toBe(before);
+  });
+
+  it('a declaration with no description is ignored (§ 1)', async () => {
+    const data = hierarchyDataset();
+    recordOf(data, 2).description = 'текст';
+    serveWorkItems(data);
+
+    const saved = await saveWorkItem(ORG, MSK, 'MSK-US-2', { descriptionFormat: 'html' });
+
+    expect(saved).toMatchObject({ description: 'текст', descriptionFormat: 'plain' });
+  });
+
+  it.each([['markdown'], ['HTML'], [' html'], ['']])(
+    'refuses the format %j alone, with or without a description (§ 1, § 4)',
+    async (format) => {
+      const data = hierarchyDataset();
+      serveWorkItems(data);
+
+      for (const body of [
+        { descriptionFormat: format },
+        { description: 'x', descriptionFormat: format },
+      ]) {
+        const refusal = await saveWorkItem(
+          ORG,
+          MSK,
+          'MSK-US-2',
+          body as Parameters<typeof saveWorkItem>[3],
+        ).catch((error: unknown) => error);
+
+        expect((refusal as ApiError).errorCode).toBe('workitems.validation_failed');
+        expect(descriptionReason(refusal)).toBe('workitems.workitem.description_format_unknown');
+      }
+      expect(recordOf(data, 2).description).toBe('');
+    },
+  );
+
+  it('visible text over 100 000 code points is `description_too_long`, exactly 100 000 is stored (§ 3)', async () => {
+    serveWorkItems(hierarchyDataset());
+
+    const stored = await saveWorkItem(ORG, MSK, 'MSK-US-2', {
+      description: `<p>${'я'.repeat(100_000)}</p>`,
+      descriptionFormat: 'html',
+    });
+    expect(stored.descriptionFormat).toBe('html');
+
+    const refusal = await saveWorkItem(ORG, MSK, 'MSK-US-2', {
+      description: `<p>${'я'.repeat(100_001)}</p>`,
+      descriptionFormat: 'html',
+    }).catch((error: unknown) => error);
+    expect(descriptionReason(refusal)).toBe('workitems.workitem.description_too_long');
+  });
+
+  it('reduced markup over 1 000 000 code points is `description_markup_too_large` (§ 3)', async () => {
+    serveWorkItems(hierarchyDataset());
+
+    const refusal = await saveWorkItem(ORG, MSK, 'MSK-US-2', {
+      // Each pair writes `<strong>я</strong>x` (18 code points): 1 080 000 of markup, 120 000 visible.
+      description: `<p>${'<b>я</b>x'.repeat(60_000)}</p>`,
+      descriptionFormat: 'html',
+    }).catch((error: unknown) => error);
+
+    expect(descriptionReason(refusal)).toBe('workitems.workitem.description_markup_too_large');
+  });
+
+  it('a plain value keeps BR-M3-19: 100 000 UTF-16 units, no reduction', async () => {
+    serveWorkItems(hierarchyDataset());
+
+    const refusal = await saveWorkItem(ORG, MSK, 'MSK-US-2', {
+      description: 'я'.repeat(100_001),
+      descriptionFormat: 'plain',
+    }).catch((error: unknown) => error);
+
+    expect(descriptionReason(refusal)).toBe('workitems.workitem.description_too_long');
+  });
+});
+
 describe('the recycle bin (mod-005 api-contract § 2)', () => {
   const ITEM_URL = `/api/organizations/${ORG}/projects/${MSK}/workitems/MSK-US-2`;
 

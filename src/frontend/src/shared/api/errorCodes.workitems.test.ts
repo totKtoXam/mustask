@@ -31,6 +31,9 @@ const CONTRACT_TABLE: readonly (readonly [string, number, readonly string[]])[] 
   ['workitems.workitem.title_too_long', 400, []],
   ['workitems.workitem.title_multiline', 400, []],
   ['workitems.workitem.description_too_long', 400, []],
+  // feat-018 api-contract § 4.
+  ['workitems.workitem.description_markup_too_large', 400, []],
+  ['workitems.workitem.description_format_unknown', 400, []],
   ['workitems.workitem.request_id_invalid', 400, []],
   ['workitems.invalid_page', 400, []],
   ['workitems.workitem.type_not_found', 404, []],

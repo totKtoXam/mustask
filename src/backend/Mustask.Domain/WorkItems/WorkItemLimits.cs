@@ -10,8 +10,17 @@ public static class WorkItemLimits
     /// <summary>The longest Заголовок, in UTF-16 code units, after trimming (BR-M3-3).</summary>
     public const int TitleMaxLength = 255;
 
-    /// <summary>The longest Описание, in UTF-16 code units (BR-M3-19).</summary>
+    /// <summary>The longest plain Описание, in UTF-16 code units (BR-M3-19).</summary>
     public const int DescriptionMaxLength = 100_000;
+
+    /// <summary>The longest visible text of an html Описание, in Unicode code points (feat-018 BR-RT-7, BR-RT-8).</summary>
+    public const int DescriptionVisibleMaxLength = 100_000;
+
+    /// <summary>The longest reduced markup of an html Описание, in Unicode code points (BR-RT-7).</summary>
+    public const int DescriptionMarkupMaxLength = 1_000_000;
+
+    /// <summary>The longest html Описание a request may carry, in UTF-16 code units, checked before any parsing (BR-RT-7).</summary>
+    public const int DescriptionRequestMaxLength = 2_000_000;
 
     /// <summary>The rows of one page of a project's list (BR-M3-29).</summary>
     public const int ListPageSize = 50;
