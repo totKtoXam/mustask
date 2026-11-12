@@ -3,7 +3,7 @@
 - type: docs
 - size: L
 - branch: doc/016-teams-under-departments
-- stage: done
+- stage: complete
 - epic: core/org-access
 - deps: mod-019
 - gates: gate-1, gate-2
