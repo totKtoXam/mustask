@@ -76,6 +76,16 @@
   .prop > span.k { width: 82px; color: #605e5c; font-size: 12px; flex: none; }
   .prop > div { flex: 1; }
   .facts { display: flex; gap: 24px; flex-wrap: wrap; margin: 6px 0 14px; }
+  td.r, th.r { text-align: right; }
+  tr.me td { font-weight: 600; background: #f3f8fd; }
+  tr.sum td { background: #faf9f8; color: #323130; }
+  tr.tot td { font-weight: 600; border-top: 2px solid #e1dfdd; }
+  .ctrl { display: flex; gap: 12px; align-items: flex-end; flex-wrap: wrap; margin: 6px 0 14px; }
+  .ctrl .fld { flex: none; min-width: 150px; margin: 0; }
+  .info { background: #e8f0fb; border-radius: 4px; padding: 6px 10px; margin: 0 0 10px; }
+  .gone { color: #605e5c; font-style: italic; }
+  td.sub { background: #faf9f8; padding: 8px 8px 8px 36px; }
+  td.sub table { min-width: 0; width: auto; }
   h3 { font-size: 15px; margin: 14px 0 6px; font-weight: 600; }
   @media (max-width: 720px) { .band { grid-template-columns: 1fr; } }
   @media (max-width: 640px) { main { padding: 12px; } nav.side { width: 120px; padding-left: 8px; } .dlg .row { display: block; } }
@@ -95,6 +105,8 @@
   <label>Страница <select id="page"><option value="data">Данные</option><option value="loading">Загрузка</option><option value="error">Ошибка чтения</option><option value="notfound">Команда не найдена</option></select></label>
   <label>Показать ещё <select id="moreFail"><option value="">успех</option><option value="1">ошибка</option></select></label>
   <label>Списки спринтов (карточка, диалог завершения) <select id="cardOpts"><option value="ok">загружен</option><option value="loading">загрузка</option><option value="error">ошибка</option></select></label>
+  <label>Сбой блока на странице спринта <select id="blockFail"><option value="">нет</option><option value="dyn">Динамика</option><option value="part">Итоги по участникам</option><option value="list">Итог спринта</option></select></label>
+  <label>Спринтов в диапазоне <select id="pad"><option value="">как есть</option><option value="1">25 (предел 20)</option></select></label>
   <label>Следующий отказ сервера <select id="fail">
     <option value="">нет</option>
     <option value="nf">«Спринт не найден.»</option>
@@ -117,28 +129,40 @@ var PAGE_SIZE = 8; // the product's page is 200
 var USERS = { ann: 'admin', pavel: 'mars', vera: 'none', oleg: 'reader', lena: 'orgreader' };
 var PROJ = { ALP: 'Alpha', BET: 'Beta', GAM: 'Gamma' };
 var ITEMS = [
-  { id: 'ALP-US-4', title: 'Экспорт отчёта', pts: 5, st: 'Закрыта', sprint: 12 },
-  { id: 'GAM-US-7', title: 'Печать накладной', pts: 3, st: 'Закрыта', sprint: 12 },
-  { id: 'BET-US-3', title: 'Интеграция с 1С', pts: 8, st: 'Активна', sprint: 12 },
-  { id: 'ALP-BUG-2', title: 'Ошибка при входе', pts: 2, st: 'Разрешена', sprint: 12 },
-  { id: 'ALP-US-9', title: 'Старая заметка', pts: 4, st: 'Удалена', sprint: 12 },
-  { id: 'ALP-US-12', title: 'Подсказки в форме', pts: 5, st: 'Новая', sprint: 13 },
-  { id: 'BET-US-6', title: 'Список складов', pts: 3, st: 'Новая', sprint: 13 }
+  { id: 'ALP-US-4', title: 'Экспорт отчёта', pts: 5, st: 'Закрыта', sprint: 12, who: 'Анна Иванова', lvl: 'stories' },
+  { id: 'GAM-US-7', title: 'Печать накладной', pts: 3, st: 'Закрыта', sprint: 12, who: 'Борис Петров', lvl: 'stories' },
+  { id: 'BET-US-3', title: 'Интеграция с 1С', pts: 8, st: 'Активна', sprint: 12, who: 'Анна Иванова', lvl: 'stories' },
+  { id: 'ALP-BUG-2', title: 'Ошибка при входе', pts: 0, st: 'Разрешена', sprint: 12, who: null, lvl: 'stories' },
+  { id: 'ALP-US-9', title: 'Старая заметка', pts: 4, st: 'Удалена', sprint: 12, who: null, lvl: 'stories' },
+  { id: 'ALP-US-12', title: 'Подсказки в форме', pts: 5, st: 'Новая', sprint: 13, who: null, lvl: 'stories' },
+  { id: 'BET-US-6', title: 'Список складов', pts: 3, st: 'Новая', sprint: 13, who: null, lvl: 'stories' }
 ];
 var SPR = { MARS: [], JUPITER: [] };
+var WHO = ['Анна Иванова', 'Борис Петров', 'Глеб Орлов', null, 'Мария Ким'];
+var GONE = { 'Мария Ким': true };
+function snapFor(n) {
+  if (n === 11) return [
+    sn('ALP-US-1', 'Вход по ссылке из письма', 'Alpha', 3, WHO[0], true, 'stories'), sn('BET-US-1', 'Повторная отправка письма', 'Beta', 5, WHO[1], true, 'stories'),
+    sn('GAM-US-1', 'Печать этикетки', 'Gamma', 2, WHO[2], true, 'stories'), sn('BET-US-9', 'Импорт остатков', 'Beta', 8, WHO[0], false, 'stories'),
+    sn('ALP-US-10', '', 'Alpha', 2, WHO[1], true, 'stories', true), sn('GAM-F-2', 'Платежи', 'Gamma', 13, WHO[1], false, 'features')];
+  var out = [], k = 3 + (n % 4);
+  for (var i = 0; i < k; i++) {
+    var p = ['Alpha', 'Beta', 'Gamma'][(n + i) % 3], pre = p.slice(0, 3).toUpperCase();
+    out.push(sn(pre + '-US-' + (n * 10 + i), 'Задача ' + (n * 10 + i), p, [3, 5, 2, 0, 8, 1][(n + i) % 6], WHO[(n + i) % 5], (n + i) % 3 !== 0, (n % 3 === 0 && i === 0) ? 'epics' : 'stories'));
+  }
+  return out;
+}
+function sn(id, title, p, pts, who, done, lvl, purged) { return { id: id, title: title, p: p, pts: pts, who: who, done: done, lvl: lvl, purged: !!purged }; }
+function dshift(base, days) { var d = new Date(base + 'T00:00:00Z'); d.setUTCDate(d.getUTCDate() + days); return iso(d); }
 (function seed() {
   for (var n = 1; n <= 11; n++) {
-    var out = n === 11 ? [mk('ALP-US-1', 'Вход по ссылке из письма', 'ALP', 3), mk('BET-US-1', 'Повторная отправка письма', 'BET', 5), mk('GAM-US-1', 'Печать этикетки', 'GAM', 2)]
-      : [mk('ALP-US-' + (n + 20), 'Задача спринта ' + n, 'ALP', 3), mk('BET-US-' + (n + 20), 'Доработка спринта ' + n, 'BET', 2)];
-    var d0 = new Date(Date.UTC(2026, 0, 5 + (n - 1) * 14)), d1 = new Date(Date.UTC(2026, 0, 16 + (n - 1) * 14));
-    if (n === 11) { d0 = new Date(Date.UTC(2026, 9, 19)); d1 = new Date(Date.UTC(2026, 9, 30)); }
-    SPR.MARS.push({ n: n, name: 'Спринт ' + n, st: 'closed', s: iso(d0), f: iso(d1), outcome: out, by: 'Павел Орлов', at: fmt(iso(d1)) + ' 18:04' });
+    var s0 = n === 11 ? '2026-10-19' : dshift('2026-10-05', -(10 - n) * 14), f0 = n === 11 ? '2026-10-30' : dshift(s0, 11);
+    SPR.MARS.push({ n: n, name: 'Спринт ' + n, st: 'closed', s: s0, f: f0, snap: snapFor(n), by: 'Павел Орлов', at: fmt(f0) + ' 18:04' });
   }
   SPR.MARS.push({ n: 12, name: 'Спринт 12', st: 'active', s: '2026-11-02', f: '2026-11-13' });
   SPR.MARS.push({ n: 13, name: 'Релизный', st: 'planned', s: '2026-11-16', f: '2026-11-27' });
   SPR.MARS.push({ n: 14, name: 'Спринт 14', st: 'planned', s: null, f: null });
 })();
-function mk(id, title, p, pts) { return { id: id, title: title, p: PROJ[p], pts: pts }; }
 function iso(d) { return d.toISOString().slice(0, 10); }
 function fmt(s) { return s ? s.slice(8, 10) + '.' + s.slice(5, 7) + '.' + s.slice(0, 4) : '—'; }
 function esc(s) { return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
@@ -146,7 +170,7 @@ function pl(n, a, b, c) { var m = n % 100, k = n % 10; return n + ' ' + (m > 10 
 function items(n) { return pl(n, 'элемент', 'элемента', 'элементов'); }
 var STL = { planned: 'Запланирован', active: 'Активен', closed: 'Завершён' };
 
-var S = { user: 'ann', team: 'MARS', screen: 'list', page: 'data', shown: PAGE_SIZE, outId: 11, menu: null, dlg: null, fail: '', moreFail: '' };
+var S = { user: 'ann', team: 'MARS', screen: 'list', page: 'data', shown: PAGE_SIZE, outId: 11, level: 'stories', from: '', to: '', rangeErr: false, open: {}, busy: false, blockFail: '', pad: '', menu: null, dlg: null, fail: '', moreFail: '' };
 var CARD = { team: 'MARS', sprint: 12, st: 'Активна', origTeam: 'MARS', origSprint: 12, touched: false, err: '' };
 var PRESETS = {
   a: { label: 'Интеграция с 1С — MARS, в «Спринт 12»', team: 'MARS', sprint: 12, st: 'Активна' },
@@ -161,8 +185,13 @@ function canManage() { var r = me(); return r === 'admin' || (r === 'mars' && S.
 function canChangeItem() { return me() !== 'orgreader'; }
 function list() { return SPR[S.team]; }
 function sorted() { return list().slice().sort(function (a, b) { return b.n - a.n; }); }
+function figs(snap, lvl) {
+  var r = { held: 0, sp: 0, ci: 0, csp: 0 };
+  snap.forEach(function (o) { if (lvl && o.lvl !== lvl) return; r.held++; r.sp += o.pts; if (o.done) { r.ci++; r.csp += o.pts; } });
+  return r;
+}
 function figures(sp) {
-  if (sp.st === 'closed') { var s = 0; sp.outcome.forEach(function (o) { s += o.pts; }); return { c: sp.outcome.length, p: s }; }
+  if (sp.st === 'closed') { var g = figs(sp.snap, 'stories'); return { closed: true, c: g.ci, ch: g.held, p: g.csp, ph: g.sp }; }
   var c = 0, p = 0;
   ITEMS.forEach(function (i) { if (i.sprint === sp.n && i.st !== 'Удалена') { c++; p += i.pts; } });
   return { c: c, p: p };
@@ -209,7 +238,7 @@ function renderList() {
   var rows = all.slice(0, S.shown).map(function (sp) {
     var f = figures(sp), mg = canManage();
     var name = sp.st === 'closed' ? '<a class="lnk" data-act="open" data-n="' + sp.n + '">' + esc(sp.name) + '</a>' : esc(sp.name);
-    return '<tr><td class="n">' + sp.n + '</td><td>' + name + '</td><td><span class="tag' + (sp.st === 'active' ? ' act' : '') + '">' + (sp.st === 'closed' ? '✓ ' : '') + STL[sp.st] + '</span></td><td>' + fmt(sp.s) + '</td><td>' + fmt(sp.f) + '</td><td>' + f.c + '</td><td>' + f.p + '</td>' +
+    return '<tr><td class="n">' + sp.n + '</td><td>' + name + '</td><td><span class="tag' + (sp.st === 'active' ? ' act' : '') + '">' + (sp.st === 'closed' ? '✓ ' : '') + STL[sp.st] + '</span></td><td>' + fmt(sp.s) + '</td><td>' + fmt(sp.f) + '</td><td>' + (f.closed ? '<span aria-label="закрыто ' + f.c + ' из ' + f.ch + '">' + f.c + ' из ' + f.ch + '</span>' : f.c) + '</td><td>' + (f.closed ? f.p + ' из ' + f.ph : f.p) + '</td>' +
       (mg ? '<td class="rel">' + rowMenu(sp) + '</td>' : '') + '</tr>';
   }).join('');
   var more = '';
@@ -225,20 +254,97 @@ function rowMenu(sp) {
 }
 
 /* ---------- outcome ---------- */
+var LV = { epics: 'Эпики', features: 'Фичи', stories: 'Истории' };
+function pct(a, b) { return b > 0 ? a / b * 100 : null; }
+function fp(x) { return x == null ? '—' : Math.floor(x + 0.5 + 1e-9) + ' %'; }
+function fa(x) { return (Math.floor(x * 10 + 0.5 + 1e-9) / 10).toFixed(1); }
+function stat(vals, pctMode) {
+  var v = vals.filter(function (x) { return x != null; });
+  if (!v.length) return ['—', '—', '—'];
+  var mn = Math.min.apply(null, v), mx = Math.max.apply(null, v), av = v.reduce(function (a, b) { return a + b; }, 0) / v.length;
+  return pctMode ? [fp(mn), fp(av), fp(mx)] : [String(mn), fa(av), String(mx)];
+}
+function defRange(sp) { return { from: dshift(sp.s, -90), to: dshift(sp.s, -1) }; }
+function rangeSprints(sp, from, to) {
+  var r = list().filter(function (x) { return x.st === 'closed' && x !== sp && x.f >= from && x.f <= to; });
+  if (S.pad) { for (var k = 1; r.length < 25; k++) r.push({ n: -k, name: 'Прежний спринт ' + k, st: 'closed', f: dshift(from, k % 30), s: from, snap: snapFor(k + 40) }); }
+  r.sort(function (a, b) { return a.f < b.f ? 1 : a.f > b.f ? -1 : b.n - a.n; });
+  return r;
+}
+function plSpr(n) { return pl(n, 'спринт', 'спринта', 'спринтов'); }
+function blk(id, t, body) { return '<h3>' + t + '</h3>' + (S.blockFail === id ? '<div class="alertbox" role="alert"><span class="grow">' + ({ dyn: 'Не удалось загрузить динамику спринта', part: 'Не удалось загрузить итоги по участникам', list: 'Не удалось загрузить итог спринта' })[id] + '</span><button data-act="bretry">Повторить</button></div>' : body); }
+function tskel() { return '<div class="card" role="status"><div class="skel"></div><div class="skel"></div><div class="skel"></div></div>'; }
+function outcomeHead(sp, extra) { return head(sp.name, 'Команды › ' + S.team + ' › <a class="lnk" data-act="back">Спринты</a>') + extra; }
 function renderOutcome() {
   var sp = list().filter(function (x) { return x.n === S.outId && x.st === 'closed'; })[0];
   if (!sp) { var c = list().filter(function (x) { return x.st === 'closed'; })[0]; if (c) { S.outId = c.n; sp = c; } }
-  if (S.page === 'loading') return head('Спринт', 'Команды › ' + S.team + ' › Спринты') + skeleton();
-  if (S.page === 'error') return head('Спринт', 'Команды › ' + S.team + ' › Спринты') + '<div class="alertbox" role="alert"><span class="grow">Не удалось загрузить итог спринта</span><button data-act="retry">Повторить</button></div>';
+  var crumb = 'Команды › ' + S.team + ' › Спринты';
+  if (S.page === 'loading') return head('Спринт', crumb) + '<div class="card" role="status" aria-label="Загрузка данных"><div class="skel"></div><div class="skel"></div></div><div class="ctrl"></div>' + tskel() + tskel();
+  if (S.page === 'error') return head('Спринт', crumb) + '<div class="alertbox" role="alert"><span class="grow">Не удалось загрузить итог спринта</span><button data-act="retry">Повторить</button></div>';
   if (!sp) return '<div class="frame"><h2>Спринт не найден</h2><p><a class="lnk" data-act="back">К списку «Спринты»</a></p></div>';
   if (canManage()) head.cmds = '<button data-act="rename" data-n="' + sp.n + '">Переименовать</button>';
-  var f = figures(sp);
-  var body = sp.outcome.length ? '<div class="card wrap"><table aria-label="Итог спринта"><thead><tr><th>Идентификатор</th><th>Название</th><th>Проект</th><th>Story points</th></tr></thead><tbody>' +
-    sp.outcome.map(function (o) { return '<tr><td><a class="lnk" data-act="item" data-id="' + o.id + '">' + o.id + '</a></td><td>' + esc(o.title) + '</td><td>' + o.p + '</td><td>' + o.pts + '</td></tr>'; }).join('') + '</tbody></table></div>'
-    : '<div class="card" style="padding:16px">В итоге нет выполненных элементов.</div>';
-  return head(sp.name, 'Команды › ' + S.team + ' › <a class="lnk" data-act="back">Спринты</a>') +
-    '<p><span class="tag">✓ Завершён</span></p><div class="facts"><div><span class="mute">Даты: </span>' + fmt(sp.s) + ' – ' + fmt(sp.f) + '</div><div><span class="mute">Завершил: </span>' + esc(sp.by) + ', ' + sp.at + '</div></div>' +
-    '<h3>Итог спринта <span class="tag">' + items(f.c) + ', ' + f.p + ' SP</span></h3>' + body;
+  var d = defRange(sp), from = S.from || d.from, to = S.to || d.to, lv = S.level;
+  var rs = rangeSprints(sp, from, to), total = rs.length, used = rs.slice(0, 20);
+  var cur = figs(sp.snap, lv);
+  var facts = '<p><span class="tag">✓ Завершён</span></p><div class="facts"><div><span class="mute">Даты: </span>' + fmt(sp.s) + ' – ' + fmt(sp.f) + '</div><div><span class="mute">Завершил: </span>' + esc(sp.by) + ', ' + sp.at + '</div></div>';
+  var ctrl = '<div class="ctrl"><div class="fld"><label for="lvl">Уровень</label><select id="lvl">' + Object.keys(LV).map(function (k) { return '<option value="' + k + '"' + (k === lv ? ' selected' : '') + '>' + LV[k] + '</option>'; }).join('') + '</select></div>' +
+    '<div class="fld"><label for="rFrom">С</label><input id="rFrom" type="date" value="' + from + '"></div>' +
+    '<div class="fld"><label for="rTo">По</label><input id="rTo" type="date" value="' + to + '"' + (S.rangeErr ? ' class="invalid" aria-invalid="true" aria-describedby="rToe"' : '') + '>' + (S.rangeErr ? '<p class="err" id="rToe">Дата окончания не может быть раньше даты начала.</p>' : '') + '</div>' +
+    '<button data-act="rangeok">Применить</button><span class="mute">В диапазоне: ' + plSpr(total) + '</span></div>' +
+    (total > 20 ? '<div class="info" role="status">Показаны последние 20 из ' + total + ' спринтов диапазона.</div>' : '');
+  if (S.busy) return outcomeHead(sp, facts) + ctrl + '<h3>Динамика</h3>' + tskel() + '<h3>Итоги по участникам</h3>' + tskel() + '<h3>Итог спринта</h3>' + tskel();
+  return outcomeHead(sp, facts) + ctrl + blk('dyn', 'Динамика', dynTable(sp, used, cur)) + blk('part', 'Итоги по участникам', partTable(sp, used, lv)) + blk('list', 'Итог спринта <span class="tag">' + doneTag(sp) + '</span>', doneTable(sp));
+}
+function sprRow(x, lv) { var g = figs(x.snap, lv); return { g: g, pi: pct(g.ci, g.held), ps: pct(g.csp, g.sp) }; }
+function dynTable(sp, used, cur) {
+  var lv = S.level, me = { g: cur, pi: pct(cur.ci, cur.held), ps: pct(cur.csp, cur.sp) };
+  function tr(name, x, f, cls) { return '<tr' + (cls ? ' class="' + cls + '"' : '') + '><td>' + name + '</td><td>' + fmt(f) + '</td><td class="r">' + x.g.held + '</td><td class="r">' + x.g.sp + '</td><td class="r">' + x.g.ci + '</td><td class="r">' + fp(x.pi) + '</td><td class="r">' + x.g.csp + '</td><td class="r">' + fp(x.ps) + '</td></tr>'; }
+  var rows = tr(esc(sp.name) + ' (этот)', me, sp.f, 'me'), R = used.map(function (x) { return sprRow(x, lv); });
+  used.forEach(function (x, i) { rows += tr(x.n > 0 ? '<a class="lnk" data-act="open" data-n="' + x.n + '">' + esc(x.name) + '</a>' : esc(x.name), R[i], x.f); });
+  var empty = !used.length;
+  if (empty) rows += '<tr><td colspan="8" class="mute">В выбранном диапазоне нет завершённых спринтов.</td></tr>';
+  function sums(label, k) {
+    var ci = stat(R.map(function (r) { return r.g.ci; }), false), pi = stat(R.map(function (r) { return r.pi; }), true), cs = stat(R.map(function (r) { return r.g.csp; }), false), ps = stat(R.map(function (r) { return r.ps; }), true);
+    return '<tr class="sum"><td>' + label + '</td><td></td><td></td><td></td><td class="r">' + ci[k] + '</td><td class="r">' + pi[k] + '</td><td class="r">' + cs[k] + '</td><td class="r">' + ps[k] + '</td></tr>';
+  }
+  rows += sums('Мин', 0) + sums('Среднее', 1) + sums('Макс', 2);
+  return '<div class="card wrap"><table aria-label="Динамика спринта"><thead><tr><th>Спринт</th><th>Окончание</th><th class="r">Элементов</th><th class="r">SP</th><th class="r">Закрыто элементов</th><th class="r">% элементов</th><th class="r">Закрыто SP</th><th class="r">% SP</th></tr></thead><tbody>' + rows + '</tbody></table></div>';
+}
+function partTable(sp, used, lv) {
+  var items0 = sp.snap.filter(function (o) { return o.lvl === lv; });
+  if (!items0.length) return '<div class="card" style="padding:16px">На выбранном уровне в спринте не было элементов.</div>';
+  var keys = [], seen = {};
+  items0.forEach(function (o) { var k = o.who || ''; if (!seen[k]) { seen[k] = 1; keys.push(k); } });
+  keys.sort(function (a, b) { if (!a) return 1; if (!b) return -1; return a.localeCompare(b, 'ru'); });
+  function mine(snap, k) { return snap.filter(function (o) { return o.lvl === lv && (o.who || '') === k; }); }
+  function line(label, rows, k, cls, nameHtml) {
+    var g = figs(rows), open = S.open[k + '|' + sp.n];
+    var over = used.map(function (x) { return k === '*' ? x.snap.filter(function (o) { return o.lvl === lv; }) : mine(x.snap, k); }).filter(function (r) { return r.length; });
+    var cmp = over.length ? over.length + ' из ' + used.length : 'Нет данных для сравнения';
+    var h = '<tr class="' + (cls || '') + '"><td>' + (cls === 'tot' ? '' : '<button class="ghost" data-act="exp" data-k="' + esc(k) + '" aria-expanded="' + !!open + '" aria-label="Динамика: ' + esc(label) + '">' + (open ? '▾' : '▸') + '</button>') + nameHtml + '</td><td class="r">' + g.held + '</td><td class="r">' + g.sp + '</td><td class="r">' + g.csp + '</td><td class="r">' + fp(pct(g.csp, g.sp)) + '</td><td class="r">' + g.ci + '</td><td class="r">' + fp(pct(g.ci, g.held)) + '</td><td>' + cmp + '</td></tr>';
+    if (open || cls === 'tot') {
+      var F = over.map(function (r) { return figs(r); });
+      var st = [['Закрыто элементов', F.map(function (g1) { return g1.ci; }), 0], ['% элементов', F.map(function (g1) { return pct(g1.ci, g1.held); }), 1], ['Закрыто SP', F.map(function (g1) { return g1.csp; }), 0], ['% SP', F.map(function (g1) { return pct(g1.csp, g1.sp); }), 1]];
+      var sub = over.length ? '<div class="cap">По ' + over.length + ' из ' + used.length + ' спринтов</div><table aria-label="Динамика: ' + esc(label) + '"><thead><tr><th></th><th class="r">Мин</th><th class="r">Среднее</th><th class="r">Макс</th></tr></thead><tbody>' + st.map(function (r) { var z = stat(r[1], !!r[2]); return '<tr><td>' + r[0] + '</td><td class="r">' + z[0] + '</td><td class="r">' + z[1] + '</td><td class="r">' + z[2] + '</td></tr>'; }).join('') + '</tbody></table>' : 'Нет данных для сравнения';
+      if (cls !== 'tot') h += '<tr><td class="sub" colspan="8">' + sub + '</td></tr>';
+      else h += '<tr class="tot"><td class="sub" colspan="8"><b>Итого, динамика.</b> ' + sub + '</td></tr>';
+    }
+    return h;
+  }
+  var rows = keys.map(function (k) {
+    var nm = k ? esc(k) + (GONE[k] ? ' <span class="tag">не в организации</span>' : '') : 'Без исполнителя';
+    return line(k || 'Без исполнителя', mine(sp.snap, k), k, '', nm);
+  }).join('');
+  rows += line('Итого', items0, '*', 'tot', 'Итого');
+  return '<div class="card wrap"><table aria-label="Итоги по участникам"><thead><tr><th>Участник</th><th class="r">Элементов</th><th class="r">SP</th><th class="r">Закрыто SP</th><th class="r">% SP</th><th class="r">Закрыто элементов</th><th class="r">% элементов</th><th>Сравнение</th></tr></thead><tbody>' + rows + '</tbody></table></div>';
+}
+function doneRows(sp) { return sp.snap.filter(function (o) { return o.done; }); }
+function doneTag(sp) { var d = doneRows(sp), p = 0; d.forEach(function (o) { p += o.pts; }); return items(d.length) + ', ' + p + ' SP'; }
+function doneTable(sp) {
+  var d = doneRows(sp);
+  if (!d.length) return '<div class="card" style="padding:16px">В итоге нет выполненных элементов.</div>';
+  return '<div class="card wrap"><table aria-label="Итог спринта"><thead><tr><th>Идентификатор</th><th>Название</th><th>Проект</th><th class="r">Story points</th></tr></thead><tbody>' +
+    d.map(function (o) { return '<tr><td>' + (o.purged ? esc(o.id) : '<a class="lnk" data-act="item" data-id="' + o.id + '">' + o.id + '</a>') + '</td><td>' + (o.purged ? '<span class="gone">Удалён навсегда</span>' : esc(o.title)) + '</td><td>' + o.p + '</td><td class="r">' + o.pts + '</td></tr>'; }).join('') + '</tbody></table></div>';
 }
 
 /* ---------- dialogs ---------- */
@@ -343,10 +449,10 @@ function submit() {
     var snap = [];
     ITEMS.forEach(function (i) {
       if (i.sprint !== s.n || i.st === 'Удалена') return;
-      if (i.st === 'Закрыта') snap.push({ id: i.id, title: i.title, p: PROJ[i.id.slice(0, 3)], pts: i.pts });
-      else i.sprint = d.dest === 'none' ? null : +d.dest;
+      snap.push(sn(i.id, i.title, PROJ[i.id.slice(0, 3)], i.pts, i.who, i.st === 'Закрыта', i.lvl));
+      if (i.st !== 'Закрыта') i.sprint = d.dest === 'none' ? null : +d.dest;
     });
-    s.st = 'closed'; s.outcome = snap; s.by = 'Анна Смирнова'; s.at = '10.11.2026 12:30';
+    s.st = 'closed'; s.snap = snap; s.by = 'Анна Смирнова'; s.at = '10.11.2026 12:30';
     closeDlg(); toast('Спринт завершён.');
   }
 }
@@ -385,6 +491,7 @@ function csave() {
   CARD.origTeam = CARD.team; CARD.origSprint = CARD.sprint; CARD.touched = false; toast('Изменения сохранены.'); render();
 }
 
+function reload() { S.busy = true; render(); setTimeout(function () { S.busy = false; render(); }, 450); }
 /* ---------- events ---------- */
 document.addEventListener('click', function (ev) {
   var t = ev.target.closest('[data-act]'); if (!t) { if (S.menu != null) { S.menu = null; render(); } return; }
@@ -405,7 +512,10 @@ document.addEventListener('click', function (ev) {
     }
     return submit();
   }
-  if (a === 'open') { S.outId = n; S.screen = 'outcome'; document.getElementById('screen').value = 'outcome'; render(); return; }
+  if (a === 'exp') { var k = t.getAttribute('data-k') + '|' + S.outId; S.open[k] = !S.open[k]; render(); return; }
+  if (a === 'bretry') { S.blockFail = ''; document.getElementById('blockFail').value = ''; render(); return; }
+  if (a === 'rangeok') { var fv = val('rFrom'), tv = val('rTo'); if (!fv || !tv) return; if (tv < fv) { S.rangeErr = true; render(); return; } S.rangeErr = false; S.from = fv; S.to = tv; reload(); return; }
+  if (a === 'open') { S.level = S.level; S.from = ''; S.to = ''; S.rangeErr = false; S.open = {}; S.outId = n; S.screen = 'outcome'; document.getElementById('screen').value = 'outcome'; render(); return; }
   if (a === 'back') { S.screen = 'list'; document.getElementById('screen').value = 'list'; render(); return; }
   if (a === 'retry') { S.page = 'data'; document.getElementById('page').value = 'data'; render(); return; }
   if (a === 'more') { if (S.moreFail) { S.moreErr = true; render(); return; } S.moreErr = false; S.shown += PAGE_SIZE; render(); return; }
@@ -426,6 +536,9 @@ document.addEventListener('change', function (ev) {
   else if (t.id === 'page') { S.page = t.value; }
   else if (t.id === 'moreFail') { S.moreFail = t.value; S.moreErr = false; }
   else if (t.id === 'fail') { S.fail = t.value; return; }
+  else if (t.id === 'lvl') { S.level = t.value; reload(); return; }
+  else if (t.id === 'blockFail') { S.blockFail = t.value; }
+  else if (t.id === 'pad') { S.pad = t.value; }
   else if (t.id === 'cardOpts') { /* re-render below */ }
   else if (t.id === 'preset') { preset = t.value; var p = PRESETS[preset]; CARD = { team: p.team, sprint: p.sprint, st: p.st, origTeam: p.team, origSprint: p.sprint, touched: false, err: '' }; }
   else if (t.id === 'cTeam') { CARD.team = t.value; if (CARD.team !== CARD.origTeam) { CARD.sprint = null; CARD.touched = false; } else { CARD.sprint = CARD.origSprint; } CARD.err = ''; }

@@ -1,9 +1,9 @@
 # Design: Team sprints (mod-007)
 
-Stage 3 artifact. Rules (BR-n) and scenarios (US-1..US-5) are in `spec.md` and `stories/`; this file is the layout, the MUI components, every state and every Russian string. Every string in «» is final; ◆ marks a string the spec does not quote. The board (US-6, feat-057) and the project archive (US-7, feat-058) are not designed here.
+Stage 3 artifact. Rules (BR-n) and scenarios (US-1..US-5, US-9, US-10) are in `spec.md` and `stories/`; this file is the layout, the MUI components, every state and every Russian string. Every string in «» is final; ◆ marks a string the spec does not quote. The board (US-6, feat-057) and the project archive (US-7, feat-058) are not designed here.
 
 - Base: [feat-043](../feat-043-area-project-team-navigation/design.md) (object page § 4, team menu § 7.2), [feat-040](../feat-040-team-surfaces-across-projects/design.md) (head, state order § 10, narrow § 11), [feat-029](../feat-029-work-item-card-reference/design.md) § 4.8 (the card's slot), [mod-019](../mod-019-scoped-access/design.md) (roles), [ui-kit.md](../../conventions/ui-kit.md).
-- Prototype: `prototype/index.html` (static, no build): the list, create/edit, start, remove, close, the outcome, the card's field. Switch the user, the team, the page state and the next server refusal in the top bar.
+- Prototype: `prototype/index.html` (static, no build): the list, create/edit, start, remove, close, the outcome page with its level, range, dynamics and participants, the card's field. Switch the user, the team, the page state and the next server refusal in the top bar.
 - Cast: team MARS (sprints 1-14), JUPITER (none), VENUS; projects Alpha, Beta, Gamma.
 - **No new kit part, icon, colour, dependency or token.** Every control is a kit part that exists.
 
@@ -13,7 +13,7 @@ Stage 3 artifact. Rules (BR-n) and scenarios (US-1..US-5) are in `spec.md` and `
 |---|---|---|---|
 | Team «Спринты» | `/teams/:t/sprints` | US-1, US-2, US-3 | new section: list, create, edit, start, remove (§ 3-§ 4) |
 | Create / edit / rename / start / remove / close | over the list | US-1, US-2, US-5 | dialogs (§ 5) |
-| A Closed sprint | `/teams/:t/sprints/:s` | US-5 | outcome page (§ 6) |
+| A Closed sprint | `/teams/:t/sprints/:s?level=&from=&to=` | US-5, US-9, US-10 | outcome, dynamics, participants (§ 6) |
 | The card | `?workitem=` over any view | US-4 | «Спринт» field in the iteration slot (§ 7) |
 
 The team menu (`addressModel.ts`, `team` list; rendered in the left navigation, not as tabs) gains `{ id: 'sprints', label: 'Спринты', segment: 'sprints', code: read.teamRead }` between «Рабочие элементы» and «Проекты»: «Обзор», «Канбан», «Бэклог», «Рабочие элементы», «Спринты», «Проекты», «Участники и доступ» (US-3). The outcome page is a child of the entry, no menu item of its own.
@@ -62,7 +62,7 @@ The team's sections are **not tabs**: they are the chosen team's menu in the per
 | «Название» | name; the name of a **Closed** sprint is a link to § 6, others are plain text (D-3) |
 | «Состояние» | `Tag` |
 | «Начало», «Окончание» | `formatDate` (`02.11.2026`), «—» when unset |
-| «Элементы», «Story points» | counts after visibility (US-3); an empty sprint «0» and «0»; a Closed row shows its outcome's figures (D-4) |
+| «Элементы», «Story points» | counts after visibility (US-3); an empty sprint «0» and «0»; a Closed row reads «закрыто из всего» («6 из 10», «25 из 40») at the level «Истории» (D-4, D-8) |
 
 Order: highest number first (OQ-5); the Active sprint is not pinned. **A page is 200 rows**, then «Показать ещё» appends the next 200 (the prototype uses 8); the button is absent when the last page is in. Rows keep their place on append.
 
@@ -136,34 +136,56 @@ Text: «Спринт «<название>» будет удалён. Его но
 - Refusals: destination wrong team/Closed/Active: under the field «Незавершённые элементы можно перенести только в запланированный спринт этой команды.»; destination gone: under the field «Спринт не найден.», the options are re-read and the choice is cleared; «Завершить можно только активный спринт.»: notice, dialog closes, list re-read; «Команда не найдена.»: `NotFound`.
 - After success: dialog closes, notice «Спринт завершён.», list re-read, the row reads «Завершён».
 
-## 6. A Closed sprint (US-5)
+## 6. A Closed sprint (US-5, US-9, US-10)
 
 ### 6.1 Layout
 
-`PageHeader` (the only `h1` is the sprint's name; breadcrumb trail «Команды › MARS › Спринты» through `usePageHead` ancestors, so the back button returns to the list), primary absent, planner command «Переименовать» (`ActionButton neutral`). Below: `Surface` with a one-line fact band, then `Section` «Итог спринта».
+`PageHeader` (the only `h1` is the sprint's name; trail «Команды › MARS › Спринты» via `usePageHead` ancestors), planner command «Переименовать» (`ActionButton neutral`), then a fact band «Даты», «Завершил» (who and when; «—» if unreadable). One scrolling page, four blocks; the left navigation keeps «Спринты» selected.
 
 ```
-Спринт 12   [✓ Завершён]                                      [Переименовать]
+Спринт 12  [✓ Завершён]                                           [Переименовать]
 Даты: 02.11.2026 – 13.11.2026 · Завершил: Павел Орлов, 13.11.2026 18:04
-Section «Итог спринта»  — 2 элемента, 8 SP
-| Идентификатор   Название              Проект   Story points |
-| ALP-US-4        Экспорт отчёта        Alpha    5            |
-| GAM-US-7        Печать накладной      Gamma    3            |
+Уровень [Истории ⌄]  С [04.08.2026] По [01.11.2026] [Применить]  В диапазоне: 3 спринта
+Section «Динамика»          | Спринт | Окончание | Элем. | SP | Закрыто эл. | % эл. | Закрыто SP | % SP |
+   Спринт 12 (этот)  ... then the range's sprints, latest end first, then Мин / Среднее / Макс
+Section «Итоги по участникам» | Участник | Элем. | SP | Закрыто SP | % SP | Закрыто эл. | % эл. | Сравнение |
+   ▸ Анна Иванова ... ▸ Без исполнителя ... Итого (always last, outside paging)
+Section «Итог спринта» 2 элемента, 8 SP | Идентификатор | Название | Проект | Story points |
 ```
 
-### 6.2 Components and states
+### 6.2 The controls (one row, wraps)
 
-Facts: `Typography` pairs «Даты», «Завершил» (who and when, spec § Records; «—» if unreadable); `Section` «Итог спринта» with a count `Tag` «2 элемента, 8 SP»; `DataTable` `aria-label` «Итог спринта» with «Идентификатор» (link to the card `?workitem=`, `TruncatedText`), «Название», «Проект», «Story points»; the row shows project and points **as recorded** (BR-6). Up to 200 rows, then «Показать ещё» (D-2).
+- **«Уровень»**: `InlineSelectField`, frame always: «Эпики», «Фичи», «Истории» (default; `?level=epics|features|stories`). It changes every figure of «Динамика» and «Итоги по участникам»; «Итог спринта» stays whole (OQ-14).
+- **«С», «По»**: two `InlineDateField` (`?from=&to=`, both inclusive; default: 90 days before this sprint's start up to the day before it) and «Применить» (`ActionButton neutral`, applies both at once). «По» before «С»: error under «По» «Дата окончания не может быть раньше даты начала.» (reuses `iterations.sprint.dates_reversed`); the page keeps its range. A half-filled pair is not applied; an unusable address opens with the default, no error.
+- **Count** `Typography` «В диапазоне: 3 спринта» ◆ (plural: спринт, спринта, спринтов). More than 20: the 20 latest are read and an `InlineNotice` (info) reads «Показаны последние 20 из N спринтов диапазона.»
+- A change puts `TableSkeleton` in the three blocks; the controls stay usable.
+
+### 6.3 «Динамика» (US-10)
+
+`Section` + `DataTable` `aria-label` «Динамика спринта»: «Спринт» (the others link to their page at the same level), «Окончание», «Элементов», «SP», «Закрыто элементов», «% элементов», «Закрыто SP», «% SP». First row: this sprint, bold, «(этот)» ◆; then the range's sprints, latest end first; then three summary rows «Мин», «Среднее», «Макс» (cells under the four «закрыто» columns only). Percent: whole, «63 %»; «—» when held is 0, and such a sprint is left out of that percent's summary; an average of counts to one decimal, «6.3» (D-10). Empty range: summary cells «—» and an `InlineEmpty` row under this sprint: «В выбранном диапазоне нет завершённых спринтов.»
+
+### 6.4 «Итоги по участникам» (US-9)
+
+`Section` + `DataTable` `aria-label` «Итоги по участникам»: «Участник» (current full name, `PersonLabel`; one who left the organization carries `Tag` «не в организации»), «Элементов», «SP», «Закрыто SP», «% SP», «Закрыто элементов», «% элементов», «Сравнение» («2 из 3», or «Нет данных для сравнения» at 0). Order: by name, «Без исполнителя», then «Итого» as a footer row (the sums of all rows, counted from the first read, outside paging). 200 rows then «Показать ещё» (as D-2).
+
+Every row, «Итого» and «Без исполнителя» included, expands (`RowControl` chevron, `aria-expanded`, name «Динамика: <имя>») into a nested `DataTable`: «Закрыто элементов», «% элементов», «Закрыто SP», «% SP» × «Мин», «Среднее», «Макс», over the sprints of the range in which that person held items; caption «По 2 из 3 спринтов» ◆. With none: «Нет данных для сравнения».
+
+### 6.5 «Итог спринта» (US-5)
+
+`Section` with a count `Tag` «2 элемента, 8 SP»; `DataTable` `aria-label` «Итог спринта»: «Идентификатор» (link to the card), «Название», «Проект», «Story points», as recorded (BR-6); 200 rows then «Показать ещё». A **purged** item's row (BR-14): the identifier as plain text, «Удалён навсегда» in «Название» (`text.secondary`), no link; project and points stay as recorded (D-9).
+
+### 6.6 States
 
 | State | The user sees |
 |---|---|
-| Pending | `FieldsSkeleton` + `TableSkeleton`, «Загрузка данных» |
-| Error | `ErrorBanner` «Не удалось загрузить итог спринта», «Повторить» |
-| Sprint not found, deleted team, other organization, or the sprint is not Closed | `NotFound` «Спринт не найден»; team gone: «Команда не найдена» |
-| Empty outcome | `InlineEmpty` «В итоге нет выполненных элементов.» ◆, figures «0 элементов, 0 SP» |
-| Hidden items (feat-041) | absent from rows and figures, no mark, no gap (BR-9) |
+| Pending | `FieldsSkeleton`, the controls, `TableSkeleton` per block, one «Загрузка данных» |
+| A block failed | its own `ErrorBanner` with «Повторить»: «Не удалось загрузить динамику спринта», «Не удалось загрузить итоги по участникам», «Не удалось загрузить итог спринта»; the other blocks stay |
+| Not found, not Closed, other organization | `NotFound` «Спринт не найден»; team gone: «Команда не найдена» |
+| No item at the level | «Динамика»: this sprint reads 0 and «—»; «Итоги по участникам»: `InlineEmpty` «На выбранном уровне в спринте не было элементов.» ◆, no «Итого» |
+| Empty done list | `InlineEmpty` «В итоге нет выполненных элементов.» ◆ |
+| Hidden items (feat-041) | absent from every row and figure, no mark, no gap (BR-9) |
 
-An Active or Planned sprint's address answers `NotFound` «Спринт не найден»: nothing is browsed there (spec § Out of scope). Permissions: everyone reads; «Переименовать» is the planner's (§ 8), dialog § 5.2.
+Everyone reads every block, «Читатель» included; only «Переименовать» is the planner's (§ 8, dialog § 5.2). An Active or Planned sprint's address answers `NotFound` «Спринт не найден».
 
 ## 7. The card's «Спринт» (US-4)
 
@@ -196,7 +218,7 @@ The code is read through the effective-permission policy (BR-13); the client nev
 
 - Down to 640 px (ADR-0024): the head as feat-040 § 11; the table keeps `min-width` 760 px and scrolls inside its `TableCard` with the header sticky, the page never scrolls sideways; dialogs are full width less margins, the date fields stack; «Показать ещё» is full width.
 - Table: `aria-label`s as named; the state `Tag` has a text; the row menu button names its sprint; focus returns to the row's menu button after a dialog closes (to «Создать спринт» after a create); an error under a field is tied by `aria-describedby`, the first invalid field takes focus; busy buttons set `aria-busy`.
-- The outcome page: `h1` is the name; the table has `aria-label` «Итог спринта».
+- The outcome page: `h1` is the name; each table has its `aria-label` (§ 6); expandable rows set `aria-expanded`; the level and the dates are labelled fields; a percent is never colour alone.
 
 ## 10. Refusals and their texts
 
@@ -235,10 +257,13 @@ D-1 A, D-2 A, D-3 A, D-4 A, D-5 A, D-6 A, D-7 A.
 - **D-1 The outcome: a page or a dialog.** A) page `teams/:t/sprints/:s` (deep link, back button, room for hundreds of rows) ⭐; B) a `DialogShell` over the list (no new address, cramped for 5 000 rows).
 - **D-2 A large outcome.** A) 200 rows then «Показать ещё», as the list ⭐; B) all rows at once (a 5 000-item outcome loads slowly).
 - **D-3 Planned and Active names.** A) plain text, only a Closed name is a link, since nothing is browsed there (spec § Out of scope) ⭐; B) link the Active name to the board once feat-057 lands (feat-057's change, no rework here).
-- **D-4 A Closed row's «Элементы», «Story points».** A) the outcome's figures, as recorded and never changing ⭐; B) what the sprint holds now (a reopened item would count). The spec fixes only the Planned row (US-3): a spec gap this design settles as A.
+- **D-4 A Closed row's «Элементы», «Story points» (restated per R-34; answered A on the old meaning, so reopened, not taken).** The snapshot gives a held count and the page reads «10 элементов, 6 закрыто». A) the row reads closed of held, «6 из 10» and «25 из 40» (one reading with the page) ⭐; B) held only, «10» and «40», the column name unchanged (agrees with Planned and Active rows); C) closed only, the old A, the column renamed «Выполнено» (differs from the page).
 - **D-5 The close dialog with nothing to move.** A) keep the destination field, preselection as OQ-4 ⭐ (the spec says the dialog always offers it; one shape); B) hide it and send no destination (a backend contract change).
 - **D-6 Start and close in the row menu only.** A) only in the row menu, one place for commands ⭐; B) a visible «Завершить спринт» button in the Active row (one click less, a second command place).
 - **D-7 A start without dates.** A) the dialog explains and offers «Указать даты» (§ 5.3) ⭐; B) the menu item is disabled with a tooltip (against «nothing is shown disabled» for the roles, and hidden for assistive tech).
+- **D-8 The level of a Closed row's figures.** The list has no level control, the page does. A) rows read at «Истории», the page's default (a click leads to the same numbers; Planned and Active rows still count every level, US-3 is silent) ⭐; B) every level together (a row can differ from the page by a feature's points); C) a level control on the list (a new control, a re-read per change).
+- **D-9 A purged item's row.** A) identifier + «Удалён навсегда», project and points as recorded (the list still sums to its header) ⭐; B) project and points blanked too (the row discloses nothing of the item).
+- **D-10 The decimal mark.** The stories read an average as «6.3»; Russian text writes «6,3». A) keep «6.3» (no spec change) ⭐; B) «6,3» (two story lines reworded, no logic changes).
 
 ## 13. Stories to screens
 
@@ -248,4 +273,6 @@ D-1 A, D-2 A, D-3 A, D-4 A, D-5 A, D-6 A, D-7 A.
 | US-2 | § 5.3, § 5.4, § 10 |
 | US-3 | § 1, § 3, § 4, § 8 |
 | US-4 | § 7 |
-| US-5 | § 5.5, § 6 |
+| US-5 | § 5.5, § 6.5 |
+| US-9 | § 6.4 |
+| US-10 | § 6.2, § 6.3 |
