@@ -1,4 +1,5 @@
 using Mustask.Application.Abstractions;
+using Mustask.Application.Abstractions.Iterations;
 using Mustask.Application.Abstractions.Organizations;
 using Mustask.Application.Abstractions.Process;
 using Mustask.Application.Abstractions.UserDirectory;
@@ -6,6 +7,7 @@ using Mustask.Application.Abstractions.WorkItems;
 using Mustask.Application.Features.Boards;
 using Mustask.Application.Features.Organizations;
 using Mustask.Domain.Identity;
+using Mustask.Domain.Iterations;
 using Mustask.Domain.Organizations;
 using Mustask.Domain.WorkItems;
 using Mustask.Shared.Errors;
@@ -67,6 +69,7 @@ public sealed class SaveWorkItemHandler(
     IWorkItemRepository workItems,
     IWorkItemReadModel readModel,
     ITeamBacklogPlaces teamPlaces,
+    ISprintRepository sprints,
     IOrganizationAccess access,
     IClock clock,
     IUnitOfWork unitOfWork)
@@ -117,6 +120,10 @@ public sealed class SaveWorkItemHandler(
                     teamLinkHeld = await workItems.LockTeamLinkAsync(organizationId, projectId, namedTeamId, ct);
                 }
 
+                // mod-007 (plan-backend, "Locks"): a sent sprint is locked FOR SHARE before the item, so a close or a removal of it
+                // either waits for this save or is seen by it. Judged below, once the item and its team are known.
+                var sprintFacts = await LockSprintAsync(command.Sprint, organizationId, ct);
+
                 if (command.Parent is not null)
                 {
                     await workItems.LockHierarchyAsync(projectId, ct);
@@ -148,6 +155,9 @@ public sealed class SaveWorkItemHandler(
                 // by what the lock held (mod-017 api-contract § 0.2). Not sent: the stored team stays.
                 var team = await DecideTeamAsync(command.Team, organizationId, projectId, teamLinkHeld, ct);
 
+                // 3a-bis. The sprint (mod-007 BR-2, BR-5), judged only when the pointer changes, against the team the item will have.
+                var sprint = DecideSprint(command.Sprint, sprintFacts, item, team);
+
                 // 3b. The new parent, an item of this project, and the rest of the parent write (feat-001 BR-H-1).
                 var parentWrite = command.Parent is { } change
                     ? await workItems.LockParentWriteAsync(item, change.NewParentId(), change.SeenId(), ct)
@@ -162,7 +172,8 @@ public sealed class SaveWorkItemHandler(
                     await AssigneeOfAsync(command.Assignee, organizationId, ct),
                     areaId,
                     command.Fields,
-                    team);
+                    team,
+                    sprint);
 
                 var now = clock.UtcNow;
                 var previousTeamId = item.OwningTeamId;
@@ -251,6 +262,68 @@ public sealed class SaveWorkItemHandler(
         }
 
         return areaId;
+    }
+
+    /// <summary>
+    /// The sent sprint, locked <c>FOR SHARE</c> by what the lock statement returns. <c>null</c> for no sprint sent and for «Без
+    /// спринта». A string that is no id, or a sprint that is not in this organization, answers 404 <c>sprint.not_found</c> alike.
+    /// </summary>
+    private async Task<SprintFacts?> LockSprintAsync(SprintChange? change, Guid organizationId, CancellationToken cancellationToken)
+    {
+        if (change?.SprintId is not { } raw)
+        {
+            return null;
+        }
+
+        if (!AddressedId.TryParse(raw, out var sprintId))
+        {
+            throw new NotFoundException(SprintErrorCodes.NotFound);
+        }
+
+        return await sprints.LockForShareAsync(organizationId, sprintId, cancellationToken)
+            ?? throw new NotFoundException(SprintErrorCodes.NotFound);
+    }
+
+    /// <summary>
+    /// <c>null</c> when no sprint was sent. A sprint is judged only when the item's pointer is to change, or its owner does (BR-5):
+    /// the effective team is the sent one, else the stored one; it must exist (409 <c>team_required</c>), own the sprint (409
+    /// <c>other_team</c>), and the sprint must not be Closed (409 <c>closed_target</c>). «Без спринта» needs no judgement.
+    /// </summary>
+    private static SprintEdit? DecideSprint(SprintChange? change, SprintFacts? facts, WorkItem item, TeamEdit? team)
+    {
+        if (change is null)
+        {
+            return null;
+        }
+
+        if (facts is null)
+        {
+            return new SprintEdit(null);
+        }
+
+        var effectiveTeamId = team is null ? item.OwningTeamId : team.TeamId;
+
+        if (facts.Id == item.SprintId && effectiveTeamId == item.OwningTeamId)
+        {
+            return new SprintEdit(facts.Id);
+        }
+
+        if (effectiveTeamId is null)
+        {
+            throw new ConflictException(SprintErrorCodes.TeamRequired);
+        }
+
+        if (facts.TeamId != effectiveTeamId)
+        {
+            throw new ConflictException(SprintErrorCodes.OtherTeam);
+        }
+
+        if (facts.State == SprintState.Closed)
+        {
+            throw new ConflictException(SprintErrorCodes.ClosedTarget);
+        }
+
+        return new SprintEdit(facts.Id);
     }
 
     /// <summary>The sent team as an id to lock: <c>null</c> for a team not sent, «Без команды» and a string that is no id.</summary>

@@ -1,0 +1,125 @@
+{
+  "module": "iterations",
+  "origin": "slice",
+  "codes": {
+    "iterations.validation_failed": {
+      "statuses": [400],
+      "params": {},
+      "ru": "Проверьте правильность запроса.",
+      "kk": "Сұраудың дұрыстығын тексеріңіз.",
+      "kkNeedsReview": true
+    },
+    "iterations.sprint.name_taken": {
+      "statuses": [409],
+      "params": {},
+      "ru": "Спринт с таким названием уже есть в команде.",
+      "kk": "Командада мұндай атаумен спринт бұрыннан бар.",
+      "kkNeedsReview": true
+    },
+    "iterations.sprint.name_invalid": {
+      "statuses": [400],
+      "params": {},
+      "ru": "Название спринта — от 1 до 100 символов.",
+      "kk": "Спринт атауы — 1-ден 100 символға дейін.",
+      "kkNeedsReview": true
+    },
+    "iterations.sprint.dates_unpaired": {
+      "statuses": [400],
+      "params": {},
+      "ru": "Укажите обе даты спринта или ни одной.",
+      "kk": "Спринттің екі күнін де көрсетіңіз немесе ешқайсысын көрсетпеңіз.",
+      "kkNeedsReview": true
+    },
+    "iterations.sprint.dates_reversed": {
+      "statuses": [400],
+      "params": {},
+      "ru": "Дата окончания не может быть раньше даты начала.",
+      "kk": "Аяқталу күні басталу күнінен бұрын болмауы керек.",
+      "kkNeedsReview": true
+    },
+    "iterations.sprint.active_dates_required": {
+      "statuses": [409],
+      "params": {},
+      "ru": "У активного спринта должны быть обе даты.",
+      "kk": "Белсенді спринттің екі күні де болуы керек.",
+      "kkNeedsReview": true
+    },
+    "iterations.sprint.closed_dates_locked": {
+      "statuses": [409],
+      "params": {},
+      "ru": "Даты завершённого спринта изменить нельзя.",
+      "kk": "Аяқталған спринттің күндерін өзгертуге болмайды.",
+      "kkNeedsReview": true
+    },
+    "iterations.sprint.start_dates_required": {
+      "statuses": [409],
+      "params": {},
+      "ru": "Чтобы начать спринт, укажите обе даты.",
+      "kk": "Спринтті бастау үшін екі күнді де көрсетіңіз.",
+      "kkNeedsReview": true
+    },
+    "iterations.sprint.active_exists": {
+      "statuses": [409],
+      "params": {},
+      "ru": "У команды уже есть активный спринт.",
+      "kk": "Команданың белсенді спринті бұрыннан бар.",
+      "kkNeedsReview": true
+    },
+    "iterations.sprint.not_planned": {
+      "statuses": [409],
+      "params": {},
+      "ru": "Начать можно только запланированный спринт.",
+      "kk": "Тек жоспарланған спринтті бастауға болады.",
+      "kkNeedsReview": true
+    },
+    "iterations.sprint.not_active": {
+      "statuses": [409],
+      "params": {},
+      "ru": "Завершить можно только активный спринт.",
+      "kk": "Тек белсенді спринтті аяқтауға болады.",
+      "kkNeedsReview": true
+    },
+    "iterations.sprint.not_removable": {
+      "statuses": [409],
+      "params": {},
+      "ru": "Удалить можно только запланированный спринт без элементов.",
+      "kk": "Тек элементтері жоқ жоспарланған спринтті жоюға болады.",
+      "kkNeedsReview": true
+    },
+    "iterations.sprint.not_found": {
+      "statuses": [404],
+      "params": {},
+      "ru": "Спринт не найден.",
+      "kk": "Спринт табылмады.",
+      "kkNeedsReview": true
+    },
+    "iterations.sprint.close_destination_invalid": {
+      "statuses": [409],
+      "params": {},
+      "ru": "Незавершённые элементы можно перенести только в запланированный спринт этой команды.",
+      "kk": "Аяқталмаған элементтерді тек осы команданың жоспарланған спринтіне ауыстыруға болады.",
+      "kkNeedsReview": true
+    },
+    "iterations.sprint.other_team": {
+      "statuses": [409],
+      "params": {},
+      "ru": "Спринт принадлежит другой команде.",
+      "kk": "Спринт басқа командаға тиесілі.",
+      "kkNeedsReview": true
+    },
+    "iterations.sprint.team_required": {
+      "statuses": [409],
+      "params": {},
+      "ru": "Сначала выберите команду: спринт есть только у команды.",
+      "kk": "Алдымен команданы таңдаңыз: спринт тек командада болады.",
+      "kkNeedsReview": true
+    },
+    "iterations.sprint.closed_target": {
+      "statuses": [409],
+      "params": {},
+      "ru": "Спринт завершён: в него нельзя добавить элемент.",
+      "kk": "Спринт аяқталған: оған элемент қосуға болмайды.",
+      "kkNeedsReview": true
+    }
+  }
+}

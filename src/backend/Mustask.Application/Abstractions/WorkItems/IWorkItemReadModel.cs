@@ -133,6 +133,9 @@ public sealed record WorkItemView(
     /// which stays. The card dialog's «Проект» reads it, so a card opened over a team view shows the item's own project.
     /// </summary>
     public required WorkItemProjectView Project { get; init; }
+
+    /// <summary>mod-007 (api-contract § 3): the item's sprint, or <c>null</c>. Not <c>required</c>: only the card reads it.</summary>
+    public WorkItemSprintView? Sprint { get; init; }
 }
 
 /// <summary>
@@ -241,3 +244,6 @@ public sealed record WorkItemTeamView(Guid Id, string Name);
 /// Every item has one; a row, a child and a card of every backlog and board carry it (BR-TS-3).
 /// </summary>
 public sealed record WorkItemProjectView(Guid Id, string Name);
+
+/// <summary>The sprint of a card (mod-007): the state is <c>Planned</c>, <c>Active</c> or <c>Closed</c>.</summary>
+public sealed record WorkItemSprintView(Guid Id, string Name, string State);

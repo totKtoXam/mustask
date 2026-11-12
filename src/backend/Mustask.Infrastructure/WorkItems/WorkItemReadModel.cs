@@ -1,6 +1,7 @@
 using System.Globalization;
 using Mustask.Application.Abstractions.UserDirectory;
 using Mustask.Application.Abstractions.WorkItems;
+using Mustask.Domain.Iterations;
 using Mustask.Domain.Organizations;
 using Mustask.Domain.Process;
 using Mustask.Domain.WorkItems;
@@ -203,6 +204,8 @@ internal sealed class WorkItemReadModel(MustaskDbContext context, IUserDirectory
         join state in context.StateDefinitions on item.StateId equals state.Id
         join team in context.Teams on item.OwningTeamId equals team.Id into owning
         from team in owning.DefaultIfEmpty()
+        join sprint in context.Sprints on item.SprintId equals sprint.Id into sprintJoin
+        from sprint in sprintJoin.DefaultIfEmpty()
         // mod-005 (plan-backend D-P3): the state a deleted item held, in the item's own statement; null on every live row.
         join held in context.StateDefinitions on item.DeletedFromStateId equals held.Id into heldStates
         from held in heldStates.DefaultIfEmpty()
@@ -252,7 +255,10 @@ internal sealed class WorkItemReadModel(MustaskDbContext context, IUserDirectory
                 item.ValueArea,
                 includeDescription ? item.AcceptanceCriteria : null,
                 includeDescription ? item.ReproSteps : null,
-                includeDescription ? item.SystemInfo : null));
+                includeDescription ? item.SystemInfo : null),
+            sprint == null ? null : sprint.Id,
+            sprint == null ? null : sprint.Name,
+            sprint == null ? null : sprint.State);
 
     /// <summary><paramref name="items"/> as link ends, with their project key, type, level rank and state, in one statement.</summary>
     private IQueryable<WorkItemRefRow> RefRows(IQueryable<WorkItem> items) => WorkItemRefs.Rows(context, items.AsNoTracking());
@@ -314,6 +320,7 @@ internal sealed class WorkItemReadModel(MustaskDbContext context, IUserDirectory
             children)
         {
             Project = new WorkItemProjectView(row.ProjectId, row.ProjectName),
+            Sprint = row.SprintId is { } sprintId ? new WorkItemSprintView(sprintId, row.SprintName!, row.SprintState!.Value.ToString()) : null,
             Deletion = DeletionOf(row.Deletion, assignees),
             Priority = fields.Priority,
             Risk = fields.Risk,
@@ -469,7 +476,10 @@ internal sealed class WorkItemReadModel(MustaskDbContext context, IUserDirectory
         DateTimeOffset CreatedAt,
         DateTimeOffset ChangedAt,
         DeletionRow Deletion,
-        FieldsRow Fields);
+        FieldsRow Fields,
+        Guid? SprintId = null,
+        string? SprintName = null,
+        SprintState? SprintState = null);
 
     /// <summary>The marks of a deletion as stored (mod-005): all null on a live item, all set after a Delete.</summary>
     private sealed record DeletionRow(

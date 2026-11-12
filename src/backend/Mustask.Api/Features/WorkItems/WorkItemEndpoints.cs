@@ -225,7 +225,8 @@ public static class WorkItemEndpoints
             request?.AreaId,
             request?.Parent is { } parent ? new ParentChange(parent.ParentId, parent.SeenParentId) : null,
             request is null ? null : FieldsOf(request),
-            request?.Team is { } team ? new TeamChange(team.TeamId) : null);
+            request?.Team is { } team ? new TeamChange(team.TeamId) : null,
+            request?.Sprint is { } sprint ? new SprintChange(sprint.SprintId) : null);
 
         return Results.Ok((await handler.Handle(command, cancellationToken)).Item);
     }
@@ -333,6 +334,7 @@ public static class WorkItemEndpoints
         string? AreaId,
         ParentChangeRequest? Parent,
         TeamRequest? Team,
+        SprintRequest? Sprint,
         FieldRequest<int?>? Priority,
         FieldRequest<int?>? Risk,
         FieldRequest<decimal?>? StoryPoints,
@@ -367,6 +369,9 @@ public static class WorkItemEndpoints
     /// is not sent.
     /// </summary>
     private sealed record TeamRequest(string? TeamId);
+
+    /// <summary>mod-007 api-contract § 3: the sprint in the same wrapper as <c>team</c>; <c>{ "sprintId": null }</c> is «Без спринта».</summary>
+    private sealed record SprintRequest(string? SprintId);
 
     /// <summary>feat-001 api-contract § 2.3: <c>parentId</c> <c>null</c> clears; <c>seenParentId</c> <c>null</c> saw none.</summary>
     private sealed record ParentChangeRequest(string? ParentId, string? SeenParentId);
