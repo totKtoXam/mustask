@@ -155,6 +155,10 @@ export interface ShellPalette {
   splitDisabledText: string;
   levelThree: string;
   levelFour: string;
+  /** The logo's ring, its «mus» and its amber shared «t» and dot (feat-055); the disc is the accent. */
+  logoRing: string;
+  logoMust: string;
+  logoAccent: string;
 }
 
 export const shellPalette: ShellPalette = {
@@ -174,6 +178,9 @@ export const shellPalette: ShellPalette = {
   splitDisabledText: colourRoles.splitDisabledText,
   levelThree: colourRoles.levelThree,
   levelFour: colourRoles.levelFour,
+  logoRing: '#6CB4EE',
+  logoMust: '#3A96DD',
+  logoAccent: '#F2A93B',
 };
 
 /** The width classes of BR-10 and D-8 (design § 3.6). */
