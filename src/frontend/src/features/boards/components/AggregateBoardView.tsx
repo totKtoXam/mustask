@@ -29,6 +29,8 @@ import { columnsOf, type AggregateColumn } from '../lib/aggregateColumns';
 import { aggregateTexts, countText, streamCountText } from '../lib/aggregateTexts';
 import { groupIdOf } from '../lib/openGroups';
 import { stateRefusalNotice } from '../lib/refusals';
+import { CategoryMarker } from '../../../shared/ui/WorkTrackingMarks';
+import { cardStripeSx, columnStripeSx } from './boardStripes';
 import { GroupBody, HeadersSkeleton } from './GroupBody';
 import { StatusRegion } from './StatusRegion';
 import { ViewGroup } from './ViewGroup';
@@ -123,6 +125,7 @@ function BoardCell({
         void onMove(card, from, column);
       }}
       sx={(theme) => ({
+        ...columnStripeSx(theme, column.categoryCode),
         width: theme.layout.boardColumnWidth,
         flexShrink: 0,
         display: 'grid',
@@ -131,9 +134,12 @@ function BoardCell({
         outline: over && accepts ? `2px solid ${theme.palette.primary.main}` : 'none',
       })}
     >
-      <Typography variant="subtitle2" component="div">
-        {column.header} {count !== undefined && <span>({count})</span>}
-      </Typography>
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+        <CategoryMarker code={column.categoryCode} />
+        <Typography variant="subtitle2" component="div">
+          {column.header} {count !== undefined && <span>({count})</span>}
+        </Typography>
+      </Box>
       <GroupBody read={read} stream={stream} skeleton="cards" announce={announce}>
         {(cards) => (
           <Box sx={{ display: 'grid', gap: 1 }}>
@@ -155,6 +161,10 @@ function BoardCell({
                   key={card.id}
                   draggable={canMove(card) && targets.length > 0}
                   data-drag-card={card.identifier}
+                  sx={(theme) => ({
+                    ...cardStripeSx(theme, card.type.appearance),
+                    borderRadius: `${theme.shape.borderRadius}px`,
+                  })}
                   onDragStart={(event) => {
                     event.dataTransfer.effectAllowed = 'move';
                     event.dataTransfer.setData('text/plain', card.identifier);
