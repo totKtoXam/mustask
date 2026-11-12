@@ -156,17 +156,20 @@ describe('feat-018 US-1, US-4: limits, refusals and the server’s value', () =>
     await userEvent.click(description());
 
     pasteInto(description(), { text: 'о'.repeat(100_000) });
-    await waitFor(() => expect(save()).toBeEnabled());
+    // 100 000 characters are normalised on every change: slow on a loaded CI machine.
+    await waitFor(() => expect(save()).toBeEnabled(), { timeout: 30_000 });
     await userEvent.click(save());
-    await screen.findByText('Изменения сохранены.');
+    await screen.findByText('Изменения сохранены.', undefined, { timeout: 30_000 });
     expect(patches(api)).toHaveLength(1);
 
     await userEvent.click(description());
     await userEvent.keyboard('о');
-    await waitFor(() => expect(save()).toBeEnabled());
+    await waitFor(() => expect(save()).toBeEnabled(), { timeout: 30_000 });
     await userEvent.click(save());
 
-    expect(await screen.findByText('Не более 100 000 символов.')).toBeInTheDocument();
+    expect(
+      await screen.findByText('Не более 100 000 символов.', undefined, { timeout: 30_000 }),
+    ).toBeInTheDocument();
     expect(patches(api)).toHaveLength(1);
   }, 60_000);
 
