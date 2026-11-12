@@ -71,6 +71,11 @@ export interface RichTextCopy {
     | 'deleteTable',
     string
   >;
+  /** The on-table handles' tooltips and accessible names (design § Tables). */
+  tableHandles: Record<
+    'rowAbove' | 'rowBelow' | 'columnLeft' | 'columnRight' | 'deleteRow' | 'deleteColumn',
+    string
+  >;
   link: {
     title: string;
     address: string;
@@ -179,6 +184,14 @@ export const DEFAULT_COPY: RichTextCopy = {
     deleteColumn: 'Удалить столбец',
     headerRow: 'Строка заголовка',
     deleteTable: 'Удалить таблицу',
+  },
+  tableHandles: {
+    rowAbove: 'Добавить строку выше',
+    rowBelow: 'Добавить строку ниже',
+    columnLeft: 'Добавить столбец слева',
+    columnRight: 'Добавить столбец справа',
+    deleteRow: 'Удалить строку',
+    deleteColumn: 'Удалить столбец',
   },
   link: {
     title: 'Ссылка',

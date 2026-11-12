@@ -12,6 +12,7 @@ import { applyLink, linkSeed, type LinkSeed } from './behaviour/linkCommands';
 import { documentJson } from './behaviour/loadDocument';
 import type { RichTextCopy } from './copy';
 import { createExtensions } from './schema/extensions';
+import { TableHandles } from './table/TableHandles';
 import { LinkDialog } from './toolbar/LinkDialog';
 import { Toolbar } from './toolbar/Toolbar';
 
@@ -414,9 +415,12 @@ function EditorBody({
   return (
     <Box>
       <Toolbar editor={editor} copy={copy} ui={{ openLink }} />
-      <Content>
-        <EditorContent editor={editor} />
-      </Content>
+      <Box sx={{ position: 'relative' }}>
+        <Content>
+          <EditorContent editor={editor} />
+        </Content>
+        <TableHandles editor={editor} copy={copy} />
+      </Box>
       {seed && (
         <LinkDialog
           copy={copy.link}
