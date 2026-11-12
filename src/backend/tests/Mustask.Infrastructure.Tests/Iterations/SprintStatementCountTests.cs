@@ -80,6 +80,35 @@ public sealed class SprintStatementCountTests(OrganizationsDatabaseFixture datab
         Assert.Equal(CloseStatements, largeClose);
     }
 
+    // NFR · the count does not grow with the range, the participants or the items: 5 sprints and 3 people against 21 sprints and 300.
+    [Fact]
+    public async Task OutcomeReads_TheSameNumberOfStatements_WhateverTheRangeAndTheNumberOfParticipants()
+    {
+        var narrow = await SeedClosedAsync(40, sprints: 6, people: 3);
+        var wide = await SeedClosedAsync(600, sprints: 21, people: 300);
+
+        async Task<int> DynamicsAsync(Seeded s) => await CountAsync((provider, ct) => provider.GetRequiredService<GetSprintDynamicsHandler>()
+            .Handle(new GetSprintDynamicsQuery(s.OrganizationId, s.TeamId, s.SprintId, null, "2026-01-01", "2026-12-31"), ct));
+        async Task<int> ParticipantsAsync(Seeded s) => await CountAsync((provider, ct) => provider.GetRequiredService<GetSprintParticipantsHandler>()
+            .Handle(new GetSprintParticipantsQuery(s.OrganizationId, s.TeamId, s.SprintId, null, "2026-01-01", "2026-12-31", null), ct));
+
+        Assert.Equal(await DynamicsAsync(narrow), await DynamicsAsync(wide));
+        Assert.Equal(await ParticipantsAsync(narrow), await ParticipantsAsync(wide));
+    }
+
+    // NFR · the close dialog's counts are a fixed number of statements whatever the items.
+    [Fact]
+    public async Task ClosePreview_TheSameNumberOfStatements_For50AsFor2000Items()
+    {
+        var small = await SeedActiveAsync(Small);
+        var large = await SeedActiveAsync(Large);
+
+        async Task<int> PreviewAsync(Seeded s) => await CountAsync((provider, ct) => provider.GetRequiredService<Mustask.Application.Features.Iterations.GetCloseSprintPreview.GetCloseSprintPreviewHandler>()
+            .Handle(new Mustask.Application.Features.Iterations.GetCloseSprintPreview.GetCloseSprintPreviewQuery(s.OrganizationId, s.TeamId, s.SprintId), ct));
+
+        Assert.Equal(await PreviewAsync(small), await PreviewAsync(large));
+    }
+
     // Pinned: a change to one of these is a change to the query shape and is made on purpose (the numbers are the first run's).
     private const int DynamicsStatements = 8;
     private const int ParticipantsStatements = 8;
@@ -134,7 +163,7 @@ public sealed class SprintStatementCountTests(OrganizationsDatabaseFixture datab
     private sealed record Seeded(string OrganizationId, string TeamId, string SprintId, string? DestinationId);
 
     /// <summary>A Closed sprint of <paramref name="items"/> snapshot items and five earlier Closed ones of the same size, three assignees.</summary>
-    private async Task<Seeded> SeedClosedAsync(int items)
+    private async Task<Seeded> SeedClosedAsync(int items, int sprints = 6, int people = 3)
     {
         var structure = await database.CreateStructureAsync();
         var organization = structure.Organization.Id;
@@ -161,15 +190,16 @@ public sealed class SprintStatementCountTests(OrganizationsDatabaseFixture datab
             INSERT INTO sprints (id, organization_id, team_id, number, name, normalized_name, state, start_date, end_date, created_at, created_by, closed_at, closed_by)
             SELECT gen_random_uuid(), @organization, @team, n, 'S' || n, 'S' || n, 'Closed',
                    DATE '2026-01-01' + n * 14, DATE '2026-01-01' + n * 14 + 10, now(), 'seed', now(), 'seed'
-            FROM generate_series(1, 6) AS n
+            FROM generate_series(1, @sprints) AS n
             """,
             ("organization", organization),
-            ("team", team));
+            ("team", team),
+            ("sprints", sprints));
         await database.ExecuteAsync(
             """
             INSERT INTO sprint_snapshot_items (sprint_id, work_item_id, project_id, type_id, number, level_id, assignee_id, story_points, is_done)
             SELECT sprint.id, gen_random_uuid(), @project, @type, n, @level,
-                   CASE WHEN n % 7 < 3 THEN (ARRAY['count-user-1', 'count-user-2', 'count-user-3'])[(n % 7) + 1] END,
+                   CASE WHEN n % 7 <> 0 THEN 'count-user-' || ((n % @people) + 1) END,
                    (n % 5) + 1, n % 2 = 0
             FROM sprints AS sprint
             CROSS JOIN generate_series(1, @items) AS n
@@ -179,11 +209,13 @@ public sealed class SprintStatementCountTests(OrganizationsDatabaseFixture datab
             ("type", type),
             ("level", level),
             ("items", items),
-            ("team", team));
+            ("team", team),
+            ("people", people));
 
         var last = (await database.QueryAsync(
-            "SELECT id::text FROM sprints WHERE team_id = @team AND number = 6",
-            ("team", team))).Single();
+            "SELECT id::text FROM sprints WHERE team_id = @team AND number = @sprints",
+            ("team", team),
+            ("sprints", sprints))).Single();
 
         return new Seeded(organization.ToString(), team.ToString(), last, null);
     }

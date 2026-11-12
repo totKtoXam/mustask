@@ -3,7 +3,7 @@
 - type: module
 - size: L
 - branch: mod/007-iterations
-- stage: 04-backend
+- stage: 05-qa-backend
 - epic: core/iterations-planning
 - deps: feat-040
 - gates: gate-1, gate-2, gate-3
@@ -88,6 +88,7 @@ agent per stage, no fan-out. E2E: no (paused).
 - 2026-11-12 [orchestrator] gate-2 for the delta approved by the human in
   chat («Да, approve»); development waits for the human's word
 - 2026-11-12 [backend-developer] stage 4 backend done for US-1..US-5, US-9, US-10: 11 sprint routes, item sprint, close snapshot, outcome reads, migration AddSprints; all test projects green. Deviations and the NU1903 note: commit bodies and the hand-back.
+- 2026-11-12 [qa-engineer] backend QA: 12 tests added, all green; 0 blocker, 0 major, 2 minor (qa.md D-1, D-2); no E2E (standing NO)
 
 ## Notes
 
