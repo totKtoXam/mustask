@@ -725,8 +725,11 @@ the release run as root by hand too. So the job is fenced off:
   Anything else, a pull request included, fails before its first step with
   `mustask runner guard: …`. A missing variable is also a refusal. Pushing a
   tag or dispatching a workflow needs write access to the repository, which
-  a fork does not have. The guard and the drop-in belong to root, and
-  `mustask-runner` can change neither. `deploy.yml` triggers only on `push`
+  a fork does not have. The guard and the drop-in belong to root. The
+  runner's own directory belongs to `mustask-runner`, and its `.env` there
+  could switch the hook off at the next restart. Only code that has already
+  passed the guard runs as that user, so this is no way in for a fork. Still,
+  look at that `.env` if the guard ever stops refusing. `deploy.yml` triggers only on `push`
   of `v*` tags and on `workflow_dispatch`. `scripts/tests/cd-runner-cases.sh`
   checks that in CI and that no other workflow names the runner. Those CI
   checks catch only our own mistakes; the guard is what stops a hostile PR.

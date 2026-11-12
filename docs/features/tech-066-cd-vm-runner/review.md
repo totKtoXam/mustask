@@ -228,3 +228,10 @@ registration, or say in 11.4 that the runner user can unset the hook through
 - vm.ru.md: every changed paragraph read against vm.md — same content.
 - Direction 2: changed behaviour = the job guard and the kit list. Grepped `runner-job-guard`, `job-started`, `cd-repository`, `ACTIONS_RUNNER_HOOK`, `mustask-prod` under docs/, .github/, .claude/, scripts/, deploy/, AGENTS.md files: hits only in files of this diff plus `.github/actionlint.yaml` (label list) and verify.sh:833-835 (comment now accurate, the cases include the guard). None stale.
 - Tests: 17 `job` cases cover each refusal branch; 3 `hook` cases cover `main()` and the repository file. They run under plain bash, not the runner's `-e -o pipefail`; checked by hand above.
+
+### Fix after round 2 (author)
+
+- **CR-5:** reworded 11.4 in both languages: the runner-owned `.env` could
+  switch the hook off, only code that already passed the guard runs as
+  `mustask-runner`, and where to look. Chowning `.env` to root would not
+  help: the runner user owns its directory and could replace the file.
