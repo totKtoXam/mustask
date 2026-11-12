@@ -3,7 +3,7 @@
 - type: feature
 - size: L
 - branch: feat/018-work-item-rich-text
-- stage: 05-qa-backend (D-10 re-check 3 owed) ∥ 07-qa-frontend (owed)
+- stage: 07-mr-complete (gate-3 approved; verify.sh then MR)
 - epic: core/work-items
 - deps: mod-003
 - gates: gate-1, gate-2, gate-3
@@ -12,7 +12,7 @@
 
 gate-1: approved 2026-10-13 (human, in chat: "Approve" on the amended spec + US-1..US-7, review rounds 3–4 closed; first approved 2026-10-12 on US-1..US-4)
 gate-2: approved 2026-10-13 (human, in chat: "Approve и принять ADR-0027"; syntax highlighting via lowlight decorations is IN scope — design.md D-2 flips and is amended)
-gate-3: pending
+gate-3: approved 2026-11-12 (human, in chat: "approve"; the open points are taken as the orchestrator recommended — bundle entry ceiling raised to the measured value, FD-1 read-only surface and the table-handle QA re-check as follow-ups)
 
 ## Plan
 
