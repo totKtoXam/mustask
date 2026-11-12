@@ -7,7 +7,7 @@
 
 As an **organization member**, I want **each header selector to offer the objects under what I chose above it, and with «все» everything those parents hold**, so that **the list I pick from is always the relevant one**.
 
-Cast: spec § Stories; Ann sees everything in «Ромашка». OQ-2 A and OQ-3 A assumed: under OQ-3 B the narrowed lists are followed by «Остальные» as today.
+Cast: spec § Stories; Ann sees everything in «Ромашка». Decided by the human, 2026-11-12: OQ-2 B (links inside one department), OQ-3 A («Остальные» retired), OQ-8 (no top-level project).
 
 ## Acceptance criteria
 
@@ -18,27 +18,23 @@ Scenario: An organization chosen, everything else «все» (BR-TD-8)
   And the team selector offers «все», JUPITER, MARS, VENUS
   And the project selector offers «все», A, B, C, D
 
-Scenario: A department narrows teams and projects
+Scenario: A department narrows teams and projects to what stands in it
   Given Ann's selection is «Ромашка» / «Логистика» / «все» / «все»
   Then the team selector offers «все», MARS, VENUS
-  And the project selector offers «все», A, B (standing in «Логистика») and C (linked to MARS), and not D
+  And the project selector offers «все», A, B, and not C or D
   And no group «Остальные» appears in any selector
+
+Scenario: A department's project linked to none of its teams is still offered
+  Given the project G stands in «Логистика» and no team is linked to it
+  When Ann's selection is «Ромашка» / «Логистика» / «все» / «все»
+  Then the project selector offers «все», A, B, G
+  And with MARS chosen it offers «все», A, B, and not G
 
 Scenario: A team narrows projects to its links
   Given Ann's selection is «Ромашка» / «Логистика» / MARS / «все»
-  Then the project selector offers «все», A, B, C
+  Then the project selector offers «все», A, B
   And with VENUS chosen instead it offers «все», A
-
-Scenario: A top-level project under a department's team
-  Given JUPITER stands in «Финансы» and is linked to D at the top level
-  When Ann chooses «Финансы»
-  Then the project selector offers «все», C, D
-
-Scenario: A top-level project linked to no team is offered with the organization
-  Given the project E stands at the top level of «Ромашка» and no team is linked to it
-  When Ann's selection is «Ромашка» / «все» / «все» / «все»
-  Then the project selector offers E among A, B, C, D
-  And with «Логистика» or «Финансы» chosen it does not offer E
+  And with «Финансы» / JUPITER it offers «все», C, D
 
 Scenario: The department selector is not narrowed by lower levels
   Given Ann's selection is «Ромашка» / «Логистика» / MARS / A
@@ -55,10 +51,11 @@ Scenario: Only visible objects are offered (BR-TD-12..-15)
   When she opens the team selector with «Ромашка» chosen
   Then it offers «все», VENUS (under «Мои команды»), MARS, and not JUPITER
   And the department selector offers «все», «Логистика», and not «Финансы»
+  And the project selector offers «все», A, and not B
 
 Scenario: No project node, sub-area, deactivated or deleted object is offered
-  Given A has the sub-area «Склад-1», B is deactivated and SATURN is deleted
-  Then no selector offers «Склад-1», A's node, B or SATURN
+  Given A has the sub-area «Склад-1», B is deactivated and the team PHOBOS of «Логистика» is deleted
+  Then no selector offers «Склад-1», A's node, B or PHOBOS
 
 Scenario: Empty offers (BR-TD-11)
   Given Pavel is organization «Читатель» of «Ромашка» with no grant and no team, and no project has «Видим всей организации» on
@@ -71,7 +68,7 @@ Scenario: Empty offers (BR-TD-11)
 Scenario: The lists follow the selection
   Given Ann's selection is «Ромашка» / «Логистика» / «все» / «все»
   When she opens «Проекты» and «Команды»
-  Then «Проекты» lists A, B and C and «Команды» lists MARS and VENUS
+  Then «Проекты» lists A and B and «Команды» lists MARS and VENUS
   And with a new department «Маркетинг» chosen, which holds nothing, «Проекты» reads «Здесь нет проектов, доступных вам.» and «Команды» «Здесь нет команд, доступных вам.»
 
 Scenario: Offers at volume (NFR)

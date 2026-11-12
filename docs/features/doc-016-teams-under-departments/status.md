@@ -31,6 +31,9 @@ gate-2. The task stops at gate-2: nothing is implemented here.
 - 2026-11-10 [business-analyst] stage 1 done: spec.md, US-1..US-6, ADR-0040 drafted as Proposed (indexed), OQ-1..OQ-7, decomposition of seven lines (proposals, not queued). Stage 2 next: one Opus requirements review in a clean context.
 - 2026-11-12 [orchestrator] the 2026-11-10 review run was cut off by an app restart before writing anything; rerun in a clean context.
 - 2026-11-12 [requirements-reviewer] round 1: needs-human-decision. R-1..R-16 (7 major, 9 minor) in review.md, all fixed but R-3, which became OQ-8; decomposition now nine lines. gate-1 asks OQ-1..OQ-8.
+- 2026-11-12 [orchestrator] human answers in chat: OQ-1 A, OQ-2 B (a team links only to projects of its own department), OQ-3 A, OQ-4 A, OQ-5 A, OQ-6 A, OQ-7 A (moot, see below).
+- 2026-11-12 [orchestrator] OQ-8, after two clarifications, the human: «проекты пусть будут привязаны к департаменту» → "every project stands in a department": no organization-level projects; this replaces point 3 of the request. Upgrade of today's top-level projects (asked separately, ⭐ chosen): into the department of most of its linked teams, otherwise into «Проекты без департамента»; links to teams of other departments are cut per OQ-2 B. Spec rework by the analyst, then gate-1 again.
+- 2026-11-12 [business-analyst] rework done: strict tree Organization → Department → {Teams, Projects}, BR-TD-19 upgrade (teams, projects, link cuts), OQ-1..8 ticked, new OQ-9 (moving a linked team or project), ten delivery lines. No round-2 review (economy mode); gate-1 asks OQ-9 and the approval.
 
 ## Notes
 

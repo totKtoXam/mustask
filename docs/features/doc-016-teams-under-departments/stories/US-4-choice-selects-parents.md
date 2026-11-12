@@ -20,18 +20,12 @@ Scenario: Choosing a team chooses its department and organization (BR-TD-9)
 Scenario: Choosing a project chooses its department, never a team
   Given Ann's selection is «Ромашка» / «все» / «все» / «все»
   When she chooses C
-  Then the selection reads «Ромашка» / «Финансы» / «все» / C
-  And choosing D instead reads «Ромашка» / «все» / «все» / D
-
-Scenario: A project that fits the chosen department keeps it
-  Given Ann's selection is «Ромашка» / «Логистика» / «все» / «все»
-  When she chooses C, offered because MARS of «Логистика» is linked to it
-  Then the selection reads «Ромашка» / «Логистика» / «все» / C, with no notice
+  Then the selection reads «Ромашка» / «Финансы» / «все» / C, with no notice
 
 Scenario: A project chosen under a team keeps the team and its department
   Given Ann's selection is «Ромашка» / «Логистика» / MARS / «все»
-  When she chooses C
-  Then the selection reads «Ромашка» / «Логистика» / MARS / C
+  When she chooses B
+  Then the selection reads «Ромашка» / «Логистика» / MARS / B
 
 Scenario: From organization «все», a choice opens the value's organization
   Given Olga's selection is «Все организации»
@@ -68,9 +62,9 @@ Scenario: Opening an object from a row or a link
   # An address carrying a query value that does not fit answers not found for its level (ADR-0032 § 1), it does not reset
   Then the selection reads «Ромашка» / «Логистика» / «все» / A, and she sees «Выбор сброшен: команда JUPITER.»
 
-Scenario: A change elsewhere repairs a selection that no longer fits (BR-TD-7)
-  Given Olga's selection is «Ромашка» / «Логистика» / VENUS / A
-  When Ann moves VENUS to «Финансы», and Olga's panel next reads the offers
-  Then the selection reads «Ромашка» / «Финансы» / VENUS / A if VENUS is still linked to A, the department following its team, with no notice (BR-TD-18)
-  And when Ann instead unlinks VENUS from A, the project resets and Olga sees «Выбор сброшен: проект A.»
+Scenario: A change elsewhere repairs a selection that no longer fits (BR-TD-18)
+  Given Olga's selection is «Ромашка» / «Логистика» / VENUS / «все»
+  When Ann unlinks VENUS from A and moves it to «Финансы», and Olga's panel next reads the offers
+  Then the selection reads «Ромашка» / «Финансы» / VENUS / «все», the department following its team, with no notice
+  And had Olga's selection been «Ромашка» / «Логистика» / VENUS / A, the project would reset and she would see «Выбор сброшен: проект A.»
 ```

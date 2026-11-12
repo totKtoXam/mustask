@@ -7,7 +7,7 @@
 
 As an **organization member**, I want **to see only the departments, teams and projects I take part in or my access allows, everywhere**, so that **the panel shows my work, not the whole organization, and nothing hidden leaks through a count or a name**.
 
-Cast: spec § Stories. Grants: Max holds department «Участник» on «Финансы»; Vera holds project «Читатель» on B. OQ-4 A and OQ-5 A assumed: every existing project's «Видим всей организации» is off. Under OQ-4 B the team-membership clauses do not hold; under OQ-4 C read doc-012 BR-MX-21.
+Cast: spec § Stories. Grants: Max holds department «Участник» on «Финансы»; Vera holds project «Читатель» on B. Decided by the human, 2026-11-12: OQ-4 A (grant, team membership or «Видим всей организации») and OQ-5 A (every existing project's «Видим всей организации» is off).
 
 ## Acceptance criteria
 
@@ -20,9 +20,13 @@ Scenario: Sight through a team membership (BR-TD-12..-14)
 
 Scenario: Sight through a department grant
   When Max opens «Ромашка»
-  Then he sees «Финансы», its team JUPITER (a grant on its department), its project C (reached through C's node), MARS (linked to C) and «Логистика» (holding MARS)
-  And he does not see D: seeing JUPITER does not disclose JUPITER's projects
-  And «Логистика» on his «Структура» shows MARS alone: he does not see A, B or VENUS
+  Then he sees «Финансы», its team JUPITER (a grant on its department) and its projects C and D (reached through their nodes)
+  And he does not see «Логистика», A, B, MARS or VENUS: nothing he sees is linked to them or stands in it
+
+Scenario: Seeing a team does not disclose its projects
+  Given Ann switches «Наследовать доступ» off on D's node
+  When Max opens «Ромашка»
+  Then he still sees JUPITER and C, and no longer sees D, though D is linked to JUPITER
 
 Scenario: Sight through a project grant
   When Vera opens «Ромашка»
@@ -30,8 +34,8 @@ Scenario: Sight through a project grant
 
 Scenario: «Видим всей организации»
   Given Ann turns «Видим всей организации» on for D
-  Then Olga and Vera see D at the top level of «Структура», in «Проекты» and in the project selector, and JUPITER (linked to D)
-  And they see «Финансы», which holds JUPITER, showing JUPITER alone and not C
+  Then Olga and Vera see D under «Финансы» in «Структура», in «Проекты» and in the project selector, and JUPITER (linked to D)
+  And they see «Финансы», which holds D and JUPITER, showing D and JUPITER alone and not C
   And only a holder of `organizations.visibility.write` on D (project «Менеджер», the administrator) sees the control
 
 Scenario: The administrator sees everything
