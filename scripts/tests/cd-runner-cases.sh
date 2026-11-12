@@ -58,6 +58,8 @@ refuses "not mustask-<tag>" "release/VERSION"
 refuses "an empty tag" "mustask-/VERSION"
 refuses "a tag with .." "mustask-v1..2/VERSION"
 refuses "a tag with a space" "mustask-v1 x/VERSION"
+refuses "a tag starting with a dash" "mustask--rf/VERSION"
+refuses "a trailing .. member" "mustask-v1/VERSION${nl}mustask-v1/.."
 
 # --- the smoke flags -------------------------------------------------------------
 flags() { # <name> <file content> <expected, words joined by spaces | REFUSED>
@@ -116,6 +118,38 @@ printf 'tag=v1\n' > "$sandbox/build/mustask-v1/VERSION"
 tar -C "$sandbox/build" -czf "$sandbox/two.tar.gz" mustask-v1 extra
 if deploys "$sandbox/two.tar.gz" || [ -f "$sandbox/called" ]; then bad "deploy: two top directories were accepted"; else ok "deploy: two top directories are refused"; fi
 
+# The release is a symlink, or has no installer, or its installer fails.
+rm -rf "$sandbox/build" && mkdir -p "$sandbox/build/real" && printf 'tag=v2\n' > "$sandbox/build/real/VERSION"
+if ln -s real "$sandbox/build/mustask-v2" 2>/dev/null; then
+    tar -C "$sandbox/build" -czf "$sandbox/link.tar.gz" mustask-v2
+    if deploys "$sandbox/link.tar.gz" || [ -f "$sandbox/called" ]; then bad "deploy: a symlink as the release was accepted"; else ok "deploy: a symlink as the release is refused"; fi
+fi
+rm -rf "$sandbox/build" && mkdir -p "$sandbox/build/mustask-v3" && printf 'tag=v3\n' > "$sandbox/build/mustask-v3/VERSION"
+tar -C "$sandbox/build" -czf "$sandbox/noinstall.tar.gz" mustask-v3
+if deploys "$sandbox/noinstall.tar.gz"; then bad "deploy: a release without kit/install.sh was accepted"; else ok "deploy: a release without kit/install.sh is refused"; fi
+rm -rf "$sandbox/build" && mkdir -p "$sandbox/build/mustask-v4/kit" && printf 'tag=v4\n' > "$sandbox/build/mustask-v4/VERSION"
+printf '#!/usr/bin/env bash\nexit 7\n' > "$sandbox/build/mustask-v4/kit/install.sh"
+tar -C "$sandbox/build" -czf "$sandbox/failing.tar.gz" mustask-v4
+if deploys "$sandbox/failing.tar.gz"; then bad "deploy: a failing install.sh exited 0"; else ok "deploy: a failing install.sh fails the deploy"; fi
+[ -z "$(ls -A "$sandbox/stage")" ] && ok "deploy: the stage is removed after a refusal too" || bad "deploy: the stage is left behind after a refusal"
+
+# --- smoke runs the live release's smoke.sh with the recorded flags ------------------
+mkdir -p "$sandbox/live/kit"
+# shellcheck disable=SC2016 # the stub expands its own arguments
+printf '#!/usr/bin/env bash\nprintf "%%s\\n" "$*" > "%s/smoked"\n' "$sandbox" > "$sandbox/live/kit/smoke.sh"
+cmd_smoke_in() { # <live dir> <flags file>; the wrapper's cmd_smoke pointed into the sandbox
+    bash -c '. "$1"; current=$2; smoke_args_file=$3; cmd_smoke' cd-cases "$wrapper" "$1" "$2" >/dev/null 2>&1
+}
+printf '%s\n' '--resolve-local --insecure' > "$sandbox/args"
+rm -f "$sandbox/smoked"
+if cmd_smoke_in "$sandbox/live" "$sandbox/args" && [ "$(cat "$sandbox/smoked" 2>/dev/null)" = "--resolve-local --insecure" ]; then
+    ok "smoke: runs smoke.sh with the recorded flags"
+else bad "smoke: the recorded flags did not reach smoke.sh"; fi
+printf '%s\n' '--resolve-local; id' > "$sandbox/args"
+rm -f "$sandbox/smoked"
+if cmd_smoke_in "$sandbox/live" "$sandbox/args" || [ -f "$sandbox/smoked" ]; then bad "smoke: ran with a bad flags file"; else ok "smoke: a bad flags file is refused"; fi
+if cmd_smoke_in "$sandbox/nolive" "$sandbox/args"; then bad "smoke: ran without a live release"; else ok "smoke: refused without a live release"; fi
+
 # --- the command line ---------------------------------------------------------------
 if [ "$(id -u)" != 0 ]; then
     if bash "$wrapper" deploy < /dev/null >/dev/null 2>&1; then bad "run as a user: accepted"; else ok "run as a user: refused"; fi
@@ -162,6 +196,30 @@ code "$deploy" | grep -q '^  cancel-in-progress: false$' && code "$deploy" | gre
     && ok "deploy.yml: one concurrency group, never cancelled" || bad "deploy.yml: concurrency"
 unpinned=$(code "$deploy" | grep -E 'uses: ' | grep -Ev 'uses: [^@]+@[0-9a-f]{40}$' || true)
 [ -z "$unpinned" ] && ok "deploy.yml: every action is pinned by commit" || bad "deploy.yml: unpinned: $unpinned"
+
+# The rest of the guard: nothing but the deploy job may reach the VM, whatever
+# the label is spelled like, and the deploy job's root commands are exactly the
+# sudoers rule's two.
+runs_on=$(code "$deploy" | grep -E '^[[:space:]]*runs-on:' | sed 's/^[[:space:]]*//' | tr '\n' '|')
+[ "$runs_on" = "runs-on: ubuntu-latest|runs-on: [self-hosted, linux, mustask-prod]|" ] \
+    && ok "deploy.yml: two jobs, ubuntu-latest and the VM, nothing else" || bad "deploy.yml: runs-on lines: $runs_on"
+code "$deploy" | grep -q '^    needs: build$' && ok "deploy.yml: the deploy job needs build" || bad "deploy.yml: the deploy job does not need build"
+code "$deploy" | grep -q "^    if: github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v')$" \
+    && ok "deploy.yml: a run starts only from main or a v* tag" || bad "deploy.yml: the main / v* ref guard is gone"
+code "$deploy" | grep -q '^  group: deploy-production$' \
+    && ok "deploy.yml: the concurrency group is deploy-production" || bad "deploy.yml: the concurrency group changed"
+perms=$(code "$deploy" | awk '/^permissions:/ {on=1; next} /^[^ ]/ {on=0} on' | tr -d ' \n')
+[ "$perms" = "contents:read" ] && ok "deploy.yml: workflow permissions are contents: read" || bad "deploy.yml: workflow permissions are '$perms'"
+printf '%s\n' "$deploy_job" | grep -q 'sha256sum -c' \
+    && ok "deploy.yml: the VM job checks the tarball's sha256" || bad "deploy.yml: no sha256 check on the VM"
+sudo_lines=$(code "$deploy" | grep -E '(^|[[:space:];&|])sudo[[:space:]]' | sed 's/^[[:space:]]*//; s/^run: //' | tr '\n' '|')
+# shellcheck disable=SC2016 # literal workflow text
+want='sudo -n /usr/local/sbin/mustask-cd deploy < "$RUNNER_TEMP/release/mustask-$TAG.tar.gz"|sudo -n /usr/local/sbin/mustask-cd smoke|'
+[ "$sudo_lines" = "$want" ] && ok "deploy.yml: sudo runs only mustask-cd deploy and smoke" || bad "deploy.yml: sudo lines: $sudo_lines"
+# The dispatch input reaches the shell through an env var, never inline.
+# shellcheck disable=SC2016 # literal workflow text
+inline=$(code "$deploy" | grep -F '${{ inputs.' | grep -v '^ *INPUT_TAG: ' || true)
+[ -z "$inline" ] && ok "deploy.yml: inputs.tag only goes through env" || bad "deploy.yml: inputs used inline: $inline"
 
 printf '\n'
 if [ "$failures" = 0 ]; then

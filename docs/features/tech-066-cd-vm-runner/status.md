@@ -28,3 +28,8 @@ Check: `scripts/tests/cd-runner-cases.sh`. It tests the wrapper's listing and fl
 - 2026-11-10 [orchestrator] The human confirmed the route on 2026-11-10 in the session that started this one: type tech, size S, route queue add → plan → dev → QA → review → gate-3 → PR. Gate-1 and gate-2 have no subject. Choice already made by the human: a self-hosted runner on the VM, not SSH from a hosted runner, so no SSH key lives in GitHub secrets. Queue add: PR #131.
 - 2026-11-12 [orchestrator] Take: PR #134. The human repeated that verify.sh runs only in GitHub Actions. Locally: cd-runner-cases.sh (36/36), shellcheck and actionlint (Docker images, both clean). CI's verify.sh is the gate.
 - 2026-11-12 [orchestrator] Rehearsal in a throwaway ubuntu:24.04 container (removed): runner-setup.sh with the runner marked registered, then sudo -n as mustask-runner. 33/33: the two mustask-cd commands run as root; another subcommand, an argument, bash, install.sh, -E, another user and junk are refused. Not walked: a real registration.
+- 2026-11-12 [qa] Light QA: no blocker or major, 2 minors in review.md; 17 cases added (36 to 53, mutations of deploy.yml now caught); shellcheck and actionlint clean; vm.md and vm.ru.md agree.
+
+## Decisions
+
+- E2E: not applicable (no UI change). Recorded by QA, the human was not asked.
