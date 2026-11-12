@@ -3,7 +3,7 @@
 - type: module
 - size: L
 - branch: mod/007-iterations
-- stage: 03-ux-design
+- stage: 04-backend
 - epic: core/iterations-planning
 - deps: feat-040
 - gates: gate-1, gate-2, gate-3
