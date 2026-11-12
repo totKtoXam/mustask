@@ -67,4 +67,19 @@ Scenario: A change elsewhere repairs a selection that no longer fits (BR-TD-18)
   When Ann unlinks VENUS from A and moves it to «Финансы», and Olga's panel next reads the offers
   Then the selection reads «Ромашка» / «Финансы» / VENUS / «все», the department following its team, with no notice
   And had Olga's selection been «Ромашка» / «Логистика» / VENUS / A, the project would reset and she would see «Выбор сброшен: проект A.»
+
+Scenario: The search field finds and chooses (BR-TD-21)
+  Given Ann's selection is «Ромашка» / «Логистика» / MARS / A
+  When she types «jup» in «Найти департамент, команду или проект»
+  Then the answer shows «Команды»: JUPITER with its colour mark and the grey path «Финансы»
+  And she presses ↓ and Enter, and the selection reads «Ромашка» / «Финансы» / JUPITER / «все», with «Выбор сброшен: проект A.»
+  And typing «fin» finds the project C by its key FIN, and «фин» finds the department «Финансы», each in its group
+  And typing «zzz» shows «Ничего не найдено», and Esc closes the answer
+
+Scenario: The search finds only what one sees (BR-TD-12..-15)
+  Given Olga sees, in «Ромашка», VENUS, MARS, A and «Логистика» only, and in «Другая» ORION and «Склад»
+  When she types «jup», or «c», or «Финансы»
+  Then JUPITER, the project C and «Финансы» are not found, and the answer reads «Ничего не найдено» or lists visible objects only
+  And typing «orion» shows ORION with the path «Другая / Склад», her organizations being several
+  And choosing ORION reads «Другая» / «Склад» / ORION / «все»
 ```

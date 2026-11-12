@@ -74,7 +74,8 @@ Scenario: The remembered selection meets the moved objects
 Scenario: The upgrade colours every department (BR-TD-20)
   Given «Ромашка» holds «Логистика» and «Финансы» with no colour, in that order of creation
   When the upgrade runs
-  Then «Логистика» is blue and «Финансы» orange, and the created «Команды без департамента» and «Проекты без департамента» take the next farthest colours, in that order
+  Then «Логистика» is blue and «Финансы» orange, then the teams and projects of each department take colours in order of creation as BR-TD-20 says (a team or project never the colour of its department while another hue is free), and the created «Команды без департамента» and «Проекты без департамента» take the next farthest colours, in that order
+  And the teams and projects standing in the created departments are coloured the same way
   And «Склад» of «Другая» is blue, colours being per organization
   And running the upgrade again changes no colour
 ```

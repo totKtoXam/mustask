@@ -36,7 +36,13 @@ table{width:100%;border-collapse:collapse;font-size:13px}th{text-align:left;colo
 #dlg label{display:block;margin:10px 0 2px;font-size:12px;color:var(--lab);font-weight:600}.err{color:var(--err);font-size:12px;min-height:16px}.helper{color:var(--tx2);font-size:12px}
 #dlg .act{display:flex;gap:8px;justify-content:flex-end;margin-top:16px}.chk{display:flex;gap:8px;align-items:center;min-height:32px}
 #note{position:fixed;left:16px;bottom:16px;max-width:calc(100vw - 32px);background:#242424;color:#fff;padding:10px 16px;border-radius:4px;display:none;z-index:20}
-.dot{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:6px;vertical-align:baseline;flex:none}
+#sw{position:relative;margin:0 12px 0 4px}#sq{width:280px;max-width:100%;min-height:32px;border:1px solid var(--fh);border-radius:4px;padding:4px 10px;background:#fff}#sq:focus{outline:none;border-color:var(--acc)}
+#sr{display:none;position:absolute;top:38px;left:0;width:400px;max-width:calc(100vw - 32px);background:#fff;border-radius:4px;box-shadow:var(--glow);z-index:6;max-height:420px;overflow-y:auto}#sr h6{margin:0;padding:8px 12px 2px;color:var(--lab);font-size:12px;line-height:16px;font-weight:600}
+#sr .o{display:flex;align-items:center;gap:0;padding:0 12px;min-height:36px;cursor:pointer}#sr .o:hover,#sr .o.act{background:var(--hov)}#sr .o.act{background:var(--sel)}#sr .o small{color:var(--lab);margin-left:6px}#sr .o .pth{margin-left:auto;padding-left:12px;color:var(--lab);font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}#sr .msg{padding:10px 12px;font-size:13px;color:var(--tx2)}
+@media(max-width:640px){#sw{flex:1 1 100%;margin:4px 0}#sq{width:100%}#sr{width:100%}}
+.tr td{border-left:0}.tr td:first-child{border-left:4px solid color-mix(in srgb,var(--c) 28%,#fff)}.tr.dept td{background:color-mix(in srgb,var(--c) 9%,#fff);font-weight:600}.tr.dept td:first-child{border-left-color:var(--c)}.tr.org td{background:var(--bg);color:var(--lab);font-weight:600}.tr .tg{min-width:24px;margin-right:2px;color:var(--tx2)}.tr .nm{cursor:pointer;color:var(--accd);font-weight:inherit;background:none;border:0;padding:0;min-height:0}.tr .nm:hover{text-decoration:underline}.tr mark{background:#FFF4CE}.tr td.ac{width:120px;text-align:right}.tr.dept details.mn summary{padding:1px 8px}
+.ob{background:#fff;border:1px solid var(--fh);color:var(--accd)}.ob:hover{background:var(--hov)}
+.dot.sm{width:8px;height:8px}.dot{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:6px;vertical-align:baseline;flex:none}
 .dc{background:#fff;border:1px solid var(--div);border-left:4px solid var(--c);border-radius:4px;margin-bottom:16px;overflow:hidden}.dc .hd{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:10px 16px;background:color-mix(in srgb,var(--c) 9%,#fff)}.dc .hd h2{margin:0;font-size:16px;line-height:24px;font-weight:600}.dc .bd{padding:8px 16px 14px;display:flex;gap:24px;flex-wrap:wrap}.dc .bd>div{flex:1;min-width:220px}
 .cap{font-size:12px;color:var(--lab);font-weight:600;margin:4px 0 6px}.chip{display:inline-flex;align-items:center;min-height:28px;padding:0 10px;margin:0 6px 6px 0;border:1px solid var(--div);border-radius:14px;background:#fff;font-size:13px;cursor:pointer;color:var(--tx)}.chip:hover{background:var(--hov)}.chip small{color:var(--lab);margin-left:6px}.chip.mine{border-color:var(--acc)}
 .cnt{border:1px solid var(--div);border-radius:12px;padding:0 8px;font-size:12px;line-height:20px;color:var(--tx2);background:#fff}.cnt.fb{border-color:var(--warn);color:var(--warn)}
@@ -45,7 +51,7 @@ details.mn{position:relative;display:inline-block}details.mn summary{list-style:
 @media(max-width:640px){#wrap{flex-direction:column}nav{width:100%;display:flex;overflow-x:auto}nav h5{display:none}main{padding:12px}#pop{width:calc(100% - 16px);left:8px!important}}
 </style></head><body>
 <div class="hint" id="hint"></div>
-<div id="bar"></div>
+<div id="bar"><b>▣ MUSTASK</b><div id="sw" role="search"><input type="text" id="sq" placeholder="Найти департамент, команду или проект" aria-label="Найти департамент, команду или проект" role="combobox" aria-expanded="false" aria-controls="sr" autocomplete="off"><div id="sr" role="listbox" aria-label="Результаты поиска"></div></div><div id="bs" style="display:contents"></div></div>
 <div id="wrap"><nav id="nav"></nav><main id="main"></main></div>
 <div id="dlg"><div class="box" id="box" role="dialog" aria-modal="true"></div></div><div id="note" role="status"></div>
 <script>
@@ -54,25 +60,29 @@ details.mn{position:relative;display:inline-block}details.mn summary{list-style:
 function $(s){return document.querySelector(s)}
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;')}
 function seed(){return {
- depts:[{n:'Логистика',o:'Ромашка'},{n:'Финансы',o:'Ромашка'},{n:'Маркетинг',o:'Ромашка'},{n:'Команды без департамента',o:'Ромашка',fb:1},{n:'Проекты без департамента',o:'Ромашка',fb:1},{n:'Склад',o:'Другая'}],
+ depts:[{n:'Логистика',o:'Ромашка',desc:'Склады и перевозки'},{n:'Финансы',o:'Ромашка',desc:'Бюджет и закупки'},{n:'Маркетинг',o:'Ромашка',desc:'Реклама и бренд'},{n:'Команды без департамента',o:'Ромашка',fb:1},{n:'Проекты без департамента',o:'Ромашка',fb:1},{n:'Склад',o:'Другая'}],
  teams:[{n:'MARS',d:'Логистика'},{n:'VENUS',d:'Логистика'},{n:'SATURN',d:'Логистика'},{n:'JUPITER',d:'Финансы'},{n:'PLUTO',d:'Команды без департамента'},{n:'ORION',d:'Склад'}],
  projs:[{n:'A',k:'MSK',d:'Логистика',vis:0},{n:'B',k:'BET',d:'Логистика',vis:0},{n:'G',k:'GGG',d:'Логистика',vis:0},{n:'C',k:'FIN',d:'Финансы',vis:0},{n:'D',k:'DDD',d:'Финансы',vis:0},{n:'E',k:'EEE',d:'Проекты без департамента',vis:0},{n:'Z',k:'ZZZ',d:'Склад',vis:0}],
+ areas:[{n:'Склад',p:'A',par:null},{n:'Приёмка',p:'A',par:'Склад'},{n:'Отгрузка',p:'A',par:'Склад'}],
  links:[['MARS','A'],['MARS','B'],['VENUS','A'],['JUPITER','C'],['JUPITER','D'],['ORION','Z']]}}
 var PAL=[['blue','#0078D4',206],['orange','#D8661B',24],['green','#2E8B57',146],['purple','#8E4EC6',272],['red','#D13438',359],['teal','#00A3A3',180],['amber','#B8860B',43],['pink','#D6458F',330],['indigo','#4F52B2',238],['lime','#7A9B1E',76],['magenta','#B146C2',300],['cyan','#0A8FBF',195]];
 function hd(a,b){var d=Math.abs(a-b)%360;return d>180?360-d:d}
 // BR-TD-20: deterministic; per organization, among active departments, in order of creation
-function nextColour(depts,org){var used=depts.filter(function(d){return d.o===org&&d.c!==undefined}).map(function(d){return d.c});
+function nextColour(depts,org){return pick(depts.filter(function(d){return d.o===org&&d.c!==undefined}).map(function(d){return d.c}))}
+function pick(used){
  if(!used.length)return 0;var free=[];PAL.forEach(function(p,i){if(used.indexOf(i)<0)free.push(i)});
  if(free.length){var best=-1,bd=-1;free.forEach(function(i){var m=Math.min.apply(null,used.map(function(u){return hd(PAL[i][2],PAL[u][2])}));if(m>bd){bd=m;best=i}});return best}
  var cnt=PAL.map(function(p,i){return used.filter(function(u){return u===i}).length});var mn=Math.min.apply(null,cnt);return cnt.indexOf(mn)}
-function colourAll(m){m.depts.forEach(function(d){d.c=nextColour(m.depts,d.o)})}
+function childColour(list,dn,dc){return pick(list.filter(function(x){return x.d===dn&&x.c!==undefined}).map(function(x){return x.c}).concat([dc]))}
+function colourAll(m){m.depts.forEach(function(d){d.c=nextColour(m.depts,d.o)});
+ m.depts.forEach(function(d){m.teams.forEach(function(t){if(t.d===d.n&&t.c===undefined)t.c=childColour(m.teams,d.n,d.c)});m.projs.forEach(function(p){if(p.d===d.n&&p.c===undefined)p.c=childColour(m.projs,d.n,d.c)})})}
 var M=seed();colourAll(M);
 var USERS={
  ann:{name:'Ann',role:'Администратор «Ромашки»',admin:['Ромашка'],orgs:['Ромашка'],mem:[],grants:[]},
  olga:{name:'Olga',role:'Участник; в команде VENUS и ORION',admin:[],orgs:['Ромашка','Другая'],mem:['VENUS','ORION'],grants:[]},
  max:{name:'Max',role:'Участник; «Менеджер» департамента «Логистика»',admin:[],orgs:['Ромашка'],mem:[],grants:['Логистика']},
  pavel:{name:'Pavel',role:'Читатель, без доступов и команд',admin:[],orgs:['Ромашка'],mem:[],grants:[]}};
-var S={u:'ann',sel:{org:'Ромашка',dept:null,team:null,proj:null},page:{t:'struct'},pop:null,q:'',sim:'ok',dlg:null,notice:null,banner:null,mem:{}};
+var S={col:{},vw:'list',sq:'',sopen:false,sact:0,u:'ann',sel:{org:'Ромашка',dept:null,team:null,proj:null},page:{t:'struct'},pop:null,q:'',sim:'ok',dlg:null,notice:null,banner:null,mem:{}};
 var KIND={dept:'департамент',team:'команда',proj:'проект'};
 function U(){return USERS[S.u]}
 function by(a,k,n){return a.filter(function(x){return x[k]===n})[0]}
@@ -93,6 +103,9 @@ function createOrgs(){return U().orgs.filter(function(o){return isAdmin(o)||M.de
 function createOrg(){return S.sel.org||(createOrgs().length===1?createOrgs()[0]:null)}
 function createDepts(o){return M.depts.filter(function(d){return d.o===o&&canDept(d.n)}).map(function(d){return d.n})}
 function hex(d){return PAL[D(d).c][1]}
+function dotc(i){return '<span class="dot sm" style="background:'+PAL[i][1]+'"></span>'}
+function dotT(t){return dotc(T(t).c)}
+function dotP(p){return dotc(P(p).c)}
 function dot(d){return '<span class="dot" style="background:'+hex(d)+'"></span>'}
 function srt(a){return a.slice().sort(function(x,y){return x.localeCompare(y,'ru')})}
 function toast(t){var n=$('#note');n.textContent=t;n.style.display='block';clearTimeout(toast.t);toast.t=setTimeout(function(){n.style.display='none'},4500)}
@@ -159,11 +172,11 @@ function drawHint(){var h='Прототип doc-016. Пользователь: <
  '<button data-act="scn" data-a="race">Гонка: связать MARS с C</button>';
  $('#hint').innerHTML=h}
 function triggerBtn(k){return document.querySelector('#bar [data-act="sel"][data-a="'+k+'"]')}
-function drawBar(){var cap={org:'Организация',dept:'Департамент',team:'Команда',proj:'Проект'},h='<b>▣ MUSTASK</b>';
+function drawBar(){var cap={org:'Организация',dept:'Департамент',team:'Команда',proj:'Проект'},h='';
  ['org','dept','team','proj'].forEach(function(k,i){var v=k==='org'?(S.sel.org||'Все организации'):(S.sel[k]||'все');
   if(i)h+='<span class="sep">/</span>';
-  h+='<button class="sel '+((k==='org'?S.sel.org:S.sel[k])?'on':'')+'" data-act="sel" data-a="'+k+'" aria-haspopup="listbox" aria-expanded="'+(S.pop===k)+'"><small>'+cap[k]+'</small>'+(k==='dept'&&S.sel.dept?dot(S.sel.dept):'')+esc(v)+'<span class="chev"></span></button>'});
- h+='<span style="flex:1"></span><span>'+esc(U().name)+'</span><div id="pop" role="listbox"></div>';$('#bar').innerHTML=h;if(S.pop)drawPop()}
+  h+='<button class="sel '+((k==='org'?S.sel.org:S.sel[k])?'on':'')+'" data-act="sel" data-a="'+k+'" aria-haspopup="listbox" aria-expanded="'+(S.pop===k)+'"><small>'+cap[k]+'</small>'+(k==='dept'&&S.sel.dept?dot(S.sel.dept):k==='team'&&S.sel.team?dotT(S.sel.team):k==='proj'&&S.sel.proj?dotP(S.sel.proj):'')+esc(v)+'<span class="chev"></span></button>'});
+ h+='<span style="flex:1"></span><span>'+esc(U().name)+'</span><div id="pop" role="listbox"></div>';$('#bs').innerHTML=h;if(S.pop)drawPop()}
 function opt(act,k,v,text,cls,pre){return '<div class="o '+(cls||'')+'" role="option" tabindex="0" data-act="'+act+'" data-a="'+k+'" data-b="'+esc(v)+'">'+(pre||'')+esc(text)+'</div>'}
 function drawPop(){var k=S.pop,p=$('#pop'),f=(S.q||'').toLowerCase(),h='';p.style.display='block';
  var b=triggerBtn(k),bw=$('#bar').clientWidth,pw=Math.min(300,bw-16);p.style.left=Math.max(8,Math.min(b.offsetLeft,bw-pw-8))+'px';
@@ -181,13 +194,36 @@ function drawPop(){var k=S.pop,p=$('#pop'),f=(S.q||'').toLowerCase(),h='';p.styl
  var gs=offers(k),shown=0,total=0;
  gs.forEach(function(g){total+=g.items.length;var it=g.items.filter(function(x){return x.toLowerCase().indexOf(f)>=0});if(!it.length)return;shown+=it.length;
   if(g.h)h+='<h6 class="org">'+esc(g.h)+'</h6>';
-  function rows(l){return l.map(function(x){return opt('pick',k,x,x,S.sel[k]===x?'cur':'',k==='dept'?dot(x):'')}).join('')}
+  function rows(l){return l.map(function(x){return opt('pick',k,x,x,S.sel[k]===x?'cur':'',k==='dept'?dot(x):k==='team'?dotT(x):dotP(x))}).join('')}
   if(k==='team'){var own=it.filter(isMember),oth=it.filter(function(x){return !isMember(x)});
    if(own.length)h+='<h6>Мои команды</h6>'+rows(own);if(oth.length)h+=(own.length?'<h6>Другие команды</h6>':'')+rows(oth)}
   else h+=rows(it)});
  if(!total)h+='<div class="o mut">'+{dept:'Нет доступных департаментов',team:'Нет доступных команд',proj:'Нет доступных проектов'}[k]+'</div>';
  else if(!shown)h+='<div class="o mut">Ничего не найдено</div>';
  p.innerHTML=h;var q=$('#q');if(q){q.focus();q.setSelectionRange(q.value.length,q.value.length)}}
+// BR-TD-21: one search field
+function searchRes(q){q=q.trim().toLowerCase();if(!q)return null;var multi=U().orgs.length>1,g=[{h:'Департаменты',l:[]},{h:'Команды',l:[]},{h:'Проекты',l:[]}];
+ function has(x){return x.toLowerCase().indexOf(q)>=0}
+ M.depts.forEach(function(d){if(visD(d.n)&&has(d.n))g[0].l.push({k:'dept',n:d.n,pre:dot(d.n),path:multi?d.o:''})});
+ M.teams.forEach(function(t){if(visT(t.n)&&has(t.n))g[1].l.push({k:'team',n:t.n,pre:dotT(t.n),path:(multi?tOrg(t.n)+' / ':'')+t.d})});
+ M.projs.forEach(function(p){if(visP(p.n)&&(has(p.n)||has(p.k)))g[2].l.push({k:'proj',n:p.n,sub:p.k,pre:dotP(p.n),path:(multi?pOrg(p.n)+' / ':'')+p.d})});
+ g.forEach(function(x){x.l.sort(function(a,b){return a.n.localeCompare(b.n,'ru')});x.l=x.l.slice(0,5)});return g}
+function flat(g){var r=[];g.forEach(function(x){r=r.concat(x.l)});return r}
+function drawSearch(){var box=$('#sr'),inp=$('#sq');var on=S.sopen&&S.sq.trim();inp.setAttribute('aria-expanded',on?'true':'false');if(!on){box.style.display='none';return}
+ box.style.display='block';
+ if(S.sim==='load'){box.innerHTML='<div role="status" aria-label="Загрузка">'+'<div class="sk"></div>'.repeat(3)+'</div>';return}
+ if(S.sim==='err'){box.innerHTML='<div class="msg" role="alert">Не удалось выполнить поиск. Попробуйте ещё раз.<br><button data-act="retry">Повторить</button></div>';return}
+ var g=searchRes(S.sq),all=flat(g),h='',i=0;
+ if(!all.length){box.innerHTML='<div class="msg">Ничего не найдено</div>';return}
+ if(S.sact>=all.length)S.sact=all.length-1;
+ g.forEach(function(x){if(!x.l.length)return;h+='<h6>'+x.h+'</h6>';x.l.forEach(function(r){h+='<div class="o'+(i===S.sact?' act':'')+'" id="sr-'+i+'" role="option" aria-selected="'+(i===S.sact)+'" data-act="spick" data-a="'+r.k+'" data-b="'+esc(r.n)+'">'+r.pre+esc(r.n)+(r.sub?'<small>'+esc(r.sub)+'</small>':'')+(r.path?'<span class="pth">'+esc(r.path)+'</span>':'')+'</div>';i++})});
+ box.innerHTML=h;inp.setAttribute('aria-activedescendant','sr-'+S.sact)}
+function closeSearch(clear){S.sopen=false;if(clear){S.sq='';$('#sq').value=''}drawSearch()}
+function spick(k,n){var s2=S.sel,lost=[];
+ if(k==='dept'){if(s2.team)lost.push(['team',s2.team]);if(s2.proj)lost.push(['proj',s2.proj]);s2.team=null;s2.proj=null}
+ else if(k==='team'){if(s2.proj)lost.push(['proj',s2.proj]);s2.proj=null}
+ closeSearch(true);S.pop=null;choose(k,n);
+ if(lost.length&&!S.notice){S.notice='Выбор сброшен: '+names(lost)+'.';drawMain()}}
 function drawNav(){var h='<h5>Организация</h5>';
  [['struct','Структура'],['projects','Проекты'],['teams','Команды']].forEach(function(e){h+='<a tabindex="0" class="'+(S.page.t===e[0]?'cur':'')+'" data-act="page" data-a="'+e[0]+'">'+e[1]+'</a>'});
  if(S.sel.proj)h+='<h5>Проект</h5><a tabindex="0" class="'+(S.page.t==='proj'?'cur':'')+'" data-act="openproj" data-a="'+esc(S.sel.proj)+'">'+esc(S.sel.proj)+'</a>';
@@ -199,36 +235,74 @@ function skeleton(){return '<div role="status" aria-label="Загрузка да
 function errBox(){return '<div class="alert" role="alert">Не удалось загрузить данные. <button data-act="retry">Повторить</button></div>'}
 function frame(inner){return S.sim==='load'?skeleton():S.sim==='err'?errBox():inner}
 function scopeOrgs(){return S.sel.org?[S.sel.org]:U().orgs}
-function pageStruct(){var h='<div class="bar"><h1 tabindex="-1" style="margin:0">Структура</h1>'+narrowTag()+'<span class="sp"></span>'+(createOrg()&&isAdmin(createOrg())?'<button data-act="newdept" style="background:#fff;border:1px solid var(--fh);color:var(--accd)">Создать департамент</button>':'')+'</div>';
- var fb=M.depts.filter(function(d){return d.fb&&visD(d.n)&&canDept(d.n)&&(M.teams.some(function(t){return t.d===d.n})||M.projs.some(function(p){return p.d===d.n}))});
- if(fb.length)h+='<div class="notice info" role="status"><span class="sp">После обновления созданы департаменты: '+fb.map(function(d){return '«'+esc(d.n)+'»'}).join(', ')+'. Переместите их команды и проекты в нужные департаменты.</span></div>';
+function pageList(){var h='';
  var any=false,body='';
  scopeOrgs().forEach(function(o){var ds=M.depts.filter(function(d){return d.o===o&&visD(d.n)&&(!S.sel.dept||d.n===S.sel.dept)});if(!ds.length)return;any=true;
   if(!S.sel.org)body+='<h4>'+esc(o)+'</h4>';
-  ds.forEach(function(d){var ts=M.teams.filter(function(t){return t.d===d.n&&visT(t.n)}),ps=M.projs.filter(function(p){return p.d===d.n&&visP(p.n)});
+  ds.forEach(function(d){var dm=qm(d.n,''),ts=M.teams.filter(function(t){return t.d===d.n&&visT(t.n)&&(dm||qm(t.n,''))}),ps=M.projs.filter(function(p){return p.d===d.n&&visP(p.n)&&(dm||qm(p.n,p.k))});if(sq()&&!dm&&!ts.length&&!ps.length)return;
    body+='<section class="dc" style="--c:'+hex(d.n)+'" aria-label="'+esc(d.n)+'"><div class="hd"><h2>'+esc(d.n)+'</h2>'+(d.fb?'<span class="cnt fb">создан при обновлении</span>':'')+'<span class="cnt">Команды '+ts.length+'</span><span class="cnt">Проекты '+ps.length+'</span><span style="flex:1"></span>'+
    (canDept(d.n)?'<details class="mn"><summary>＋ Создать</summary><div class="pm"><button data-act="newteam" data-a="'+esc(d.n)+'">Команду</button><button data-act="newproj" data-a="'+esc(d.n)+'">Проект</button></div></details>':'')+'</div><div class="bd"><div><div class="cap">КОМАНДЫ</div>'+
-   (ts.length?ts.map(function(t){return '<span class="chip'+(isMember(t.n)?' mine':'')+'" tabindex="0" role="link" data-act="openteam" data-a="'+esc(t.n)+'">'+esc(t.n)+(isMember(t.n)?'<small>моя</small>':'')+'</span>'}).join(''):'<span class="mut">Команд нет</span>')+'</div><div><div class="cap">ПРОЕКТЫ</div>'+
-   (ps.length?ps.map(function(p){return '<span class="chip" tabindex="0" role="link" data-act="openproj" data-a="'+esc(p.n)+'">'+esc(p.n)+'<small>'+esc(p.k)+'</small></span>'}).join(''):'<span class="mut">Проектов нет</span>')+'</div></div></section>'})});
- if(!any)body='<div class="card empty">Здесь нет департаментов, доступных вам.</div>';
- return h+frame(body)}
+   (ts.length?ts.map(function(t){return '<span class="chip'+(isMember(t.n)?' mine':'')+'" tabindex="0" role="link" data-act="openteam" data-a="'+esc(t.n)+'">'+dotT(t.n)+esc(t.n)+(isMember(t.n)?'<small>моя</small>':'')+'</span>'}).join(''):'<span class="mut">Команд нет</span>')+'</div><div><div class="cap">ПРОЕКТЫ</div>'+
+   (ps.length?ps.map(function(p){return '<span class="chip" tabindex="0" role="link" data-act="openproj" data-a="'+esc(p.n)+'">'+dotP(p.n)+esc(p.n)+'<small>'+esc(p.k)+'</small></span>'}).join(''):'<span class="mut">Проектов нет</span>')+'</div></div></section>'})});
+ if(!any)body=sq()?'<div class="card empty">Ничего не найдено<br><button data-act="clearq">Сбросить поиск</button></div>':'<div class="card empty">Здесь нет департаментов, доступных вам.</div>';
+ return frame(body)}
+function sq(){return (S.sq||'').trim().toLowerCase()}
+function qm(n,k){var q=sq();return !q||n.toLowerCase().indexOf(q)>=0||(k&&k.toLowerCase().indexOf(q)>=0)}
+function view(){try{return localStorage.getItem('doc016view:'+S.u)||'list'}catch(e){return S.vw||'list'}}
+function setView(v){S.vw=v;try{localStorage.setItem('doc016view:'+S.u,v)}catch(e){}}
+function pageStruct(){var tree=view()==='tree';var h='<div class="bar"><h1 tabindex="-1" style="margin:0">Структура</h1>'+narrowTag()+'<span class="sp"></span>'+(!S.sel.org?'':'')+
+ '<button class="ob" data-act="switchview" aria-label="Переключить вид: '+(tree?'Список':'Дерево')+'">'+(tree?'☰ Список':'⌥ Дерево')+'</button>'+
+ (createOrg()&&isAdmin(createOrg())?'<button class="ob" data-act="newdept">＋ Создать департамент</button>':'')+
+ (tree&&S.sim==='ok'?'<button class="ob" data-act="colall">'+(allCollapsed()?'Развернуть всё':'Свернуть всё')+'</button>':'')+'</div>';
+ var fb=M.depts.filter(function(d){return d.fb&&visD(d.n)&&canDept(d.n)&&(M.teams.some(function(t){return t.d===d.n})||M.projs.some(function(p){return p.d===d.n}))});
+ if(fb.length)h+='<div class="notice info" role="status"><span class="sp">После обновления созданы департаменты: '+fb.map(function(d){return '«'+esc(d.n)+'»'}).join(', ')+'. Переместите их команды и проекты в нужные департаменты.</span></div>';
+ return h+(tree?pageTree():pageList())}
+// «Дерево»: today's area tree (TreeRegistry), changed only by doc-016
+function buildNodes(){var out=[];
+ function areas(p,par,pid,lv){M.areas.filter(function(x){return x.p===p&&x.par===par}).forEach(function(x){out.push({id:'a:'+p+':'+x.n,k:'area',n:x.n,par:pid,lv:lv,dc:P(p).c,dept:P(p).d,c:null,desc:''});areas(p,x.n,'a:'+p+':'+x.n,lv+1)})}
+ scopeOrgs().forEach(function(o){var ds=M.depts.filter(function(d){return d.o===o&&visD(d.n)&&(!S.sel.dept||d.n===S.sel.dept)});if(!ds.length)return;var base=0,op=null;
+  if(!S.sel.org){out.push({id:'o:'+o,k:'org',n:o,par:null,lv:0,dc:0});op='o:'+o;base=1}
+  ds.forEach(function(d){out.push({id:'d:'+d.n,k:'dept',n:d.n,par:op,lv:base,dc:d.c,c:d.c,dept:d.n,desc:d.desc||'',fb:d.fb});
+   srt(M.projs.filter(function(p){return p.d===d.n&&visP(p.n)}).map(function(p){return p.n})).forEach(function(p){out.push({id:'p:'+p,k:'proj',n:p,key:P(p).k,par:'d:'+d.n,lv:base+1,dc:d.c,c:P(p).c,dept:d.n,desc:''});areas(p,null,'p:'+p,base+2)});
+   srt(M.teams.filter(function(t){return t.d===d.n&&visT(t.n)}).map(function(t){return t.n})).forEach(function(t){out.push({id:'t:'+t,k:'team',n:t,par:'d:'+d.n,lv:base+1,dc:d.c,c:T(t).c,dept:d.n,desc:'',own:isMember(t)})})})});
+ return out}
+function hasKids(ns,id){return ns.some(function(x){return x.par===id})}
+function allCollapsed(){var ns=buildNodes();return ns.filter(function(x){return hasKids(ns,x.id)}).every(function(x){return S.col[x.id]})}
+var TYPE_RU={org:'Организация',dept:'Департамент',proj:'Проект',area:'Область',team:'Команда'};
+function rowActs(n){var l=[];if(n.k==='dept'&&canDept(n.dept)){l.push(['newteam',n.n,'Создать команду'],['newproj',n.n,'Создать проект'],['stub',n.n,'Переименовать'],['deldept',n.n,'Удалить департамент'])}
+ else if(n.k==='team'&&canDept(n.dept))l.push(['moveteam',n.n,'Переместить']);
+ else if(n.k==='proj'){l.push(['openproj',n.n,'Открыть проект']);if(canDept(n.dept))l.push(['moveproj',n.n,'Переместить'],['stub',n.n,'Новая вложенная область'])}
+ else if(n.k==='area'&&canDept(n.dept))l.push(['stub',n.n,'Переименовать']);return l}
+function pageTree(){var ns=buildNodes(),q=sq(),keep={},byId={};ns.forEach(function(x){byId[x.id]=x});
+ if(q){ns.forEach(function(x){if(x.k!=='org'&&qm(x.n,x.key)){var c=x;while(c){keep[c.id]=1;c=c.par?byId[c.par]:null}}})}
+ var vis=ns.filter(function(x){if(q)return keep[x.id];var c=x.par?byId[x.par]:null;while(c){if(S.col[c.id])return false;c=c.par?byId[c.par]:null}return true});
+ if(!ns.length)return frame('<div class="card empty">Здесь нет департаментов, доступных вам.</div>');
+ if(!vis.length)return frame('<div class="card empty">Ничего не найдено<br><button data-act="clearq">Сбросить поиск</button></div>');
+ var rows=vis.map(function(x){var kids=hasKids(ns,x.id),open=q||!S.col[x.id],ind=(x.lv*20)+'px';
+  var nm=x.k==='org'?esc(x.n):'<button class="nm" data-act="'+(x.k==='dept'?'dept':x.k==='team'?'openteam':x.k==='proj'?'openproj':'stub')+'" data-a="'+esc(x.n)+'">'+hl(x.n,q)+'</button>';
+  var pre=x.k==='dept'?dotc(x.c).replace('dot sm','dot'):x.k==='team'?'<span aria-hidden="true">👥 </span>'+dotc(x.c):x.k==='proj'?dotc(x.c):'';
+  var chips=(x.fb?'<span class="cnt fb" style="margin-left:8px">создан при обновлении</span>':'')+(x.k==='proj'?'<span class="tag">'+esc(x.key)+'</span>':'')+(x.own?'<span class="tag">Моя команда</span>':'');
+  var acts=rowActs(x),menu=acts.length?'<details class="mn"><summary aria-label="Действия: '+esc(x.n)+'">⋮</summary><div class="pm">'+acts.map(function(a){return '<button data-act="'+a[0]+'" data-a="'+esc(a[1])+'">'+a[2]+'</button>'}).join('')+'</div></details>':'';
+  return '<tr class="tr '+x.k+'" style="--c:'+PAL[x.dc||0][1]+'" role="row"><td style="padding-left:'+(12+x.lv*20)+'px">'+(kids?'<button class="sm tg" data-act="tog" data-a="'+esc(x.id)+'" aria-expanded="'+(!!open)+'" aria-label="'+(open?'Свернуть':'Развернуть')+' '+esc(x.n)+'">'+(open?'▾':'▸')+'</button>':'<span class="tg" style="display:inline-block;width:26px"></span>')+pre+nm+chips+'</td><td>'+TYPE_RU[x.k]+'</td><td class="mut">'+esc(x.desc||'')+'</td><td class="ac">'+menu+'</td></tr>'}).join('');
+ return frame('<div class="card" style="padding:0"><table aria-label="Структура"><tr><th>Название</th><th>Тип</th><th>Описание</th><th></th></tr>'+rows+'</table></div>')}
+function hl(n,q){if(!q)return esc(n);var i=n.toLowerCase().indexOf(q);return i<0?esc(n):esc(n.slice(0,i))+'<mark>'+esc(n.slice(i,i+q.length))+'</mark>'+esc(n.slice(i+q.length))}
 function canNew(){var o=createOrg();return o&&createDepts(o).length>0}
 function pageProjects(){var s=S.sel,h='<h1 tabindex="-1">Проекты '+narrowTag()+'</h1><div class="bar"><span class="sp"></span>'+(canNew()?'<button class="p" data-act="newproj" data-a="">Новый проект</button>':'')+'</div>';
  var rows=M.projs.filter(function(p){return U().orgs.indexOf(pOrg(p.n))>=0&&(!s.org||pOrg(p.n)===s.org)&&visP(p.n)&&(!s.dept||p.d===s.dept)&&(!s.team||isLinked(s.team,p.n))&&(!s.proj||p.n===s.proj)});
- var t=rows.length?'<table><tr><th>Название</th><th>Ключ</th><th>Департамент</th>'+(s.org?'':'<th>Организация</th>')+'<th>Команды</th></tr>'+rows.map(function(p){return '<tr><td>'+lk('openproj',p.n,'',p.n)+'</td><td>'+esc(p.k)+'</td><td>'+dot(p.d)+esc(p.d)+'</td>'+(s.org?'':'<td>'+esc(pOrg(p.n))+'</td>')+'<td>'+(teamsOf(p.n).filter(visT).join(', ')||'<span class="mut">—</span>')+'</td></tr>'}).join('')+'</table>':'<div class="empty">Здесь нет проектов, доступных вам.</div>';
+ var t=rows.length?'<table><tr><th>Название</th><th>Ключ</th><th>Департамент</th>'+(s.org?'':'<th>Организация</th>')+'<th>Команды</th></tr>'+rows.map(function(p){return '<tr><td>'+dotP(p.n)+lk('openproj',p.n,'',p.n)+'</td><td>'+esc(p.k)+'</td><td>'+dot(p.d)+esc(p.d)+'</td>'+(s.org?'':'<td>'+esc(pOrg(p.n))+'</td>')+'<td>'+(teamsOf(p.n).filter(visT).join(', ')||'<span class="mut">—</span>')+'</td></tr>'}).join('')+'</table>':'<div class="empty">Здесь нет проектов, доступных вам.</div>';
  return h+frame('<div class="card">'+t+'</div>')}
 function pageTeams(){var s=S.sel,h='<h1 tabindex="-1">Команды '+narrowTag()+'</h1><div class="bar"><span class="sp"></span>'+(canNew()?'<button class="p" data-act="newteam" data-a="">Создать команду</button>':'')+'</div>';
  var rows=M.teams.filter(function(t){return U().orgs.indexOf(tOrg(t.n))>=0&&(!s.org||tOrg(t.n)===s.org)&&visT(t.n)&&(!s.dept||t.d===s.dept)&&(!s.team||t.n===s.team)&&(!s.proj||isLinked(t.n,s.proj))});
- var t=rows.length?'<table><tr><th>Название</th><th>Департамент</th>'+(s.org?'':'<th>Организация</th>')+'<th>Проекты</th></tr>'+rows.map(function(x){return '<tr><td>'+lk('openteam',x.n,'',x.n)+(isMember(x.n)?'<span class="tag">Моя команда</span>':'')+'</td><td>'+dot(x.d)+esc(x.d)+'</td>'+(s.org?'':'<td>'+esc(tOrg(x.n))+'</td>')+'<td>'+(projsOf(x.n).filter(visP).join(', ')||'<span class="mut">—</span>')+'</td></tr>'}).join('')+'</table>':'<div class="empty">Здесь нет команд, доступных вам.</div>';
+ var t=rows.length?'<table><tr><th>Название</th><th>Департамент</th>'+(s.org?'':'<th>Организация</th>')+'<th>Проекты</th></tr>'+rows.map(function(x){return '<tr><td>'+dotT(x.n)+lk('openteam',x.n,'',x.n)+(isMember(x.n)?'<span class="tag">Моя команда</span>':'')+'</td><td>'+dot(x.d)+esc(x.d)+'</td>'+(s.org?'':'<td>'+esc(tOrg(x.n))+'</td>')+'<td>'+(projsOf(x.n).filter(visP).join(', ')||'<span class="mut">—</span>')+'</td></tr>'}).join('')+'</table>':'<div class="empty">Здесь нет команд, доступных вам.</div>';
  return h+frame('<div class="card">'+t+'</div>')}
-function pageProj(n){var p=P(n);if(!p||!visP(n))return nf('Проект не найден.');var w=canDept(p.d),h='<h1 tabindex="-1">Проект: '+esc(n)+' <span class="tag">'+esc(p.k)+'</span></h1>';
+function pageProj(n){var p=P(n);if(!p||!visP(n))return nf('Проект не найден.');var w=canDept(p.d),h='<h1 tabindex="-1">'+dotP(n)+'Проект: '+esc(n)+' <span class="tag">'+esc(p.k)+'</span></h1>';
  h+='<div class="card"><h4>Расположение</h4>Департамент: '+dot(p.d)+lk('dept',p.d,'',p.d)+' '+(w?'<button data-act="moveproj" data-a="'+esc(n)+'">Переместить</button>':'')+'<div class="helper mut">Проект всегда стоит в департаменте.</div></div>';
  var ts=teamsOf(n).filter(visT);
  h+='<div class="card"><div class="bar"><h4 style="margin:0">Команды проекта</h4><span class="sp"></span>'+(w?'<button data-act="linkteams" data-a="'+esc(n)+'">Добавить команду</button>':'')+'</div>'+
   (ts.length?'<table><tr><th>Команда</th><th></th></tr>'+ts.map(function(t){return '<tr><td>'+lk('openteam',t,'',t)+'</td><td>'+(w?'<button class="sm" data-act="unlinkask" data-a="'+esc(t)+'" data-b="'+esc(n)+'">Отключить от проекта</button>':'')+'</td></tr>'}).join('')+'</table>':'<div class="empty">Команды не подключены</div>')+'</div>';
  if(w)h+='<div class="card"><h4>Видимость</h4><label class="chk"><input type="checkbox" id="vis" data-act="vis" data-a="'+esc(n)+'"'+(p.vis?' checked':'')+'> Видим всей организации</label><div class="helper">Проект и его команды увидят все участники организации.</div></div>';
  return frame(h)}
-function pageTeam(n){var t=T(n);if(!t||!visT(n))return nf('Команда не найдена.');var w=canDept(t.d),h='<h1 tabindex="-1">Команда: '+esc(n)+'</h1>';
+function pageTeam(n){var t=T(n);if(!t||!visT(n))return nf('Команда не найдена.');var w=canDept(t.d),h='<h1 tabindex="-1">'+dotT(n)+'Команда: '+esc(n)+'</h1>';
  h+='<div class="card"><h4>Расположение</h4>Департамент: '+dot(t.d)+lk('dept',t.d,'',t.d)+' '+(w?'<button data-act="moveteam" data-a="'+esc(n)+'">Переместить</button>':'')+'</div>';
  var ps=projsOf(n).filter(visP);
  h+='<div class="card"><h4>Проекты команды</h4>'+(ps.length?'<table><tr><th>Проект</th><th></th></tr>'+ps.map(function(p){return '<tr><td>'+lk('openproj',p,'',p)+'</td><td>'+(w?'<button class="sm" data-act="unlinkask" data-a="'+esc(n)+'" data-b="'+esc(p)+'">Отключить от проекта</button>':'')+'</td></tr>'}).join('')+'</table>':'<div class="empty">Команда не связана ни с одним проектом</div>')+'</div>';
@@ -239,7 +313,7 @@ function drawMain(){var p=S.page,h='';
  if(S.notice)h+='<div class="notice" role="status"><span class="sp">'+esc(S.notice)+'</span><button class="sm" data-act="closenotice" aria-label="Закрыть">✕</button></div>';
  h+=p.t==='struct'?pageStruct():p.t==='projects'?pageProjects():p.t==='teams'?pageTeams():p.t==='proj'?pageProj(p.n):p.t==='team'?pageTeam(p.n):nf(p.msg);
  $('#main').innerHTML=h}
-function draw(){drawHint();drawBar();drawNav();drawMain()}
+function draw(){drawHint();drawBar();drawNav();drawMain();drawSearch()}
 // ---------- dialogs
 function open(d){S.dlg=d;renderDlg()}
 function closeDlg(){S.dlg=null;$('#dlg').className='';$('#box').innerHTML=''}
@@ -282,7 +356,7 @@ function okCreate(team){var d=S.dlg,name=v('#f-name'),dept=v('#f-dept'),bad=fals
  if(!team&&!/^[A-Za-z0-9]{2,10}$/.test(key)){setE('#e-key','Ключ: от 2 до 10 латинских букв или цифр');bad=true}
  if(!dept){setE('#e-dept','Выберите департамент');bad=true}
  if(bad)return;
- if(team)M.teams.push({n:name,d:dept});else M.projs.push({n:name,k:key.toUpperCase(),d:dept,vis:0});
+ if(team)M.teams.push({n:name,d:dept,c:childColour(M.teams,dept,D(dept).c)});else M.projs.push({n:name,k:key.toUpperCase(),d:dept,vis:0,c:childColour(M.projs,dept,D(dept).c)});
  toast((team?'Команда «':'Проект «')+name+(team?'» создана.':'» создан.'));afterWrite()}
 function okMove(){var d=S.dlg,team=d.t==='moveteam',dest=v('#f-dest');d.dest=dest;setE('#e-dest','');
  if(!dest){setE('#e-dest','Выберите департамент');return}
@@ -294,9 +368,17 @@ function okLink(){var d=S.dlg,sel=[].slice.call(document.querySelectorAll('.lt:c
  sel.forEach(function(t){M.links.push([t,d.n])});toast(sel.length===1?'Команда «'+sel[0]+'» добавлена.':'Команды добавлены: '+sel.length+'.');afterWrite()}
 // ---------- events
 document.addEventListener('click',function(e){var el=e.target.closest('[data-act]');
+ if(S.sopen&&!(e.target.closest&&e.target.closest('#sw')))closeSearch(false);
  if(!el){if(S.pop&&!e.target.closest('#pop')){S.pop=null;drawBar()}return}
  var act=el.getAttribute('data-act'),a=el.getAttribute('data-a'),b=el.getAttribute('data-b');
- if(act==='vis')return; // handled by change
+ if(act==='vis')return;
+ if(act==='spick'){spick(a,b);return}
+ if(act==='switchview'){setView(view()==='tree'?'list':'tree');draw();return}
+ if(act==='clearq'){closeSearch(true);draw();return}
+ if(act==='tog'){S.col[a]=!S.col[a];drawMain();return}
+ if(act==='colall'){var ns=buildNodes();var all=allCollapsed();ns.forEach(function(x){if(hasKids(ns,x.id))S.col[x.id]=!all});drawMain();return}
+ if(act==='stub'){toast('Как сегодня (в прототипе не показано).');return}
+ if(act==='deldept'){var dd=a;if(M.teams.some(function(t){return t.d===dd}))S.banner='Нельзя удалить департамент, в котором есть команды';else if(M.projs.some(function(p){return p.d===dd}))S.banner='Нельзя удалить департамент, в котором есть проекты';else{M.depts=M.depts.filter(function(x){return x.n!==dd});toast('Департамент «'+dd+'» удалён.');liveRepair()}draw();return} // handled by change
  if(act==='sel'){S.pop=S.pop===a?null:a;S.q='';drawBar();e.stopPropagation();return}
  if(act==='pick'){var val=b===''?null:b;if(a==='org')choose('org',b==='*'?null:b);else choose(a,val);return}
  if(act==='retry'){S.sim='ok';draw();return}
@@ -330,11 +412,19 @@ document.addEventListener('click',function(e){var el=e.target.closest('[data-act
   draw();return}
 });
 document.addEventListener('change',function(e){var t=e.target;
- if(t.id==='usr'){S.u=t.value;S.pop=null;var r=repair(false);S.notice=r.msg;if(S.u==='pavel'||U().orgs.indexOf(S.sel.org)<0)S.page={t:'struct'};follow();draw();return}
+ if(t.id==='usr'){S.u=t.value;S.pop=null;S.sact=0;var r=repair(false);S.notice=r.msg;if(S.u==='pavel'||U().orgs.indexOf(S.sel.org)<0)S.page={t:'struct'};follow();draw();return}
  if(t.id==='sim'){S.sim=t.value;draw();return}
  if(t.id==='vis'){var n=t.getAttribute('data-a');if(t.checked){t.checked=false;open({t:'vis',n:n})}else{P(n).vis=0;toast('Проект «'+n+'» виден только участвующим.');liveRepair();draw()}}});
-document.addEventListener('input',function(e){if(e.target.id==='q'){S.q=e.target.value;drawPop()}});
+document.addEventListener('input',function(e){if(e.target.id==='sq'){S.sq=e.target.value;S.sact=0;S.sopen=true;S.pop=null;drawBar();drawSearch();if(S.page.t==='struct'||S.page.t==='projects'||S.page.t==='teams')drawMain();return}
+ if(e.target.id==='q'){S.q=e.target.value;drawPop()}});
+document.addEventListener('focusin',function(e){if(e.target.id==='sq'&&S.sq.trim()){S.sopen=true;drawSearch()}});
 document.addEventListener('keydown',function(e){
+ if(e.target.id==='sq'){var all=S.sopen&&S.sq.trim()&&S.sim==='ok'?flat(searchRes(S.sq)):[];
+  if(e.key==='ArrowDown'||e.key==='ArrowUp'){if(e.preventDefault)e.preventDefault();if(!S.sopen){S.sopen=true}else if(all.length)S.sact=(S.sact+(e.key==='ArrowDown'?1:all.length-1))%all.length;drawSearch();return}
+  if(e.key==='Enter'){if(all.length){if(e.preventDefault)e.preventDefault();var r=all[S.sact]||all[0];spick(r.k,r.n)}return}
+  if(e.key==='Escape'){if(S.sopen)closeSearch(false);else closeSearch(true);return}
+  return}
+
  if(e.key==='Escape'){if(S.dlg){closeDlg();draw()}else if(S.pop){var k=S.pop;S.pop=null;drawBar();var b=triggerBtn(k);if(b)b.focus()}}
  if(e.key==='Enter'&&e.target.classList&&e.target.classList.contains('o'))e.target.click();
  if(e.key==='Enter'&&e.target.tagName==='A')e.target.click()});

@@ -92,4 +92,12 @@ Scenario: Three departments get three distinct, maximally spread colours
   And a department of «Другая» starts again from blue: colours are per organization
   And when «Финансы» is deleted, the next department created takes the colour it freed if that is still the farthest
   And once all 12 colours are in use, a new department takes the colour used by fewest active departments, ties by palette order
+
+Scenario: Teams and projects get colours inside their department, never the department's own (BR-TD-20)
+  Given «Логистика» is blue and holds no team and no project
+  When Ann creates the teams MARS, VENUS and SATURN, and the projects A, B and G, in that order
+  Then MARS is orange, VENUS magenta and SATURN green, and A, B and G the same, the kinds being scoped apart
+  And none of them is blue, «Логистика»'s colour, while another hue is free
+  And moving SATURN to «Финансы» leaves it green, and a team created later in «Логистика» may take the colour SATURN freed if it is still the farthest
+  And a deleted team frees its colour
 ```
