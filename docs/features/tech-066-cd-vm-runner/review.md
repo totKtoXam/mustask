@@ -165,3 +165,66 @@ both to the row in both files.
 Checked locally: cd-runner-cases.sh (73 cases), shellcheck and actionlint
 (Docker), and the container rehearsal, 53/53 (guard and drop-in with
 `systemctl` and `svc.sh` stubbed). verify.sh runs in CI only.
+
+## Review Round 2 (delta)
+
+Stage 8 delta, clean session, commit 5a629ab6 (diff `2423a8d5..5a629ab6`).
+Verdict: **approved** (CR-1..CR-4 resolved; 1 new minor, a debt).
+`sh scripts/tests/cd-runner-cases.sh`: all passed. The guard also run by hand
+under the runner's own shell line (`bash --noprofile --norc -e -o pipefail`):
+tag push 0, `refs/heads/mainx` 1, pull_request 1, no variables 1.
+
+Runner behaviour **confirmed in actions/runner source** (`gh api`, 2026-11-12):
+`JobExtension.cs:301-315` reads `ACTIONS_RUNNER_HOOK_JOB_STARTED` from the
+worker's process env and adds the hook *before* container setup steps; only
+`PrepareActionsAsync` (downloads, no execution) precedes it. `JobHookProvider`
+runs it through `ScriptHandler` with `bash` for `.sh` (`HostContext.cs:812`),
+and `ScriptHandler.cs:291-299` sets `GITHUB_*` from the github context
+allowlist (`GitHubContext.cs`: `event_name`, `repository`, `workflow_ref`)
+*after* any other env, so a workflow's `env:` cannot spoof them. Step name
+"Set up runner" (`Constants.cs:245`) matches the troubleshooting row.
+`RunnerService.js:50-58` passes the service env to the listener.
+**Inferred, not confirmed:** GitHub fills `workflow_ref` as
+`<repo>/<path>@<ref>` for push/dispatch and `refs/pull/N/merge` for PRs.
+
+Guard logic: pull_request, pull_request_target, workflow_run, schedule,
+merge_group all fail the event check; the path compare is exact (a
+`deploy.yml` in another directory or repository fails); `main` is matched
+exactly; a fork cannot push tags or dispatch. CR-1 is closed for its threat.
+
+**CR-5 — minor — `docs/deploy/vm.md:728-729` (vm.ru.md:730-731),
+`deploy/vm/runner-setup.sh:152`.** `Runner.Listener/Program.cs:176-194` loads
+`$dir/.env` with `Environment.SetEnvironmentVariable` on start, after systemd's
+env, and `runsvc.sh:7-9` exports `PATH` from `$dir/.path`; both files are owned
+by `mustask-runner`. A line `ACTIONS_RUNNER_HOOK_JOB_STARTED=` in `.env`
+unsets the hook at the next restart, without touching the root-owned drop-in.
+Not reachable by a fork today (only a job that already passed the guard runs
+as that user), so the guard holds; but "mustask-runner can change neither"
+reads as "cannot disable the guard", which is not so. Fix: `chown root:root
+$dir/.env $dir/.path` (mode 0644, the runner only reads them) after
+registration, or say in 11.4 that the runner user can unset the hook through
+`.env` and the guard assumes no foreign code ever ran as it.
+
+- CR-1: resolved (above; runbook 11.1 item 1, item 5, 11.4 rewritten in both).
+- CR-2: resolved, runner-setup.sh:185-208 installs the service when `.service`
+  is missing and restarts on a changed drop-in or a stopped unit.
+- CR-3: resolved, vm.md:702-706 / vm.ru.md 11.3.
+- CR-4: resolved, vm.md:284 / vm.ru.md:283 (and build-release.sh:135 ships the guard).
+- QA M1: comment at mustask-cd.sh:102-104.
+
+### Claims checked (item 6, delta)
+
+- 11.1 item 1 "guard fails any such job before its first step": JobExtension.cs:304-315 + guard — holds.
+- 11.1 item 5 "the guard does what a group would": guard repo/workflow/ref checks — holds.
+- 11.2 paths, owners, modes of guard, repository file, drop-in: runner-setup.sh:120-127, 197-203 — hold.
+- 11.2 "restarts the service when the drop-in is new or changed": runner-setup.sh:200-206 — holds (also when the unit is down).
+- 11.2 re-run "keeps the registration, installs the service if missing": runner-setup.sh:146-192 — holds.
+- 11.3 "a third run replaces a waiting second": GitHub concurrency semantics — holds.
+- 11.4 three conditions, "missing variable is a refusal": runner-job-guard.sh:26-57 — holds.
+- 11.4 "mustask-runner can change neither": CR-5.
+- Troubleshooting row "fails in Set up runner": Constants.cs:245 + guard:61 — holds.
+- Uninstall block removes guard, repository file, drop-in: matches runner-setup.sh paths — holds.
+- "Does not verify" bullet: matches the Log's rehearsal line — holds.
+- vm.ru.md: every changed paragraph read against vm.md — same content.
+- Direction 2: changed behaviour = the job guard and the kit list. Grepped `runner-job-guard`, `job-started`, `cd-repository`, `ACTIONS_RUNNER_HOOK`, `mustask-prod` under docs/, .github/, .claude/, scripts/, deploy/, AGENTS.md files: hits only in files of this diff plus `.github/actionlint.yaml` (label list) and verify.sh:833-835 (comment now accurate, the cases include the guard). None stale.
+- Tests: 17 `job` cases cover each refusal branch; 3 `hook` cases cover `main()` and the repository file. They run under plain bash, not the runner's `-e -o pipefail`; checked by hand above.

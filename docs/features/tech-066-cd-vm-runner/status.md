@@ -31,6 +31,7 @@ Check: `scripts/tests/cd-runner-cases.sh`. It tests the wrapper's listing and fl
 - 2026-11-12 [qa] Light QA: no blocker or major, 2 minors in review.md; 17 cases added (36 to 53, mutations of deploy.yml now caught); shellcheck and actionlint clean; vm.md and vm.ru.md agree.
 - 2026-11-12 [review] Round 1 on 005e201e: changes requested. Open: 1 blocker (CR-1: an approved fork PR can target the VM runner and get root via mustask-cd deploy; runbook says it cannot), 3 minors. Findings in review.md.
 - 2026-11-12 [orchestrator] Round 1 fixed (see review.md, "Fixes after round 1"): CR-1 by a job-started hook on the VM (runner-job-guard.sh + a root-owned systemd drop-in), CR-2 to CR-4 and QA M1. Locally: cd-runner-cases.sh 73 cases, shellcheck, actionlint, rehearsal 53/53. Next: a delta review.
+- 2026-11-12 [review] Round 2 (delta) on 5a629ab6: approved. CR-1 to CR-4 resolved; open: 1 minor (CR-5: runner-owned .env can unset the hook; runbook overstates). Findings in review.md.
 
 ## Decisions
 
