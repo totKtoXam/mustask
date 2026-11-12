@@ -3,14 +3,14 @@
 - type: feature
 - size: S
 - branch: feat/060-aggregate-board-colours-create
-- stage: 06-code-review
+- stage: complete
 - epic: core/backlogs-boards
 - deps: feat-048,feat-037
 - gates: gate-3
 
 ## Gates
 
-gate-3: pending
+gate-3: approved · 2026-11-13 (fix m1, m2, m4, m5 before the PR; m3 debt)
 
 ## Plan
 
@@ -31,6 +31,10 @@ gate-3: pending
 - 2026-11-12 [frontend] aggregate board: shared stripes (boardStripes.ts, team board output unchanged), column dot, create command (header label NEW_WORK_ITEM_LABEL as on the team views) + CreatePlace 'scope'; project list from the shell's selector-offers (department board: its projects) ∩ projects with workitems.workitem.write; no new API; commit a6b36501. Vitest: AggregateViews* 42 passed; team/project create and board suites 675 passed, 1 skipped; tsc + eslint clean. verify.sh not run (economy mode, CI).
 - 2026-11-13 [qa] light QA at 27544300: plan items 1-4 covered except the project-filter preselect (unreachable at org/department level — dead branch, minor) and no assertion that aggregate «Рабочие элементы» has no create command (minor); boards suite 70 files / 869 passed, CreateWorkItemDialog 23 passed; no tests added; 0 blocker, 0 major, 2 minor. Stage → 06-code-review.
 - 2026-11-13 [code-review] round 1 (Opus) at c2bdc4e9: approve, 0 blocker, 0 major, 5 minor (m1 dead preselect + doc claim, m2 contextGone ignored, m3 board remount on create, m4 test precision, m5 feat-048 spec.md:95 stale) — review.md, commit ce964c29. Gate-3 requested.
+- 2026-11-13 [orchestrator] gate-3 answer from the human: «⭐ Починить m1,m2,m4,m5 → PR» — fix m1, m2, m4, m5 before the PR without another review round (the human sees the diff in the PR); m3 (board remount on create) accepted as debt. Header label: «⭐ «Новый рабочий элемент»» — stays NEW_WORK_ITEM_LABEL, as on the team views.
+
+- 2026-11-13 [frontend] review fixes m1, m2, m4, m5, commit 4a3da935: m1 preselect removed (no project is preselected at organization/department level — no project filter exists there), dead filterProjectIds dropped from the scope place; m2 contextGone re-reads the headers; m3 comment states the remount (accepted debt); m4 exact type colour, write-on-one-project case, «Рабочие элементы» no-create case; m5 feat-048 spec.md:95 clause. Vitest 6 files / 69 passed; tsc + eslint clean.
+- 2026-11-13 [orchestrator] stage complete; push and PR next.
 
 ## Notes
 
