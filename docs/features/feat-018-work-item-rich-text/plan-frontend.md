@@ -1121,6 +1121,34 @@ pause them), as is E2E (the human's standing answer is no).
 | link mark | `@tiptap/extension-link` kept (the in-house link mark, about 20 KB gzipped, is not adopted) | the coordinator's decision |
 | § 11.2 `DESCRIPTION_MAX_LENGTH` | gone; `descriptionError` takes the canonical html | BR-RT-7 |
 
+### 15.1a Table handles (design change of 2026-11-12, US-6, BR-RT-17)
+
+The human asked for the table operations to live on the table. Built as an overlay beside the editor
+(`shared/ui/RichTextEditor/table/`: `handles.ts` the pure part, `TableHandles.tsx` the view, mounted by
+`EditorImpl` in a `position: relative` box next to the content). It is not a document node, so the
+canonical html, the copy and the paste are untouched.
+
+- **What shows.** Only while the editor is focused, editable, and the caret is in a table cell (not a
+  multi-cell selection): row «+» on the table's left edge at the active row's top and bottom boundaries,
+  row «−» at the right edge on the active row, column «+» on the top edge at the active column's left and
+  right boundaries, column «−» at the top on the active column. Rules are the «…» menu's: no «above» in the
+  header row (it would put a row over the header; the menu disables it too), no «−» when one row or one
+  column remains (use «Удалить таблицу»). A toolbar menu or the link dialog takes the focus, which hides them.
+- **Position.** From the rects of the active cell, its table and its `.rt-table-scroll` wrapper, relative to
+  the overlay; recomputed on transaction, focus, blur, scroll (captured on the box), window resize and a
+  `ResizeObserver` on the body. A handle outside the visible part of a scrolled table or body is not drawn.
+  In the first cell the row «+ above» steps 12 px out of the border so it does not sit on the column «+».
+- **Commands.** The tiptap ones the menu runs; after a delete the caret goes to the neighbour that took the
+  cell's place (the next row or column, the previous one at the last). `mousedown` is prevented, so the
+  editor keeps focus.
+- **Size.** A 16 px visible dot in a 20 px hit target, `theme` colours (`inputBorder`, `paper`, `primary`;
+  «−» turns `error`), the theme's `focusVisible` ring. Names and tooltips: `copy.tableHandles`.
+- **Kept.** The toolbar «…» menu with all eight items is the keyboard and screen-reader path; the handles are
+  out of the tab order. Tab, Shift+Tab and Esc then Tab are unchanged.
+- Tests: `tableHandles.test.tsx` (visibility for header/first/middle/last and one-row/one-column tables,
+  commands and the documents, caret, canonical html, disabled/blur). Looked at in Chromium on the
+  standalone preview page (first/middle/last cells, after scroll, 380 px).
+
 ### 15.2 The bundle, measured on the real build (`npm run build` wiring, gzipped)
 
 | | bytes | against the proposed ceiling |

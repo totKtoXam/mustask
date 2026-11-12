@@ -205,6 +205,25 @@ inset frame (colour is not the only cue: the frame is a shape). Insert is 3 × 3
 with a header row, caret in the first cell. Cells hold paragraphs only; no
 table in a table, list item or cell, so «Таблица» is disabled there.
 
+**Handles on the table (design change, 2026-11-12).** While the caret is in a
+cell, the operations sit on the table itself, anchored to the active row and
+column: a «+» on the left edge at the boundary above and at the boundary below
+the active row, a «−» on the right edge at the active row, a «+» on the top edge
+left and right of the active column, a «−» at the top of the active column.
+Round 16 px dots (20 px hit target) on `paper` with an `inputBorder` ring; hover
+fills «+» with `primary` and «−» with `error`. Tooltip and accessible name per
+handle: «Добавить строку выше», «Добавить строку ниже», «Добавить столбец слева»,
+«Добавить столбец справа», «Удалить строку», «Удалить столбец». Rules as the
+menu's: no «above» in the header row; no «−» when one row or one column is left
+(«Удалить таблицу» in the menu). After an add the caret stays in its cell; after
+a delete it goes to the neighbour cell. They show only with the editor focused
+and editable (so not while saving, nor while a menu or the prompt has the
+focus), follow scroll and resize, and are not document nodes: the saved html,
+the copy and the paste do not carry them. **Accessibility:** the handles are
+pointer affordances, out of the tab order; the toolbar's «…» menu keeps all
+eight items as the keyboard and screen-reader path, and Tab, Shift+Tab and Esc
+then Tab are unchanged.
+
 ### Links (BR-RT-18)
 
 A link is underlined in `primary.dark`; a plain click places the caret (no
