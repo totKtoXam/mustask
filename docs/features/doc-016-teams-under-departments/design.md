@@ -57,7 +57,7 @@ One sight-scoped search serves the panel's field and the palette. Rows: groups �
 | No results | «Ничего не найдено» |
 | Loading / error | `FieldsSkeleton` rows / «Не удалось выполнить поиск. Попробуйте ещё раз.» with «Повторить» |
 
-«Структура» has no search filter of its own: typed text is gone once a result is chosen, so a filter following it would be awkward; the selection narrows the page as before.
+«Структура» has its own filter field (§ 7.2): it filters the page and never navigates, unlike the panel and the palette.
 
 ### 3.2 What each selector offers (BR-TD-8; sight BR-TD-12..-15)
 
@@ -123,7 +123,7 @@ The address of a hidden project, team or department answers the not-found frame 
 | «Название» | `InlineTextField` | yes | not empty; unique in the organization (feat-028 BR-OL-3) | «Введите название» ◆; «Команда с таким названием уже есть в организации» ◆ |
 | «Департамент» | `InlinePickerField` (single, search) | yes | one of the offered; the server answers 400 too | «Выберите департамент» |
 
-Helper under «Департамент»: «Команда принадлежит одному департаменту.» ◆. The picker offers the organization's departments the user may create in (administrator: all; «Менеджер»: only those he manages; if one, it is pre-set), never «Верхний уровень», a project node or a sub-area. Submit «Создать»; done: «Команда «NEPTUNE» создана.» and its page opens (feat-043 § 5.3). Opened from a department's «Команды» or «Структура» the department is pre-set. Server: `Недостаточно прав` shows as `ErrorBanner` in the dialog; «Область не найдена.» (department deleted meanwhile) shows under the field.
+Helper under «Департамент»: «Команда принадлежит одному департаменту.» ◆. The picker offers the organization's departments the user may create in (administrator: all; «Менеджер»: only those he manages; if one, it is pre-set). Submit «Создать»; done: «Команда «NEPTUNE» создана.» and its page opens (feat-043 § 5.3). Opened from a department's «Команды» or «Структура» the department is pre-set. Server: `Недостаточно прав` as `ErrorBanner`; «Область не найдена.» (department deleted meanwhile) under the field.
 
 ### 4.2 Team page and move
 
@@ -131,9 +131,9 @@ Team «Обзор»: the line «Департамент: Логистика» (a 
 
 «Перемещение команды «SATURN»» (`FormDialog`): `InlinePickerField` «Новый департамент» (required, «Выберите департамент»); offers the organization's other departments (administrator: all; «Менеджер»: those he manages, and only when he manages the team's own department too). Helper: «Участники, доступы и спринты остаются на месте.» ◆ Submit «Переместить»; done: «Команда «SATURN» перемещена в «Финансы».» ◆. No other department to offer: text «Нет другого департамента, в который вы можете переместить команду.» ◆ and «Отмена» only.
 
-**Refusal (BR-TD-4, OQ-9 A):** the dialog stays open with an inline `Alert` under the field: «Команда связана с проектами. Отключите её от них перед перемещением.» and, below, «Проекты: A [Отключить], B [Отключить]» (the team's linked projects; the actor sees all of them, being administrator or manager of the department). «Отключить» opens `ConfirmDialog` «Отключить команду «VENUS» от проекта «A»?» with «Рабочие элементы команды в проекте станут «Без команды».» — in the product it is feat-028's unlink dialog with its choice of destination; the prototype shows the default. After it the move dialog returns with the chosen department kept and the project gone from the list; with none left, «Переместить» succeeds. A team moved to the department it stands in is not offered (the server accepts it as a no-op).
+**Refusal (BR-TD-4, OQ-9 A):** the dialog stays open with an inline `Alert` under the field: «Команда связана с проектами. Отключите её от них перед перемещением.» and, below, «Проекты: A [Отключить], B [Отключить]». «Отключить» opens `ConfirmDialog` «Отключить команду «VENUS» от проекта «A»?» with «Рабочие элементы команды в проекте станут «Без команды».» — in the product it is feat-028's unlink dialog with its choice of destination; the prototype shows the default. After it the move dialog returns with the chosen department kept and the project gone from the list; with none left, «Переместить» succeeds. A team moved to the department it stands in is not offered (the server accepts it as a no-op).
 
-States: loading — `FieldsSkeleton` in the dialog while offers load; error — `ErrorBanner` «Повторить»; permissions — a reader or organization «Участник» without a grant sees no «Создать команду», no «Переместить» (403 «Недостаточно прав» if reached by address).
+States: loading — `FieldsSkeleton` while offers load; error — `ErrorBanner` «Повторить»; permissions — a reader or «Участник» without a grant sees no «Создать команду», no «Переместить» (403 «Недостаточно прав» by address).
 
 ## 5. Projects (US-5)
 
@@ -164,10 +164,9 @@ Project «Параметры», `Section` «Видимость»: MUI `Switch` l
 | Project selector | A, B, G, C, D, E | A | A, B, G | «Нет доступных проектов» |
 | «Структура» | every department with its teams and projects | «Логистика»: VENUS, MARS, A only | «Логистика» in full | «Здесь нет департаментов, доступных вам.» |
 | «Проекты» / «Команды» | all | A / VENUS, MARS | A, B, G / MARS, VENUS, SATURN | «Здесь нет проектов, доступных вам.» / «Здесь нет команд, доступных вам.» |
-| Commands | all | none | create and move in «Логистика»; links of its teams | none |
 | «Видим всей организации» switch | yes | absent | yes, on «Логистика» projects | absent |
 
-Seeing a team shows none of its other projects; seeing a department shows only its visible children. «Видим всей организации» on D makes D, JUPITER and «Финансы» (showing D and JUPITER only) appear for everyone on their next request. With organization «все» lists carry an «Организация» column; counts are computed after the sight filter, so a hidden object changes none.
+«Видим всей организации» on D makes D, JUPITER and «Финансы» (showing D and JUPITER only) appear for everyone on their next request. Counts are computed after the sight filter, so a hidden object changes none.
 
 ## 7. Department colour and the calmer «Структура» (BR-TD-20; gate-2 feedback)
 
@@ -179,23 +178,23 @@ Where it shows, always beside the name (colour is never the only signal): **depa
 
 ### 7.2 «Структура»: two views
 
-A page-title row holds, right to left: «＋ Создать департамент» (outlined, administrator), **one outlined `Button` with an icon that names the view it switches to** — «Дерево» while the list shows, «Список» while the tree shows (no `Tabs`, no `ToggleButtonGroup`) —. The default is «Список»; the real panel keeps the last choice per user (a user preference, restored on the next visit; the prototype uses `localStorage` and survives a reload). The upgrade `InlineNotice` (§ 8) sits above both views. Neither view has a text filter (§ 3.1).
+A page-title row holds, right to left: «＋ Создать департамент» (outlined, administrator), **one outlined `Button` with an icon that names the view it switches to** — «Дерево» while the list shows, «Список» while the tree shows —. The default is «Список»; the real panel keeps the last choice per user (per user, restored next visit; the prototype uses `localStorage`). Under the title row, a toolbar row: `TextField size="small"` about 360 px, left-aligned, start icon `SearchOutlined`, placeholder «Найти департамент, команду или проект», a clear (×) `IconButton` once it holds text. Then the upgrade `InlineNotice` (§ 8). The field filters whichever view is open, by name and a project's key (BR-TD-21 rules), sight-scoped. «Список»: cards and chips without a match are hidden; a department card stays while a child matches (a matching department keeps all its children). «Дерево»: matching rows with their ancestors expanded, the matched text highlighted. Esc or × clears it; nothing found: «Ничего не найдено» (`InlineEmpty`). Not remembered; it clears on leaving the page.
 
-**«Список» (cards).** One `Card` per department, white, hairline border, no shadow, 4 px left stripe in the department colour and a 9 % header tint; the name is the card's `h2`; small outlined `Chip`s «Команды 3», «Проекты 2» and, on the two upgrade departments, «создан при обновлении» (amber). Body: columns «КОМАНДЫ» / «ПРОЕКТЫ», each object an outlined `Chip` with its dot that opens it (team chip «моя» for the user's own; project chip with its key); empty column «Команд нет» / «Проектов нет»; stacked under 640 px. One outlined `Button` «＋ Создать» per card opens a `Menu`: «Команду», «Проект» (department pre-set). With organization «все» each organization is an `h4` heading.
+**«Список» (cards).** One `Card` per department, hairline border, no shadow, 4 px left stripe in the department colour and a 9 % header tint; the name is the card's `h2`; small outlined `Chip`s «Команды 3», «Проекты 2» and, on the two upgrade departments, «создан при обновлении» (amber). Body: columns «КОМАНДЫ» / «ПРОЕКТЫ», each object an outlined `Chip` with its dot that opens it (team chip «моя» for the user's own; project chip with its key); empty column «Команд нет» / «Проектов нет». One outlined `Button` «＋ Создать» per card opens a `Menu`: «Команду», «Проект» (department pre-set). With organization «все» each organization is an `h4` heading.
 
-**«Дерево» (today's area tree, `shared/ui/TreeRegistry`, changed only by doc-016).** Columns «Название», «Тип», «Описание»; toggle chevrons; row menu «Действия: …». In the header cell of the last (actions) column, right-aligned, a small text-less `IconButton` with `Tooltip` and `aria-label`: «−» «Свернуть всё» while anything is expanded, «+» «Развернуть всё» when all is collapsed. Every row type has its icon before the colour dot, the same icons in search results and in the panel columns: department `ApartmentOutlined`, project `FolderOutlined`, sub-area `PlaceOutlined`, team `GroupsOutlined`. Rows: the department (type «Департамент», 4 px stripe and tint in its colour, a colour dot, the «создан при обновлении» chip on the two upgrade departments); under it its projects (dot, key tag; below each its sub-areas as today) and its **teams** (type «Команда», team icon, dot, «Моя команда» tag) — a team is a row of its department, never of a project. No «Верхний уровень» rows, no department–team link rows. With organization «все» the organization is a plain heading row. Row menus by right and sight (`area.write` on the department): department — «Создать команду», «Создать проект», «Переименовать», «Удалить департамент» (refused with the BR-TD-5 texts: «Нельзя удалить департамент, в котором есть команды»; with a project «Нельзя удалить департамент, в котором есть проекты» ◆); team — «Переместить» (§ 4.2 refusal); project — «Открыть проект», «Переместить» (§ 5.2), «Новая вложенная область»; sub-area — «Переименовать». No menu for readers.
+**«Дерево» (today's area tree, `shared/ui/TreeRegistry`, changed only by doc-016).** Columns «Название», «Тип», «Описание»; toggle chevrons; row menu «Действия: …». In the header cell of the last (actions) column, flush right so its edge lines up with the row ⋮ buttons, a small text-less `IconButton` with `Tooltip` and `aria-label`: «−» «Свернуть всё» while anything is expanded, «+» «Развернуть всё» when all is collapsed. Every row type has its icon before the colour dot, the same icons in search results and in the panel columns: department `ApartmentOutlined`, project `FolderOutlined`, sub-area `PlaceOutlined`, team `GroupsOutlined`. Rows: the department (type «Департамент», 4 px stripe and tint in its colour, a colour dot, the «создан при обновлении» chip on the two upgrade departments); under it its projects (dot, key tag; below each its sub-areas as today) and its **teams** (type «Команда», team icon, dot, «Моя команда» tag) — a team is a row of its department, never of a project. No «Верхний уровень» rows, no department–team link rows. With organization «все» the organization is a plain heading row. Row menus by right and sight (`area.write` on the department): department — «Создать команду», «Создать проект», «Переименовать», «Удалить департамент» (refused with the BR-TD-5 texts: «Нельзя удалить департамент, в котором есть команды»; with a project «Нельзя удалить департамент, в котором есть проекты» ◆); team — «Переместить» (§ 4.2 refusal); project — «Открыть проект», «Переместить» (§ 5.2), «Новая вложенная область»; sub-area — «Переименовать». No menu for readers.
 
 **States (both):** loading — two `Skeleton` blocks; empty — «Здесь нет департаментов, доступных вам.»; error — `ErrorBanner` «Повторить»; the content is sight-scoped (§ 6.2), so Olga's tree holds «Логистика» with A (and its sub-areas), VENUS and MARS only.
 
 ## 8. The upgrade's visible outcome (US-2)
 
-Three things are visible; none keeps a flag in the data:
+Three visible things; none keeps a flag in the data:
 
 1. The departments «Команды без департамента» and «Проекты без департамента» are ordinary departments in every list and selector (with the «создан при обновлении» chip, § 7.2) and an automatic colour.
-2. Administrators (and a «Менеджер» of that department) see on «Структура» an `InlineNotice` while either department still holds a team or a project: «После обновления созданы департаменты: «Команды без департамента», «Проекты без департамента». Переместите их команды и проекты в нужные департаменты.» ◆ It disappears by itself when both are empty; others never see it.
+2. Administrators (and a «Менеджер» of that department) see on «Структура» an `InlineNotice` while either department still holds a team or a project: «После обновления созданы департаменты: «Команды без департамента», «Проекты без департамента». Переместите их команды и проекты в нужные департаменты.» ◆ It goes when both are empty; others never see it.
 3. A remembered selection moved by the upgrade is repaired with the § 3.5 notice «Ранее выбранный контекст недоступен. Выбрано: …».
 
-The cut links, the made-«Без команды» items and the log are in the MR only (BR-TD-19).
+The cut links and the log are in the MR only (BR-TD-19).
 
 ## 9. Narrow widths and accessibility
 

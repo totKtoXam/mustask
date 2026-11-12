@@ -52,7 +52,8 @@ table{width:100%;border-collapse:collapse;font-size:13px}th{text-align:left;colo
 #pal{display:none;position:fixed;inset:0;background:#0006;z-index:12;align-items:flex-start;justify-content:center;padding-top:14vh}#pal.open{display:flex}.pbox{background:#fff;border-radius:6px;box-shadow:var(--glow);width:480px;max-width:94vw;padding:10px 0 0}.pbox>input{margin:0 12px 6px;width:calc(100% - 24px)}#pbody{max-height:300px;overflow-y:auto}.pft{border-top:1px solid var(--rule);padding:6px 12px;font-size:12px;color:var(--lab)}
 @media(max-width:640px){.cp{width:calc(100% - 16px)}}
 .ty{display:inline-block;width:16px;height:16px;fill:none;stroke:var(--tx2);stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round;margin-right:4px;vertical-align:-3px;flex:none}.tr th .ib{min-height:24px;min-width:24px;padding:0;font-size:16px;line-height:20px;background:#fff;border:1px solid var(--fh);color:var(--tx2);font-weight:600}
-.dot.sm{width:8px;height:8px}.dot{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:6px;vertical-align:baseline;flex:none}
+.dot.sm{width:8px;height:8px}
+th.ac,td.ac{text-align:right;padding-right:8px;white-space:nowrap}.tb{margin:0 0 12px}.sf{position:relative;display:inline-block;width:360px;max-width:100%}.sf input{padding-left:30px;padding-right:30px}.sf .si{position:absolute;left:9px;top:6px;color:var(--lab);pointer-events:none}.sf .x{position:absolute;right:2px;top:2px;min-height:28px;min-width:28px;padding:0;border:0;background:transparent;color:var(--lab)}mark{background:#ffe9a8;color:inherit;padding:0}.dot{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:6px;vertical-align:baseline;flex:none}
 .dc{background:#fff;border:1px solid var(--div);border-left:4px solid var(--c);border-radius:4px;margin-bottom:16px;overflow:hidden}.dc .hd{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:10px 16px;background:color-mix(in srgb,var(--c) 9%,#fff)}.dc .hd h2{margin:0;font-size:16px;line-height:24px;font-weight:600}.dc .bd{padding:8px 16px 14px;display:flex;gap:24px;flex-wrap:wrap}.dc .bd>div{flex:1;min-width:220px}
 .cap{font-size:12px;color:var(--lab);font-weight:600;margin:4px 0 6px}.chip{display:inline-flex;align-items:center;min-height:28px;padding:0 10px;margin:0 6px 6px 0;border:1px solid var(--div);border-radius:14px;background:#fff;font-size:13px;cursor:pointer;color:var(--tx)}.chip:hover{background:var(--hov)}.chip small{color:var(--lab);margin-left:6px}.chip.mine{border-color:var(--acc)}
 .cnt{border:1px solid var(--div);border-radius:12px;padding:0 8px;font-size:12px;line-height:20px;color:var(--tx2);background:#fff}.cnt.fb{border-color:var(--warn);color:var(--warn)}
@@ -264,9 +265,9 @@ function pageList(){var h='';
    (canDept(d.n)?'<details class="mn"><summary>＋ Создать</summary><div class="pm"><button data-act="newteam" data-a="'+esc(d.n)+'">Команду</button><button data-act="newproj" data-a="'+esc(d.n)+'">Проект</button></div></details>':'')+'</div><div class="bd"><div><div class="cap">КОМАНДЫ</div>'+
    (ts.length?ts.map(function(t){return '<span class="chip'+(isMember(t.n)?' mine':'')+'" tabindex="0" role="link" data-act="openteam" data-a="'+esc(t.n)+'">'+dotT(t.n)+esc(t.n)+(isMember(t.n)?'<small>моя</small>':'')+'</span>'}).join(''):'<span class="mut">Команд нет</span>')+'</div><div><div class="cap">ПРОЕКТЫ</div>'+
    (ps.length?ps.map(function(p){return '<span class="chip" tabindex="0" role="link" data-act="openproj" data-a="'+esc(p.n)+'">'+dotP(p.n)+esc(p.n)+'<small>'+esc(p.k)+'</small></span>'}).join(''):'<span class="mut">Проектов нет</span>')+'</div></div></section>'})});
- if(!any)body=sq()?'<div class="card empty">Ничего не найдено<br><button data-act="clearq">Сбросить поиск</button></div>':'<div class="card empty">Здесь нет департаментов, доступных вам.</div>';
+ if(!any)body=sq()?'<div class="card empty">Ничего не найдено</div>':'<div class="card empty">Здесь нет департаментов, доступных вам.</div>';
  return frame(body)}
-function sq(){return ''}
+function sq(){return (S.pgq||'').trim().toLowerCase()}
 function qm(n,k){var q=sq();return !q||n.toLowerCase().indexOf(q)>=0||(k&&k.toLowerCase().indexOf(q)>=0)}
 function view(){try{return localStorage.getItem('doc016view:'+S.u)||'list'}catch(e){return S.vw||'list'}}
 function setView(v){S.vw=v;try{localStorage.setItem('doc016view:'+S.u,v)}catch(e){}}
@@ -274,6 +275,9 @@ function pageStruct(){var tree=view()==='tree';var h='<div class="bar"><h1 tabin
  '<button class="ob" data-act="switchview" aria-label="Переключить вид: '+(tree?'Список':'Дерево')+'">'+(tree?'☰ Список':'⌥ Дерево')+'</button>'+
  (createOrg()&&isAdmin(createOrg())?'<button class="ob" data-act="newdept">＋ Создать департамент</button>':'')+
  '</div>';
+ var tb='<div class="tb" role="search"><div class="sf"><span class="si" aria-hidden="true">⌕</span><input type="text" id="pgq" placeholder="Найти департамент, команду или проект" aria-label="Найти департамент, команду или проект" value="'+esc(S.pgq||'')+'" autocomplete="off">'+(S.pgq?'<button class="x" data-act="clearq" aria-label="Очистить поиск" title="Очистить">✕</button>':'')+'</div></div>';
+  
+ h+=tb;
  var fb=M.depts.filter(function(d){return d.fb&&visD(d.n)&&canDept(d.n)&&(M.teams.some(function(t){return t.d===d.n})||M.projs.some(function(p){return p.d===d.n}))});
  if(fb.length)h+='<div class="notice info" role="status"><span class="sp">После обновления созданы департаменты: '+fb.map(function(d){return '«'+esc(d.n)+'»'}).join(', ')+'. Переместите их команды и проекты в нужные департаменты.</span></div>';
  return h+(tree?pageTree():pageList())}
@@ -297,7 +301,7 @@ function pageTree(){var ns=buildNodes(),q=sq(),keep={},byId={};ns.forEach(functi
  if(q){ns.forEach(function(x){if(x.k!=='org'&&qm(x.n,x.key)){var c=x;while(c){keep[c.id]=1;c=c.par?byId[c.par]:null}}})}
  var vis=ns.filter(function(x){if(q)return keep[x.id];var c=x.par?byId[x.par]:null;while(c){if(S.col[c.id])return false;c=c.par?byId[c.par]:null}return true});
  if(!ns.length)return frame('<div class="card empty">Здесь нет департаментов, доступных вам.</div>');
- if(!vis.length)return frame('<div class="card empty">Ничего не найдено<br><button data-act="clearq">Сбросить поиск</button></div>');
+ if(!vis.length)return frame('<div class="card empty">Ничего не найдено</div>');
  var rows=vis.map(function(x){var kids=hasKids(ns,x.id),open=q||!S.col[x.id],ind=(x.lv*20)+'px';
   var nm=x.k==='org'?esc(x.n):'<button class="nm" data-act="'+(x.k==='dept'?'dept':x.k==='team'?'openteam':x.k==='proj'?'openproj':'stub')+'" data-a="'+esc(x.n)+'">'+hl(x.n,q)+'</button>';
   var pre=ic(x.k)+(x.k==='dept'?dotc(x.c).replace('dot sm','dot'):x.k==='team'||x.k==='proj'?dotc(x.c):'');
@@ -328,7 +332,7 @@ function pageTeam(n){var t=T(n);if(!t||!visT(n))return nf('Команда не �
  h+='<div class="card"><h4>Проекты команды</h4>'+(ps.length?'<table><tr><th>Проект</th><th></th></tr>'+ps.map(function(p){return '<tr><td>'+lk('openproj',p,'',p)+'</td><td>'+(w?'<button class="sm" data-act="unlinkask" data-a="'+esc(n)+'" data-b="'+esc(p)+'">Отключить от проекта</button>':'')+'</td></tr>'}).join('')+'</table>':'<div class="empty">Команда не связана ни с одним проектом</div>')+'</div>';
  return frame(h)}
 function nf(m){return '<div class="card empty"><h1 tabindex="-1">'+esc(m)+'</h1><p>Адрес не существует или объект вам недоступен.</p><button data-act="page" data-a="struct">К структуре</button></div>'}
-function drawMain(){var p=S.page,h='';
+function drawMain(){var p=S.page,h='';if(p.t!=='struct')S.pgq='';
  if(S.banner)h+='<div class="alert" role="alert">'+esc(S.banner)+' <button class="sm" data-act="closebanner">Закрыть</button></div>';
  if(S.notice)h+='<div class="notice" role="status"><span class="sp">'+esc(S.notice)+'</span><button class="sm" data-act="closenotice" aria-label="Закрыть">✕</button></div>';
  h+=p.t==='struct'?pageStruct():p.t==='projects'?pageProjects():p.t==='teams'?pageTeams():p.t==='proj'?pageProj(p.n):p.t==='team'?pageTeam(p.n):nf(p.msg);
@@ -396,6 +400,7 @@ document.addEventListener('click',function(e){var el=e.target.closest('[data-act
  if(act==='spick'){spick(a,b);return}
  if(act==='switchview'){setView(view()==='tree'?'list':'tree');draw();return}
  if(act==='tog'){S.col[a]=!S.col[a];drawMain();return}
+ if(act==='clearq'){S.pgq='';drawMain();var n=$('#pgq');if(n)n.focus();return}
  if(act==='colall'){var ns=buildNodes();var all=allCollapsed();ns.forEach(function(x){if(hasKids(ns,x.id))S.col[x.id]=!all});drawMain();return}
  if(act==='stub'){toast('Как сегодня (в прототипе не показано).');return}
  if(act==='deldept'){var dd=a;if(M.teams.some(function(t){return t.d===dd}))S.banner='Нельзя удалить департамент, в котором есть команды';else if(M.projs.some(function(p){return p.d===dd}))S.banner='Нельзя удалить департамент, в котором есть проекты';else{M.depts=M.depts.filter(function(x){return x.n!==dd});toast('Департамент «'+dd+'» удалён.');liveRepair()}draw();return} // handled by change
@@ -438,6 +443,7 @@ document.addEventListener('change',function(e){var t=e.target;
  if(t.id==='sim'){S.sim=t.value;draw();return}
  if(t.id==='vis'){var n=t.getAttribute('data-a');if(t.checked){t.checked=false;open({t:'vis',n:n})}else{P(n).vis=0;toast('Проект «'+n+'» виден только участвующим.');liveRepair();draw()}}});
 document.addEventListener('input',function(e){var id=e.target.id;
+ if(id==='pgq'){var p=e.target.selectionStart;S.pgq=e.target.value;drawMain();var n=$('#pgq');if(n){n.focus();try{n.setSelectionRange(p,p)}catch(x){}}return}
  if(id==='cq'){S.cq=e.target.value;S.sact=0;drawPanel();return}
  if(id==='pq'){S.pq=e.target.value;S.sact=0;drawPal();return}});
 function colMove(t,key){var k=t.getAttribute('data-col'),i=+t.getAttribute('data-i');
@@ -455,6 +461,7 @@ document.addEventListener('keydown',function(e){var t=e.target;
   if(e.key==='ArrowUp'&&q){if(e.preventDefault)e.preventDefault();if(all.length)S.sact=(S.sact+all.length-1)%all.length;drawPanel();return}
   if(e.key==='Enter'&&all.length){if(e.preventDefault)e.preventDefault();var r=all[S.sact]||all[0];spick(r.k,r.n);return}}
  if(S.pop==='ctx'&&t.getAttribute&&t.getAttribute('data-col')&&['ArrowDown','ArrowUp','ArrowLeft','ArrowRight'].indexOf(e.key)>=0){if(e.preventDefault)e.preventDefault();colMove(t,e.key);return}
+ if(e.key==='Escape'&&t.id==='pgq'&&S.pgq){S.pgq='';drawMain();var n=$('#pgq');if(n)n.focus();return}
  if(e.key==='Escape'){if(S.pal){palClose();return}if(S.dlg){closeDlg();draw()}else if(S.pop){S.pop=null;drawBar();var b=$('#cx');if(b)b.focus()}return}
  if(e.key==='Enter'&&t.classList&&(t.classList.contains('o')||t.tagName==='A'))t.click()});
 draw();
