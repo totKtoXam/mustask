@@ -3,14 +3,14 @@
 - type: tech
 - size: S
 - branch: tech/066-cd-vm-runner
-- stage: 04-backend
+- stage: 10-complete
 - epic: platform/ci
 - deps: -
 - gates: gate-3
 
 ## Gates
 
-gate-3: pending
+gate-3: approved (2026-11-12, the human in chat)
 
 ## Plan
 
@@ -32,6 +32,7 @@ Check: `scripts/tests/cd-runner-cases.sh`. It tests the wrapper's listing and fl
 - 2026-11-12 [review] Round 1 on 005e201e: changes requested. Open: 1 blocker (CR-1: an approved fork PR can target the VM runner and get root via mustask-cd deploy; runbook says it cannot), 3 minors. Findings in review.md.
 - 2026-11-12 [orchestrator] Round 1 fixed (see review.md, "Fixes after round 1"): CR-1 by a job-started hook on the VM (runner-job-guard.sh + a root-owned systemd drop-in), CR-2 to CR-4 and QA M1. Locally: cd-runner-cases.sh 73 cases, shellcheck, actionlint, rehearsal 53/53. Next: a delta review.
 - 2026-11-12 [review] Round 2 (delta) on 5a629ab6: approved. CR-1 to CR-4 resolved; open: 1 minor (CR-5: runner-owned .env can unset the hook; runbook overstates). Findings in review.md.
+- 2026-11-12 [orchestrator] CR-5 reworded in 11.4 (7b5f0001). Gate-3 approved by the human in chat after review round 2 approved; PR next.
 
 ## Decisions
 
