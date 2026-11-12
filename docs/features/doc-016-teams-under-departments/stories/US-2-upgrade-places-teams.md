@@ -70,4 +70,11 @@ Scenario: The remembered selection meets the moved objects
   Given Olga's remembered selection in «Ромашка» is «Финансы» / VENUS
   When she opens the panel after the upgrade
   Then the department selector reads «Логистика» and the team selector VENUS, and she sees «Ранее выбранный контекст недоступен. Выбрано: Ромашка / Логистика / VENUS.»
+
+Scenario: The upgrade colours every department (BR-TD-20)
+  Given «Ромашка» holds «Логистика» and «Финансы» with no colour, in that order of creation
+  When the upgrade runs
+  Then «Логистика» is blue and «Финансы» orange, and the created «Команды без департамента» and «Проекты без департамента» take the next farthest colours, in that order
+  And «Склад» of «Другая» is blue, colours being per organization
+  And running the upgrade again changes no colour
 ```

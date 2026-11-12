@@ -38,6 +38,7 @@ gate-2. The task stops at gate-2: nothing is implemented here.
 - 2026-11-12 [ux-designer] design.md (26 KB) and prototype/index.html written; six spec gaps reported for gate-2 (see design.md).
 - 2026-11-12 [orchestrator] prototype clicked through in the built-in browser: cascade, parent auto-select, reset notice, Olga's scoped sight, VENUS move refusal, «Видим всей организации» confirm and its effect; no console errors. gate-2 requested.
 - 2026-11-12 [orchestrator] human answers on the design gaps: team «все» keeps a fitting project (US-4 wins, BR-TD-10 to be reworded); «Создать…» under «Все организации» uses the single organization the user may create in, else disabled; a department «Менеджер» toggles «Видим всей организации». gate-2: the human asked to see the prototype first.
+- 2026-11-12 [orchestrator] human on «Структура»: too heavy; asked for a coloured left stripe per department, the colour stored and assigned automatically, maximally distinct. Designer rework: BR-TD-20 (12-hue palette, max min hue distance per organization), calmer cards, colour dots in selectors and lists, the three gap answers applied to spec and design. Re-clicked in the browser; no console errors.
 
 ## Notes
 

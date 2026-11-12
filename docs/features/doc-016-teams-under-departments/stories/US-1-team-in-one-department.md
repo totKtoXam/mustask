@@ -82,4 +82,14 @@ Scenario: A move against the destination's deletion ends in one order
   When Ann moves SATURN to «Маркетинг» while Ivan deletes «Маркетинг»
   Then either the move commits and the deletion is refused, or the deletion commits and the move answers «Область не найдена.»
   And no server error occurs and no team stands in a deleted department
+
+# BR-TD-20, delivered with this line; the palette is in the spec
+Scenario: Three departments get three distinct, maximally spread colours
+  Given «Ромашка» has no department
+  When Ann creates «Логистика», «Финансы» and «Маркетинг» in that order
+  Then «Логистика» is blue (the first palette entry), «Финансы» orange (hue farthest from blue) and «Маркетинг» magenta (farthest from both)
+  And each department's colour is stored and returned by the API and never changes when others are created or deleted
+  And a department of «Другая» starts again from blue: colours are per organization
+  And when «Финансы» is deleted, the next department created takes the colour it freed if that is still the farthest
+  And once all 12 colours are in use, a new department takes the colour used by fewest active departments, ties by palette order
 ```

@@ -36,6 +36,11 @@ table{width:100%;border-collapse:collapse;font-size:13px}th{text-align:left;colo
 #dlg label{display:block;margin:10px 0 2px;font-size:12px;color:var(--lab);font-weight:600}.err{color:var(--err);font-size:12px;min-height:16px}.helper{color:var(--tx2);font-size:12px}
 #dlg .act{display:flex;gap:8px;justify-content:flex-end;margin-top:16px}.chk{display:flex;gap:8px;align-items:center;min-height:32px}
 #note{position:fixed;left:16px;bottom:16px;max-width:calc(100vw - 32px);background:#242424;color:#fff;padding:10px 16px;border-radius:4px;display:none;z-index:20}
+.dot{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:6px;vertical-align:baseline;flex:none}
+.dc{background:#fff;border:1px solid var(--div);border-left:4px solid var(--c);border-radius:4px;margin-bottom:16px;overflow:hidden}.dc .hd{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:10px 16px;background:color-mix(in srgb,var(--c) 9%,#fff)}.dc .hd h2{margin:0;font-size:16px;line-height:24px;font-weight:600}.dc .bd{padding:8px 16px 14px;display:flex;gap:24px;flex-wrap:wrap}.dc .bd>div{flex:1;min-width:220px}
+.cap{font-size:12px;color:var(--lab);font-weight:600;margin:4px 0 6px}.chip{display:inline-flex;align-items:center;min-height:28px;padding:0 10px;margin:0 6px 6px 0;border:1px solid var(--div);border-radius:14px;background:#fff;font-size:13px;cursor:pointer;color:var(--tx)}.chip:hover{background:var(--hov)}.chip small{color:var(--lab);margin-left:6px}.chip.mine{border-color:var(--acc)}
+.cnt{border:1px solid var(--div);border-radius:12px;padding:0 8px;font-size:12px;line-height:20px;color:var(--tx2);background:#fff}.cnt.fb{border-color:var(--warn);color:var(--warn)}
+details.mn{position:relative;display:inline-block}details.mn summary{list-style:none;cursor:pointer;border:1px solid var(--fh);border-radius:4px;padding:3px 12px;font-weight:600;color:var(--accd);background:#fff}details.mn summary:hover{background:var(--hov)}details.mn .pm{position:absolute;right:0;top:34px;background:#fff;box-shadow:var(--glow);border-radius:4px;z-index:4;min-width:170px;padding:4px 0}details.mn .pm button{display:block;width:100%;text-align:left;background:#fff;font-weight:400}
 @media(max-width:1023px){nav{width:150px}}
 @media(max-width:640px){#wrap{flex-direction:column}nav{width:100%;display:flex;overflow-x:auto}nav h5{display:none}main{padding:12px}#pop{width:calc(100% - 16px);left:8px!important}}
 </style></head><body>
@@ -53,7 +58,15 @@ function seed(){return {
  teams:[{n:'MARS',d:'Логистика'},{n:'VENUS',d:'Логистика'},{n:'SATURN',d:'Логистика'},{n:'JUPITER',d:'Финансы'},{n:'PLUTO',d:'Команды без департамента'},{n:'ORION',d:'Склад'}],
  projs:[{n:'A',k:'MSK',d:'Логистика',vis:0},{n:'B',k:'BET',d:'Логистика',vis:0},{n:'G',k:'GGG',d:'Логистика',vis:0},{n:'C',k:'FIN',d:'Финансы',vis:0},{n:'D',k:'DDD',d:'Финансы',vis:0},{n:'E',k:'EEE',d:'Проекты без департамента',vis:0},{n:'Z',k:'ZZZ',d:'Склад',vis:0}],
  links:[['MARS','A'],['MARS','B'],['VENUS','A'],['JUPITER','C'],['JUPITER','D'],['ORION','Z']]}}
-var M=seed();
+var PAL=[['blue','#0078D4',206],['orange','#D8661B',24],['green','#2E8B57',146],['purple','#8E4EC6',272],['red','#D13438',359],['teal','#00A3A3',180],['amber','#B8860B',43],['pink','#D6458F',330],['indigo','#4F52B2',238],['lime','#7A9B1E',76],['magenta','#B146C2',300],['cyan','#0A8FBF',195]];
+function hd(a,b){var d=Math.abs(a-b)%360;return d>180?360-d:d}
+// BR-TD-20: deterministic; per organization, among active departments, in order of creation
+function nextColour(depts,org){var used=depts.filter(function(d){return d.o===org&&d.c!==undefined}).map(function(d){return d.c});
+ if(!used.length)return 0;var free=[];PAL.forEach(function(p,i){if(used.indexOf(i)<0)free.push(i)});
+ if(free.length){var best=-1,bd=-1;free.forEach(function(i){var m=Math.min.apply(null,used.map(function(u){return hd(PAL[i][2],PAL[u][2])}));if(m>bd){bd=m;best=i}});return best}
+ var cnt=PAL.map(function(p,i){return used.filter(function(u){return u===i}).length});var mn=Math.min.apply(null,cnt);return cnt.indexOf(mn)}
+function colourAll(m){m.depts.forEach(function(d){d.c=nextColour(m.depts,d.o)})}
+var M=seed();colourAll(M);
 var USERS={
  ann:{name:'Ann',role:'Администратор «Ромашки»',admin:['Ромашка'],orgs:['Ромашка'],mem:[],grants:[]},
  olga:{name:'Olga',role:'Участник; в команде VENUS и ORION',admin:[],orgs:['Ромашка','Другая'],mem:['VENUS','ORION'],grants:[]},
@@ -79,6 +92,8 @@ function visD(d){var o=D(d);if(!o)return false;if(U().orgs.indexOf(o.o)<0)return
 function createOrgs(){return U().orgs.filter(function(o){return isAdmin(o)||M.depts.some(function(d){return d.o===o&&mgr(d.n)})})}
 function createOrg(){return S.sel.org||(createOrgs().length===1?createOrgs()[0]:null)}
 function createDepts(o){return M.depts.filter(function(d){return d.o===o&&canDept(d.n)}).map(function(d){return d.n})}
+function hex(d){return PAL[D(d).c][1]}
+function dot(d){return '<span class="dot" style="background:'+hex(d)+'"></span>'}
 function srt(a){return a.slice().sort(function(x,y){return x.localeCompare(y,'ru')})}
 function toast(t){var n=$('#note');n.textContent=t;n.style.display='block';clearTimeout(toast.t);toast.t=setTimeout(function(){n.style.display='none'},4500)}
 // offers (BR-TD-8)
@@ -147,9 +162,9 @@ function triggerBtn(k){return document.querySelector('#bar [data-act="sel"][data
 function drawBar(){var cap={org:'Организация',dept:'Департамент',team:'Команда',proj:'Проект'},h='<b>▣ MUSTASK</b>';
  ['org','dept','team','proj'].forEach(function(k,i){var v=k==='org'?(S.sel.org||'Все организации'):(S.sel[k]||'все');
   if(i)h+='<span class="sep">/</span>';
-  h+='<button class="sel '+((k==='org'?S.sel.org:S.sel[k])?'on':'')+'" data-act="sel" data-a="'+k+'" aria-haspopup="listbox" aria-expanded="'+(S.pop===k)+'"><small>'+cap[k]+'</small>'+esc(v)+'<span class="chev"></span></button>'});
+  h+='<button class="sel '+((k==='org'?S.sel.org:S.sel[k])?'on':'')+'" data-act="sel" data-a="'+k+'" aria-haspopup="listbox" aria-expanded="'+(S.pop===k)+'"><small>'+cap[k]+'</small>'+(k==='dept'&&S.sel.dept?dot(S.sel.dept):'')+esc(v)+'<span class="chev"></span></button>'});
  h+='<span style="flex:1"></span><span>'+esc(U().name)+'</span><div id="pop" role="listbox"></div>';$('#bar').innerHTML=h;if(S.pop)drawPop()}
-function opt(act,k,v,text,cls){return '<div class="o '+(cls||'')+'" role="option" tabindex="0" data-act="'+act+'" data-a="'+k+'" data-b="'+esc(v)+'">'+esc(text)+'</div>'}
+function opt(act,k,v,text,cls,pre){return '<div class="o '+(cls||'')+'" role="option" tabindex="0" data-act="'+act+'" data-a="'+k+'" data-b="'+esc(v)+'">'+(pre||'')+esc(text)+'</div>'}
 function drawPop(){var k=S.pop,p=$('#pop'),f=(S.q||'').toLowerCase(),h='';p.style.display='block';
  var b=triggerBtn(k),bw=$('#bar').clientWidth,pw=Math.min(300,bw-16);p.style.left=Math.max(8,Math.min(b.offsetLeft,bw-pw-8))+'px';
  if(S.sim==='load'){p.innerHTML='<div role="status" aria-label="Загрузка">'+'<div class="sk"></div>'.repeat(4)+'</div>';return}
@@ -166,7 +181,7 @@ function drawPop(){var k=S.pop,p=$('#pop'),f=(S.q||'').toLowerCase(),h='';p.styl
  var gs=offers(k),shown=0,total=0;
  gs.forEach(function(g){total+=g.items.length;var it=g.items.filter(function(x){return x.toLowerCase().indexOf(f)>=0});if(!it.length)return;shown+=it.length;
   if(g.h)h+='<h6 class="org">'+esc(g.h)+'</h6>';
-  function rows(l){return l.map(function(x){return opt('pick',k,x,x,S.sel[k]===x?'cur':'')}).join('')}
+  function rows(l){return l.map(function(x){return opt('pick',k,x,x,S.sel[k]===x?'cur':'',k==='dept'?dot(x):'')}).join('')}
   if(k==='team'){var own=it.filter(isMember),oth=it.filter(function(x){return !isMember(x)});
    if(own.length)h+='<h6>Мои команды</h6>'+rows(own);if(oth.length)h+=(own.length?'<h6>Другие команды</h6>':'')+rows(oth)}
   else h+=rows(it)});
@@ -184,37 +199,37 @@ function skeleton(){return '<div role="status" aria-label="Загрузка да
 function errBox(){return '<div class="alert" role="alert">Не удалось загрузить данные. <button data-act="retry">Повторить</button></div>'}
 function frame(inner){return S.sim==='load'?skeleton():S.sim==='err'?errBox():inner}
 function scopeOrgs(){return S.sel.org?[S.sel.org]:U().orgs}
-function pageStruct(){var h='<h1 tabindex="-1">Структура '+narrowTag()+'</h1>';
+function pageStruct(){var h='<div class="bar"><h1 tabindex="-1" style="margin:0">Структура</h1>'+narrowTag()+'<span class="sp"></span>'+(createOrg()&&isAdmin(createOrg())?'<button data-act="newdept" style="background:#fff;border:1px solid var(--fh);color:var(--accd)">Создать департамент</button>':'')+'</div>';
  var fb=M.depts.filter(function(d){return d.fb&&visD(d.n)&&canDept(d.n)&&(M.teams.some(function(t){return t.d===d.n})||M.projs.some(function(p){return p.d===d.n}))});
  if(fb.length)h+='<div class="notice info" role="status"><span class="sp">После обновления созданы департаменты: '+fb.map(function(d){return '«'+esc(d.n)+'»'}).join(', ')+'. Переместите их команды и проекты в нужные департаменты.</span></div>';
  var any=false,body='';
  scopeOrgs().forEach(function(o){var ds=M.depts.filter(function(d){return d.o===o&&visD(d.n)&&(!S.sel.dept||d.n===S.sel.dept)});if(!ds.length)return;any=true;
   if(!S.sel.org)body+='<h4>'+esc(o)+'</h4>';
   ds.forEach(function(d){var ts=M.teams.filter(function(t){return t.d===d.n&&visT(t.n)}),ps=M.projs.filter(function(p){return p.d===d.n&&visP(p.n)});
-   body+='<div class="card"><div class="bar"><b>'+esc(d.n)+'</b><span class="tag">'+(D(d.n).fb?'создан при обновлении':'департамент')+'</span><span class="sp"></span>'+
-   (canDept(d.n)?'<button data-act="newteam" data-a="'+esc(d.n)+'">Создать команду</button><button data-act="newproj" data-a="'+esc(d.n)+'">Создать проект</button>':'')+'</div><div class="cols"><div><h4>Команды</h4>'+
-   (ts.length?ts.map(function(t){return '<div>'+lk('openteam',t.n,'',t.n)+(isMember(t.n)?'<span class="tag">Моя команда</span>':'')+'</div>'}).join(''):'<span class="mut">Команд нет</span>')+'</div><div><h4>Проекты</h4>'+
-   (ps.length?ps.map(function(p){return '<div>'+lk('openproj',p.n,'',p.n)+' <span class="mut">'+esc(p.k)+'</span></div>'}).join(''):'<span class="mut">Проектов нет</span>')+'</div></div></div>'})});
+   body+='<section class="dc" style="--c:'+hex(d.n)+'" aria-label="'+esc(d.n)+'"><div class="hd"><h2>'+esc(d.n)+'</h2>'+(d.fb?'<span class="cnt fb">создан при обновлении</span>':'')+'<span class="cnt">Команды '+ts.length+'</span><span class="cnt">Проекты '+ps.length+'</span><span style="flex:1"></span>'+
+   (canDept(d.n)?'<details class="mn"><summary>＋ Создать</summary><div class="pm"><button data-act="newteam" data-a="'+esc(d.n)+'">Команду</button><button data-act="newproj" data-a="'+esc(d.n)+'">Проект</button></div></details>':'')+'</div><div class="bd"><div><div class="cap">КОМАНДЫ</div>'+
+   (ts.length?ts.map(function(t){return '<span class="chip'+(isMember(t.n)?' mine':'')+'" tabindex="0" role="link" data-act="openteam" data-a="'+esc(t.n)+'">'+esc(t.n)+(isMember(t.n)?'<small>моя</small>':'')+'</span>'}).join(''):'<span class="mut">Команд нет</span>')+'</div><div><div class="cap">ПРОЕКТЫ</div>'+
+   (ps.length?ps.map(function(p){return '<span class="chip" tabindex="0" role="link" data-act="openproj" data-a="'+esc(p.n)+'">'+esc(p.n)+'<small>'+esc(p.k)+'</small></span>'}).join(''):'<span class="mut">Проектов нет</span>')+'</div></div></section>'})});
  if(!any)body='<div class="card empty">Здесь нет департаментов, доступных вам.</div>';
  return h+frame(body)}
 function canNew(){var o=createOrg();return o&&createDepts(o).length>0}
 function pageProjects(){var s=S.sel,h='<h1 tabindex="-1">Проекты '+narrowTag()+'</h1><div class="bar"><span class="sp"></span>'+(canNew()?'<button class="p" data-act="newproj" data-a="">Новый проект</button>':'')+'</div>';
  var rows=M.projs.filter(function(p){return U().orgs.indexOf(pOrg(p.n))>=0&&(!s.org||pOrg(p.n)===s.org)&&visP(p.n)&&(!s.dept||p.d===s.dept)&&(!s.team||isLinked(s.team,p.n))&&(!s.proj||p.n===s.proj)});
- var t=rows.length?'<table><tr><th>Название</th><th>Ключ</th><th>Департамент</th>'+(s.org?'':'<th>Организация</th>')+'<th>Команды</th></tr>'+rows.map(function(p){return '<tr><td>'+lk('openproj',p.n,'',p.n)+'</td><td>'+esc(p.k)+'</td><td>'+esc(p.d)+'</td>'+(s.org?'':'<td>'+esc(pOrg(p.n))+'</td>')+'<td>'+(teamsOf(p.n).filter(visT).join(', ')||'<span class="mut">—</span>')+'</td></tr>'}).join('')+'</table>':'<div class="empty">Здесь нет проектов, доступных вам.</div>';
+ var t=rows.length?'<table><tr><th>Название</th><th>Ключ</th><th>Департамент</th>'+(s.org?'':'<th>Организация</th>')+'<th>Команды</th></tr>'+rows.map(function(p){return '<tr><td>'+lk('openproj',p.n,'',p.n)+'</td><td>'+esc(p.k)+'</td><td>'+dot(p.d)+esc(p.d)+'</td>'+(s.org?'':'<td>'+esc(pOrg(p.n))+'</td>')+'<td>'+(teamsOf(p.n).filter(visT).join(', ')||'<span class="mut">—</span>')+'</td></tr>'}).join('')+'</table>':'<div class="empty">Здесь нет проектов, доступных вам.</div>';
  return h+frame('<div class="card">'+t+'</div>')}
 function pageTeams(){var s=S.sel,h='<h1 tabindex="-1">Команды '+narrowTag()+'</h1><div class="bar"><span class="sp"></span>'+(canNew()?'<button class="p" data-act="newteam" data-a="">Создать команду</button>':'')+'</div>';
  var rows=M.teams.filter(function(t){return U().orgs.indexOf(tOrg(t.n))>=0&&(!s.org||tOrg(t.n)===s.org)&&visT(t.n)&&(!s.dept||t.d===s.dept)&&(!s.team||t.n===s.team)&&(!s.proj||isLinked(t.n,s.proj))});
- var t=rows.length?'<table><tr><th>Название</th><th>Департамент</th>'+(s.org?'':'<th>Организация</th>')+'<th>Проекты</th></tr>'+rows.map(function(x){return '<tr><td>'+lk('openteam',x.n,'',x.n)+(isMember(x.n)?'<span class="tag">Моя команда</span>':'')+'</td><td>'+esc(x.d)+'</td>'+(s.org?'':'<td>'+esc(tOrg(x.n))+'</td>')+'<td>'+(projsOf(x.n).filter(visP).join(', ')||'<span class="mut">—</span>')+'</td></tr>'}).join('')+'</table>':'<div class="empty">Здесь нет команд, доступных вам.</div>';
+ var t=rows.length?'<table><tr><th>Название</th><th>Департамент</th>'+(s.org?'':'<th>Организация</th>')+'<th>Проекты</th></tr>'+rows.map(function(x){return '<tr><td>'+lk('openteam',x.n,'',x.n)+(isMember(x.n)?'<span class="tag">Моя команда</span>':'')+'</td><td>'+dot(x.d)+esc(x.d)+'</td>'+(s.org?'':'<td>'+esc(tOrg(x.n))+'</td>')+'<td>'+(projsOf(x.n).filter(visP).join(', ')||'<span class="mut">—</span>')+'</td></tr>'}).join('')+'</table>':'<div class="empty">Здесь нет команд, доступных вам.</div>';
  return h+frame('<div class="card">'+t+'</div>')}
 function pageProj(n){var p=P(n);if(!p||!visP(n))return nf('Проект не найден.');var w=canDept(p.d),h='<h1 tabindex="-1">Проект: '+esc(n)+' <span class="tag">'+esc(p.k)+'</span></h1>';
- h+='<div class="card"><h4>Расположение</h4>Департамент: '+lk('dept',p.d,'',p.d)+' '+(w?'<button data-act="moveproj" data-a="'+esc(n)+'">Переместить</button>':'')+'<div class="helper mut">Проект всегда стоит в департаменте.</div></div>';
+ h+='<div class="card"><h4>Расположение</h4>Департамент: '+dot(p.d)+lk('dept',p.d,'',p.d)+' '+(w?'<button data-act="moveproj" data-a="'+esc(n)+'">Переместить</button>':'')+'<div class="helper mut">Проект всегда стоит в департаменте.</div></div>';
  var ts=teamsOf(n).filter(visT);
  h+='<div class="card"><div class="bar"><h4 style="margin:0">Команды проекта</h4><span class="sp"></span>'+(w?'<button data-act="linkteams" data-a="'+esc(n)+'">Добавить команду</button>':'')+'</div>'+
   (ts.length?'<table><tr><th>Команда</th><th></th></tr>'+ts.map(function(t){return '<tr><td>'+lk('openteam',t,'',t)+'</td><td>'+(w?'<button class="sm" data-act="unlinkask" data-a="'+esc(t)+'" data-b="'+esc(n)+'">Отключить от проекта</button>':'')+'</td></tr>'}).join('')+'</table>':'<div class="empty">Команды не подключены</div>')+'</div>';
  if(w)h+='<div class="card"><h4>Видимость</h4><label class="chk"><input type="checkbox" id="vis" data-act="vis" data-a="'+esc(n)+'"'+(p.vis?' checked':'')+'> Видим всей организации</label><div class="helper">Проект и его команды увидят все участники организации.</div></div>';
  return frame(h)}
 function pageTeam(n){var t=T(n);if(!t||!visT(n))return nf('Команда не найдена.');var w=canDept(t.d),h='<h1 tabindex="-1">Команда: '+esc(n)+'</h1>';
- h+='<div class="card"><h4>Расположение</h4>Департамент: '+lk('dept',t.d,'',t.d)+' '+(w?'<button data-act="moveteam" data-a="'+esc(n)+'">Переместить</button>':'')+'</div>';
+ h+='<div class="card"><h4>Расположение</h4>Департамент: '+dot(t.d)+lk('dept',t.d,'',t.d)+' '+(w?'<button data-act="moveteam" data-a="'+esc(n)+'">Переместить</button>':'')+'</div>';
  var ps=projsOf(n).filter(visP);
  h+='<div class="card"><h4>Проекты команды</h4>'+(ps.length?'<table><tr><th>Проект</th><th></th></tr>'+ps.map(function(p){return '<tr><td>'+lk('openproj',p,'',p)+'</td><td>'+(w?'<button class="sm" data-act="unlinkask" data-a="'+esc(n)+'" data-b="'+esc(p)+'">Отключить от проекта</button>':'')+'</td></tr>'}).join('')+'</table>':'<div class="empty">Команда не связана ни с одним проектом</div>')+'</div>';
  return frame(h)}
@@ -245,6 +260,7 @@ function renderDlg(){var d=S.dlg,h='';
    if(d.refused&&linked.length)h+='<div class="alert" role="alert">'+(team2?'Команда связана с проектами. Отключите её от них перед перемещением.':'Проект связан с командами. Отключите их перед перемещением.')+
     '<br>'+(team2?'Проекты':'Команды')+': '+linked.map(function(x){return esc(x)+' <button class="sm" data-act="unlinkask" data-a="'+esc(team2?d.n:x)+'" data-b="'+esc(team2?x:d.n)+'">Отключить</button>'}).join(' ')+'</div>';
    h+='<div class="helper">Участники, доступы и спринты остаются на месте.</div>'+acts('okMove','Переместить')}}
+ else if(d.t==='newdept'){h='<h3>Новый департамент</h3><label for="f-name">Название *</label><input type="text" id="f-name"><div class="err" id="e-name"></div><div class="helper">Цвет назначается автоматически: '+dot2(d.o)+'</div>'+acts('okNewDept','Создать')}
  else if(d.t==='link'){var p=P(d.n),l3=M.teams.filter(function(t){return t.d===p.d&&!isLinked(t.n,d.n)&&visT(t.n)}).map(function(t){return t.n});
   h='<h3>Добавление команд в проект «'+esc(d.n)+'»</h3>';
   if(!l3.length)h+='<p>'+(M.teams.some(function(t){return t.d===p.d})?'Все команды департамента уже подключены к проекту.':'В департаменте «'+esc(p.d)+'» нет команд. Создайте команду в этом департаменте.')+'</p>'+acts(null);
@@ -252,6 +268,10 @@ function renderDlg(){var d=S.dlg,h='';
  else if(d.t==='unlink'){h='<h3>Отключить команду «'+esc(d.t1)+'» от проекта «'+esc(d.p1)+'»?</h3><p>Рабочие элементы команды в проекте станут «Без команды».</p>'+acts('okUnlink','Отключить')}
  else if(d.t==='vis'){h='<h3>Сделать проект «'+esc(d.n)+'» видимым всей организации?</h3><p>Проект, его команды и департамент увидят все участники организации, но не другие проекты департамента.</p>'+acts('okVis','Сделать видимым')}
  $('#box').innerHTML=h;$('#dlg').className='open';var f=$('#box input,#box select');if(f)f.focus()}
+function dot2(o){var i=nextColour(M.depts,o);return '<span class="dot" style="background:'+PAL[i][1]+'"></span>'}
+function okNewDept(){var d=S.dlg,name=v('#f-name');setE('#e-name','');if(!name){setE('#e-name','Введите название');return}
+ if(M.depts.some(function(x){return x.o===d.o&&x.n.toLowerCase()===name.toLowerCase()})){setE('#e-name','Департамент с таким названием уже есть в организации');return}
+ M.depts.push({n:name,o:d.o,c:nextColour(M.depts,d.o)});toast('Департамент «'+name+'» создан.');afterWrite()}
 function v(id){var e=$(id);return e?e.value.trim():''}
 function setE(id,t){var e=$(id);if(e)e.textContent=t}
 function afterWrite(){liveRepair();closeDlg();draw()}
@@ -281,14 +301,15 @@ document.addEventListener('click',function(e){var el=e.target.closest('[data-act
  if(act==='pick'){var val=b===''?null:b;if(a==='org')choose('org',b==='*'?null:b);else choose(a,val);return}
  if(act==='retry'){S.sim='ok';draw();return}
  if(act==='create'){var tk=a;S.pop=null;drawBar();var o=createOrg();
-  if(tk==='dept'){toast('Создание департамента: как в feat-043 (в этом прототипе не показано).');return}
+  if(tk==='dept'){open({t:'newdept',o:o});return}
   open({t:tk==='team'?'newteam':'newproj',o:o,dept:presetDept(o)});return}
+ if(act==='newdept'){open({t:'newdept',o:createOrg()});return}
  if(act==='newteam'||act==='newproj'){var o2=a?dOrg(a):createOrg();open({t:act,o:o2,dept:a||presetDept(o2)});return}
  if(act==='moveteam'||act==='moveproj'){open({t:act,n:a,dest:'',refused:false});return}
  if(act==='linkteams'){open({t:'link',n:a});return}
  if(act==='unlinkask'){var back=S.dlg&&(S.dlg.t==='moveteam'||S.dlg.t==='moveproj')?S.dlg:null;open({t:'unlink',t1:a,p1:b,back:back});return}
  if(act==='okNewTeam'){okCreate(true);return}if(act==='okNewProj'){okCreate(false);return}
- if(act==='okMove'){okMove();return}if(act==='okLink'){okLink();return}
+ if(act==='okNewDept'){okNewDept();return}if(act==='okMove'){okMove();return}if(act==='okLink'){okLink();return}
  if(act==='okUnlink'){var d=S.dlg;M.links=M.links.filter(function(l){return !(l[0]===d.t1&&l[1]===d.p1)});toast('Команда «'+d.t1+'» отключена от проекта «'+d.p1+'».');
   liveRepair();if(d.back){S.dlg=d.back;draw();renderDlg()}else{closeDlg();draw()}return}
  if(act==='okVis'){P(S.dlg.n).vis=1;toast('Проект «'+S.dlg.n+'» виден всей организации.');afterWrite();return}
@@ -297,7 +318,7 @@ document.addEventListener('click',function(e){var el=e.target.closest('[data-act
  if(act==='openproj'){openProj(a);return}if(act==='openteam'){openTeam(a);return}
  if(act==='dept'){choose('dept',a);return}
  if(act==='closenotice'){S.notice=null;drawMain();return}if(act==='closebanner'){S.banner=null;drawMain();return}
- if(act==='reset'){M=seed();S.mem={};S.sel={org:'Ромашка',dept:null,team:null,proj:null};S.page={t:'struct'};S.notice=null;S.banner=null;draw();return}
+ if(act==='reset'){M=seed();colourAll(M);S.mem={};S.sel={org:'Ромашка',dept:null,team:null,proj:null};S.page={t:'struct'};S.notice=null;S.banner=null;draw();return}
  if(act==='deep'){S.notice=null;var vis=a==='proj'?visP(b):a==='team'?visT(b):visD(b);
   if(vis){if(a==='proj')openProj(b);else if(a==='team')openTeam(b);else{S.page={t:'struct'};choose('dept',b)}}
   else S.page={t:'nf',msg:a==='proj'?'Проект не найден.':a==='team'?'Команда не найдена.':'Область не найдена.'};
