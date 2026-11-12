@@ -3,7 +3,7 @@
 - type: docs
 - size: L
 - branch: doc/016-teams-under-departments
-- stage: gate-2
+- stage: done
 - epic: core/org-access
 - deps: mod-019
 - gates: gate-1, gate-2
@@ -11,7 +11,7 @@
 ## Gates
 
 gate-1: approved (by the human in chat, 2026-11-12)
-gate-2: pending
+gate-2: approved (by the human in chat, 2026-11-12)
 
 ## Plan
 
@@ -47,6 +47,8 @@ gate-2. The task stops at gate-2: nothing is implemented here.
 - 2026-11-12 [orchestrator] «Структура» gets its own filter field (both views, sight-scoped, not remembered); the tree ± sits flush right. Clicked: «mars» filters «Список» and «Дерево»; no console errors. gate-2 requested again.
 
 - 2026-11-12 [orchestrator] human: the Ctrl+K palette should search everything, so it leaves doc-016 as the proposal feat-NNN-global-search (⭐ chosen). Panel columns: short separated colour stripes, no icons; tree ± left of «Название». Clicked; no console errors.
+
+- 2026-11-12 [orchestrator] gate-2 approved by the human in chat («Утверждаю»). Task stops here per the route: nothing implemented, delivery lines (incl. feat-NNN-global-search) stay proposals, ADR-0040 stays proposed. No PR until the human asks.
 
 ## Notes
 
