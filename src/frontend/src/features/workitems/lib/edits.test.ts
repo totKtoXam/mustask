@@ -236,13 +236,14 @@ describe('the team edit (mod-017 design § 3)', () => {
 });
 
 describe('where the first error is looked for (design § 4.6)', () => {
-  it('runs title, assignee, state, area, team, then the texts, the sections and «Родитель»', () => {
+  it('runs title, assignee, state, area, team, sprint, then the texts, the sections and «Родитель»', () => {
     expect(cardFieldOrder('story')).toEqual([
       'title',
       'assignee',
       'state',
       'area',
       'team',
+      'sprint',
       'description',
       'acceptanceCriteria',
       'storyPoints',

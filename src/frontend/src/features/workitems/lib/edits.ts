@@ -12,6 +12,7 @@ import type {
   WorkItemAssignee,
   WorkItemFieldName,
   WorkItemRef,
+  WorkItemSprint,
   WorkItemTeam,
 } from '../api/workItemsApi';
 import {
@@ -49,6 +50,8 @@ export interface WorkItemEdits {
   area?: WorkItemArea;
   /** mod-017: `team: null` is «Без команды» chosen. */
   team?: WorkItemTeam | null;
+  /** mod-007: `sprint: null` is «Без спринта» chosen. */
+  sprint?: WorkItemSprint | null;
   parent?: ParentEdit;
   /** feat-022's fields per type, as their controls hold them. */
   fields?: Partial<FieldsDraft>;
@@ -61,6 +64,7 @@ export type Edit =
   | { field: 'assignee'; value: WorkItemAssignee | null }
   | { field: 'area'; value: WorkItemArea }
   | { field: 'team'; value: WorkItemTeam | null }
+  | { field: 'sprint'; value: WorkItemSprint | null }
   | { field: 'parent'; value: WorkItemRef | null }
   | { field: 'acceptanceCriteria'; value: DraftCriterion[] }
   | { field: Exclude<WorkItemFieldName, 'acceptanceCriteria'>; value: string };
@@ -70,6 +74,25 @@ export const NO_EDITS: WorkItemEdits = {};
 /** Whether the user touched nothing. */
 export function isUntouched(edits: WorkItemEdits): boolean {
   return Object.keys(edits).length === 0;
+}
+
+/**
+ * Whether the draft's team is another than the stored one: the stored sprint belongs to the
+ * stored team, so it does not go with the item (mod-007 api-contract § 3; design § 7).
+ */
+export function sprintCleared(item: WorkItem, edits: WorkItemEdits): boolean {
+  return (
+    edits.team !== undefined &&
+    edits.sprint === undefined &&
+    (edits.team?.id ?? null) !== (item.team?.id ?? null) &&
+    (item.sprint ?? null) !== null
+  );
+}
+
+/** The sprint the form shows: the touched one, none when the team changed under it, else the stored. */
+function sprintOf(item: WorkItem, edits: WorkItemEdits): WorkItemSprint | null {
+  if (edits.sprint !== undefined) return edits.sprint;
+  return sprintCleared(item, edits) ? null : (item.sprint ?? null);
 }
 
 /** The form's values: the stored item with the touched fields laid over it. */
@@ -82,6 +105,7 @@ export function editedDraft(item: WorkItem, edits: WorkItemEdits): WorkItemDraft
     assignee: edits.assignee !== undefined ? edits.assignee : stored.assignee,
     area: edits.area ?? stored.area,
     team: edits.team !== undefined ? edits.team : stored.team,
+    sprint: sprintOf(item, edits),
     parent: edits.parent !== undefined ? edits.parent.value : stored.parent,
     fields: { ...stored.fields, ...edits.fields },
   };
@@ -158,8 +182,25 @@ export function withEdit(item: WorkItem, edits: WorkItemEdits, edit: Edit): Work
       );
     case 'area':
       return put(edits, 'area', edit.value, edit.value.id !== stored.area.id);
-    case 'team':
-      return put(edits, 'team', edit.value, (edit.value?.id ?? null) !== (stored.team?.id ?? null));
+    case 'team': {
+      const next = put(
+        edits,
+        'team',
+        edit.value,
+        (edit.value?.id ?? null) !== (stored.team?.id ?? null),
+      );
+      // A sprint picked for the earlier team is not the new team's: the pick goes.
+      if ((edit.value?.id ?? null) !== (editedDraft(item, edits).team?.id ?? null))
+        delete next.sprint;
+      return next;
+    }
+    case 'sprint':
+      return put(
+        edits,
+        'sprint',
+        edit.value,
+        (edit.value?.id ?? null) !== (stored.sprint?.id ?? null),
+      );
     case 'parent': {
       const seenParentId =
         edits.parent !== undefined ? edits.parent.seenParentId : (stored.parent?.id ?? null);
@@ -197,6 +238,7 @@ export function normaliseEdits(item: WorkItem, edits: WorkItemEdits): WorkItemEd
   if (edits.assignee !== undefined) apply({ field: 'assignee', value: edits.assignee });
   if (edits.area !== undefined) apply({ field: 'area', value: edits.area });
   if (edits.team !== undefined) apply({ field: 'team', value: edits.team });
+  if (edits.sprint !== undefined) apply({ field: 'sprint', value: edits.sprint });
   for (const name of WORK_ITEM_FIELD_NAMES) {
     if (name === 'acceptanceCriteria') {
       const criteria = edits.fields?.acceptanceCriteria;
@@ -244,6 +286,7 @@ export function cardFieldOrder(appearance: string): readonly RefusalField[] {
     'state',
     'area',
     'team',
+    'sprint',
     'description',
     ...(layout.isStory ? (['acceptanceCriteria'] as const) : []),
     ...layout.texts,
