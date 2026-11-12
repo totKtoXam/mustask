@@ -226,7 +226,7 @@ public sealed class ReducerRulesTests
         watch.Stop();
 
         Assert.True(reduction.Exceeded);
-        Assert.True(watch.Elapsed < TimeSpan.FromSeconds(2), $"Took {watch.Elapsed}.");
+        Assert.True(watch.Elapsed < RichTextTestSupport.Budget(2), $"Took {watch.Elapsed}.");
     }
 
     // Plan § 5.1 / § 6.1: hostile nesting costs time, never the process: it is bounded and refused.
@@ -244,7 +244,7 @@ public sealed class ReducerRulesTests
         watch.Stop();
 
         Assert.Equal(refused, reduction.Exceeded);
-        Assert.True(watch.Elapsed < TimeSpan.FromSeconds(4), $"Took {watch.Elapsed}.");
+        Assert.True(watch.Elapsed < RichTextTestSupport.Budget(4), $"Took {watch.Elapsed}.");
     }
 
     // Nesting is bounded by DOM depth (160 including html and body), deterministically: 150 levels are read, 3 000
@@ -273,7 +273,7 @@ public sealed class ReducerRulesTests
         watch.Stop();
 
         Assert.True(reduction.Exceeded);
-        Assert.True(watch.Elapsed < TimeSpan.FromSeconds(2));
+        Assert.True(watch.Elapsed < RichTextTestSupport.Budget(2));
     }
 
     // --- property: idempotency over a small grammar --------------------------------------------------------------

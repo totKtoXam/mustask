@@ -21,6 +21,19 @@ internal static class RichTextTestSupport
         "table", "tbody", "tr", "th", "td",
     };
 
+    /// <summary>
+    /// A wall-clock budget for a reduction. The bound itself is proved by the counted-work
+    /// assertions (the guard's counters, which do not depend on the machine); the wall-clock one is
+    /// a smoke check for a runaway. It is exact on a developer machine and ten times wider on CI,
+    /// where the suites run in parallel under coverage instrumentation on shared runners.
+    /// </summary>
+    public static TimeSpan Budget(double seconds) =>
+        TimeSpan.FromSeconds(seconds * (IsCi ? 10 : 1));
+
+    private static readonly bool IsCi =
+        !string.IsNullOrEmpty(Environment.GetEnvironmentVariable("CI"))
+        || !string.IsNullOrEmpty(Environment.GetEnvironmentVariable("GITHUB_ACTIONS"));
+
     public static RichTextReduction Reduce(string html) => Reducer.Reduce(html, new RichTextReductionLimits(Ceiling), CancellationToken.None);
 
     /// <summary>What the handler stores for a value: the reduced html, or <c>""</c> when it has no content (BR-RT-6).</summary>

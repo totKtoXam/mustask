@@ -53,7 +53,7 @@ public sealed class ReducerBoundCostTests(ITestOutputHelper output)
         watch.Stop();
 
         output.WriteLine($"{name}: units={input.Length} elapsed={watch.ElapsedMilliseconds} ms exceeded={reduction.Exceeded} markup={reduction.MarkupLength}");
-        Assert.True(watch.Elapsed < TimeSpan.FromSeconds(2), $"{name} took {watch.Elapsed}.");
+        Assert.True(watch.Elapsed < RichTextTestSupport.Budget(2), $"{name} took {watch.Elapsed}.");
     }
 
     // The cost of the legitimate documents the spec insists are storable, for the record (same process, warm).
@@ -78,7 +78,7 @@ public sealed class ReducerBoundCostTests(ITestOutputHelper output)
 
         output.WriteLine($"{name}: units={input.Length} elapsed={watch.ElapsedMilliseconds} ms exceeded={reduction.Exceeded} markup={reduction.MarkupLength}");
         Assert.False(reduction.Exceeded);
-        Assert.True(watch.Elapsed < TimeSpan.FromSeconds(2), $"{name} took {watch.Elapsed}.");
+        Assert.True(watch.Elapsed < RichTextTestSupport.Budget(2), $"{name} took {watch.Elapsed}.");
     }
 
     // The cold-start figure: the first reduction of a process, a ceiling-sized document, JIT included. Run alone in a

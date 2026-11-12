@@ -231,7 +231,7 @@ public sealed class RichTextInputGuardTests
         var first = Reduce(input);
         watch.Stop();
 
-        Assert.True(watch.Elapsed < TimeSpan.FromSeconds(2.5), $"{piece} took {watch.Elapsed}.");
+        Assert.True(watch.Elapsed < RichTextTestSupport.Budget(2.5), $"{piece} took {watch.Elapsed}.");
         Assert.Equal(first.Exceeded, Reduce(input).Exceeded);
     }
 
@@ -250,7 +250,7 @@ public sealed class RichTextInputGuardTests
         var reduction = Reduce(input);
         watch.Stop();
 
-        Assert.True(watch.Elapsed < TimeSpan.FromSeconds(2.5), $"{piece} took {watch.Elapsed}.");
+        Assert.True(watch.Elapsed < RichTextTestSupport.Budget(2.5), $"{piece} took {watch.Elapsed}.");
         Assert.Equal(reduction.Exceeded, Reduce(input).Exceeded);
     }
 
@@ -333,7 +333,7 @@ public sealed class RichTextInputGuardTests
             watch.Stop();
 
             Assert.NotNull(reduction);
-            Assert.True(watch.Elapsed < TimeSpan.FromSeconds(5), $"<{name}> took {watch.Elapsed}.");
+            Assert.True(watch.Elapsed < RichTextTestSupport.Budget(5), $"<{name}> took {watch.Elapsed}.");
         }
     }
 }

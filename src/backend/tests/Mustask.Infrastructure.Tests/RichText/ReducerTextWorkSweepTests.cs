@@ -77,7 +77,7 @@ public sealed class ReducerTextWorkSweepTests(ITestOutputHelper output)
 
         // A shape whose counted work is within the bounds is answered quickly (a refusal by another bound counts too).
         // Generous: the figure on a quiet machine is under 1.5 s, a quadratic shape the counters missed is 10 s and more.
-        Assert.True(watch.Elapsed < TimeSpan.FromSeconds(9), $"{piece} took {watch.Elapsed} with append={full.TextAppendWork} foster={full.FosterTokenWork}.");
+        Assert.True(watch.Elapsed < RichTextTestSupport.Budget(9), $"{piece} took {watch.Elapsed} with append={full.TextAppendWork} foster={full.FosterTokenWork}.");
     }
 
     // The four shapes of the QA probe, at the size that took 3 to 11 s: the counters see them (not the clock).

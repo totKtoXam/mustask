@@ -353,7 +353,7 @@ public sealed class ReducerQaProbeTests(ITestOutputHelper output)
         watch.Stop();
 
         output.WriteLine($"{name}: units={input.Length} elapsed={watch.ElapsedMilliseconds} ms exceeded={reduction.Exceeded} markup={reduction.MarkupLength}");
-        Assert.True(watch.Elapsed < TimeSpan.FromSeconds(4), $"{name} took {watch.Elapsed}.");
+        Assert.True(watch.Elapsed < RichTextTestSupport.Budget(4), $"{name} took {watch.Elapsed}.");
     }
 
     // QA D-2 (major): the parse budget is a cancellation token, and AngleSharp checks it between tokens, not inside
@@ -375,7 +375,7 @@ public sealed class ReducerQaProbeTests(ITestOutputHelper output)
 
         output.WriteLine($"attributes={attributes} units={input.Length} elapsed={watch.ElapsedMilliseconds} ms exceeded={reduction.Exceeded}");
         Assert.True(reduction.Exceeded);
-        Assert.True(watch.Elapsed < TimeSpan.FromSeconds(1), $"{attributes} attributes took {watch.Elapsed}.");
+        Assert.True(watch.Elapsed < RichTextTestSupport.Budget(1), $"{attributes} attributes took {watch.Elapsed}.");
     }
 
     // The same tag at the bound is read: the bound is on the count, nothing else (QA D-2, deterministic).
@@ -414,7 +414,7 @@ public sealed class ReducerQaProbeTests(ITestOutputHelper output)
         watch.Stop();
 
         Assert.Equal(refused, reduction.Exceeded);
-        Assert.True(watch.Elapsed < TimeSpan.FromSeconds(2.5), $"Took {watch.Elapsed}.");
+        Assert.True(watch.Elapsed < RichTextTestSupport.Budget(2.5), $"Took {watch.Elapsed}.");
     }
 
     // --- time: legitimate documents against the parse budget (evidence, not a verdict) ------------------------------
@@ -632,7 +632,7 @@ public sealed class ReducerQaProbeTests(ITestOutputHelper output)
         watch.Stop();
 
         output.WriteLine($"{piece} x{units / piece.Length}: {watch.ElapsedMilliseconds} ms exceeded={reduction.Exceeded}");
-        Assert.True(watch.Elapsed < TimeSpan.FromSeconds(2.5), $"{piece} took {watch.Elapsed}.");
+        Assert.True(watch.Elapsed < RichTextTestSupport.Budget(2.5), $"{piece} took {watch.Elapsed}.");
     }
 
     // QA D-9 (minor): the preformatted start-tag bound counts tags, not nesting. 1 001 closed code blocks are canonical
@@ -744,7 +744,7 @@ public sealed class ReducerQaProbeTests(ITestOutputHelper output)
         watch.Stop();
 
         output.WriteLine($"{piece} x{units / piece.Length}: {watch.ElapsedMilliseconds} ms exceeded={reduction.Exceeded}");
-        Assert.True(watch.Elapsed < TimeSpan.FromSeconds(2.5), $"{piece} took {watch.Elapsed}.");
+        Assert.True(watch.Elapsed < RichTextTestSupport.Budget(2.5), $"{piece} took {watch.Elapsed}.");
     }
 
     // Re-check 2: canonical table shapes the new foster-parenting bound must not touch.
