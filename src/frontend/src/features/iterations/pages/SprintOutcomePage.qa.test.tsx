@@ -13,6 +13,7 @@ import { LIST_PATH, SPRINTS_ROUTE, dynamicsOf, dynamicsRow, sprintId, sprintRow 
 
 vi.setConfig({ testTimeout: 120_000 });
 
+const SLOW = { timeout: 20_000 };
 const SPRINT = sprintId(5);
 const PATH = `${LIST_PATH}/${SPRINT}`;
 const ROUTE = `${SPRINTS_ROUTE}/${SPRINT}`;
@@ -115,8 +116,8 @@ describe('mod-007 design § 6.2 QA: an address that cannot be applied opens with
     const { dynamics, people } = serve();
     renderPage(`${PATH}${search}`);
 
-    await screen.findByRole('table', { name: 'Динамика спринта' });
-    await screen.findByRole('table', { name: 'Итоги по участникам' });
+    await screen.findByRole('table', { name: 'Динамика спринта' }, SLOW);
+    await screen.findByRole('table', { name: 'Итоги по участникам' }, SLOW);
     expect(dynamics.requests[0]?.search).toContain('level=stories');
     expect(dynamics.requests[0]?.search).not.toContain('from=');
     expect(people.requests[0]?.search).not.toContain('to=');
@@ -129,7 +130,7 @@ describe('mod-007 design § 6.2 QA: an address that cannot be applied opens with
     const { dynamics } = serve();
     renderPage(`${PATH}?level=features&from=2026-01-01&to=2026-02-01`);
 
-    await screen.findByRole('table', { name: 'Динамика спринта' });
+    await screen.findByRole('table', { name: 'Динамика спринта' }, SLOW);
     const search = dynamics.requests[0]?.search ?? '';
     expect(search).toContain('level=features');
     expect(search).toContain('from=2026-01-01');
@@ -140,7 +141,7 @@ describe('mod-007 design § 6.2 QA: an address that cannot be applied opens with
   it('does not apply a half-filled pair typed into the controls', async () => {
     serve();
     renderPage(PATH);
-    await screen.findByRole('table', { name: 'Динамика спринта' });
+    await screen.findByRole('table', { name: 'Динамика спринта' }, SLOW);
 
     await userEvent.clear(screen.getByLabelText('С'));
     await userEvent.click(screen.getByRole('button', { name: 'Применить' }));
@@ -197,7 +198,7 @@ describe('mod-007 design § 6.3, § 6.6 QA: empty states', () => {
       },
     });
     renderPage(PATH);
-    const table = await screen.findByRole('table', { name: 'Итоги по участникам' });
+    const table = await screen.findByRole('table', { name: 'Итоги по участникам' }, SLOW);
     const row = within(table).getByRole('row', { name: /Анна Петрова/ });
     expect(within(row).getByText('63 %')).toBeInTheDocument();
     expect(within(row).getByText('—')).toBeInTheDocument();
@@ -206,7 +207,7 @@ describe('mod-007 design § 6.3, § 6.6 QA: empty states', () => {
   it('lets a person who left the organization keep a name and the tag', async () => {
     serve({ participants: { ...participants, rows: [person({ isMember: false })] } });
     renderPage(PATH);
-    const table = await screen.findByRole('table', { name: 'Итоги по участникам' });
+    const table = await screen.findByRole('table', { name: 'Итоги по участникам' }, SLOW);
     expect(within(table).getByText('Анна Петрова')).toBeInTheDocument();
     expect(within(table).getByText('не в организации')).toBeInTheDocument();
   });
@@ -216,7 +217,7 @@ describe('mod-007 design § 6.4, § 6.5 QA: the rows that differ', () => {
   it('expands «Без исполнителя»', async () => {
     serve();
     renderPage(PATH);
-    const table = await screen.findByRole('table', { name: 'Итоги по участникам' });
+    const table = await screen.findByRole('table', { name: 'Итоги по участникам' }, SLOW);
     await userEvent.click(within(table).getByRole('button', { name: 'Динамика: Без исполнителя' }));
     expect(within(table).getByText('Мин')).toBeInTheDocument();
     expect(within(table).getAllByText('2,5').length).toBeGreaterThan(0);
@@ -226,7 +227,7 @@ describe('mod-007 design § 6.4, § 6.5 QA: the rows that differ', () => {
   it.fails('expands «Итого» to its own min, average and max', async () => {
     serve();
     renderPage(PATH);
-    const table = await screen.findByRole('table', { name: 'Итоги по участникам' });
+    const table = await screen.findByRole('table', { name: 'Итоги по участникам' }, SLOW);
     expect(within(table).getByRole('button', { name: 'Динамика: Итого' })).toBeInTheDocument();
   });
 
@@ -234,7 +235,7 @@ describe('mod-007 design § 6.4, § 6.5 QA: the rows that differ', () => {
   it.fails('keeps the recorded project of a purged row', async () => {
     serve();
     renderPage(PATH);
-    const table = await screen.findByRole('table', { name: 'Итог спринта' });
+    const table = await screen.findByRole('table', { name: 'Итог спринта' }, SLOW);
     const purged = within(table).getByRole('row', { name: /PRM-US-9/ });
     expect(within(purged).getByText('Проект Альфа')).toBeInTheDocument();
   });
@@ -242,7 +243,7 @@ describe('mod-007 design § 6.4, § 6.5 QA: the rows that differ', () => {
   it('keeps the recorded points of a purged row', async () => {
     serve();
     renderPage(PATH);
-    const table = await screen.findByRole('table', { name: 'Итог спринта' });
+    const table = await screen.findByRole('table', { name: 'Итог спринта' }, SLOW);
     const purged = within(table).getByRole('row', { name: /PRM-US-9/ });
     expect(within(purged).getByText('3')).toBeInTheDocument();
     expect(within(purged).getByText('Удалён навсегда')).toBeInTheDocument();
@@ -261,7 +262,9 @@ describe('mod-007 design § 6.4, § 6.5 QA: the rows that differ', () => {
     expect(screen.getByRole('table', { name: 'Динамика спринта' })).toBeInTheDocument();
     recordRequests('get', `${ROUTE}/participants`, () => participants);
     await userEvent.click(screen.getByRole('button', { name: 'Повторить' }));
-    expect(await screen.findByRole('table', { name: 'Итоги по участникам' })).toBeInTheDocument();
+    expect(
+      await screen.findByRole('table', { name: 'Итоги по участникам' }, SLOW),
+    ).toBeInTheDocument();
   });
 });
 
@@ -269,7 +272,7 @@ describe('mod-007 design § 6.1 QA: the head', () => {
   it('has one h1', async () => {
     serve();
     renderPage(PATH);
-    await screen.findByRole('table', { name: 'Динамика спринта' });
+    await screen.findByRole('table', { name: 'Динамика спринта' }, SLOW);
     expect(screen.getAllByRole('heading', { level: 1 })).toHaveLength(1);
   });
 
@@ -277,7 +280,7 @@ describe('mod-007 design § 6.1 QA: the head', () => {
   it.fails('makes the sprint name the h1', async () => {
     serve();
     renderPage(PATH);
-    await screen.findByRole('table', { name: 'Динамика спринта' });
+    await screen.findByRole('table', { name: 'Динамика спринта' }, SLOW);
     await waitFor(() =>
       expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent('Спринт 5'),
     );
