@@ -47,6 +47,9 @@ sudo bash mustask-v0.1.0/kit/smoke.sh
 Источник истины для unit, сайта и ключей env — файлы кита; разделы ниже
 объясняют, что делает каждый шаг и зачем.
 
+После первого развёртывания руками раздел 11 превращает раздел 9 в пуш тега.
+Self-hosted раннер GitHub Actions на VM развёртывает тег после вашего одобрения.
+
 **Две схемы.** MUSTASK отдаётся либо в корне собственного имени хоста
 (`https://mustask.example.com`), либо под путём на хосте, у которого уже есть
 сервер (`https://portal.example.com/mustask`, ADR-0037). Путь — одна настройка:
@@ -547,6 +550,188 @@ sudo bash mustask-v0.2.0/kit/install.sh status      # активный VERSION �
 | Вход возвращается с `authError=no_access` | У пользователя нет роли клиента `mustask-api` `user` (назначьте напрямую). |
 | Вход есть, но роль не действует | В access token нет `resource_access.mustask-api.roles` (маппер, раздел 1). |
 | После перезапуска всех разлогинило | `/var/lib/mustask` (ключи Data Protection) не сохраняется или недоступен службе на запись. |
+| Запуск деплоя: `the repository variable MUSTASK_SITE_URL is not set` | Раздел 11.1, пункт 3. |
+| Job деплоя ждёт «a runner … with labels self-hosted, linux, mustask-prod» | Раннер офлайн: `systemctl status 'actions.runner.*'` на VM и Settings → Actions → Runners (раздел 11.2). |
+| Запуск деплоя: `sudo: a password is required` | `runner-setup.sh` на этой VM не запускался или `/etc/sudoers.d/mustask-runner` пропал: запустите его снова (раздел 11.2). |
+| Запуск деплоя: `mustask-cd: refused: …` | Артефакт — не один релиз от `build-release.sh`; сообщение говорит, что не так. Ничего не установлено. |
+| Запуск деплоя: `mustask-cd: refused: /etc/mustask/cd-smoke-args` | В файле что-то кроме `--resolve-local` / `--insecure`: перезапустите `runner-setup.sh --smoke-args "…"`. |
+
+## 11. Непрерывное развёртывание (GitHub Actions)
+
+Когда разделы 1–8 один раз пройдены руками, релизный тег может
+развёртываться сам.
+[`.github/workflows/deploy.yml`](../../.github/workflows/deploy.yml) собирает
+релиз на раннере GitHub ровно так же, как раздел 4, и ждёт одобрения. После
+одобрения self-hosted раннер на этой VM выполняет раздел 9:
+
+```
+git push origin v0.2.0
+  └─ build  (ubuntu-latest): build-release.sh v0.2.0 $MUSTASK_SITE_URL → артефакт + sha256
+  └─ deploy (эта VM, метка mustask-prod, окружение production → одобрение):
+        проверка sha256 → sudo -n mustask-cd deploy < mustask-v0.2.0.tar.gz   (install.sh deploy)
+                        → sudo -n mustask-cd smoke                             (smoke.sh)
+```
+
+На VM не нужны ни .NET SDK, ни Node, ни клон репозитория: туда приходит
+только архив. Раннер работает от непривилегированного пользователя
+`mustask-runner`, которому от root разрешены ровно две команды:
+`mustask-cd deploy` (архив через stdin) и `mustask-cd smoke`. `mustask-cd` —
+это [`deploy/vm/mustask-cd.sh`](../../deploy/vm/mustask-cd.sh), его ставит
+[`deploy/vm/runner-setup.sh`](../../deploy/vm/runner-setup.sh). Репозиторий
+публичный, поэтому порядок ниже важен: сначала настройки репозитория, потом
+раннер.
+
+### 11.1 Настройки репозитория (один раз, владелец репозитория)
+
+Всё это — в **Settings** репозитория.
+
+1. **Actions → General → Approval for running fork pull request workflows
+   from contributors:** «Require approval for all external contributors».
+   Тогда PR из форка ничего не запускает без вашего одобрения. Даже
+   одобренный, он запускает только `ci.yml`, а тот работает на раннерах
+   GitHub.
+2. **Environments → New environment `production`:**
+   - *Required reviewers*: вы сами. «Prevent self-review» не включайте: тег
+     пушите и одобряете вы же.
+   - *Deployment branches and tags*: «Selected branches and tags». Добавьте
+     правило для ветки `main` и правило для тегов `v*`. Запуск из любой
+     другой ветки до job деплоя не дойдёт.
+3. **Secrets and variables → Actions → Variables → New repository variable**
+   `MUSTASK_SITE_URL`: публичный адрес, символ в символ совпадающий с
+   `Session__PanelUrl` из `/etc/mustask/mustask.env`. Примеры:
+   `https://mustask.example.com`, `https://portal.example.com/mustask`.
+   `install.sh deploy` отказывает релизу, собранному под другой адрес.
+   Секреты не нужны: ничего секретного с VM не уходит.
+4. **Rules → Rulesets → New ruleset → New tag ruleset:** цель `v*`,
+   enforcement Active. Включите «Restrict creations», «Restrict updates» и
+   «Restrict deletions», а в bypass-список добавьте Repository admin. Тогда
+   создать или передвинуть релизный тег можете только вы.
+5. **Группы раннеров.** У репозитория, принадлежащего пользователю (как этот),
+   групп нет, и его раннер обслуживает только этот репозиторий. Защита здесь —
+   только `deploy.yml` упоминает метку `mustask-prod`.
+   `scripts/tests/cd-runner-cases.sh` иначе роняет CI. Если репозиторий
+   переедет в организацию, вынесите раннер в отдельную группу. Дайте этой группе
+   доступ только к этому репозиторию, включите «Allow public repositories» и
+   задайте «Restrict to selected workflows» =
+   `<org>/mustask/.github/workflows/deploy.yml@refs/heads/main`.
+
+### 11.2 Раннер на VM (один раз, root)
+
+Оба скрипта лежат в `deploy/vm/` репозитория и в `kit/` любого релиза, где они
+уже есть. На VM:
+
+```bash
+sudo bash runner-setup.sh --url https://github.com/totKtoXam/mustask \
+    --runner-version 2.338.2 \
+    --runner-sha256 baebf204307bac6193480852732f0aba2ae97b6c5597c244f4d5558390147c40
+```
+
+- `--runner-version` и `--runner-sha256` берутся со страницы
+  [github.com/actions/runner/releases](https://github.com/actions/runner/releases),
+  из строки `actions-runner-linux-x64-<версия>.tar.gz`. Значения выше —
+  последние на 2026-11-10. Если контрольная сумма скачанного не совпадёт,
+  скрипт откажет.
+- Скрипт спросит **регистрационный токен**. Возьмите его в Settings → Actions →
+  Runners → New self-hosted runner → Linux: это значение после `--token` в
+  строке `./config.sh`. Токен действует час. При вводе он не отображается и
+  не попадает ни в командную строку, ни в файл.
+- Добавьте `--smoke-args --resolve-local`, если VM не достучится до своего
+  публичного имени. Это тот же флаг, что `smoke.sh --resolve-local` в разделе
+  8. `--insecure` нужен, пока VM не доверяет сертификату. Флаги
+  сохраняются в `/etc/mustask/cd-smoke-args`.
+
+Что делает скрипт:
+
+- Создаёт системного пользователя `mustask-runner` с домом
+  `/var/lib/mustask-runner`. У него нет пароля и login-shell, и он не входит
+  в группы `sudo`, `docker`, `lxd`. Если он уже в такой группе, скрипт
+  откажет.
+- Ставит `/usr/local/sbin/mustask-cd` (root, 0755).
+- Пишет `/etc/sudoers.d/mustask-runner` (root, 0440) и перед установкой
+  проверяет его `visudo`:
+  `mustask-runner ALL=(root) NOPASSWD: /usr/local/sbin/mustask-cd deploy, /usr/local/sbin/mustask-cd smoke`.
+- Ставит раннер в `/var/lib/mustask-runner/actions-runner`, вместе с его
+  собственным списком пакетов (`installdependencies.sh`, apt). Регистрирует
+  раннер с меткой `mustask-prod` и ставит его как сервис systemd
+  (`actions.runner.totKtoXam-mustask.<имя>.service`) от имени
+  `mustask-runner`.
+
+Проверка:
+
+```bash
+sudo -u mustask-runner sudo -n -l     # ровно две команды mustask-cd
+systemctl status 'actions.runner.*'   # active (running)
+```
+
+На GitHub в Settings → Actions → Runners раннер виден как Idle, с метками
+`self-hosted`, `Linux`, `X64` и `mustask-prod`.
+
+Повторный запуск `runner-setup.sh` на зарегистрированном раннере обновляет
+только обёртку, sudoers и флаги smoke. Без `--smoke-args` записанные флаги
+сохраняются. Запускайте его снова, когда меняется `mustask-cd.sh`: деплой
+обёртку не заменяет.
+
+### 11.3 Выпуск, повторный деплой, откат
+
+```bash
+git tag v0.2.0 && git push origin v0.2.0
+```
+
+Дальше Actions → **Deploy** → запуск → «Review deployments» → `production`
+→ Approve. Job деплоя печатает вывод `install.sh deploy` и `smoke.sh`.
+Проваленная smoke-проверка роняет запуск. Чек-лист в браузере, который
+печатает `smoke.sh`, остаётся за вами (раздел 8).
+
+Чтобы снова развернуть существующий или более старый тег: Actions → Deploy →
+Run workflow, ветка `main`, tag `v0.1.0`. Старый тег, развёрнутый так,
+запускает свой бандл миграций, а на более новой схеме тот ничего не
+применяет. Быстрый откат — по-прежнему `install.sh rollback` на VM (раздел
+9): его нет в CI, и у раннера нет права его запускать.
+
+Два запуска не пересекаются. Второй ждёт окончания первого и никогда не
+отменяется посреди `install.sh deploy`.
+
+### 11.4 Модель доверия
+
+Кто может запустить job деплоя, тот может выполнить код от root на этой VM.
+Это не изъян раннера: `install.sh deploy` и бандл миграций релиза и руками
+выполняются от root. Поэтому job огорожен:
+
+- **Ни один pull request не доходит до раннера.** `deploy.yml` запускается
+  только на `push` тегов `v*` и на `workflow_dispatch`. Для обоих нужен доступ
+  на запись в репозиторий, которого у форка нет. Все остальные workflow
+  работают на раннерах GitHub. В CI всё это проверяет
+  `scripts/tests/cd-runner-cases.sh`.
+- **Релизные теги создаёте только вы** — через ruleset тегов (11.1, пункт 4).
+- **Каждый деплой ждёт вашего одобрения**, и только из `main` или тега `v*` —
+  это окружение `production` (11.1, пункт 2).
+- **Job на VM не выполняет кода репозитория.** У него нет ни checkout, ни
+  секретов. Он берёт архив у job сборки и сверяет его sha256. Обёртка
+  принимает только один каталог `mustask-<tag>/`, в котором `VERSION` называет
+  тот же тег, и распаковывает его в новый каталог, принадлежащий root.
+- Actions в `deploy.yml` закреплены по коммиту.
+
+Никогда не делайте так:
+
+- Не добавляйте `pull_request`, `pull_request_target`, `workflow_run` или
+  `issue_comment` в workflow, у которого есть job на этом раннере.
+- Не давайте `mustask-runner` других правил sudo и групп.
+- Не регистрируйте раннер этой VM для другого репозитория.
+
+Артефакт сборки публичного репозитория может скачать любой, кто вошёл в
+GitHub. В архиве нет ничего секретного: все секреты живут только в
+`mustask.env` на VM.
+
+### 11.5 Удаление раннера
+
+Settings → Actions → Runners → раннер → Remove покажет токен удаления. На VM:
+
+```bash
+cd /var/lib/mustask-runner/actions-runner
+sudo ./svc.sh stop && sudo ./svc.sh uninstall
+sudo -u mustask-runner ./config.sh remove     # спросит токен удаления
+sudo rm /etc/sudoers.d/mustask-runner /usr/local/sbin/mustask-cd /etc/mustask/cd-smoke-args
+```
 
 ## Что этот runbook не проверяет
 
@@ -582,6 +767,17 @@ sudo bash mustask-v0.2.0/kit/install.sh status      # активный VERSION �
   8, включая путь cookie `/mustask/api/session`. Чего репетиция дать не может —
   настоящего сервера портала (его regex-location и собственные ограничения) и
   согласия его владельца на `include`.
+
+- **Непрерывное развёртывание на GitHub (раздел 11).** 2026-11-12 (tech-066)
+  в чистом контейнере Ubuntu 24.04 прошёл `runner-setup.sh`, с раннером,
+  помеченным как зарегистрированный: пользователь, обёртка, sudoers с
+  проверкой `visudo`, флаги smoke, повторный запуск. Затем контейнер запустил
+  `sudo -n` от имени `mustask-runner`. Две команды `mustask-cd` выполнили от
+  root `install.sh` релиза (заглушку) и `smoke.sh`. Всё остальное получило
+  отказ: другая подкоманда, лишний аргумент, `bash`, сам `install.sh`, `-E`,
+  другой целевой пользователь. Не пройдены: настоящая регистрация, сервис
+  раннера и запуск `deploy.yml` с одобрением `production`. Эта проверка —
+  первый тег после настройки.
 
 Первое настоящее развёртывание должно снова пройти раздел 8 и исправить этот
 документ там, где он расходится с реальностью.

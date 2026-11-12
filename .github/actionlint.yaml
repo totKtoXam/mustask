@@ -1,0 +1,5 @@
+# actionlint (scripts/verify.sh runs it where it is installed).
+self-hosted-runner:
+  # The production VM's runner (tech-066, docs/deploy/vm.md section 11).
+  labels:
+    - mustask-prod

@@ -24,7 +24,8 @@
 #   panel/      the panel build, VITE_API_BASE_URL=<site-url> and the path base baked in
 #   efbundle    EF Core migrations bundle, linux-x64, self-contained: the VM
 #               needs no SDK and no checkout to migrate
-#   kit/        the files of this directory (install.sh, smoke.sh, unit, ...)
+#   kit/        the files of this directory (install.sh, smoke.sh, the CD
+#               wrapper and runner setup, unit, ...)
 #   VERSION     tag, commit, site URL, build time
 #
 # Needs on the build machine (any OS with bash): git, the .NET 10 SDK,
@@ -131,7 +132,7 @@ if [ -n "$base" ]; then
 fi
 
 mkdir -p "$stage/kit"
-for f in install.sh smoke.sh mustask-api.service nginx-mustask.conf nginx-mustask-locations.conf mustask.env.template; do
+for f in install.sh smoke.sh mustask-cd.sh runner-setup.sh mustask-api.service nginx-mustask.conf nginx-mustask-locations.conf mustask.env.template; do
     # LF on the VM whatever the build machine's checkout did (.gitattributes
     # says LF, but an old clone may predate it).
     tr -d '\r' < "$kit/$f" > "$stage/kit/$f"

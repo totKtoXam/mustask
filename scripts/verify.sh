@@ -817,6 +817,38 @@ if [ "$need_ci" = 1 ]; then
     else
         skipped "  NOT CHECKED: no python with PyYAML, CI workflow needs a manual check"
     fi
+    # actionlint where it is installed; the YAML check above is the floor.
+    if command -v actionlint >/dev/null 2>&1; then
+        lint=""
+        for file in $changed; do
+            case "$file" in .github/workflows/*) [ -f "$file" ] && lint="$lint $file" ;; esac
+        done
+        if [ -n "$lint" ]; then
+            # shellcheck disable=SC2086 -- file names have no spaces
+            if actionlint $lint; then pass "CI workflow: actionlint"; else fail "CI workflow: actionlint"; fi
+        fi
+    fi
+fi
+
+# --- CD on the production VM (tech-066) --------------------------------------------
+# The wrapper the runner runs as root, and the guard that keeps every
+# self-hosted job out of reach of a pull request. Shell and workflow files
+# land in different buckets, so the cases are keyed on the files themselves.
+if [ "$need_shell$need_ci" != 00 ]; then
+    touches_cd=0
+    for file in $changed; do
+        case "$file" in
+            deploy/vm/mustask-cd.sh|deploy/vm/runner-setup.sh|scripts/tests/cd-runner-cases.sh|.github/workflows/*)
+                touches_cd=1 ;;
+        esac
+    done
+    if [ "$touches_cd" = 1 ]; then
+        if sh scripts/tests/cd-runner-cases.sh; then
+            pass "CD: wrapper and self-hosted guard cases"
+        else
+            fail "CD: wrapper and self-hosted guard cases"
+        fi
+    fi
 fi
 
 # --- Backend -------------------------------------------------------------------
