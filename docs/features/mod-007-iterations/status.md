@@ -10,7 +10,7 @@
 
 ## Gates
 
-gate-1: approved (2026-11-10, human in chat, «Да, approve», after review round 2 approved-by-ai; OQ-1..OQ-6 A, OQ-7 B, OQ-8 A)
+gate-1: approved (2026-11-10, human in chat, «Да, approve», after review round 2 approved-by-ai; OQ-1..OQ-6 A, OQ-7 B, OQ-8 A); delta (US-9, US-10, BR-14..BR-16, OQ-9..OQ-15) approved 2026-11-12, human in chat, «Да, approve»
 gate-2: approved (2026-11-10, human in chat, «Да, approve», after D-1..D-7 A, the prototype reworked into the product shell (left navigation) on the human's remark; the sprint board stays in feat-057 by the human's answer)
 gate-3: pending
 
@@ -78,6 +78,8 @@ agent per stage, no fan-out. E2E: no (paused).
   range (?from=&to=, default 90 days before the sprint's start, at most 20
   sprints read), OQ-10..OQ-15 all A; BR-14 (level, purge), BR-15, BR-16, US-5,
   US-9, US-10 updated; OQs closed; gates untouched
+- 2026-11-12 [orchestrator] gate-1 for the delta approved by the human in
+  chat («Да, approve»); design delta handed to the ux-designer
 
 ## Notes
 
