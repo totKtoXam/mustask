@@ -193,14 +193,14 @@ Floor 640 CSS px (ADR-0024). Below 700 px the palette is full screen (§ 3.1); a
 
 | # | Decision | Default taken |
 |---|---|---|
-| D-1 | Palette sits at a fixed top offset, not vertically centred | fixed 10 vh |
+| D-1 | Palette sits at a fixed top offset, not vertically centred | fixed 10 vh — accepted by the human at gate-2, 2026-11-13 |
 | D-2 | Full screen below 700 px | yes; spec floor is 640 |
-| D-3 | Similar rows marked by a «Похожие» caption | marked |
+| D-3 | Similar rows marked by a «Похожие» caption | marked — accepted by the human at gate-2, 2026-11-13 |
 | D-4 | Enter inert while a newer read is pending | inert, not "wait then open" |
 | D-5 | The last row hidden on error and 404 | hidden (BR-GS-9 says "even when nothing matched", not "even on failure") |
 | D-6 | Snippet from the server as text + ranges; no emphasis on the page's titles | as § 4.1 |
-| D-7 | POST for the read; limiter 3/3 per user, 24/12 per process, 1 s | as § 3.4 |
-| D-8 | The kit part is the first commit of the palette line and may be split as an S line | flagged (R-23) |
+| D-7 | POST for the read; limiter 3/3 per user, 24/12 per process, 1 s | as § 3.4 — accepted by the human at gate-2, 2026-11-13 |
+| D-8 | The kit part is the first commit of the palette line and may be split as an S line | split: the human at gate-2, 2026-11-13 chose a separate S line, `feat-NNN-search-dialog-kit` (spec § Decomposition) |
 
 Left to the ADR and not this design: the `word_similarity` threshold (the prototype uses 0.5 trigram overlap for its fake «лагистика»), the plain-text derivation, snippet length on the server.
 

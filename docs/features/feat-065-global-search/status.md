@@ -28,6 +28,8 @@ gate-3: pending
 - 2026-11-13 [orchestrator] the human at gate-1: OQ-1 two modes — the palette stays quick (identifier + title), a full search page (descriptions, full-text) is reached from a palette row and designed here as its own delivery line; OQ-2 pg_trgm plus a typo-tolerant fallback tier (≥ 4 characters); OQ-3 name and email; OQ-4 localStorage; OQ-5 any opening; OQ-6 the person's work items (R-10 empty list accepted); R-1 the editor keeps Ctrl/Cmd+K; R-4 the palette waits for feat-062; R-5 the palette's last row goes to the full search page; OQ-7 the page lists work items only.
 - 2026-11-13 [business-analyst] gate-1 decisions folded in: US-7 full search page, BR-GS-17 typo tier, BR-GS-18; six delivery lines. No round-2 review (economy mode).
 - 2026-11-13 [orchestrator] gate-1 approved by the human in chat. Stage 3 started: one ux-designer run.
+- 2026-11-13 [ux-designer] design.md and prototype/index.html; questions D-1..D-8 in design § 7.
+- 2026-11-13 [orchestrator] prototype clicked through in the browser pane over local HTTP (palette, recent, typo tier, keyboard, choose, full search page with snippets); fixed: choosing a structure object did not update the header context in the prototype. The human at gate-2: D-1 fixed 10 vh, D-3 «Похожие» caption kept, D-7 POST and the proposed limiter, D-8 the kit split into its own S line `feat-NNN-search-dialog-kit` (spec § Decomposition, now seven lines). gate-2 verdict pending: the human looks at the prototype first.
 
 ## Notes
 
