@@ -3,7 +3,7 @@
 - type: module
 - size: L
 - branch: mod/007-iterations
-- stage: 06-code-review
+- stage: complete
 - epic: core/iterations-planning
 - deps: feat-040
 - gates: gate-1, gate-2, gate-3
@@ -12,7 +12,7 @@
 
 gate-1: approved (2026-11-10, human in chat, «Да, approve», after review round 2 approved-by-ai; OQ-1..OQ-6 A, OQ-7 B, OQ-8 A); delta (US-9, US-10, BR-14..BR-16, OQ-9..OQ-15) approved 2026-11-12, human in chat, «Да, approve»
 gate-2: approved (2026-11-10, human in chat, «Да, approve», after D-1..D-7 A, the prototype reworked into the product shell (left navigation) on the human's remark; the sprint board stays in feat-057 by the human's answer); delta (outcome page: level, date range, dynamics, participants) approved 2026-11-12, human in chat, «Да, approve», after D-4 A, D-8 A, D-9 A, D-10 B
-gate-3: pending
+gate-3: approved (2026-11-13, human in chat, «Да, approve», after code review round 2 approved-by-ai; 7 minor debts accepted: review m-1, m-2, m-3, m-5, m-6, QA backend D-1, D-2)
 
 ## Plan
 
@@ -96,6 +96,8 @@ agent per stage, no fan-out. E2E: no (paused).
 - 2026-11-13 [qa-engineer] frontend QA re-check of f5a84ab4: D-1..D-5 fixed and verified, 3 tests added for D-4/D-5; 0 blocker, 0 major; PASS, to code review; no E2E (standing NO)
 - 2026-11-13 [backend-developer] code review M-1 fixed: hierarchy, then sprints (close with its destination FOR UPDATE), then items; unlink and team deletion lock open sprints; M-2, m-4 done (deviations in § Notes); a42f3f17 is code and tests together; tests green
 - 2026-11-13 [code-reviewer] code review round 2 (delta 6ee18e5b) in review.md: approved; M-1, M-2, m-4 resolved; 0 blocker, 0 major open; 6 minor debts to gate-3 (m-1..m-3, m-5, m-6, QA D-1, D-2)
+- 2026-11-13 [orchestrator] gate-3 approved by the human in chat; stage
+  complete; PR to main opened by the orchestrator
 
 ## Notes
 
