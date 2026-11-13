@@ -1,0 +1,29 @@
+{
+  "$comment": "feat-018 / ADR-0039 decision 10, plan-frontend § 10.2. Gzipped bytes as `dist/bundle-report.json` measures them (node:zlib, level 6). The baseline is the app's single entry chunk on the branch before the editor was reachable from it. The ceilings are PROPOSED by the developer from the first measurement (slice 3) and wait for the human to confirm or change them (ADR-0039 decision 10); `scripts/check-bundle.mjs` (`npm run bundle:check`, after `npm run build`) holds the build to them.",
+  "status": "confirmed (gate-3, 2026-11-12: entry ceiling raised from 10240 to 11264)",
+  "measured": {
+    "date": "2026-11-09",
+    "slice": "merged tree (code review CR-5): main a0a43386 merged in",
+    "entryGzipBytes": 406652,
+    "entryGrowthGzipBytes": 10956,
+    "editorChunkGzipBytes": 182083,
+    "emojiChunkGzipBytes": 46857,
+    "note": "Real numbers from vite build of the merged tree. The highlighter (about 24 KB) is inside the editor chunk. The entry growth is OVER its proposed ceiling by 716 B; the ceilings below are unchanged and are the human's to confirm or raise at gate-3 (ADR-0039 decision 10)."
+  },
+  "baseline": {
+    "entryGzipBytes": 395696
+  },
+  "ceilings": {
+    "entryGrowthGzipBytes": 11264,
+    "editorChunkGzipBytes": 225280,
+    "emojiChunkGzipBytes": 53248
+  },
+  "forbiddenInEntryClosure": [
+    "prosemirror",
+    "@tiptap",
+    "lowlight",
+    "highlight.js",
+    "emojibase",
+    "virtual:rich-text-emoji"
+  ]
+}

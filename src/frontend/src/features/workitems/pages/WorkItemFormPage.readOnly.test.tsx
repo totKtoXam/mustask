@@ -102,7 +102,16 @@ describe('mod-016 design § 6.5 Scenario: the reader’s card', () => {
     expect(assignee()).toHaveValue('Анна Смирнова');
     expect(screen.getByRole('combobox', { name: 'Статус' })).toHaveTextContent('Новая');
     expect(screen.getByRole('combobox', { name: 'Область' })).toHaveValue('Платформа');
-    expect(textbox('Описание')).toHaveValue('Пользователь входит по ссылке.\nБез пароля.');
+    // The stored plain text opens as one paragraph a line, in the lazy editor (feat-018).
+    const description = await screen.findByRole(
+      'textbox',
+      { name: 'Описание' },
+      { timeout: 20_000 },
+    );
+    expect(Array.from(description.querySelectorAll('p'), (p) => p.textContent)).toEqual([
+      'Пользователь входит по ссылке.',
+      'Без пароля.',
+    ]);
     // A stored 1.5 reads «1,5», as the card of the administrator shows it.
     expect(textbox('Оценка в пунктах')).toHaveValue('1,5');
   });

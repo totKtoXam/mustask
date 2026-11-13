@@ -14,7 +14,7 @@ import {
   stateId,
   validationProblem,
 } from '../../testFixtures';
-import { fill, held, openCard, typeInto } from './testCard';
+import { fill, held, openCard, typeDescription, typeInto } from './testCard';
 
 // Each user action renders the kit's fields in jsdom; a test of several steps outlasts the default.
 vi.setConfig({ testTimeout: 60_000 });
@@ -206,7 +206,7 @@ describe('feat-029 US-4: «Родитель»', () => {
     // Someone gave MSK-US-2 another parent after the card was read.
     recordOf(api.data, 2).parentId = recordOf(api.data, 8).id;
 
-    typeInto(screen.getByRole('textbox', { name: 'Описание' }), 'Мой текст');
+    await typeDescription('Мой текст');
     await userEvent.click(screen.getByRole('combobox', { name: 'Родитель' }));
     await userEvent.click(await screen.findByRole('option', { name: 'Нет родителя' }));
     await userEvent.click(save());
@@ -217,7 +217,7 @@ describe('feat-029 US-4: «Родитель»', () => {
         'MSK-FEAT-8 Вход через SSO',
       ),
     );
-    expect(screen.getByRole('textbox', { name: 'Описание' })).toHaveValue('Мой текст');
+    expect(screen.getByRole('textbox', { name: 'Описание' })).toHaveTextContent('Мой текст');
     expect(screen.getByRole('combobox', { name: 'Родитель' })).toHaveFocus();
   });
 });

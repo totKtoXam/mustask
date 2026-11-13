@@ -1,9 +1,123 @@
 import { readFileSync } from 'node:fs';
 import { availableParallelism } from 'node:os';
 import { fileURLToPath } from 'node:url';
+import { gzipSync } from 'node:zlib';
 import { configDefaults, coverageConfigDefaults, defineConfig } from 'vitest/config';
-import { loadEnv } from 'vite';
+import { loadEnv, searchForWorkspaceRoot, type Plugin } from 'vite';
 import react from '@vitejs/plugin-react';
+
+// feat-018 (ADR-0039 decisions 6 and 10). The rich-text vocabulary is imported
+// from `contracts/` beside the panel, so the dev server may serve the
+// repository root; a deployment build context must include `contracts/`.
+const REPOSITORY_ROOT = fileURLToPath(new URL('../..', import.meta.url));
+
+const EMOJI_MODULE = 'virtual:rich-text-emoji';
+const EMOJI_RESOLVED = `\0${EMOJI_MODULE}`;
+// emojibase-data group ids that never reach the picker: 2 = component (skin
+// tones, hair), 9 = flags (shown as letter pairs on Windows, design § Emoji).
+const EMOJI_OMITTED_GROUPS = new Set([2, 9]);
+
+interface EmojibaseEntry {
+  unicode: string;
+  label: string;
+  group?: number;
+  order?: number;
+  tags?: string[];
+}
+
+interface EmojibaseGroup {
+  key: string;
+  message: string;
+  order: number;
+}
+
+/**
+ * `virtual:rich-text-emoji` — the picker's data as one module (ADR-0039
+ * decision 4, M1): `[emoji, Russian label, Russian tags, group index]`,
+ * flags and the component group omitted, skin tones dropped, ordered by the
+ * data set's own order. Used only through a dynamic `import()`, so Rollup
+ * makes it a chunk of its own.
+ */
+function emojiDataPlugin(): Plugin {
+  const dataFile = (name: string) =>
+    fileURLToPath(new URL(`./node_modules/emojibase-data/ru/${name}`, import.meta.url));
+
+  return {
+    name: 'mustask-rich-text-emoji',
+    resolveId(id) {
+      return id === EMOJI_MODULE ? EMOJI_RESOLVED : undefined;
+    },
+    load(id) {
+      if (id !== EMOJI_RESOLVED) return undefined;
+
+      const entries = JSON.parse(
+        readFileSync(dataFile('compact.json'), 'utf8'),
+      ) as EmojibaseEntry[];
+      const messages = JSON.parse(readFileSync(dataFile('messages.json'), 'utf8')) as {
+        groups: EmojibaseGroup[];
+      };
+
+      const groups = messages.groups.filter((group) => !EMOJI_OMITTED_GROUPS.has(group.order));
+      const index = new Map(groups.map((group, position) => [group.order, position]));
+
+      const items = entries
+        .filter((entry) => entry.group !== undefined && index.has(entry.group))
+        .sort((a, b) => (a.order ?? 0) - (b.order ?? 0))
+        .map((entry) => [
+          entry.unicode,
+          entry.label,
+          (entry.tags ?? []).join(' '),
+          index.get(entry.group as number),
+        ]);
+
+      return (
+        `export const groups = ${JSON.stringify(groups.map((group) => group.message))};\n` +
+        `export const emoji = ${JSON.stringify(items)};\n`
+      );
+    },
+  };
+}
+
+/**
+ * Build only: writes `bundle-report.json` beside the chunks — per chunk its
+ * name, entry flags, gzipped size, static and dynamic imports and modules (id
+ * and rendered bytes) —
+ * which `scripts/check-bundle.mjs` reads against `bundle-budget.json`
+ * (plan-frontend § 10.2).
+ */
+function bundleReportPlugin(): Plugin {
+  return {
+    name: 'mustask-bundle-report',
+    apply: 'build',
+    generateBundle(_options, bundle) {
+      const chunks = Object.values(bundle).flatMap((output) =>
+        output.type === 'chunk'
+          ? [
+              {
+                fileName: output.fileName,
+                name: output.name,
+                isEntry: output.isEntry,
+                isDynamicEntry: output.isDynamicEntry,
+                gzipBytes: gzipSync(output.code).length,
+                imports: output.imports,
+                dynamicImports: output.dynamicImports,
+                modules: Object.entries(output.modules).map(([id, module]) => ({
+                  id,
+                  bytes: module.renderedLength,
+                })),
+              },
+            ]
+          : [],
+      );
+
+      this.emitFile({
+        type: 'asset',
+        fileName: 'bundle-report.json',
+        source: JSON.stringify({ chunks }, null, 2),
+      });
+    },
+  };
+}
 
 // The heavy files the fast tier skips (generated: scripts/slow-files.mjs).
 const slowFiles: string[] =
@@ -37,7 +151,7 @@ export default defineConfig(({ command, mode }) => {
 
   return {
     base: normaliseBase(loadEnv(mode, process.cwd(), 'VITE_').VITE_BASE_PATH),
-    plugins: [react()],
+    plugins: [react(), emojiDataPlugin(), bundleReportPlugin()],
     server: {
       // Порт пришпилен: он внесён в CORS-список Mustask.Api
       // (Cors:AllowedOrigins в appsettings.Development.json); молчаливый
@@ -57,8 +171,10 @@ export default defineConfig(({ command, mode }) => {
       // allowedHosts не нужен: проверка Host в Vite пропускает localhost и
       // любые IP-адреса, а по имени этот стенд не открывают.
       host: true,
-      // contracts/access/role-bundles.json lives beside the backend, above the project root (mod-019).
-      fs: { allow: ['../..'] },
+      // contracts/ (rich-text vocabularies, access/role-bundles.json) lives above the project root.
+      fs: {
+        allow: [searchForWorkspaceRoot(process.cwd()), REPOSITORY_ROOT, '../..'],
+      },
     },
     test: {
       environment: './src/test/sharedJsdom.ts',

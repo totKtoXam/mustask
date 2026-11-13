@@ -6,6 +6,7 @@ import Typography from '@mui/material/Typography';
 import { ApiError } from '../../../shared/api/httpClient';
 import { apiErrorText } from '../../../shared/lib/apiErrorText';
 import { InlineNotice } from '../../../shared/ui/feedback/InlineNotice';
+import { FieldsSkeleton } from '../../../shared/ui/feedback/FieldsSkeleton';
 import { Section } from '../../../shared/ui/layout/Section';
 import type { AreaPage } from '../api/organizationsApi';
 import { useSetInheritsAccess } from '../hooks/grantMutations';
@@ -19,6 +20,8 @@ export interface InheritAccessControlProps {
   area: AreaPage;
   /** `area.write` on the node and the parent's code (api-contract § 3), as the panel knows them. */
   canSwitch: boolean;
+  /** The reads that decide `canSwitch` have not landed: a skeleton, not the read-only fact that then turns into the switch. */
+  deciding?: boolean;
 }
 
 /** The sentence under the switch: what the state means here, by the node's kind and place (design § 4). */
@@ -44,6 +47,7 @@ export function InheritAccessControl({
   organizationId,
   area,
   canSwitch,
+  deciding = false,
 }: InheritAccessControlProps) {
   const value = area.inheritsAccess ?? true;
   const write = useSetInheritsAccess(organizationId, area.id);
@@ -70,7 +74,9 @@ export function InheritAccessControl({
   return (
     <Section title={inheritAccess.section}>
       <Stack spacing={1}>
-        {canSwitch ? (
+        {deciding ? (
+          <FieldsSkeleton count={1} />
+        ) : canSwitch ? (
           <FormControlLabel
             label={inheritAccess.label}
             control={

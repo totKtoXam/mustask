@@ -1,0 +1,13 @@
+{
+  "$comment": "feat-018 BR-RT-9: the panel's lazy conversion of a stored plain description to html. Panel: convert(plain) = html. Server: reduce(html) is the identity (a fixed point), counts as `count` and fits the ceilings. A case with a `generator` has no inline text: both suites build it (repeat-amp-100000: 100 000 '&' in one paragraph, 500 007 markup code points; lf-100000: 100 000 line feeds, 100 001 empty paragraphs, 700 007 markup code points; both 100 000 visible at most, US-4 'Legacy worst cases fit the ceiling').",
+  "version": 1,
+  "cases": [
+    { "id": "three-lines-two-blank", "story": "US-3", "note": "Lines are paragraphs, an empty line an empty paragraph.", "plain": "a\nb\n\n\nc", "html": "<p>a</p><p>b</p><p></p><p></p><p>c</p>", "count": 7 },
+    { "id": "indentation-kept", "story": "US-3", "note": "Leading spaces, a tab and a run of spaces stay as they were.", "plain": "  шаг 1:\n\t- a   b\n    код", "html": "<p>  шаг 1:</p><p>\t- a   b</p><p>    код</p>", "count": 25 },
+    { "id": "crlf", "story": "US-3", "note": "CR LF and lone CR become LF before the split.", "plain": "a\r\nb\rc", "html": "<p>a</p><p>b</p><p>c</p>", "count": 5 },
+    { "id": "markup-characters", "story": "US-3", "note": "Markup characters in plain text are text.", "plain": "<b>жирный</b> & <script>alert(1)</script>", "html": "<p>&lt;b&gt;жирный&lt;/b&gt; &amp; &lt;script&gt;alert(1)&lt;/script&gt;</p>", "count": 41 },
+    { "id": "emoji-legacy", "story": "US-3", "note": "Emoji count by code point.", "plain": "😀😀", "html": "<p>😀😀</p>", "count": 2 },
+    { "id": "worst-case-ampersands", "story": "US-4", "note": "100 000 '&' in one paragraph: 500 007 markup code points, 100 000 visible.", "generator": "repeat-amp-100000", "count": 100000, "markup": 500007 },
+    { "id": "worst-case-line-feeds", "story": "US-4", "note": "100 000 line feeds: 100 001 empty paragraphs, 700 007 markup code points, 100 000 visible.", "generator": "lf-100000", "count": 100000, "markup": 700007 }
+  ]
+}

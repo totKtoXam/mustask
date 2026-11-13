@@ -1,4 +1,4 @@
-# ADR-0039: Write an import row by row through the work items module's own writes, and record each import as a batch that one undo can reverse
+# ADR-0042: Write an import row by row through the work items module's own writes, and record each import as a batch that one undo can reverse
 
 - Status: accepted (by the human in chat, at doc-017 gate-1, 2026-11-10)
 - Date: 2026-11-10

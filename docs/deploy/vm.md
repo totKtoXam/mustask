@@ -47,6 +47,9 @@ sudo bash mustask-v0.1.0/kit/smoke.sh
 The kit files are the source of truth for the unit, the site and the env
 keys; the sections below say what each step does and why.
 
+After the first deployment by hand, section 11 makes section 9 a pushed tag.
+A self-hosted GitHub Actions runner on the VM deploys the tag once you approve it.
+
 **Two layouts.** MUSTASK is served either at the root of its own host name
 (`https://mustask.example.com`) or under a path of a host that already has a
 server (`https://portal.example.com/mustask`, ADR-0037). The path is one
@@ -278,7 +281,7 @@ repository. The result is one file, `out/mustask-v0.1.0.tar.gz`:
 | `api/` | `dotnet publish` of `Mustask.Api`, framework-dependent: it runs on the VM through `dotnet` |
 | `panel/` | the panel build |
 | `efbundle` | the migrations bundle, linux-x64, self-contained |
-| `kit/` | `install.sh`, `smoke.sh`, the unit, the nginx site and the nginx locations snippet, the env template, taken from the checkout the script runs in |
+| `kit/` | `install.sh`, `smoke.sh`, the unit, the nginx site and the nginx locations snippet, the env template, and the three scripts of section 11 (`mustask-cd.sh`, `runner-setup.sh`, `runner-job-guard.sh`), taken from the checkout the script runs in |
 | `VERSION` | tag, commit, kit commit, site address, build time |
 
 Copy it to the VM and unpack it:
@@ -454,6 +457,9 @@ the flag (an update of the kit) keeps `https`. `--forwarded-proto scheme` goes
 back to the default. The flag is only for `--path`: a site of 7.1 ends TLS
 itself, and `$scheme` is right there.
 
+In this layout the smoke check of section 8 needs `--resolve-to=<edge address>`
+when, on the VM, the portal's name points at the VM itself.
+
 ## 8. First start and smoke check
 
 ```bash
@@ -478,6 +484,33 @@ with its path (`https://portal.example.com/mustask/…`), and the `http://`
 check expects the redirect from the portal's own port-80 server. Before DNS points at the VM add
 `--resolve-local`; `--insecure` accepts a certificate the VM does not trust
 (rehearsals only).
+
+**TLS ended by a proxy in front of the VM.** The checks go to the site's name
+as the VM resolves it. Ubuntu writes the VM's own name into `/etc/hosts`
+(`127.0.1.1 portal.example.com portal`), so on such a VM the name reaches the
+local nginx, not the public proxy: `http://` answers 200 instead of the
+proxy's redirect, and `https://` meets the local certificate (self-signed
+`curl: (60)`). Nothing is wrong with the site; the check took the wrong hop.
+Check `getent hosts portal.example.com` on the VM, and that the VM reaches
+the proxy:
+
+```bash
+curl -sS -o /dev/null -w '%{http_code} %{redirect_url}\n' \
+    --resolve portal.example.com:80:<edge address> http://portal.example.com/mustask/
+```
+
+`301 https://…` means it does. Then send the name to the proxy:
+
+```bash
+sudo bash mustask-v0.1.0/kit/smoke.sh --resolve-to=203.0.113.10
+```
+
+`--resolve-to=<IPv4>` sends every check through the proxy to that address,
+as `--resolve-local` sends them to `127.0.0.1`. No check is relaxed: the
+certificate is verified, the redirect is the proxy's, and the panel, the API
+and the realm redirect come back through it. Only one of `--resolve-local`
+and `--resolve-to` is accepted. If the proxy's address changes, the check
+fails until the flag is updated (section 11.2).
 
 The rest needs a person in a browser; `smoke.sh` prints it as a list:
 
@@ -546,6 +579,227 @@ under `/opt/mustask/releases/`; delete the ones you no longer need by hand
 | Sign-in comes back `authError=no_access` | The user does not hold the `mustask-api` client role `user` (assign it directly). |
 | Signed in, but a role does not take effect | `resource_access.mustask-api.roles` is missing from the access token (mapper, section 1). |
 | Everyone is signed out after a restart | `/var/lib/mustask` (Data Protection keys) is not persistent or not writable by the service. |
+| Deploy run: `the repository variable MUSTASK_SITE_URL is not set` | Section 11.1, item 3. |
+| The deploy job waits for "a runner … with labels self-hosted, linux, mustask-prod" | The runner is offline: `systemctl status 'actions.runner.*'` on the VM, and Settings → Actions → Runners (section 11.2). |
+| Deploy run: `sudo: a password is required` | `runner-setup.sh` has not run on this VM, or `/etc/sudoers.d/mustask-runner` is gone: run it again (section 11.2). |
+| Deploy run: `mustask-cd: refused: …` | The artifact is not one release made by `build-release.sh`; the message names what is wrong. Nothing was installed. |
+| Deploy run: `mustask-cd: refused: /etc/mustask/cd-smoke-args` | That file holds something other than `--insecure` and one of `--resolve-local` / `--resolve-to=<IPv4>`: re-run `runner-setup.sh --smoke-args "…"`. |
+| Smoke on the VM: `http:// redirects to https:// — got '200 '` and the `https://` checks fail with `curl: (60) … self-signed certificate`, while the site works from outside | TLS and the redirect are a proxy's in front of the VM, and on the VM the name points at the VM itself (`/etc/hosts`). Add `--resolve-to=<edge address>` (section 8; for CD, section 11.2). |
+| A job fails in "Set up runner" with `mustask runner guard: this job may not run on the production runner` | Working as intended for anything but `deploy.yml` from `main` or a `v*` tag (section 11.4). For a real deploy, check that `/etc/mustask/cd-repository` names this repository (it changes if the repository is renamed or moved: re-run `runner-setup.sh` with the new `--url`). |
+
+## 11. Continuous deployment (GitHub Actions)
+
+Once sections 1–8 have been walked by hand, a release tag can deploy itself.
+[`.github/workflows/deploy.yml`](../../.github/workflows/deploy.yml) builds
+the release on a GitHub-hosted runner exactly as section 4 does, then waits
+for an approval. After it, a self-hosted runner on this VM runs section 9:
+
+```
+git push origin v0.2.0
+  └─ build  (ubuntu-latest): build-release.sh v0.2.0 $MUSTASK_SITE_URL → artifact + sha256
+  └─ deploy (this VM, label mustask-prod, environment production → approval):
+        sha256 check → sudo -n mustask-cd deploy < mustask-v0.2.0.tar.gz   (install.sh deploy)
+                     → sudo -n mustask-cd smoke                             (smoke.sh)
+```
+
+The VM gets no .NET SDK, no Node and no checkout of the repository: only the
+tarball. The runner runs as the unprivileged user `mustask-runner`, which may
+run exactly two commands as root: `mustask-cd deploy` (the tarball on stdin)
+and `mustask-cd smoke`. `mustask-cd` is
+[`deploy/vm/mustask-cd.sh`](../../deploy/vm/mustask-cd.sh), installed by
+[`deploy/vm/runner-setup.sh`](../../deploy/vm/runner-setup.sh). The repository
+is public, so the order below matters: the repository settings come first,
+the runner comes second.
+
+### 11.1 Repository settings (once, the repository owner)
+
+All of these are in the repository's **Settings**.
+
+1. **Actions → General → Approval for running fork pull request workflows
+   from contributors:** "Require approval for all external contributors". A
+   fork's PR then runs nothing until you approve it. Approving runs the
+   workflows *as the PR has them*, so a PR can add a workflow that asks for
+   this runner. The job guard on the VM (11.4) fails any such job before its
+   first step. Still, read every PR that touches `.github/` before you
+   approve its run.
+2. **Environments → New environment `production`:**
+   - *Required reviewers*: yourself. Leave "Prevent self-review" off,
+     because you push the tag and approve it.
+   - *Deployment branches and tags*: "Selected branches and tags". Add the
+     branch rule `main` and the tag rule `v*`. A run started from any other
+     branch cannot reach the deploy job.
+3. **Secrets and variables → Actions → Variables → New repository variable**
+   `MUSTASK_SITE_URL`: the public address, character for character the
+   `Session__PanelUrl` of `/etc/mustask/mustask.env`. Examples:
+   `https://mustask.example.com`, `https://portal.example.com/mustask`.
+   `install.sh deploy` refuses a release built for another address. No
+   secret is needed: nothing secret leaves the VM.
+4. **Rules → Rulesets → New ruleset → New tag ruleset:** target `v*`, enforcement
+   Active. Turn on "Restrict creations", "Restrict updates" and "Restrict
+   deletions", with Repository admin in the bypass list. Only you can then
+   create or move a release tag.
+5. **Runner groups.** A repository owned by a user, as this one is, has
+   none, and its runner serves only this repository. Here the job guard on
+   the VM (11.4) does what a group would. If the repository
+   moves to an organization, put the runner in a group of its own. Give that
+   group access to this repository only, with "Allow public repositories" on
+   and "Restrict to selected workflows" =
+   `<org>/mustask/.github/workflows/deploy.yml@refs/heads/main`.
+
+### 11.2 The runner on the VM (once, root)
+
+The three scripts (`runner-setup.sh`, `mustask-cd.sh`,
+`runner-job-guard.sh`) are in the repository's `deploy/vm/`, and in the
+`kit/` of any release that carries them. Keep them side by side. On the VM:
+
+```bash
+sudo bash runner-setup.sh --url https://github.com/totKtoXam/mustask \
+    --runner-version 2.338.2 \
+    --runner-sha256 baebf204307bac6193480852732f0aba2ae97b6c5597c244f4d5558390147c40
+```
+
+- `--runner-version` and `--runner-sha256` come from
+  [github.com/actions/runner/releases](https://github.com/actions/runner/releases),
+  from the `actions-runner-linux-x64-<version>.tar.gz` line. The values above
+  are the latest on 2026-11-10. The download is refused if its checksum
+  differs.
+- The script prompts for the **registration token**. Get it from Settings →
+  Actions → Runners → New self-hosted runner → Linux: it is the value after
+  `--token` in the `./config.sh` line. It is valid for an hour. The prompt
+  does not echo it, and it never goes on a command line or into a file.
+- Add `--smoke-args --resolve-local` when the VM cannot reach its own public
+  name. That is the same flag as `smoke.sh --resolve-local` in section 8. Add
+  `--insecure` while the certificate is one the VM does not trust. Behind a
+  proxy that ends TLS, where the VM's name points at the VM itself, add
+  `--smoke-args --resolve-to=<edge address>` instead of `--resolve-local`
+  (section 8). The flags are kept in `/etc/mustask/cd-smoke-args`.
+
+What the script does:
+
+- It creates the system user `mustask-runner`, home `/var/lib/mustask-runner`.
+  The user has no password and no login shell, and is in no `sudo`,
+  `docker` or `lxd` group. The script refuses if the user already is.
+- It installs `/usr/local/sbin/mustask-cd` (root, 0755).
+- It writes `/etc/sudoers.d/mustask-runner` (root, 0440) and checks it with
+  `visudo` before installing:
+  `mustask-runner ALL=(root) NOPASSWD: /usr/local/sbin/mustask-cd deploy, /usr/local/sbin/mustask-cd smoke`.
+- It installs the runner under `/var/lib/mustask-runner/actions-runner`,
+  including the runner's own package list (`installdependencies.sh`, apt). It
+  registers the runner with the label `mustask-prod` and installs it as a
+  systemd service (`actions.runner.totKtoXam-mustask.<name>.service`) run as
+  `mustask-runner`.
+- It installs the job guard (11.4): `runner-job-guard.sh` as
+  `/usr/local/libexec/mustask-runner/job-started.sh` (root, 0755), the
+  repository name in `/etc/mustask/cd-repository` (root, 0644), and the
+  systemd drop-in
+  `/etc/systemd/system/actions.runner.<…>.service.d/mustask-job-guard.conf`
+  (root, 0644). The drop-in sets `ACTIONS_RUNNER_HOOK_JOB_STARTED` to the
+  guard. It restarts the service when the drop-in is new or changed.
+
+Check:
+
+```bash
+sudo -u mustask-runner sudo -n -l     # exactly the two mustask-cd commands
+systemctl status 'actions.runner.*'   # active (running)
+systemctl cat 'actions.runner.*'      # ends with mustask-job-guard.conf
+```
+
+On GitHub, Settings → Actions → Runners shows the runner Idle, with the
+labels `self-hosted`, `Linux`, `X64` and `mustask-prod`.
+
+A re-run of `runner-setup.sh` on a registered runner keeps the registration.
+It refreshes the wrapper, the guard, the sudoers file and the smoke flags,
+and installs the service if an earlier run stopped before it. A re-run
+without `--smoke-args` keeps the recorded flags. Re-run it when
+`mustask-cd.sh` or `runner-job-guard.sh` changes: a deploy never replaces
+them. A re-run restarts the runner service when the drop-in changed, so do
+not re-run it while a deploy is running.
+
+### 11.3 Releasing, redeploying, rolling back
+
+```bash
+git tag v0.2.0 && git push origin v0.2.0
+```
+
+Then go to Actions → **Deploy** → the run → "Review deployments" →
+`production` → Approve. The deploy job prints the output of `install.sh deploy` and
+`smoke.sh`. A failed smoke check fails the run. The browser checklist that
+`smoke.sh` prints stays yours (section 8).
+
+To deploy an existing tag again, or an older one, go to Actions → Deploy →
+Run workflow, with Branch `main` and tag `v0.1.0`. An older tag deployed this
+way runs its own migrations bundle, and that applies nothing on a newer
+schema. The quick way back is still `install.sh rollback` on the VM
+(section 9): it is not in CI, and the runner has no right to run it.
+
+Two runs never overlap. A second run waits until the first ends, and it is
+never cancelled halfway through `install.sh deploy`. Only one run waits,
+though: a third run replaces a waiting second run, and the second is
+cancelled before it starts. Push release tags one at a time. If a run was
+cancelled this way, start it again from Run workflow.
+
+### 11.4 Trust model
+
+Whoever can start the deploy job can run code as root on this VM. That is
+not a flaw of the runner: `install.sh deploy` and the migrations bundle of
+the release run as root by hand too. So the job is fenced off:
+
+- **The VM runs only our deploy job.** A workflow file decides which runner
+  it asks for, and a pull request runs the workflow files *from the PR*. So
+  the repository's own files cannot keep a PR off the runner. The VM itself
+  does that. Before every job, the runner runs the job guard
+  (`job-started.sh`, from the root-owned drop-in of 11.2). The guard lets a
+  job start only when all of these hold:
+  - the repository is the one in `/etc/mustask/cd-repository`;
+  - the event is `push` or `workflow_dispatch`;
+  - the workflow is that repository's `.github/workflows/deploy.yml`, from
+    `main` or a `v*` tag.
+
+  Anything else, a pull request included, fails before its first step with
+  `mustask runner guard: …`. A missing variable is also a refusal. Pushing a
+  tag or dispatching a workflow needs write access to the repository, which
+  a fork does not have. The guard and the drop-in belong to root. The
+  runner's own directory belongs to `mustask-runner`, and its `.env` there
+  could switch the hook off at the next restart. Only code that has already
+  passed the guard runs as that user, so this is no way in for a fork. Still,
+  look at that `.env` if the guard ever stops refusing. `deploy.yml` triggers only on `push`
+  of `v*` tags and on `workflow_dispatch`. `scripts/tests/cd-runner-cases.sh`
+  checks that in CI and that no other workflow names the runner. Those CI
+  checks catch only our own mistakes; the guard is what stops a hostile PR.
+- **Only you create release tags**, through the tag ruleset (11.1, item 4).
+- **Every deploy waits for your approval**, and only from `main` or a `v*`
+  tag: the `production` environment (11.1, item 2).
+- **The VM job runs no repository code.** It has no checkout and no secrets.
+  It takes the tarball from the build job and checks its sha256. The wrapper
+  accepts only one `mustask-<tag>/` directory whose `VERSION` names the same
+  tag, and it unpacks into a fresh root-owned directory.
+- The actions of `deploy.yml` are pinned by commit.
+
+Never do these:
+
+- Add `pull_request`, `pull_request_target`, `workflow_run` or
+  `issue_comment` to a workflow that has a job on this runner.
+- Give `mustask-runner` any other sudo rule or group.
+- Register this VM's runner for another repository.
+
+The build artifact of a public repository can be downloaded by anyone signed
+in to GitHub. The tarball holds nothing secret: every secret lives only in
+`mustask.env` on the VM.
+
+### 11.5 Removing the runner
+
+Settings → Actions → Runners → the runner → Remove shows a removal token.
+On the VM:
+
+```bash
+cd /var/lib/mustask-runner/actions-runner
+sudo ./svc.sh stop && sudo ./svc.sh uninstall
+sudo -u mustask-runner ./config.sh remove     # prompts for the removal token
+sudo rm /etc/sudoers.d/mustask-runner /usr/local/sbin/mustask-cd /etc/mustask/cd-smoke-args \
+    /etc/mustask/cd-repository
+sudo rm -r /usr/local/libexec/mustask-runner /etc/systemd/system/actions.runner.*.service.d
+sudo systemctl daemon-reload
+```
 
 ## What this runbook does not verify
 
@@ -581,6 +835,24 @@ Still unverified, because a rehearsal cannot have them:
   cookie path `/mustask/api/session` included. What a rehearsal cannot have is
   the real portal's server (its regex locations, its own limits) and its owner's
   agreement to the `include`.
+
+- **Continuous deployment on GitHub (section 11).** On 2026-11-12 (tech-066),
+  a clean Ubuntu 24.04 container walked `runner-setup.sh` with the runner
+  marked as registered: the user, the wrapper, sudoers checked by `visudo`,
+  the smoke flags, a re-run. As `mustask-runner`, the container then ran
+  `sudo -n`. The two `mustask-cd` commands ran a release's `install.sh`
+  (a stub) and `smoke.sh` as root. Everything else was refused: another
+  subcommand, an extra argument, `bash`, `install.sh` itself, `-E`, another
+  target user. The job guard and its drop-in were installed with
+  `systemctl` and `svc.sh` stubbed. The service was restarted only when the
+  drop-in changed or the unit was down. The guard, run as `mustask-runner`,
+  let a tag push and a dispatch of `deploy.yml` start and refused a pull
+  request, another workflow and a job with no variables. Not walked: a real
+  registration, the real runner service and whether it hands the guard
+  those variables, and a run of `deploy.yml` with the `production`
+  approval. The first tag after setup is that check. Push a branch with a
+  test workflow naming `mustask-prod` once, too: it must fail in "Set up
+  runner".
 
 The first real deployment should walk section 8 again and fix this document
 where it differs.

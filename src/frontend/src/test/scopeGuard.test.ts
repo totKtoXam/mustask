@@ -90,6 +90,10 @@ const SURFACES: Readonly<Record<string, SurfaceEntry>> = {
     why: 'a team board card is moved by its own project codes',
     via: self(`${b}components/BoardColumns.tsx`, 'useProjectCodes'),
   },
+  [`${b}hooks/useAggregateNewWorkItem.tsx`]: {
+    why: 'the aggregate board create offers the projects whose own codes hold the write (feat-060)',
+    via: self(`${b}hooks/useAggregateNewWorkItem.tsx`, 'useProjectCodes'),
+  },
   [`${b}hooks/useBoardAccess.ts`]: {
     why: 'the checks of a backlog: project rows codes and the team own read',
     via: self(`${b}hooks/useBoardAccess.ts`, 'useProjectCodes'),
@@ -207,6 +211,37 @@ describe('mod-019 BR-SA-18: no surface reads a narrower code from the organizati
         'boards.backlog.reorder',
         'organizations.project.write',
       ]);
+    });
+
+    it('reads a code named through a destructuring, renamed and through an alias too', () => {
+      const text = `
+        const { workItemWrite } = workItemsPermissions;
+        const { projectWrite: canWriteProject, teamCreate } = organizationsPermissions;
+        const read = boardsPermissions;
+        const { backlogReorder = 'x' } = read;
+        access(workItemWrite, 'organization');
+      `;
+      expect(narrowerCodesIn(text, CONSTANTS)).toEqual([
+        'boards.backlog.reorder',
+        'organizations.project.write',
+        'workitems.workitem.write',
+      ]);
+    });
+
+    it('reads the narrower codes of an object taken whole by a rest element', () => {
+      const text = `const { teamCreate, ...rest } = boardsPermissions;`;
+      expect(narrowerCodesIn(text, CONSTANTS)).toContain('boards.backlog.reorder');
+    });
+
+    it('reports an unregistered surface that destructures a narrower code', () => {
+      const text = `const { workItemWrite } = workItemsPermissions; access(workItemWrite, 'organization');`;
+      const findings = findViolations(new Map([[newcomer, text]]), CONSTANTS, {}, []);
+      expect(findings.map((finding) => finding.file)).toEqual([newcomer]);
+    });
+
+    it('is silent on a destructured organization code', () => {
+      const text = `const { teamCreate } = organizationsPermissions;`;
+      expect(narrowerCodesIn(text, CONSTANTS)).toEqual([]);
     });
 
     it('is silent on an organization code', () => {

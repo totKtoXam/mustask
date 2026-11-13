@@ -1,6 +1,7 @@
 using Mustask.Application.Abstractions;
 using Mustask.Application.Abstractions.Organizations;
 using Mustask.Application.Abstractions.Process;
+using Mustask.Application.Abstractions.RichText;
 using Mustask.Application.Abstractions.UserDirectory;
 using Mustask.Application.Abstractions.WorkItems;
 using Mustask.Application.Features.Boards;
@@ -69,7 +70,8 @@ public sealed class SaveWorkItemHandler(
     ITeamBacklogPlaces teamPlaces,
     IOrganizationAccess access,
     IClock clock,
-    IUnitOfWork unitOfWork)
+    IUnitOfWork unitOfWork,
+    IRichTextReducer reducer)
 {
     public async Task<SaveWorkItemResult> Handle(SaveWorkItemCommand command, CancellationToken cancellationToken)
     {
@@ -84,7 +86,69 @@ public sealed class SaveWorkItemHandler(
             throw new ForbiddenException(OrganizationErrorCodes.AccessForbidden);
         }
 
-        return await unitOfWork.ExecuteInTransactionAsync(
+        // feat-018: the description is read, reduced and measured before the transaction, with no lock held (the
+        // reduction is CPU-bound and has no I/O); its refusal is raised with the other field reasons at step 2.
+        var prepared = await PrepareDescriptionAsync(command, cancellationToken);
+
+        return await HandleAsync(command, prepared, cancellationToken);
+    }
+
+    /// <summary>
+    /// The description of one write (feat-018 api-contract § 1, § 3), in the order of the decisions: an unknown
+    /// declared format first, whether or not a description came with it (the description is then not interpreted);
+    /// no description, nothing more; a plain value is checked against 100 000 units; html is refused above the
+    /// request cap without parsing, else reduced, then the markup ceiling, then the visible limit, then BR-RT-6.
+    /// </summary>
+    private async Task<PreparedDescription> PrepareDescriptionAsync(SaveWorkItemCommand command, CancellationToken cancellationToken)
+    {
+        if (WorkItemText.ValidateFormat(command.DescriptionFormat, out var format) is { } formatReason)
+        {
+            return PreparedDescription.Refused(formatReason);
+        }
+
+        if (command.Description is not { } description)
+        {
+            return PreparedDescription.NotSent;
+        }
+
+        if (format is null or DescriptionFormat.Plain)
+        {
+            return WorkItemText.ValidatePlain(description) is { } plainReason
+                ? PreparedDescription.Refused(plainReason)
+                : PreparedDescription.Of(WorkItemDescription.Of(description, DescriptionFormat.Plain));
+        }
+
+        if (WorkItemText.CheckRequestSize(description) is { } sizeReason)
+        {
+            return PreparedDescription.Refused(sizeReason);
+        }
+
+        var reduction = await reducer.ReduceAsync(
+            description, new RichTextReductionLimits(WorkItemLimits.DescriptionMarkupMaxLength), cancellationToken);
+
+        if (reduction.Exceeded)
+        {
+            return PreparedDescription.Refused(WorkItemErrorCodes.DescriptionMarkupTooLarge);
+        }
+
+        return WorkItemText.ValidateReduced(reduction.MarkupLength, reduction.VisibleLength) is { } reducedReason
+            ? PreparedDescription.Refused(reducedReason)
+            : PreparedDescription.Of(WorkItemText.Describe(reduction.Html, reduction.HasContent));
+    }
+
+    /// <summary>The outcome of <see cref="PrepareDescriptionAsync"/>: nothing sent, a reason, or the pair to store.</summary>
+    private readonly record struct PreparedDescription(WorkItemDescription? Value, string? Reason)
+    {
+        public static PreparedDescription NotSent { get; } = new(null, null);
+
+        public static PreparedDescription Refused(string reason) => new(null, reason);
+
+        public static PreparedDescription Of(WorkItemDescription value) => new(value, null);
+    }
+
+    private async Task<SaveWorkItemResult> HandleAsync(
+        SaveWorkItemCommand command, PreparedDescription prepared, CancellationToken cancellationToken) =>
+        await unitOfWork.ExecuteInTransactionAsync(
             async ct =>
             {
                 // 1. The address: the organization, the project, the identifier, the item and its type.
@@ -139,7 +203,7 @@ public sealed class SaveWorkItemHandler(
                 item.EnsureLive(type);
 
                 // 2. The values, every field reason at once.
-                var title = ValidateValues(command, item, type);
+                var title = ValidateValues(command, item, type, prepared);
 
                 // 3. The area: one of the item's own project, still there under the lock (BR-M3-23, BR-M3-24).
                 var areaId = await LockAreaAsync(projectId, item.AreaId, command.AreaId, ct);
@@ -157,12 +221,13 @@ public sealed class SaveWorkItemHandler(
                 // 4. The state and the assignee, then the parent, which the domain decides.
                 var edit = new WorkItemEdit(
                     title,
-                    command.Description,
+                    prepared.Value?.Value,
                     StateIdOf(command.StateId),
                     await AssigneeOfAsync(command.Assignee, organizationId, ct),
                     areaId,
                     command.Fields,
-                    team);
+                    team,
+                    prepared.Value?.Format);
 
                 var now = clock.UtcNow;
                 var previousTeamId = item.OwningTeamId;
@@ -188,13 +253,12 @@ public sealed class SaveWorkItemHandler(
                 return new SaveWorkItemResult(await readModel.GetAsync(item.Id, ct));
             },
             cancellationToken);
-    }
 
     /// <summary>
     /// The trimmed title when one was sent; throws one validation answer with every field reason, feat-022's fields
     /// keyed by their request names (its api-contract § 1).
     /// </summary>
-    private static string? ValidateValues(SaveWorkItemCommand command, WorkItem item, WorkItemTypeStates type)
+    private static string? ValidateValues(SaveWorkItemCommand command, WorkItem item, WorkItemTypeStates type, PreparedDescription prepared)
     {
         var errors = new Dictionary<string, IReadOnlyList<FieldError>>(StringComparer.Ordinal);
         string? title = null;
@@ -211,7 +275,7 @@ public sealed class SaveWorkItemHandler(
             }
         }
 
-        if (command.Description is not null && WorkItemText.ValidateDescription(command.Description) is { } descriptionReason)
+        if (prepared.Reason is { } descriptionReason)
         {
             errors["description"] = [new FieldError(descriptionReason)];
         }

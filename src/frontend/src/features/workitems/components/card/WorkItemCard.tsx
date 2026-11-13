@@ -10,6 +10,7 @@ import {
   type ReactNode,
 } from 'react';
 import { useIsMutating } from '@tanstack/react-query';
+import type { RichTextEditorHandle } from '../../../../shared/ui/RichTextEditor/RichTextEditor';
 import Box from '@mui/material/Box';
 import { useProcessDefinition } from '../../../process';
 import { ConfirmDialog, InlineTextField, type NoticeSeverity } from '../../../../shared/ui';
@@ -18,6 +19,7 @@ import { formatDateTime } from '../../../../shared/lib/format';
 import type { WorkItem } from '../../api/workItemsApi';
 import { deletionMutationKey } from '../../hooks/mutations';
 import { useGuardedLeave } from '../../hooks/useGuardedLeave';
+import { useLiveDirty } from '../../hooks/useLiveDirty';
 import { useWorkItemEdits } from '../../hooks/useWorkItemEdits';
 import {
   cardTexts,
@@ -41,6 +43,7 @@ import { AcceptanceCriteriaSection } from '../AcceptanceCriteriaSection';
 import { AreaField } from './AreaField';
 import { AssigneeField } from './AssigneeField';
 import { CardActions } from './CardActions';
+import { DescriptionEditor } from './DescriptionEditor';
 import { CardTeamField } from './CardTeamField';
 import { ProjectField } from './ProjectField';
 import type { CardColumnItem, CardFrameProps, CardNotice } from './cardFrame';
@@ -160,7 +163,16 @@ export function WorkItemCard({
   const childrenHeadId = useId();
   const process = useProcessDefinition(organizationId);
   const [fields] = useState(() => createFieldRegistry<RefusalField>());
+  // feat-018 plan § 7.2: the description editor reports after a short delay; a save flushes it and
+  // reads what it last reported. `null`: nothing reported that the edits lack.
+  const descriptionEditor = useRef<RichTextEditorHandle>(null);
+  const reportedDescription = useRef<string | null>(null);
+  const flushDescription = useCallback(() => {
+    descriptionEditor.current?.flush();
+    return reportedDescription.current;
+  }, []);
   const state = useWorkItemEdits({
+    flushDescription,
     organizationId,
     projectId,
     identifier: item.identifier,
@@ -171,7 +183,9 @@ export function WorkItemCard({
     onRefreshed,
   });
   const [confirmingUndo, setConfirmingUndo] = useState(false);
-  const leave = useGuardedLeave(state.isDirty);
+  // A keyboard leave within the editor's report delay would read a stale `isDirty`: ask live.
+  const dirtyNow = useLiveDirty(flushDescription, item, state.edits, state.isDirty);
+  const leave = useGuardedLeave(state.isDirty, dirtyNow);
   // The mode follows the read (mod-005 design § 4): a state in the Removed category makes the
   // card read-only, whatever the role holds; the role decides only what it may do about it.
   const deleted = isDeleted(item);
@@ -218,6 +232,20 @@ export function WorkItemCard({
 
   const { draft, errors, saving, refreshing, change } = state;
   const on = useMemo(() => editHandlers(change), [change]);
+  const onDescription = useCallback(
+    (html: string) => {
+      reportedDescription.current = html;
+      change({ field: 'description', value: html });
+    },
+    [change],
+  );
+  // A saved or undone card holds no description edit: what the editor last reported is spent.
+  const descriptionEdited = state.edits.description !== undefined;
+  useEffect(() => {
+    if (!descriptionEdited) {
+      reportedDescription.current = null;
+    }
+  }, [descriptionEdited]);
   const layout = layoutOf(item.type.appearance);
   const common = { busy: saving, readOnly };
 
@@ -305,13 +333,13 @@ export function WorkItemCard({
       key: 'description',
       title: cardTexts.description.label,
       content: (
-        <TextBlock
-          name="description"
+        <DescriptionEditor
           value={draft.description}
           error={errors.description}
-          onChange={on.description}
+          disabled={common.busy || common.readOnly}
+          onChange={onDescription}
+          editorRef={descriptionEditor}
           inputRef={fields.ref('description')}
-          {...common}
         />
       ),
     },
@@ -528,6 +556,7 @@ export function WorkItemCard({
     extra,
     busy: saving,
     dirty: state.isDirty,
+    dirtyNow,
     pagePath: withBase(workItemPath(organizationId, projectId, item.identifier)),
   };
 

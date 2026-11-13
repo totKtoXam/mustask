@@ -11,6 +11,7 @@ import { IconAction } from '../../shared/ui';
 import type { TrailSegment } from '../../shared/ui/pageChrome';
 import { PageTrail } from '../../shared/ui/PageTrail';
 import { ContextHost } from './ContextHost';
+import { ProductMark } from './ProductMark';
 import { UserMenu } from './UserMenu';
 
 export interface TopBarProps {
@@ -51,9 +52,10 @@ export function TopBar({ menu, trail }: TopBarProps) {
           underline="none"
           color="text.primary"
           variant="h2"
+          aria-label={PRODUCT_NAME}
           sx={{ flexShrink: 0 }}
         >
-          {PRODUCT_NAME}
+          <ProductMark />
         </Link>
         {!menu && <ContextHost />}
         {trail.length > 0 && (

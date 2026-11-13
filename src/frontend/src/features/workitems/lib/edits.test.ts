@@ -37,6 +37,7 @@ const STORY: WorkItem = {
   type: { id: 'type-us', key: 'US', name: 'Пользовательская история', appearance: 'story' },
   title: 'Письмо со ссылкой',
   description: 'Пользователь получает письмо.',
+  descriptionFormat: 'plain',
   state: { id: 'state-new', name: 'Новая', category: { code: 'Proposed', label: 'Новые' } },
   assignee: { id: 'anna', displayName: 'Анна Смирнова', email: 'anna@example.com' },
   area: { id: 'area-platform', path: 'Платформа' },
@@ -73,7 +74,7 @@ describe('the draft of touched fields (BR-C-16)', () => {
     const draft = editedDraft(STORY, edits);
 
     expect(draft.title).toBe('Новый');
-    expect(draft.description).toBe('Пользователь получает письмо.');
+    expect(draft.description).toBe('<p>Пользователь получает письмо.</p>');
     expect(draft.fields.priority).toBe('2');
     expect(edits).toEqual({ title: 'Новый' });
   });
@@ -171,7 +172,7 @@ describe('a fresh read of the item (BR-C-9)', () => {
     expect(draft.description).toBe('Мой текст');
     expect(draft.title).toBe('Письмо со ссылкой для входа');
     expect(draft.fields.priority).toBe('1');
-    expect(touchedChanges(STORY_LATER, rebased)).toEqual({ description: 'Мой текст' });
+    expect(touchedChanges(STORY_LATER, rebased)).toEqual({ description: 'Мой текст', descriptionFormat: 'html' });
   });
 
   it('drops an edit the fresh read now agrees with', () => {

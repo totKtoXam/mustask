@@ -43,6 +43,16 @@ with its own fields and words instead of drawing a layout. The dictionaries
 feature (`src/frontend/src/features/dictionaries`) is the reference
 registry, form and dialog in code.
 
+The one exception to that stack is the rich-text editor of a work item's
+«Описание» ([ADR-0039](../adr/0039-rich-text-as-sanitized-html-with-tiptap.md)):
+TipTap on ProseMirror, `lowlight` and a bundled emoji data set, only as
+`shared/ui/RichTextEditor` — one lazy chunk, never reachable from the entry
+chunk (`npm run bundle:check`, run by hand after `npm run build` and at the task's final
+review, checks the build against `bundle-budget.json`; no script or CI step runs it), with
+its pure functions in `shared/lib/richText`. Stored html is never assigned
+to the page: no `dangerouslySetInnerHTML`, `innerHTML`, `outerHTML` or
+`insertAdjacentHTML` in product code (ESLint and `src/test/noRawHtml.test.ts`).
+
 - **Shell.** Every signed-in page renders inside `app/AppLayout`: the top
   bar (product mark, the four selectors, page trail, user menu), the main
   navigation and, on settings pages, the settings navigation. A page never

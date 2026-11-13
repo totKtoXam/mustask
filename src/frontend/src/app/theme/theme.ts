@@ -19,6 +19,7 @@ import {
   shellPalette,
   typeScale,
 } from './tokens';
+import { createRichTextTheme } from './richText';
 import { createWorkTrackingLookups } from './workTracking';
 
 type ScaleEntry = { size: number; lineHeight: number; weight: number };
@@ -112,4 +113,5 @@ const baseTheme = createTheme(
 /** The panel's one theme: `app/` provides it, everything else reads it. */
 export const theme: Theme = Object.assign(baseTheme, {
   workTracking: createWorkTrackingLookups(baseTheme.palette.text),
+  richText: createRichTextTheme(baseTheme.palette.mode),
 });

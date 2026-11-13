@@ -225,7 +225,8 @@ public static class WorkItemEndpoints
             request?.AreaId,
             request?.Parent is { } parent ? new ParentChange(parent.ParentId, parent.SeenParentId) : null,
             request is null ? null : FieldsOf(request),
-            request?.Team is { } team ? new TeamChange(team.TeamId) : null);
+            request?.Team is { } team ? new TeamChange(team.TeamId) : null,
+            request?.DescriptionFormat);
 
         return Results.Ok((await handler.Handle(command, cancellationToken)).Item);
     }
@@ -323,7 +324,8 @@ public static class WorkItemEndpoints
     /// A field that is absent or <c>null</c> is not changed (BR-M3-25); <c>assignee.userId</c> <c>null</c> clears it.
     /// feat-022's fields (its api-contract § 3.2): a text as a string, <c>""</c> to empty it; every other in a
     /// <c>{ "value": … }</c> wrapper, <c>{ "value": null }</c> or <c>{}</c> to empty it. A value of the wrong JSON
-    /// type fails binding (400 <c>http.bad_request</c>).
+    /// type fails binding (400 <c>http.bad_request</c>). <c>descriptionFormat</c> is feat-018's (its api-contract § 1):
+    /// <c>"plain"</c> or <c>"html"</c>, how <c>description</c> is read; absent means <c>plain</c>.
     /// </summary>
     private sealed record SaveWorkItemRequest(
         string? Title,
@@ -349,7 +351,8 @@ public static class WorkItemEndpoints
         FieldRequest<string?>? ValueArea,
         IReadOnlyList<AcceptanceCriterionRequest>? AcceptanceCriteria,
         string? ReproSteps,
-        string? SystemInfo);
+        string? SystemInfo,
+        string? DescriptionFormat);
 
     /// <summary>mod-005 api-contract § 2.2: optional; <c>stateId</c> absent or <c>null</c> restores the held state, else the first.</summary>
     private sealed record RestoreWorkItemRequest(string? StateId);

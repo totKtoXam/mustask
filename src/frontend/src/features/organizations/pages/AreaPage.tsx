@@ -546,6 +546,7 @@ export function AreaPage() {
               organizationId={organizationId}
               area={area}
               canSwitch={canSwitch}
+              deciding={canWrite && parentId !== null && parentQuery.isPending}
             />
           </Box>
         )}

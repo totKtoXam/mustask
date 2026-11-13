@@ -74,3 +74,23 @@ describe('US-9 Scenario: Patterns beyond this task are designed now — the form
     expect(onClose).not.toHaveBeenCalled();
   });
 });
+
+describe('a dialog rendered inside another form (portal submit bubbling)', () => {
+  it('submits the dialog once and does not submit the form around it', async () => {
+    const user = userEvent.setup();
+    const outer = vi.fn((event: { preventDefault(): void }) => event.preventDefault());
+    const onSubmit = vi.fn();
+    render(
+      <form onSubmit={outer}>
+        <FormDialog open title="Ссылка" submitLabel="Применить" onSubmit={onSubmit} onClose={() => {}}>
+          <TextField label="Адрес ссылки" />
+        </FormDialog>
+      </form>,
+    );
+
+    await user.type(screen.getByLabelText('Адрес ссылки'), 'https://example.org{Enter}');
+
+    expect(onSubmit).toHaveBeenCalledTimes(1);
+    expect(outer).not.toHaveBeenCalled();
+  });
+});

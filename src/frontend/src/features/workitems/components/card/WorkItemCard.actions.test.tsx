@@ -6,7 +6,7 @@ import { server } from '../../../../test/mocks/server';
 import { cardTexts } from '../../lib/cardTexts';
 import type { WorkItemsTestApi } from '../../testApi';
 import { WORK_ITEM_URL, ids, recordOf } from '../../testFixtures';
-import { fill, held, openCard, typeInto } from './testCard';
+import { fill, held, openCard, typeDescription, typeInto } from './testCard';
 
 // Each user action renders the kit's fields in jsdom; a test of several steps outlasts the default.
 vi.setConfig({ testTimeout: 60_000 });
@@ -51,7 +51,7 @@ describe('feat-029 US-5: «Обновить»', () => {
 
   it('keeps what the user typed, and a save then sends it alone', async () => {
     const { api, notify } = await openCard();
-    typeInto(description(), 'Мой текст');
+    await typeDescription('Мой текст');
     const record = recordOf(api.data, 2);
     record.description = 'Чужой текст';
     record.fields.priority = 1;
@@ -59,13 +59,16 @@ describe('feat-029 US-5: «Обновить»', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Обновить' }));
 
     await waitFor(() => expect(notify).toHaveBeenCalledWith(cardTexts.notices.refreshedKept));
-    expect(description()).toHaveValue('Мой текст');
+    expect(description()).toHaveTextContent('Мой текст');
     expect(screen.getByRole('combobox', { name: 'Приоритет' })).toHaveTextContent('1');
     expect(save()).toBeEnabled();
 
     await userEvent.click(save());
     await waitFor(() => expect(patches(api)).toHaveLength(1));
-    expect(patches(api)[0]?.body).toEqual({ description: 'Мой текст' });
+    expect(patches(api)[0]?.body).toEqual({
+      description: '<p>Мой текст</p>',
+      descriptionFormat: 'html',
+    });
   });
 
   it('shows a failed read in an alert and leaves the card as it was', async () => {
@@ -132,11 +135,11 @@ describe('feat-029 US-5: «Обновить» is slow (R1-7)', () => {
     const release = holdRead();
     await userEvent.click(screen.getByRole('button', { name: 'Обновить' }));
 
-    typeInto(description(), 'Текст, набранный во время чтения');
+    await typeDescription('Текст, набранный во время чтения');
     release();
 
     await waitFor(() => expect(notify).toHaveBeenCalledWith(cardTexts.notices.refreshedKept));
-    expect(description()).toHaveValue('Текст, набранный во время чтения');
+    expect(description()).toHaveTextContent('Текст, набранный во время чтения');
   });
 });
 
@@ -144,7 +147,7 @@ describe('feat-029 US-5: «Отменить все изменения»', () => 
   it('asks first, keeps the edits on «Продолжить редактирование», and drops them on the answer', async () => {
     const { notify } = await openCard();
     typeInto(title(), '!');
-    typeInto(description(), 'Текст');
+    await typeDescription('Текст');
 
     await userEvent.click(screen.getByRole('button', { name: 'Отменить все изменения' }));
     const dialog = await screen.findByRole('dialog', { name: 'Отменить все изменения?' });
@@ -169,7 +172,7 @@ describe('feat-029 US-5: «Отменить все изменения»', () => 
     // The question is gone before the card is queried by role: its modal hides the page until then.
     await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
     expect(title()).toHaveValue('Письмо со ссылкой');
-    expect(description()).toHaveValue('');
+    expect(description().textContent).toBe('');
     expect(save()).toBeDisabled();
     expect(screen.getByRole('button', { name: 'Отменить все изменения' })).toBeDisabled();
     expect(notify).toHaveBeenCalledWith(cardTexts.notices.undone);
@@ -285,7 +288,7 @@ describe('feat-029 BR-C-5: a related item in the dialog', () => {
   it('asks «Перейти без сохранения?» first when edits stand', async () => {
     const onOpenItem = vi.fn();
     await openCard('MSK-US-2', { prepare: withParent, card: { onOpenItem } });
-    typeInto(description(), 'Текст');
+    await typeDescription('Текст');
 
     await userEvent.click(screen.getByRole('link', { name: 'Открыть MSK-FEAT-6' }));
     const dialog = await screen.findByRole('dialog', { name: 'Перейти без сохранения?' });
@@ -299,7 +302,7 @@ describe('feat-029 BR-C-5: a related item in the dialog', () => {
     );
     await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
     expect(onOpenItem).not.toHaveBeenCalled();
-    expect(description()).toHaveValue('Текст');
+    expect(description()).toHaveTextContent('Текст');
 
     await userEvent.click(screen.getByRole('link', { name: 'Открыть MSK-FEAT-6' }));
     await userEvent.click(await screen.findByRole('button', { name: 'Перейти без сохранения' }));

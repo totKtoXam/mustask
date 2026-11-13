@@ -455,7 +455,11 @@ describe('feat-022 US-5 Scenario Outline: A new item takes its type’s defaults
     const project = textbox('Проект');
     expect(project).toHaveAttribute('readonly');
     for (const input of screen.getAllByRole('textbox')) {
-      if (
+      const name = input.getAttribute('aria-label') ?? '';
+      if (name === 'Описание') {
+        // The rich-text editor (feat-018): a contenteditable, empty as text.
+        expect(input).toHaveTextContent('');
+      } else if (
         input !== textbox('Заголовок') &&
         input !== project &&
         !input.closest('[role="combobox"]')

@@ -56,10 +56,11 @@ describe('feat-029 BR-C-18: the places kept', () => {
     expect(screen.getAllByRole('tab').map((tab) => tab.textContent)).toEqual([
       cardTexts.tabs.details,
     ]);
-    // Nothing disabled stands in for a place: the only disabled controls are the clean ones.
+    // Nothing disabled stands in for a place: the only disabled controls are the clean ones
+    // (the description editor's toolbar has its own states, feat-018: undo with nothing to undo).
     const disabled = screen
       .getAllByRole('button')
-      .filter((button) => button.hasAttribute('disabled'))
+      .filter((button) => button.hasAttribute('disabled') && !button.closest('[role="toolbar"]'))
       .map((button) => button.getAttribute('aria-label') ?? button.textContent);
     expect(disabled.sort()).toEqual(
       ['Отменить все изменения', 'Сохранить', 'Ещё варианты сохранения'].sort(),

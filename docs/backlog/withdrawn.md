@@ -24,3 +24,5 @@ starts** is not written here — its number is held by the branch and the
 - [x] bug-005-creation-default-team-deadlock — withdrawn: superseded by feat-028 (plan D-4: a creation that may default locks every link of the project FOR SHARE in one statement ordered by team id, pinned by a no-deadlock regression test), the human at feat-028 gate-3, 2026-10-18
 - [x] feat-045-organization-home — withdrawn: absorbed by feat-043-area-project-team-navigation, which now runs right after mod-018 and makes the organization's «Обзор» its home page (doc-013 OQ-1 A), 2026-10-18
 - [x] tech-019-ui-kit-m4-shell — withdrawn: absorbed into feat-043 (doc-013 rule; its OQ-5 A, the human at gate-1, 2026-10-30), 2026-10-30
+- [x] feat-056-login-logo — withdrawn: The login page is the company-wide shared Keycloak login; the human ruled on 2026-11-12 that MUSTASK does not touch the shared stand or its login page, so there is no place to put the logo., 2026-11-12
+- [x] tech-067-aggregate-board-create-cell-reload — withdrawn: Fixed in feat-060 PR #144 (m3, human decision 2026-11-13), 2026-11-13
