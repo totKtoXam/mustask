@@ -11,6 +11,7 @@ import { useAccessCheck } from '../../../shared/lib/access';
 import {
   DataTable,
   MoreActionsMenu,
+  ColorLabel,
   Tag,
   TruncatedText,
   type DataColumn,
@@ -118,12 +119,22 @@ function OrganizationTeams({ organizationId }: { organizationId: string }) {
         const link = objectLink('team', team.id);
         return (
           <>
-            <TruncatedText to={link.to} linkState={link.state} look="link">
-              {team.name}
-            </TruncatedText>
+            <ColorLabel colour={team.color} name={team.name} to={link.to} linkState={link.state} />
             {team.isMember && <Tag label={teamsList.mine} />}
           </>
         );
+      },
+    },
+    {
+      key: 'department',
+      header: teamsList.columns.department,
+      render: (team) => {
+        const link = objectLink('department', team.departmentId);
+        return team.departmentName ? (
+          <TruncatedText to={link.to} linkState={link.state} look="link">
+            {team.departmentName}
+          </TruncatedText>
+        ) : null;
       },
     },
     {
@@ -190,10 +201,6 @@ function OrganizationTeams({ organizationId }: { organizationId: string }) {
           <CreateTeamDialog
             organizationId={organizationId}
             canLink={canLink}
-            canLinkAreas={
-              access(organizationsPermissions.areaLink, 'organization') &&
-              access(organizationsPermissions.teamLink, 'organization')
-            }
             submit={(body) => create.mutateAsync(body)}
             onSucceeded={(team) => {
               setCreating(false);

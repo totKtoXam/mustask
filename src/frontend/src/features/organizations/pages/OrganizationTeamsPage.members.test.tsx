@@ -150,6 +150,8 @@ describe('feat-028 § 2.3a: the creation form’s «Участники» is the 
   it('sends every chosen member in memberIds, the ones chosen from different searches together', async () => {
     const opened = await openCreate();
     await userEvent.type(within(opened.dialog).getByRole('textbox', { name: 'Название' }), 'MARS');
+    await userEvent.click(within(opened.dialog).getByRole('combobox', { name: /Департамент/ }));
+    await userEvent.click(await screen.findByRole('option', { name: 'Платформа' }));
 
     const field = await typeMembers(opened.dialog, 'Ива');
     await userEvent.click(await screen.findByRole('option', { name: /Иван Петров/ }));
@@ -168,6 +170,7 @@ describe('feat-028 § 2.3a: the creation form’s «Участники» is the 
     expect(await screen.findByText('Команда «MARS» создана.')).toBeInTheDocument();
     expect(opened.organizations.writes()[0]?.body).toEqual({
       name: 'MARS',
+      departmentId: ids.platformArea,
       memberIds: [people.ivan.id, people.anna.id],
     });
   });

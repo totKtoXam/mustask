@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import Box from '@mui/material/Box';
 import DeleteOutlineOutlinedIcon from '@mui/icons-material/DeleteOutlineOutlined';
+import DriveFileMoveOutlinedIcon from '@mui/icons-material/DriveFileMoveOutlined';
 import EditOutlinedIcon from '@mui/icons-material/EditOutlined';
 import LinkOffOutlinedIcon from '@mui/icons-material/LinkOffOutlined';
 import NotesOutlinedIcon from '@mui/icons-material/NotesOutlined';
@@ -11,6 +12,7 @@ import { apiErrorText } from '../../../shared/lib/apiErrorText';
 import { useWorkContext } from '../../../shared/lib/workContext';
 import {
   ActionButton,
+  ColorLabel,
   DataTable,
   InlineEmpty,
   MoreActionsMenu,
@@ -25,7 +27,7 @@ import { PageHeader, type Command } from '../../../shared/ui/PageHeader';
 import { RequiresOrganizationCode } from '../../../shared/ui/RequiresOrganizationCode';
 import { AccessDenied, NotFound } from '../../../shared/ui/StateFrame';
 import type { TeamProject } from '../api/organizationsApi';
-import { TeamDepartmentsSection } from '../components/TeamDepartmentsSection';
+import { MoveTeamDialog } from '../components/MoveTeamDialog';
 import { FactsPanel } from '../components/FactsPanel';
 import { LinkDialog, type LinkOption } from '../components/LinkDialog';
 import { useNotify } from '../components/notice';
@@ -36,12 +38,12 @@ import { GrantsSection } from '../components/GrantsSection';
 import { grantsSection } from '../lib/grantTexts';
 import { TeamMembersSection } from '../components/TeamMembersSection';
 import { UnlinkDialog } from '../components/UnlinkDialog';
-import { useLinkProjectsToTeam, useUnlinkTeam } from '../hooks/mutations';
+import { useLinkProjectsToTeam, useMoveTeam, useUnlinkTeam } from '../hooks/mutations';
 import { useSelectorOffers } from '../hooks/navigationQueries';
-import { useTeam, useTeamMembers, useTeamProjects } from '../hooks/queries';
+import { useAreaTree, useTeam, useTeamMembers, useTeamProjects } from '../hooks/queries';
 import { useObjectLink } from '../hooks/useObjectLink';
 import { notFoundLevel } from '../lib/notFoundLevel';
-import { linkDialog, teamCommands, teamPage, unlinkDialog } from '../lib/teamTexts';
+import { linkDialog, moveTeamDialog, teamCommands, teamPage, unlinkDialog } from '../lib/teamTexts';
 import { organizationTeamsPath } from '../paths';
 import { organizationsPermissions } from '../permissions';
 
@@ -63,6 +65,8 @@ export function TeamPage() {
   const projects = useTeamProjects(organizationId, teamId);
   const link = useLinkProjectsToTeam(organizationId, teamId);
   const unlink = useUnlinkTeam(organizationId);
+  const move = useMoveTeam(organizationId);
+  const tree = useAreaTree(organizationId);
   const section = useLocation().pathname.split('/').filter(Boolean).pop() ?? 'overview';
   const members = useTeamMembers(organizationId, teamId, { enabled: section === 'overview' });
   const offers = useSelectorOffers(organizationId);
@@ -79,6 +83,14 @@ export function TeamPage() {
   const [dialog, setDialog] = useState<TeamDialog>(null);
   const [linking, setLinking] = useState(false);
   const [unlinking, setUnlinking] = useState<TeamProject | null>(null);
+  // The move dialog (doc-016 § 4.2): while a project is being unlinked from its refusal, the unlink
+  // dialog stands in its place and this keeps what the dialog held.
+  const [moving, setMoving] = useState<{
+    departmentId: string | null;
+    refusal: string | null;
+  } | null>(null);
+  // The administrator's code, as the move route declares it (api-contract § 2).
+  const canMove = access(organizationsPermissions.teamCreate, 'organization');
 
   const level = query.isError ? notFoundLevel(query.error) : null;
   if (level) {
@@ -95,6 +107,7 @@ export function TeamPage() {
     setDialog(null);
     setLinking(false);
     setUnlinking(null);
+    setMoving(null);
     if (contextGone) {
       void query.refetch();
       void projects.refetch();
@@ -124,6 +137,14 @@ export function TeamPage() {
         onClick: () => setDialog({ kind: 'delete', team }),
       });
     }
+  }
+
+  if (team && section === 'overview' && canMove) {
+    commands.push({
+      label: teamCommands.move,
+      icon: <DriveFileMoveOutlinedIcon />,
+      onClick: () => setMoving({ departmentId: null, refusal: null }),
+    });
   }
 
   const rows = projects.data ?? [];
@@ -210,6 +231,18 @@ export function TeamPage() {
     section === 'settings'
       ? [{ label: teamPage.facts.name, value: team?.name }, descriptionFact]
       : [
+          {
+            label: teamPage.facts.department,
+            value: team ? (
+              <ColorLabel
+                size="department"
+                colour={tree.data?.find((node) => node.id === team.departmentId)?.color}
+                name={team.departmentName ?? ''}
+                to={objectLink('department', team.departmentId).to}
+                linkState={objectLink('department', team.departmentId).state}
+              />
+            ) : undefined,
+          },
           descriptionFact,
           { label: teamPage.facts.members, value: members.isSuccess ? members.data.length : '…' },
           { label: teamPage.facts.projects, value: projects.isSuccess ? rows.length : '…' },
@@ -263,13 +296,6 @@ export function TeamPage() {
           </Section>
         </Box>
       )}
-      {team && section === 'overview' && (
-        <TeamDepartmentsSection
-          organizationId={organizationId}
-          teamId={team.id}
-          teamName={team.name}
-        />
-      )}
       {team && section === 'members' && (
         <>
           <TeamMembersSection
@@ -303,6 +329,27 @@ export function TeamPage() {
             dialog={dialog}
             onClose={closeDialogs}
             onDeleted={() => navigate(organizationTeamsPath(organizationId))}
+          />
+        </RequiresOrganizationCode>
+      )}
+      {moving && team && !unlinking && (
+        <RequiresOrganizationCode code={organizationsPermissions.teamCreate}>
+          <MoveTeamDialog
+            organizationId={organizationId}
+            team={team}
+            projects={rows}
+            initialDepartmentId={moving.departmentId}
+            initialRefusal={moving.refusal}
+            submit={(departmentId) => move.mutateAsync({ teamId: team.id, departmentId })}
+            onUnlink={(project, departmentId, refusal) => {
+              setMoving({ departmentId, refusal });
+              setUnlinking(project);
+            }}
+            onSucceeded={(place) => {
+              setMoving(null);
+              notify(moveTeamDialog.moved(place.name, place.departmentName));
+            }}
+            onClose={closeDialogs}
           />
         </RequiresOrganizationCode>
       )}
@@ -345,11 +392,17 @@ export function TeamPage() {
             }}
             onSucceeded={(fallsBack) => {
               setUnlinking(null);
-              if (!fallsBack) {
+              if (!fallsBack && !moving) {
                 notify(unlinkDialog.unlinked);
               }
             }}
-            onClose={closeDialogs}
+            onClose={(contextGone) => {
+              if (moving && !contextGone) {
+                setUnlinking(null);
+                return;
+              }
+              closeDialogs(contextGone);
+            }}
           />
         </RequiresOrganizationCode>
       )}
