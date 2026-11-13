@@ -17,12 +17,12 @@ internal static class OrganizationsDomainTestData
         Organization.Create(Guid.CreateVersion7(), Name(name), ProcessId.New(), Now, Creator);
 
     public static NewProject ANewProject(string name = "Пример проекта", string key = "PRM", Guid? parentAreaId = null) =>
-        Project.Create(Guid.CreateVersion7(), Name(name), key, Now, Creator, parentAreaId: parentAreaId);
+        Project.Create(Guid.CreateVersion7(), Name(name), key, Now, Creator, "blue", parentAreaId: parentAreaId);
 
     public static Project AProject(string name = "Пример проекта", string key = "PRM") => ANewProject(name, key).Project;
 
     public static Team ATeam(Guid organizationId, string name = "Платформа") =>
-        Team.Create(organizationId, Name(name));
+        Team.Create(organizationId, Guid.CreateVersion7(), "blue", Name(name));
 
     public static AreaNode Node(Area area) => new(area.Id, area.ParentId, area.Name, area.Type, area.ProjectId);
 
