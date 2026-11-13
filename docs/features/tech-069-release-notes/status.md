@@ -3,7 +3,7 @@
 - type: tech
 - size: S
 - branch: tech/069-release-notes
-- stage: gate-3
+- stage: complete
 - epic: platform/ci
 - deps: tech-066
 - gates: gate-3
@@ -33,6 +33,8 @@ gate-3: approved · 2026-11-13 (fix review m1-m7 before the PR)
 - 2026-11-13 [code-review] round 1: approve; 0 blocker, 0 major, 7 minor open as debts (review.md)
 - 2026-11-13 [orchestrator] gate-3 answer from the human: «⭐ Починить все 7 → PR» — fix review minors m1-m7 before the PR, no further review round (the human sees the diff in the PR); m7 fixed here (the QA line moved under Log); QA minors 1-2 fixed along (one-line each), 3-4 accepted (ADR-0043 states them).
 - 2026-11-13 [developer] review/QA fixes m1-m6 + QA minors 1-2: release-notes.sh (CR stripped, %x1e record marker, branch-name fallback for an empty body, no "Changes since" when an explicit previous tag is the end), cases 52 green (CRLF via commit-tree, side-branch merge, annotated tags; the CRLF case cannot fail on this Windows gawk, which drops CR itself, but does on Linux), deploy.yml (--latest=false on dispatch create), ADR-0043 bullet, vm.md/vm.ru.md wording, cd-runner-cases write-permission guard with negative cases (all green). verify.sh not run.
+
+- 2026-11-13 [orchestrator] stage complete; push and PR next.
 
 ## Notes
 
