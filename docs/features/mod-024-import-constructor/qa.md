@@ -108,8 +108,27 @@ Not re-run: the developer's Application, Infrastructure, Contracts and Architect
 - Carry to gate-3 as a debt, or to feat-067 (the background run) which needs a worker anyway.
 - Status: open (minor, not sent back)
 
+### Re-check 1 (fixes in 8706eda7)
+
+First-pass verdict was fail: 4 majors (D-1..D-4), 1 minor (D-5).
+
+| Defect | Verified against the requirement | Result |
+|---|---|---|
+| D-1 | the Assignee case now also asks `context.CanMemberRead(member.Id, projectId)`; `ImportReferenceReader` builds it from the mod-019 `AccessSet` (role + area/project/team grants) and tests `workitems.workitem.read` on the project; refusal is `assignee_not_found`. BR-IE-12 / BR-MX-25 met | fixed |
+| D-2 | title, description, reproSteps, systemInfo compare ordinally; ids and enum names stay case-insensitive. Both skipped tests un-skipped and green | fixed |
+| D-3 | `ParseIsoDate`: a date, or a date-time with/without offset (`T` or space, seconds and fraction optional, `Z` or `±hh[:mm]`); the date as written. Test green for the date, offset and offset-free forms | fixed |
+| D-4 | `Extract` takes group 1 when the pattern has a group, else the whole match; the test through the template path is green | fixed |
+
+Integration gap of D-1: every organization role (admin, member, viewer) holds `workitems.workitem.read` at organization level (`OrganizationRoleBundles.ReadCodes`), so no real member can be made unable to read a project and the refusal cannot be reproduced over HTTP. The Domain test covers the refusal; the new integration test `DryRun_Assignee_WhoReadsTheProject_IsAccepted_ThroughTheRealAccessModel` covers that the real reader wires the positive path. Judged acceptable; a negative integration test becomes possible once a role can narrow reads.
+
+| Date | What was run | Result |
+|---|---|---|
+| 2026-11-13 | Domain `Imports` | 84 passed, 0 skipped, 0 failed |
+| 2026-11-13 | Application `Imports` | 19 passed |
+| 2026-11-13 | Api integration `Features.Imports` | 23 passed |
+
+Nothing nearby broke. D-5 stays open as a minor for gate-3.
+
 ### Verdict
 
-blockers: 0 · majors: 4 (D-1..D-4) to the backend developer · minor: 1 (D-5) · result: fail until the majors are fixed; re-check covers the four fixes and the skipped tests only.
-
-No other defects found in the other areas of the plan: rights and the managers' scope, the 403-before-404 choice, the file-safety refusals, limits before rows, organization and user isolation, no writes to work items.
+blockers: 0 · majors open: 0 (D-1..D-4 fixed) · minor: 1 (D-5, carried to gate-3) · result: pass.
