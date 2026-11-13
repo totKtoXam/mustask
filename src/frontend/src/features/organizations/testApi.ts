@@ -6,6 +6,7 @@
 // feat-028 the teams are the organization's and linked to projects
 // (`Dataset.teams`, `Dataset.links`); the routes follow its api-contract.
 import { HttpResponse, http, type HttpHandler } from 'msw';
+import { OBJECT_COLOUR_KEYS } from '../../app/theme/tokens';
 import { server } from '../../test/mocks/server';
 import { codesOf, servedFor, servedObjectCodes, servedRole } from '../../test/organizationRoles';
 
@@ -87,6 +88,9 @@ function refuse(code: string, params?: Record<string, string>): never {
 }
 
 /** Russian collation, letter case and «ё» ignored, then by id (api-contract § 0.6). */
+/** mod-021: the palette key a stored object without one reads as (the first of the panel's keys). */
+const DEFAULT_COLOUR: string = OBJECT_COLOUR_KEYS[0];
+
 function byName<T extends { name: string; id: string }>(first: T, second: T): number {
   return (
     first.name.localeCompare(second.name, 'ru', { sensitivity: 'base' }) ||
@@ -407,7 +411,7 @@ export class OrganizationsTestApi {
       key: project.key,
       description: project.description ?? null,
       codes: this.objectCodes(project.organizationId),
-      color: project.color ?? 'blue',
+      color: project.color ?? DEFAULT_COLOUR,
     };
   }
 
@@ -428,7 +432,7 @@ export class OrganizationsTestApi {
       codes: this.objectCodes(team.organizationId),
       departmentId: place?.id ?? '',
       departmentName: place?.name ?? '',
-      color: team.color ?? 'blue',
+      color: team.color ?? DEFAULT_COLOUR,
     };
   }
 
@@ -451,7 +455,7 @@ export class OrganizationsTestApi {
     const areas = this.data.areas.filter((area) => area.organizationId === organization.id);
     const departments = areas
       .filter((area) => area.type === 'department')
-      .map(({ id, name, color }) => ({ id, name, color: color ?? 'blue' }))
+      .map(({ id, name, color }) => ({ id, name, color: color ?? DEFAULT_COLOUR }))
       .sort(byName);
     const teams = this.data.teams.filter(
       (team) => team.organizationId === organization.id && !team.deleted,
@@ -485,7 +489,7 @@ export class OrganizationsTestApi {
           name: team.name,
           isMember: this.isMember(team),
           departmentId: this.placeOf(team)?.id ?? '',
-          color: team.color ?? 'blue',
+          color: team.color ?? DEFAULT_COLOUR,
         }))
         .sort(byName),
     };
@@ -587,8 +591,8 @@ export class OrganizationsTestApi {
 
   /** mod-021: a department's own key, a project node's project key, none for a sub-area. */
   private colourOf(area: AreaRecord): string | null {
-    if (area.type === 'department') return area.color ?? 'blue';
-    if (area.type === 'project') return this.projectOf(area)?.color ?? 'blue';
+    if (area.type === 'department') return area.color ?? DEFAULT_COLOUR;
+    if (area.type === 'project') return this.projectOf(area)?.color ?? DEFAULT_COLOUR;
     return null;
   }
 
@@ -663,7 +667,7 @@ export class OrganizationsTestApi {
     return this.data.teams
       .filter((team) => !team.deleted && this.placeOf(team)?.id === area.id)
       .sort(byName)
-      .map(({ id, name, color }) => ({ id, name, color: color ?? 'blue' }));
+      .map(({ id, name, color }) => ({ id, name, color: color ?? DEFAULT_COLOUR }));
   }
 
   /** api-contract § 3: the teams that block a department's deletion. */
@@ -827,7 +831,7 @@ export class OrganizationsTestApi {
       description: descriptionOf(body.description),
       deleted: false,
       departmentId: department.id,
-      color: 'blue',
+      color: DEFAULT_COLOUR,
     };
     this.data.teams.push(team);
     for (const userId of memberIds) {
@@ -1070,7 +1074,7 @@ export class OrganizationsTestApi {
       parentId: parent?.id ?? null,
       name,
       description: descriptionOf(body.description),
-      color: parent ? undefined : 'blue',
+      color: parent ? undefined : DEFAULT_COLOUR,
     };
     this.data.areas.push(area);
     return this.areaAnswer(area);
