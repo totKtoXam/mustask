@@ -58,7 +58,7 @@ No organization at all: no field, no magnifier, no shortcut. The panel never cov
 
 - **Position (D-1 superseded).** The human replaced the centred modal with a field in the header and a dropdown panel at gate-2, 2026-11-13. The panel is a `Popper` (§ 1), anchored under the field (`bottom-start`, 4 px gap, left edge on the field's left edge), width `max(field, min(720 px, 100vw − 32 px))`, kept inside the viewport (`preventOverflow`), no flip; at most 70 vh high: the body scrolls, the scope row and key hints do not. No backdrop; the page stays visible.
 - **Narrow (< 700 px, breakpoint D-2).** The field collapses to the magnifier `IconAction`. Clicking it turns the header into the field: the field takes the header's full width (the product mark, path, user menu are hidden while it is open), with a «Закрыть поиск» ✕ at its right; the panel goes full width right under the header, no radius, height up to the viewport's bottom; the key-hint footer is hidden (no hardware keys assumed). Why: at 640 px the header has no room for a 520 px field; full width gives typing room and readable rows.
-- **Open and close (as the context panel, § 3.0).** Opens on click or focus of the field and on Ctrl/Cmd+K (which focuses it). Closes on Esc (the field is emptied, focus returns to the element that had it before, else leaves the field), on a click outside, on choosing a row, and when focus leaves the field and the panel (Tab out). Result rows are never Tab stops; the panel's own controls are (§ 3.6).
+- **Open and close (as the context panel, § 3.0).** Opens on click or focus of the field and on Ctrl/Cmd+K (which focuses it). Closes on Esc (the text stays in the field — D-11, the human at gate-2; ✕ clears it — focus returns to the element that had it before, else leaves the field), on a click outside, on choosing a row, and when focus leaves the field and the panel (Tab out). Result rows are never Tab stops; the panel's own controls are (§ 3.6).
 - **Row** (BR-GS-11): type icon (the tree's, ADR-0024 tokens), primary line with the match emphasised, grey secondary line, `↵` on the active row. Department, team and project rows carry the colour stripe of doc-016 § 3.0 (4 px, 60 % of the row height, at the left of the icon); other types keep an empty spacer. A long line is cut with an ellipsis (`TruncatedText`) and the row's `title` gives the whole text. In «Все организации» every secondary line ends with « · <organization>» (a department's line is the organization alone).
 
 | Type | Primary | Secondary |
@@ -120,7 +120,7 @@ The focus stays in the header field; options never take DOM focus. The popup is 
 | ↓ / ↑ | next / previous option across groups, skipping headings, the «Похожие» caption and the «Очистить недавние» button; wraps; the active option scrolls into view (`block: nearest`) |
 | Enter | chooses the active option (§ 3.7); inert while a newer read is pending and during IME composition |
 | Ctrl/Cmd+Enter | opens the active row in a new tab (its real address), the panel stays open, the palette records nothing |
-| Esc | closes at any time, text discarded; with the scope menu open it closes the menu only. Focus returns to the element that had it before opening (the magnifier on a narrow screen), else the field is left |
+| Esc | closes at any time, the text stays (D-11); with the scope menu open it closes the menu only. Focus returns to the element that had it before opening (the magnifier on a narrow screen), else the field is left |
 | Tab / Shift+Tab | field → clear ✕ → scope → «Очистить недавние» (idle) → «Полный поиск» → (narrow: «Закрыть поиск») → leaves the panel, which closes it. Rows are not Tab stops |
 | Home / End | stay in the field (caret) |
 
@@ -209,6 +209,7 @@ Floor 640 CSS px (ADR-0024). Below 700 px the field collapses to the magnifier a
 | D-8 | Kit parts split out | split: `feat-NNN-search-dialog-kit` (S), accepted at gate-2, 2026-11-13; parts now `SearchField`, `SearchPanel`, `SearchOption`, `HighlightedText`, `ThinSearchIcon` |
 | D-9 | `Popper`, non-modal, focus stays in the field (not `Popover`/`Dialog`) | § 1; the context panel's look and close behaviour, not its modal mechanism |
 | D-10 | «Очистить недавние» is a text button at the right end of the «Недавние» heading, not a listbox option | human at gate-2, 2026-11-13 |
+| D-11 | Esc closes the panel and keeps the typed text; ✕ clears it. The panel opens on any focus of the field (click, Tab, Ctrl/Cmd+K) | human at gate-2, 2026-11-13 |
 | D-11 | Permanent «Полный поиск» button in the scope row; no shortcut | § 3.5 |
 | D-12 | «Все организации» scope (BR-GS-19): current organization's recents only when idle; organization name on every row | § 3.5 |
 
@@ -222,7 +223,7 @@ Left to the ADR and not this design: the `word_similarity` threshold (the protot
 
 ## 9. Prototype scenarios (all in `prototype/index.html`)
 
-1. The header field and the panel: click or Ctrl+K opens (focus in the field), Ctrl+K toggles, Esc empties and returns focus, a click outside and Tab out close; Ctrl+K in the plain field opens, in the «редактор» does not, with the «Новый рабочий элемент» dialog open does nothing.
+1. The header field and the panel: click or Ctrl+K opens (focus in the field), Ctrl+K toggles, Esc closes keeping the text and returns focus, a click outside and Tab out close; Ctrl+K in the plain field opens, in the «редактор» does not, with the «Новый рабочий элемент» dialog open does nothing.
 2. Empty field: «Недавние» (4 rows) with «Очистить недавние» at the right of the heading (not reachable by arrows, reachable by Tab), then «Здесь появятся…»; «Заполнить недавние» restores. «Полный поиск» is visible in every state and opens the page with the current text and scope.
 3. «оплата»: groups by tier, emphasis, the last row; ↑↓ across groups, wrap; Enter opens a fake page and records it; Ctrl+Enter toasts «в новой вкладке» and stays.
 4. «отчёт»: «Показать ещё»; «лагистика»: «Похожие»; «MSK-42», «alp-7»; «ол»; one character → the hint.

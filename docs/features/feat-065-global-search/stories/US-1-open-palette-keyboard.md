@@ -36,7 +36,8 @@ Scenario: The shortcut toggles
 Scenario: Closing returns focus
   Given Olga opened the palette from the element that had the focus
   When she presses Esc
-  Then the palette closes, whatever the field holds, and the field is emptied
+  Then the palette closes and the field keeps what she typed
+  And opening it again shows the results for that text, until she clears it with ✕
   And the focus is back on that element (the magnifier, on a narrow screen)
 
 Scenario: Arrow keys cross groups
