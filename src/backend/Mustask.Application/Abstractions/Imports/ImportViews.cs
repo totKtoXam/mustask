@@ -140,19 +140,19 @@ public sealed record ChainSampleView(IReadOnlyList<ChainRowSampleView> Rows);
 public sealed record DryRunReasonView(string Severity, string Code, IReadOnlyDictionary<string, string> Params, string? Column, string? Cell, string? Value, string Text);
 
 public sealed record DryRunRowView(
-    int Row, string Result, string? Title, string? Identifier, DryRunProject? Project, IReadOnlyList<DryRunFieldValue> Fields, IReadOnlyList<DryRunReasonView> Reasons);
+    int Row, string Result, DryRunItemView Item, DryRunProject? Project, IReadOnlyList<DryRunFieldValue> Fields, IReadOnlyList<DryRunReasonView> Reasons);
 
 public sealed record DryRunView(
     Guid Id, Guid TemplateId, int TemplateVersion, bool Stale, string FileName, DateTimeOffset CreatedAt, DateTimeOffset ExpiresAt,
-    DryRunTotals Totals, IReadOnlyList<DryRunNoteView> Notes, bool Importable, string Result, IReadOnlyList<DryRunRowView> Rows, int RowsShown)
+    DryRunTotals Totals, IReadOnlyList<string> Notes, bool Importable, string Result, IReadOnlyList<DryRunRowView> Rows, int RowsShown)
 {
     public static DryRunView Of(ImportDryRun run, string result, bool stale, IReasonText texts)
     {
         var filter = RowResults.Filters.Contains(result) ? result : RowResults.All;
         var shown = run.Rows.Where(r => filter == RowResults.All || r.Result == filter).Take(ImportLimits.PreviewRows)
-            .Select(r => new DryRunRowView(r.Row, r.Result, r.Title, r.Identifier, r.Project, r.Fields, r.Reasons.Select(x => Reason(x, texts)).ToList()))
+            .Select(r => new DryRunRowView(r.Row, r.Result, new DryRunItemView(r.Title, r.Identifier), r.Project, r.Fields, r.Reasons.Select(x => Reason(x, texts)).ToList()))
             .ToList();
-        var notes = run.Notes.Select(n => new DryRunNoteView(n, texts.Render(n, new Dictionary<string, string>()))).ToList();
+        var notes = run.Notes.ToList();
 
         return new DryRunView(
             run.Id, run.TemplateId, run.TemplateVersion, stale, run.FileName, run.CreatedAt, run.ExpiresAt, run.Totals, notes,
@@ -163,7 +163,7 @@ public sealed record DryRunView(
         new(r.Severity, r.Code, r.Params, r.Column, r.Cell, r.Value, texts.Render(r.Code, r.Params));
 }
 
-public sealed record DryRunNoteView(string Code, string Text);
+public sealed record DryRunItemView(string? Title, string? Identifier);
 
 public sealed record ReportFile(byte[] Content, string FileName);
 
