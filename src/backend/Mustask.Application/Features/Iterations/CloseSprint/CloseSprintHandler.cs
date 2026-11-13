@@ -42,22 +42,24 @@ public sealed class CloseSprintHandler(
             {
                 await SprintAddress.LockTeamAsync(teams, organizationId, teamId, ct);
 
-                var sprint = await sprints.LockForUpdateAsync(organizationId, teamId, sprintId, ct)
-                    ?? throw SprintAddress.SprintNotFound();
+                // ADR-0028 rule 8: the hierarchy locks (step 5), then the sprint and its destination together (step 6), then the
+                // items (step 7).
+                await sprints.LockHierarchiesAsync(teamId, ct);
+
+                var (sprint, facts) = await sprints.LockPairForUpdateAsync(organizationId, teamId, sprintId, destinationId, ct);
+
+                if (sprint is null || (destinationId is not null && facts is null))
+                {
+                    throw SprintAddress.SprintNotFound();
+                }
 
                 var now = clock.UtcNow;
 
                 sprint.Close(now, currentUser.SubjectId);
 
-                if (destinationId is { } destination)
+                if (facts is not null && (facts.TeamId != teamId || facts.State != SprintState.Planned))
                 {
-                    var facts = await sprints.LockForShareAsync(organizationId, destination, ct)
-                        ?? throw SprintAddress.SprintNotFound();
-
-                    if (facts.TeamId != teamId || facts.State != SprintState.Planned)
-                    {
-                        throw new ConflictException(SprintErrorCodes.CloseDestinationInvalid);
-                    }
+                    throw new ConflictException(SprintErrorCodes.CloseDestinationInvalid);
                 }
 
                 _ = await sprints.LockItemsAsync(sprint.Id, ct);

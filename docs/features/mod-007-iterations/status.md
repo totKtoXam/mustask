@@ -87,11 +87,14 @@ agent per stage, no fan-out. E2E: no (paused).
   in design.md § 12, the prototype and the US-9/US-10 lines
 - 2026-11-12 [orchestrator] gate-2 for the delta approved by the human in
   chat («Да, approve»); development waits for the human's word
-- 2026-11-12 [backend-developer] stage 4 backend done for US-1..US-5, US-9, US-10: 11 sprint routes, item sprint, close snapshot, outcome reads, migration AddSprints; all test projects green. Deviations and the NU1903 note: commit bodies and the hand-back.
+- 2026-11-12 [backend-developer] stage 4 backend done for US-1..US-5, US-9, US-10: 11 sprint routes, item sprint, close snapshot, outcome reads, migration AddSprints; all test projects green. Deviations: § Notes, "Backend deviations".
 - 2026-11-12 [qa-engineer] backend QA: 12 tests added, all green; 0 blocker, 0 major, 2 minor (qa.md D-1, D-2); no E2E (standing NO)
 - 2026-11-12 [frontend-developer] stage 5 done: team «Спринты» list and dialogs, outcome page, card «Спринт»; tests green; no contract mismatch; E2E no (standing); frontend QA next
 - 2026-11-13 [frontend-developer] QA cycle 1: fixed D-1 (sprint-name h1, trail, tag), D-2 («Итого» expands), D-3 (purged project kept), D-4, D-5; the three it.fails now pass; frontend QA re-run next
 - 2026-11-13 [code-reviewer] code review round 1 in review.md: changes-requested; 0 blocker, 2 major open (M-1 lock order vs ADR-0028 rule 8, M-2 deviations unrecorded), 5 minor debts
+- 2026-11-12 [qa-engineer] frontend QA: FAIL, 3 majors on the outcome page (h1, «Итого» not expandable, purged project blank), 2 minors; 35 tests added (3 it.fails pin the majors); no E2E (standing NO)
+- 2026-11-13 [qa-engineer] frontend QA re-check of f5a84ab4: D-1..D-5 fixed and verified, 3 tests added for D-4/D-5; 0 blocker, 0 major; PASS, to code review; no E2E (standing NO)
+- 2026-11-13 [backend-developer] code review M-1 fixed: hierarchy, then sprints (close with its destination FOR UPDATE), then items; unlink and team deletion lock open sprints; M-2, m-4 done (deviations in § Notes); a42f3f17 is code and tests together; tests green
 
 ## Notes
 
@@ -109,5 +112,14 @@ overview; a deleted team's Closed sprints and their outcomes stay readable on
 the projects' «Спринты». The team's «Спринты» (teams/:t/sprints) and a
 project's «Спринты» (projects/:p/sprints) are sections of their own pages
 (doc-012 BR-MX-13..-15; US-9, US-12, US-10).
-- 2026-11-12 [qa-engineer] frontend QA: FAIL, 3 majors on the outcome page (h1, «Итого» not expandable, purged project blank), 2 minors; 35 tests added (3 it.fails pin the majors); no E2E (standing NO)
-- 2026-11-13 [qa-engineer] frontend QA re-check of f5a84ab4: D-1..D-5 fixed and verified, 3 tests added for D-4/D-5; 0 blocker, 0 major; PASS, to code review; no E2E (standing NO)
+
+### Backend deviations (stage 4, from plan-backend.md and api-contract.md)
+
+- The contract is unchanged; the deviations below are of the plan and the stories' wording only.
+- Participants' «не в организации» mark reads the organization membership (BR-16), not the team's; the plan had a team-membership read.
+- An unknown sprint sent for a deleted item answers `workitems.workitem.deleted` first; the sprint's 404 comes after the item is known live (api-contract § 3). The sprint is still locked before the item.
+- The Kazakh texts of the 17 new error codes are machine drafts: `kkNeedsReview` is true in `contracts/errors/iterations.json`.
+- The outcome-items read inner-joins `work_item_types`, so a snapshot line whose type row is gone would be dropped (types are never deleted today).
+- Commit a42f3f17 carries the code fixes and all the tests in one commit: the commit-msg hook rejected the first, code-only commit (subject over 72), and the staged files went into the next one.
+- Lock order (review M-1): the sprint writers lock the team's linked projects' hierarchy rows (ADR-0028 rule 8 step 5) before the sprint; broader than the sprint's own projects, but fixed before the sprint lock, so no item can join a project outside it.
+- Pre-existing, not ours: `dotnet build Mustask.sln` fails with NU1903 (Aspire.Hosting advisory) in `Mustask.AppHost`.

@@ -120,14 +120,15 @@ public sealed class SaveWorkItemHandler(
                     teamLinkHeld = await workItems.LockTeamLinkAsync(organizationId, projectId, namedTeamId, ct);
                 }
 
-                // mod-007 (plan-backend, "Locks"): a sent sprint is locked FOR SHARE before the item, so a close or a removal of it
-                // either waits for this save or is seen by it. Judged below, once the item and its team are known.
-                var (sprintFacts, sprintMissing) = await LockSprintAsync(command.Sprint, organizationId, ct);
-
                 if (command.Parent is not null)
                 {
                     await workItems.LockHierarchyAsync(projectId, ct);
                 }
+
+                // mod-007 (plan-backend, "Locks"; ADR-0028 rule 8 step 6, after the hierarchy lock of step 5): a sent sprint is locked
+                // FOR SHARE before the item, so a close or a removal of it either waits for this save or is seen by it. Judged below,
+                // once the item and its team are known.
+                var (sprintFacts, sprintMissing) = await LockSprintAsync(command.Sprint, organizationId, ct);
 
                 var item = await workItems.LockAsync(projectId, identifier.Number, ct)
                     ?? throw new NotFoundException(WorkItemErrorCodes.WorkItemNotFound);

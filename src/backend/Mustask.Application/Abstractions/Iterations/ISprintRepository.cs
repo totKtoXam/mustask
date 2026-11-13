@@ -13,6 +13,28 @@ public interface ISprintRepository
     Task<Sprint?> LockForUpdateAsync(Guid organizationId, Guid teamId, Guid sprintId, CancellationToken cancellationToken);
 
     /// <summary>
+    /// The sprint of the team and, when named, the destination sprint of the organization, both <c>FOR UPDATE</c> in one statement in
+    /// the database's id order (ADR-0028 rule 8 step 6: a close takes its sprint and its destination together). The sprint is
+    /// tracked; the destination answers by the facts the lock returned, whatever its team and state; either is <c>null</c> when
+    /// it names nothing.
+    /// </summary>
+    Task<(Sprint? Sprint, SprintFacts? Destination)> LockPairForUpdateAsync(
+        Guid organizationId, Guid teamId, Guid sprintId, Guid? destinationId, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// The team's open (Planned and Active) sprints <c>FOR UPDATE</c> in id order: the open-sprint step that ADR-0028 rule 7 gives
+    /// the team's unlink and deletion, taken after the hierarchy locks and before the items (rule 8 steps 5, 6, 7).
+    /// </summary>
+    Task LockOpenAsync(Guid teamId, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Locks the hierarchy rows of every project linked to the team, in id order (ADR-0028 rule 8 step 5): the sprint writers take
+    /// them <i>before</i> the sprint, as the item writers and the team's unlink do. Every item of the team's sprints lives in
+    /// such a project, so the set is fixed before the sprint is locked and no item can join a project outside it.
+    /// </summary>
+    Task LockHierarchiesAsync(Guid teamId, CancellationToken cancellationToken);
+
+    /// <summary>
     /// A sprint of the organization <c>FOR SHARE</c> by what the lock statement returned, whatever team it belongs to (a work item's
     /// save binds to it: a close or a removal of the sprint waits for the save, or the save sees the new state). <c>null</c> for an
     /// id that names nothing in the organization.
@@ -38,8 +60,8 @@ public interface ISprintRepository
     void Remove(Sprint sprint);
 
     /// <summary>
-    /// Locks the sprint's items <c>FOR UPDATE</c> in id order, after the hierarchy locks of their projects (the order a team's
-    /// unlink takes), and answers the number of items outside «Удалена», whatever the project's status (BR-8).
+    /// Locks the sprint's items <c>FOR UPDATE</c> in id order (rule 8 step 7, after <see cref="LockHierarchiesAsync"/> and the
+    /// sprint's own lock), and answers the number of items outside «Удалена», whatever the project's status (BR-8).
     /// </summary>
     Task<int> LockItemsAsync(Guid sprintId, CancellationToken cancellationToken);
 

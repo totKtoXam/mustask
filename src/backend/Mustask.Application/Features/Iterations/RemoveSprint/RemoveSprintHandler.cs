@@ -30,6 +30,9 @@ public sealed class RemoveSprintHandler(
             {
                 await SprintAddress.LockTeamAsync(teams, organizationId, teamId, ct);
 
+                // ADR-0028 rule 8: the hierarchy locks (step 5), then the sprint (step 6), then its items (step 7).
+                await sprints.LockHierarchiesAsync(teamId, ct);
+
                 var sprint = await sprints.LockForUpdateAsync(organizationId, teamId, sprintId, ct)
                     ?? throw SprintAddress.SprintNotFound();
 

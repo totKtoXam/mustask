@@ -26,6 +26,54 @@ internal sealed class SprintRepository(MustaskDbContext context) : ISprintReposi
             sprint => sprint.Id == sprintId && sprint.TeamId == teamId && sprint.OrganizationId == organizationId, cancellationToken);
     }
 
+    public async Task<(Sprint? Sprint, SprintFacts? Destination)> LockPairForUpdateAsync(
+        Guid organizationId, Guid teamId, Guid sprintId, Guid? destinationId, CancellationToken cancellationToken)
+    {
+        var ids = destinationId is { } destination ? new[] { sprintId, destination } : new[] { sprintId };
+
+        // One statement locks both rows in the database's id order; the sprint must be the team's, the destination may be any
+        // sprint of the organization (its team and state are judged by the caller from the facts below).
+        await context.Database.ExecuteSqlInterpolatedAsync(
+            $"""
+             SELECT 1 FROM sprints
+             WHERE id = ANY({ids}) AND organization_id = {organizationId} AND (id <> {sprintId} OR team_id = {teamId})
+             ORDER BY id FOR UPDATE
+             """,
+            cancellationToken);
+
+        var sprint = await context.Sprints.SingleOrDefaultAsync(
+            row => row.Id == sprintId && row.TeamId == teamId && row.OrganizationId == organizationId, cancellationToken);
+
+        if (destinationId is not { } destinationSprint)
+        {
+            return (sprint, null);
+        }
+
+        var facts = await context.Sprints
+            .AsNoTracking()
+            .Where(row => row.Id == destinationSprint && row.OrganizationId == organizationId)
+            .Select(row => new SprintFacts(row.Id, row.TeamId, row.State))
+            .SingleOrDefaultAsync(cancellationToken);
+
+        return (sprint, facts);
+    }
+
+    public Task LockOpenAsync(Guid teamId, CancellationToken cancellationToken) =>
+        context.Database.ExecuteSqlInterpolatedAsync(
+            $"SELECT 1 FROM sprints WHERE team_id = {teamId} AND state <> 'Closed' ORDER BY id FOR UPDATE",
+            cancellationToken);
+
+    public async Task LockHierarchiesAsync(Guid teamId, CancellationToken cancellationToken)
+    {
+        var projectIds = await context.ProjectTeams
+            .AsNoTracking()
+            .Where(link => link.TeamId == teamId)
+            .Select(link => link.ProjectId)
+            .ToListAsync(cancellationToken);
+
+        await WorkItemHierarchyLocks.AcquireAsync(context, projectIds, cancellationToken);
+    }
+
     public async Task<SprintFacts?> LockForShareAsync(Guid organizationId, Guid sprintId, CancellationToken cancellationToken)
     {
         // The statement returns the row it locked: that answer, not a second read, is what the caller judges by.
@@ -74,18 +122,8 @@ internal sealed class SprintRepository(MustaskDbContext context) : ISprintReposi
 
     public async Task<int> LockItemsAsync(Guid sprintId, CancellationToken cancellationToken)
     {
-        // The hierarchy locks of the projects the items live in come first (ADR-0028 rule 8 step 5), then the items by id: the order
-        // a team's unlink takes. No item can join the sprint meanwhile: a save that sets it holds the sprint FOR SHARE, and the caller
-        // holds it FOR UPDATE.
-        var projectIds = await WorkItemSets.InAnyState(context)
-            .AsNoTracking()
-            .Where(item => item.SprintId == sprintId)
-            .Select(item => item.ProjectId)
-            .Distinct()
-            .ToListAsync(cancellationToken);
-
-        await WorkItemHierarchyLocks.AcquireAsync(context, projectIds, cancellationToken);
-
+        // Step 7 of ADR-0028 rule 8: the caller took the hierarchy locks (step 5) and holds the sprint FOR UPDATE (step 6), so no
+        // item can join the sprint meanwhile (a save that sets it holds the sprint FOR SHARE).
         await context.Database.ExecuteSqlInterpolatedAsync(
             $"SELECT 1 FROM work_items WHERE sprint_id = {sprintId} ORDER BY id FOR UPDATE",
             cancellationToken);
