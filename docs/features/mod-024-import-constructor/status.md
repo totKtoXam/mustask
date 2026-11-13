@@ -53,6 +53,7 @@ fixtures use made-up data only.
 - 2026-11-13 [orchestrator] prototype clicked through in the built-in browser (list, editor's four tabs, chain dialog, recoding, dry run): no runtime errors. Found: the dry-run report shows «Будет обновлён 30» while the template has no identifier column.
 - 2026-11-13 [orchestrator] gate-2 asked; the human did not approve or reject: «тут сложно сказать, пока не прогонишь реальный парсер». Decided at the same time: «Импорт» in settings is shown to every member (imports.template.read); the 50-row preview is the first 50 rows of the selected result. gate-2 stays pending.
 - 2026-11-13 [orchestrator] gate-2 approved by the human with a caveat: go straight to implementation and revisit the design during development, once the real parser runs (quote in Gates). Stage 4 started.
+- 2026-11-13 [backend-dev] stage 4 PARTIAL (stopped on capacity, not finished). Commits: 7d9293c7 plan+contract; 68869a3a source reader .xlsx/.csv (62 tests green) + dev probe src/backend/tests/tools/ImportParserProbe; 61b37a46 field catalogue; 5457bbe2 converter engine (22 Domain tests green). NOT done: template model/validator, permission codes+bundles, persistence+migration, handlers, endpoints, dry run, report xlsx. Contract note: template settings gain ignoredColumns (string[]) for BR-IE-10. Deviation D-1 (planned): dry run will not cover description rich-text reduction, parent hierarchy rules, item concurrency. New NuGet DocumentFormat.OpenXml 3.5.1 in Directory.Packages.props (shared file, orchestrator to be told).
 
 ## Notes
 
