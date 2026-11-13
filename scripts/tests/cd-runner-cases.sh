@@ -146,6 +146,7 @@ smoke_case() { # <name> <expected exit code> <flags...>
     [ "$got" = "$want" ] && ok "smoke.sh: $name" || { bad "smoke.sh: $name (exit $got, expected $want)"; sed 's/^/        /' "$sandbox/smoke.out"; }
 }
 smoke_case "the VM's own hop fails, as on production" 1
+grep -q -- "--resolve" "$sandbox/curls" && bad "smoke.sh: the default run passes --resolve" || ok "smoke.sh: no flags, no --resolve (default unchanged)"
 smoke_case "--resolve-local still checks the VM's own hop" 1 --resolve-local
 smoke_case "--resolve-to the edge passes every check" 0 --resolve-to=192.0.2.10
 grep -q 'automated checks: passed' "$sandbox/smoke.out" && ! grep -q FAIL "$sandbox/smoke.out" \
