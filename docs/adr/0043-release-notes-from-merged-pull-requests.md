@@ -44,5 +44,6 @@ Option 4.
 - Every release has a page that says what it carries, and the approver reads it before approving the deploy.
 - A vague pull request title (`fix stuff`) is now a vague changelog line. `docs/conventions/git.md` § "Releases and versions" carries the rule.
 - A pull request that is merged without a merge commit (a squash) does not appear in the notes. The merge policy of tech-063 makes task pull requests merge commits; revisit this ADR if that changes.
+- The notes rely on GitHub's default merge-commit message: subject `Merge pull request #N from <owner>/<branch>`, body = the pull request title. A change of that repository setting (Settings → General → merge commit message) or a hand-edited merge message drops the pull request from the notes or mislabels it.
 - The `notes` job can fail (the tag is missing, the token lacks the right), and then `deploy` does not start: a release without notes does not go out unnoticed.
 - Revisit if the notes need curation by hand (then edit the release page; a redeploy would overwrite it) or if releases move off GitHub.
