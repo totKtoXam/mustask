@@ -13,6 +13,7 @@ import {
   ThinRefreshIcon,
   ThinRemoveIcon,
   ThinSaveIcon,
+  ThinSearchIcon,
   ThinUndoIcon,
 } from '../index';
 
@@ -66,6 +67,11 @@ const GLYPHS: readonly Glyph[] = [
     path: 'M12 10.75a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7zM6 20.25c0-3.3 2.7-5.5 6-5.5s6 2.2 6 5.5',
   },
   {
+    Icon: ThinSearchIcon,
+    testId: 'ThinSearchIcon',
+    path: 'M10.5 4a6.5 6.5 0 1 0 0 13 6.5 6.5 0 0 0 0-13zM15.5 15.5l5 5',
+  },
+  {
     Icon: BacklogIcon,
     testId: 'BacklogIcon',
     path: 'M8 6h13v2H8zM3 11h18v2H3zM9 16h12v2H9z',
@@ -74,8 +80,8 @@ const GLYPHS: readonly Glyph[] = [
 ];
 
 describe('tech-015 Scenario: the kit’s icons (design § 5.1)', () => {
-  it('has the thirteen glyphs of the table', () => {
-    expect(GLYPHS).toHaveLength(13);
+  it('has the fourteen glyphs of the table', () => {
+    expect(GLYPHS).toHaveLength(14);
   });
 
   describe.each(GLYPHS)('$testId', ({ Icon, testId, path, filled }) => {
