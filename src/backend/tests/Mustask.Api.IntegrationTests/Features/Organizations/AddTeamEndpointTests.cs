@@ -29,7 +29,7 @@ public sealed class AddTeamEndpointTests(MustaskApiFactory factory)
         Assert.Equal(HttpStatusCode.Created, answer.Status);
         Assert.Equal("application/json", answer.MediaType);
         Assert.Equal($"/api/organizations/{structure.OrganizationId}/teams/{teamId}", answer.Location?.OriginalString);
-        Assert.Equal(["description", "id", "name"], PropertyNames(answer.Body));
+        Assert.Equal(["color", "departmentId", "departmentName", "description", "id", "name"], PropertyNames(answer.Body));
         Assert.Equal("MARS", answer.Body.GetProperty("name").GetString());
         Assert.Equal(JsonValueKind.Null, answer.Body.GetProperty("description").ValueKind);
 

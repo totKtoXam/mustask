@@ -93,10 +93,7 @@ public sealed class WorkItemWriteInventoryTests(MustaskApiFactory factory)
         ["PUT " + Area + "/parent"] = new(Kind.NamesNoWorkItem, ReasonStructure),
         ["PUT " + Area + "/inherits-access"] = new(Kind.NamesNoWorkItem, "turns an access switch of the tree and moves no item (mod-019 BR-SA-6)"),
         ["PUT " + Area + "/description"] = new(Kind.NamesNoWorkItem, ReasonStructure),
-        ["POST " + Area + "/teams"] = new(Kind.NamesNoWorkItem, "links teams to a department and moves no item"),
-        ["DELETE " + Area + "/teams/{teamId}"] = new(Kind.NamesNoWorkItem, "unlinks a team from a department and moves no item"),
-        ["POST " + OrgTeam + "/areas"] = new(Kind.NamesNoWorkItem, "links departments to the team and moves no item"),
-        ["DELETE " + OrgTeam + "/areas/{areaId}"] = new(Kind.NamesNoWorkItem, "unlinks a department from the team and moves no item"),
+        ["PUT " + OrgTeam + "/department"] = new(Kind.NamesNoWorkItem, "moves a team to another department and moves no item (mod-021 BR-TD-4)"),
         ["DELETE " + Area] = new(Kind.NamesNoWorkItem, "names no work item; it counts the items in the area, deleted ones too (mod-003 BR-M3-24)"),
 
         // mod-016: membership.

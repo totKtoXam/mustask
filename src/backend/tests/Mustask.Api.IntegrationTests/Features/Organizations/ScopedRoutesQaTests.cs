@@ -37,7 +37,7 @@ public sealed class ScopedRoutesQaTests(MustaskApiFactory factory)
         var created = await OrganizationsTestData.InUnitOfWorkAsync(factory, async (services, ct) =>
         {
             var projects = services.GetRequiredService<IProjectRepository>();
-            var project = Project.Create(structure.OrganizationId, OrganizationsTestData.Name("Под отделом"), "DPT", OrganizationsTestData.Now, "seed", parentAreaId: department.Id);
+            var project = Project.Create(structure.OrganizationId, OrganizationsTestData.Name("Под отделом"), "DPT", OrganizationsTestData.Now, "seed", "blue", parentAreaId: department.Id);
             projects.Add(project);
             await projects.SaveAsync(ct);
 

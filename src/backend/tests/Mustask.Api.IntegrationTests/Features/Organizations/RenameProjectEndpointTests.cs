@@ -79,7 +79,7 @@ public sealed class RenameProjectEndpointTests(MustaskApiFactory factory)
 
         Assert.Equal(HttpStatusCode.OK, answer.Status);
         Assert.Equal("application/json", answer.MediaType);
-        Assert.Equal(["description", "id", "key", "name", "organizationId"], PropertyNames(answer.Body));
+        Assert.Equal(["color", "description", "id", "key", "name", "organizationId"], PropertyNames(answer.Body));
         Assert.Equal(structure.ProjectId, answer.Body.GetProperty("id").GetGuid());
         Assert.Equal(structure.OrganizationId, answer.Body.GetProperty("organizationId").GetGuid());
         Assert.Equal("Платформа данных", answer.Body.GetProperty("name").GetString());

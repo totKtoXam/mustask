@@ -126,7 +126,7 @@ public sealed class AreaRacesEndpointTests(MustaskApiFactory factory)
         AssertOneOf(a, b, HttpStatusCode.OK, HttpStatusCode.Conflict, "organizations.area.move_into_own_subtree");
         var stored = await StoredAreasAsync(organization);
         Assert.Single(stored, area => area.ParentId == node.Id && area.Type == AreaType.Area);
-        Assert.Equal(3, stored.Count);
+        Assert.Equal(4, stored.Count);
     }
 
     // US-3 · the tree is at most 10 levels deep after a move: a move that lands a subtree on level 10 against a creation below it, both orders.
@@ -293,80 +293,128 @@ public sealed class AreaRacesEndpointTests(MustaskApiFactory factory)
         Assert.DoesNotContain(await StoredAreasAsync(organization), area => area.Id == leaf.Id);
     }
 
-    // US-4 · a link against the deletion of the department, both orders, from either end: never a link to a deleted department.
+
+    private Task<Answer> MoveTeamAsync(Guid organizationId, Guid teamId, Guid departmentId, CommitGate? gate) =>
+        SendAsync(HttpMethod.Put, $"{OrganizationsApi.OrgTeams(organizationId)}/{teamId}/department", new { departmentId = departmentId.ToString() }, gate);
+
+    private async Task<Guid?> DepartmentOfTeamAsync(Guid teamId) => (await StoredTeamAsync(factory, teamId)).DepartmentId;
+
+    // mod-021 US-3 · a team's move into a department against that department's deletion, both orders: the team never stands in a deleted
+    // department and nothing answers 5xx. Moved first, the department holds a team and refuses; deleted first, the move finds it gone.
     [Theory]
-    [InlineData("area", true)]
-    [InlineData("area", false)]
-    [InlineData("team", true)]
-    [InlineData("team", false)]
-    public async Task Link_VersusTheDeletionOfTheDepartment_BothOrders_NoLinkToADeletedAreaRemains(string end, bool linkFirst)
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task MoveTeam_VersusTheDeletionOfTheDestination_BothOrders_NeverIntoADeletedDepartment(bool moveFirst)
     {
         var organization = await OrganizationsTestData.CreateOrganizationAsync(factory);
-        var team = await OrganizationsTestData.AddUnlinkedTeamAsync(factory, organization.Id, "Общая");
-        var department = await OrganizationsTestData.AddDepartmentAsync(factory, organization.Id, "Транспортные системы");
+        var source = await OrganizationsTestData.AddDepartmentAsync(factory, organization.Id, "Разработка");
+        var destination = await OrganizationsTestData.AddDepartmentAsync(factory, organization.Id, "Продажи");
+        var team = await OrganizationsTestData.AddTeamInAsync(factory, organization.Id, source.Id, "SATURN");
 
-        Task<Answer> Link(CommitGate? at) => end == "area"
-            ? SendAsync(HttpMethod.Post, $"{Area(organization.Id, department.Id)}/teams", new { teamIds = new[] { team.Id.ToString() } }, at)
-            : SendAsync(HttpMethod.Post, OrganizationsApi.TeamAreas(organization.Id, team.Id), new { areaIds = new[] { department.Id.ToString() } }, at);
+        Task<Answer> Move(CommitGate? at) => MoveTeamAsync(organization.Id, team.Id, destination.Id, at);
+        Task<Answer> Delete(CommitGate? at) => DeleteAsync(organization.Id, destination.Id, at);
+
+        var (first, second) = moveFirst ? await RaceAsync(factory, Move, Delete) : await RaceAsync(factory, Delete, Move);
+        var (move, delete) = moveFirst ? (first, second) : (second, first);
+
+        Assert.DoesNotContain(new[] { move, delete }, answer => (int)answer.Status >= 500);
+
+        if (moveFirst)
+        {
+            Assert.Equal(HttpStatusCode.OK, move.Status);
+            Assert.Equal((HttpStatusCode.Conflict, "organizations.area.has_teams"), (delete.Status, delete.ErrorCode));
+            Assert.Equal(destination.Id, await DepartmentOfTeamAsync(team.Id));
+        }
+        else
+        {
+            Assert.Equal(HttpStatusCode.NoContent, delete.Status);
+            Assert.Equal((HttpStatusCode.NotFound, "organizations.area.not_found"), (move.Status, move.ErrorCode));
+            Assert.Equal(source.Id, await DepartmentOfTeamAsync(team.Id));
+        }
+    }
+
+    // mod-021 US-1 · a team's creation in a department against that department's deletion, both orders.
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task CreateTeam_VersusTheDeletionOfItsDepartment_BothOrders_NoTeamInADeletedDepartment(bool createFirst)
+    {
+        var organization = await OrganizationsTestData.CreateOrganizationAsync(factory);
+        var department = await OrganizationsTestData.AddDepartmentAsync(factory, organization.Id, "Разработка");
+
+        Task<Answer> Create(CommitGate? at) =>
+            SendAsync(HttpMethod.Post, OrganizationsApi.OrgTeams(organization.Id), new { name = "NEPTUNE", departmentId = department.Id.ToString() }, at);
         Task<Answer> Delete(CommitGate? at) => DeleteAsync(organization.Id, department.Id, at);
 
-        var (first, second) = linkFirst ? await RaceAsync(factory, Link, Delete) : await RaceAsync(factory, Delete, Link);
-        var (link, delete) = linkFirst ? (first, second) : (second, first);
+        var (first, second) = createFirst ? await RaceAsync(factory, Create, Delete) : await RaceAsync(factory, Delete, Create);
+        var (create, delete) = createFirst ? (first, second) : (second, first);
 
-        Assert.Equal(HttpStatusCode.NoContent, delete.Status);
-        Assert.Equal(
-            linkFirst ? (HttpStatusCode.NoContent, (string?)null) : (HttpStatusCode.NotFound, "organizations.area.not_found"),
-            (link.Status, link.ErrorCode));
-        using var scope = factory.Services.CreateScope();
-        var db = scope.ServiceProvider.GetRequiredService<MustaskDbContext>();
-        Assert.Empty(await db.Set<AreaTeam>().AsNoTracking().Where(l => l.AreaId == department.Id).ToListAsync());
+        Assert.DoesNotContain(new[] { create, delete }, answer => (int)answer.Status >= 500);
+
+        if (createFirst)
+        {
+            Assert.Equal(HttpStatusCode.Created, create.Status);
+            Assert.Equal((HttpStatusCode.Conflict, "organizations.area.has_teams"), (delete.Status, delete.ErrorCode));
+            Assert.All(await StoredTeamsAsync(factory, organization.Id), team => Assert.Equal(department.Id, team.DepartmentId));
+        }
+        else
+        {
+            Assert.Equal(HttpStatusCode.NoContent, delete.Status);
+            Assert.Equal((HttpStatusCode.NotFound, "organizations.area.not_found"), (create.Status, create.ErrorCode));
+            Assert.Empty(await StoredTeamsAsync(factory, organization.Id));
+        }
     }
 
-    // US-4 · a link against the deletion of its team, both orders, from the department's end and from the team's.
+    // mod-021 US-3 · a move against a link of the team to a project, both orders: a team linked first does not move, a team moved first links.
     [Theory]
-    [InlineData(true, true)]
-    [InlineData(true, false)]
-    [InlineData(false, true)]
-    [InlineData(false, false)]
-    public async Task Link_VersusTheDeletionOfTheTeam_BothOrders_NoAreaLinkToADeletedTeamRemains(bool fromTheArea, bool linkFirst)
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task MoveTeam_VersusALinkOfTheTeam_BothOrders_NeverLinkedAndMoved(bool moveFirst)
     {
-        var organization = await OrganizationsTestData.CreateOrganizationAsync(factory);
-        var team = await OrganizationsTestData.AddUnlinkedTeamAsync(factory, organization.Id, "Общая");
-        var department = await OrganizationsTestData.AddDepartmentAsync(factory, organization.Id, "Транспортные системы");
+        var structure = await OrganizationsTestData.CreateStructureAsync(factory);
+        var source = await OrganizationsTestData.AddDepartmentAsync(factory, structure.OrganizationId, "Разработка");
+        var destination = await OrganizationsTestData.AddDepartmentAsync(factory, structure.OrganizationId, "Продажи");
+        var team = await OrganizationsTestData.AddTeamInAsync(factory, structure.OrganizationId, source.Id, "SATURN");
 
-        Task<Answer> Link(CommitGate? at) => fromTheArea
-            ? SendAsync(HttpMethod.Post, $"{Area(organization.Id, department.Id)}/teams", new { teamIds = new[] { team.Id.ToString() } }, at)
-            : SendAsync(HttpMethod.Post, OrganizationsApi.TeamAreas(organization.Id, team.Id), new { areaIds = new[] { department.Id.ToString() } }, at);
-        Task<Answer> DeleteTeam(CommitGate? at) => DeleteTeamAsync(factory, organization.Id, team.Id, gate: at);
+        Task<Answer> Move(CommitGate? at) => MoveTeamAsync(structure.OrganizationId, team.Id, destination.Id, at);
+        Task<Answer> Link(CommitGate? at) =>
+            LinkTeamsAsync(factory, structure.OrganizationId, structure.ProjectId, new { teamIds = new[] { team.Id.ToString() } }, gate: at);
 
-        var (first, second) = linkFirst ? await RaceAsync(factory, Link, DeleteTeam) : await RaceAsync(factory, DeleteTeam, Link);
-        var (link, deletion) = linkFirst ? (first, second) : (second, first);
+        var (first, second) = moveFirst ? await RaceAsync(factory, Move, Link) : await RaceAsync(factory, Link, Move);
+        var (move, link) = moveFirst ? (first, second) : (second, first);
 
-        Assert.Equal(HttpStatusCode.NoContent, deletion.Status);
-        Assert.Equal(linkFirst ? HttpStatusCode.NoContent : HttpStatusCode.NotFound, link.Status);
-        Assert.DoesNotContain(new[] { link, deletion }, answer => (int)answer.Status >= 500);
-        using var scope = factory.Services.CreateScope();
-        var db = scope.ServiceProvider.GetRequiredService<MustaskDbContext>();
-        Assert.Empty(await db.Set<AreaTeam>().AsNoTracking().Where(l => l.TeamId == team.Id).ToListAsync());
+        Assert.DoesNotContain(new[] { move, link }, answer => (int)answer.Status >= 500);
+
+        if (moveFirst)
+        {
+            Assert.Equal(HttpStatusCode.OK, move.Status);
+            Assert.Equal(destination.Id, await DepartmentOfTeamAsync(team.Id));
+            Assert.NotEmpty(await LinksOfTeamAsync(factory, team.Id));
+        }
+        else
+        {
+            Assert.Equal((HttpStatusCode.Conflict, "organizations.team.has_links"), (move.Status, move.ErrorCode));
+            Assert.Equal(source.Id, await DepartmentOfTeamAsync(team.Id));
+            Assert.NotEmpty(await LinksOfTeamAsync(factory, team.Id));
+        }
     }
 
-    // US-4 · two requests that link the same unlinked pair at once leave exactly one link: the department's end and the team's end.
+    // mod-021 US-3 · two moves of one team into two departments at once: both succeed, the team stands in exactly the last one.
     [Fact]
-    public async Task Link_SamePairFromBothEndsConcurrently_OneLink_No5xx()
+    public async Task MoveTeam_TwoMovesAtOnce_TheTeamStandsInOneOfThem()
     {
         var organization = await OrganizationsTestData.CreateOrganizationAsync(factory);
-        var team = await OrganizationsTestData.AddUnlinkedTeamAsync(factory, organization.Id, "Общая");
-        var department = await OrganizationsTestData.AddDepartmentAsync(factory, organization.Id, "Транспортные системы");
+        var source = await OrganizationsTestData.AddDepartmentAsync(factory, organization.Id, "Разработка");
+        var first = await OrganizationsTestData.AddDepartmentAsync(factory, organization.Id, "Продажи");
+        var second = await OrganizationsTestData.AddDepartmentAsync(factory, organization.Id, "Финансы");
+        var team = await OrganizationsTestData.AddTeamInAsync(factory, organization.Id, source.Id, "SATURN");
 
         var (a, b) = await RaceAsync(
             factory,
-            at => SendAsync(HttpMethod.Post, $"{Area(organization.Id, department.Id)}/teams", new { teamIds = new[] { team.Id.ToString() } }, at),
-            at => SendAsync(HttpMethod.Post, OrganizationsApi.TeamAreas(organization.Id, team.Id), new { areaIds = new[] { department.Id.ToString() } }, at));
+            at => MoveTeamAsync(organization.Id, team.Id, first.Id, at),
+            at => MoveTeamAsync(organization.Id, team.Id, second.Id, at));
 
-        Assert.Equal((HttpStatusCode.NoContent, HttpStatusCode.NoContent), (a.Status, b.Status));
-        using var scope = factory.Services.CreateScope();
-        var links = await scope.ServiceProvider.GetRequiredService<MustaskDbContext>()
-            .Set<AreaTeam>().AsNoTracking().Where(l => l.AreaId == department.Id).ToListAsync();
-        Assert.Single(links);
+        Assert.Equal((HttpStatusCode.OK, HttpStatusCode.OK), (a.Status, b.Status));
+        Assert.Equal(second.Id, await DepartmentOfTeamAsync(team.Id));
     }
 }

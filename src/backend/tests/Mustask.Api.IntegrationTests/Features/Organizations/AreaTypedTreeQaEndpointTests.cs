@@ -198,13 +198,12 @@ public sealed class AreaTypedTreeQaEndpointTests(MustaskApiFactory factory)
         var department = await OrganizationsTestData.AddDepartmentAsync(factory, organization, "Разработка");
         var before = (await StoredTeamsAsync(factory, organization)).Count;
 
-        var withNode = await SendAsync(HttpMethod.Post, OrganizationsApi.OrgTeams(organization), new { name = "Юпитер", areaIds = new[] { node.Id.ToString() } });
-        var withSub = await SendAsync(HttpMethod.Post, OrganizationsApi.OrgTeams(organization), new { name = "Сатурн", areaIds = new[] { department.Id.ToString(), sub.Id.ToString() } });
-        var withMissing = await SendAsync(HttpMethod.Post, OrganizationsApi.OrgTeams(organization), new { name = "Уран", areaIds = new[] { Guid.CreateVersion7().ToString() } });
-        var fine = await SendAsync(HttpMethod.Post, OrganizationsApi.OrgTeams(organization), new { name = "Венера", areaIds = new[] { department.Id.ToString() } });
-
-        LinksTestData.AssertRefused(withNode, HttpStatusCode.Conflict, "organizations.area.link_type_not_allowed");
-        LinksTestData.AssertRefused(withSub, HttpStatusCode.Conflict, "organizations.area.link_type_not_allowed");
+        var withNode = await SendAsync(HttpMethod.Post, OrganizationsApi.OrgTeams(organization), new { name = "Юпитер", departmentId = node.Id.ToString() });
+        var withSub = await SendAsync(HttpMethod.Post, OrganizationsApi.OrgTeams(organization), new { name = "Сатурн", departmentId = sub.Id.ToString() });
+        var withMissing = await SendAsync(HttpMethod.Post, OrganizationsApi.OrgTeams(organization), new { name = "Уран", departmentId = Guid.CreateVersion7().ToString() });
+        var fine = await SendAsync(HttpMethod.Post, OrganizationsApi.OrgTeams(organization), new { name = "Венера", departmentId = department.Id.ToString() });
+        LinksTestData.AssertRefused(withNode, HttpStatusCode.Conflict, "organizations.area.type_not_allowed");
+        LinksTestData.AssertRefused(withSub, HttpStatusCode.Conflict, "organizations.area.type_not_allowed");
         LinksTestData.AssertRefused(withMissing, HttpStatusCode.NotFound, "organizations.area.not_found");
         Assert.Equal(HttpStatusCode.Created, fine.Status);
         Assert.Equal(before + 1, (await StoredTeamsAsync(factory, organization)).Count);
@@ -249,7 +248,7 @@ public sealed class AreaTypedTreeQaEndpointTests(MustaskApiFactory factory)
         var node = await OrganizationsTestData.NodeOfAsync(factory, structure.ProjectId);
         var department = await OrganizationsTestData.AddDepartmentAsync(factory, organization, "Разработка");
         var team = await OrganizationsTestData.AddUnlinkedTeamAsync(factory, organization, "Марс");
-        await OrganizationsTestData.LinkAreaToTeamAsync(factory, organization, department.Id, team.Id);
+        await OrganizationsTestData.PlaceTeamAsync(factory, organization, department.Id, team.Id);
 
         var rename = await SendAsync(HttpMethod.Put, $"{Area(organization, department.Id)}/name", new { name = "Инженерия" });
         var move = await MoveAsync(organization, node.Id, department.Id);

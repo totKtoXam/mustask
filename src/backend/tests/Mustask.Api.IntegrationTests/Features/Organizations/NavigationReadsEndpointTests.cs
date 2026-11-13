@@ -34,7 +34,7 @@ public sealed class NavigationReadsEndpointTests(MustaskApiFactory factory)
         Assert.Equal(
             ["departmentCount", "departments", "myTeams", "projectCount", "projects", "teamCount", "teams"],
             PropertyNames(answer.Body));
-        Assert.Equal(1, answer.Body.GetProperty("departmentCount").GetInt32());
+        Assert.Equal(2, answer.Body.GetProperty("departmentCount").GetInt32());
         Assert.Equal(1, answer.Body.GetProperty("projectCount").GetInt32());
         Assert.Equal(2, answer.Body.GetProperty("teamCount").GetInt32());
         Assert.Equal(["id", "name"], PropertyNames(answer.Body.GetProperty("departments")[0]));
@@ -65,20 +65,20 @@ public sealed class NavigationReadsEndpointTests(MustaskApiFactory factory)
         var structure = await OrganizationsTestData.CreateStructureAsync(factory);
         var department = await OrganizationsTestData.AddDepartmentAsync(factory, structure.OrganizationId, "Логистика");
         var venus = await OrganizationsTestData.AddUnlinkedTeamAsync(factory, structure.OrganizationId, "Венера");
-        await OrganizationsTestData.LinkAreaToTeamAsync(factory, structure.OrganizationId, department.Id, venus.Id);
+        await OrganizationsTestData.PlaceTeamAsync(factory, structure.OrganizationId, department.Id, venus.Id);
 
         var answer = await GetAsync(structure.OrganizationId, "selector-offers");
 
         Assert.Equal(HttpStatusCode.OK, answer.Status);
         Assert.Equal(["departments", "projects", "teams"], PropertyNames(answer.Body));
-        Assert.Equal(["id", "name"], PropertyNames(answer.Body.GetProperty("departments")[0]));
+        Assert.Equal(["color", "id", "name"], PropertyNames(answer.Body.GetProperty("departments")[0]));
         var project = answer.Body.GetProperty("projects")[0];
-        Assert.Equal(["departmentId", "departmentName", "id", "key", "name", "teamIds"], PropertyNames(project));
+        Assert.Equal(["color", "departmentId", "departmentName", "id", "key", "name", "teamIds"], PropertyNames(project));
         Assert.Equal(JsonValueKind.Null, project.GetProperty("departmentId").ValueKind);
         Assert.Equal(2, project.GetProperty("teamIds").GetArrayLength());
         var team = answer.Body.GetProperty("teams").EnumerateArray().Single(candidate => candidate.GetProperty("id").GetGuid() == venus.Id);
-        Assert.Equal(["departmentIds", "id", "isMember", "name"], PropertyNames(team));
-        Assert.Equal(department.Id, team.GetProperty("departmentIds")[0].GetGuid());
+        Assert.Equal(["color", "departmentId", "id", "isMember", "name"], PropertyNames(team));
+        Assert.Equal(department.Id, team.GetProperty("departmentId").GetGuid());
     }
 
     // BR-NV-9 · every member reads (the viewer included); a non-member answers «Организация не найдена», never a 403.

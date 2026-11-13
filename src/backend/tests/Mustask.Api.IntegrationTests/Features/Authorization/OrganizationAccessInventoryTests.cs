@@ -54,8 +54,6 @@ public sealed class OrganizationAccessInventoryTests(MustaskApiFactory factory)
     /// </summary>
     private static readonly IReadOnlyList<string> DecidedInHandlerRoutes =
     [
-        "DELETE /api/organizations/{organizationId}/areas/{areaId}/teams/{teamId}",
-        "DELETE /api/organizations/{organizationId}/teams/{teamId}/areas/{areaId}",
         "POST /api/organizations/{organizationId}/areas",
         "POST /api/organizations/{organizationId}/projects",
         "GET /api/organizations/{organizationId}/workitems/assignee-candidates",
@@ -373,7 +371,8 @@ public sealed class OrganizationAccessInventoryTests(MustaskApiFactory factory)
         // feat-048 api-contract § 2 adds the aggregate views' eight reads - 82.
         // mod-019 api-contract § 2: fifteen grant routes (five under each of a department, a project and a team) - 97.
         // mod-019 api-contract § 3, § 5: the switch, its impact read and the writable ids - 100.
-        Assert.Equal(100, expected.Count);
+        // mod-021: the five department-team link routes out, the team move in - 96.
+        Assert.Equal(96, expected.Count);
     }
 
     // Every organization code of the catalog is declared by at least one route — a code with no route is a decision nobody enforces
@@ -383,7 +382,9 @@ public sealed class OrganizationAccessInventoryTests(MustaskApiFactory factory)
     {
         // mod-018: `organizations.area.create` is the second code of a top-level creation and of a move to or from the top level; a handler
         // checks it (api-contract § 0, "Declared codes"), so no route declares it — QA added it here by name, and OrganizationRoleBundles pins who holds it.
-        var declared = OrganizationAddressedRoutes.All.Select(route => route.Code).Append(PermissionCatalog.OrganizationsAreaCreate).ToHashSet(StringComparer.Ordinal);
+        // mod-021: `organizations.area.link` stays in the catalog (the role bundles are a shared contract) but no route declares it since the
+        // department-team link routes retired; a department no longer links teams, a team stands in it.
+        var declared = OrganizationAddressedRoutes.All.Select(route => route.Code).Append(PermissionCatalog.OrganizationsAreaCreate).Append(PermissionCatalog.OrganizationsAreaLink).ToHashSet(StringComparer.Ordinal);
 
         Assert.Equal(PermissionCatalog.OrganizationCodes.Order(StringComparer.Ordinal), declared.Order(StringComparer.Ordinal));
     }

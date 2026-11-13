@@ -41,7 +41,7 @@ public sealed class SetProjectDescriptionEndpointTests(MustaskApiFactory factory
             factory, HttpMethod.Get, OrganizationsApi.Project(structure.OrganizationId, structure.ProjectId), token: OrganizationsTokens.SignedIn());
 
         Assert.Equal(HttpStatusCode.OK, answer.Status);
-        Assert.Equal(["description", "id", "key", "name", "organizationId"], PropertyNames(answer.Body));
+        Assert.Equal(["color", "description", "id", "key", "name", "organizationId"], PropertyNames(answer.Body));
         Assert.Equal(structure.ProjectId, answer.Body.GetProperty("id").GetGuid());
         Assert.Equal(typed, answer.Body.GetProperty("description").GetString());
         Assert.Equal(typed, read.Body.GetProperty("description").GetString());

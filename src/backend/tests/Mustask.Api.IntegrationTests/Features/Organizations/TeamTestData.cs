@@ -17,9 +17,23 @@ internal static class TeamTestData
 
     public static string ProjectTeam(Guid organizationId, Guid projectId, Guid teamId) => $"{OrganizationsApi.Teams(organizationId, projectId)}/{teamId}";
 
-    public static Task<Answer> CreateTeamAsync(
-        MustaskApiFactory factory, Guid organizationId, object body, string? token = null, CommitGate? gate = null) =>
-        OrganizationsApi.SendAsync(factory, HttpMethod.Post, OrganizationsApi.OrgTeams(organizationId), body, token ?? OrganizationsTokens.SignedIn(), gate);
+    /// <summary>
+    /// <c>POST /teams</c>. mod-021 BR-TD-1: a team is created in a department, so a body without a <c>departmentId</c> gets the organization's
+    /// oldest department (made when there is none); a test about the department itself sends the body as it means it with <see cref="OrganizationsApi.SendAsync"/>.
+    /// </summary>
+    public static async Task<Answer> CreateTeamAsync(
+        MustaskApiFactory factory, Guid organizationId, object body, string? token = null, CommitGate? gate = null)
+    {
+        var element = System.Text.Json.JsonSerializer.SerializeToElement(body);
+        var fields = element.EnumerateObject().ToDictionary(property => property.Name, property => (object?)property.Value);
+
+        if (!fields.ContainsKey("departmentId"))
+        {
+            fields["departmentId"] = (await OrganizationsTestData.DepartmentForTeamsAsync(factory, organizationId)).ToString();
+        }
+
+        return await OrganizationsApi.SendAsync(factory, HttpMethod.Post, OrganizationsApi.OrgTeams(organizationId), fields, token ?? OrganizationsTokens.SignedIn(), gate);
+    }
 
     public static Task<Answer> GetAsync(MustaskApiFactory factory, string path, string? token = null) =>
         OrganizationsApi.SendAsync(factory, HttpMethod.Get, path, token: token ?? OrganizationsTokens.SignedIn());

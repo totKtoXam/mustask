@@ -77,8 +77,8 @@ public static class OrganizationsTestData
         bool creatorJoinsFirstTeam = true) =>
         InUnitOfWorkAsync(factory, async (services, ct) =>
         {
-            var project = Project.Create(organizationId, Name(name), key, Now, Creator);
-            var team = Team.Create(organizationId, Name(name));
+            var project = Project.Create(organizationId, Name(name), key, Now, Creator, "blue");
+            var team = Team.Create(organizationId, await TeamDepartmentAsync(services, organizationId, ct), "blue", Name(name));
 
             if (status == ProjectStatus.Deactivated)
             {
@@ -109,7 +109,7 @@ public static class OrganizationsTestData
         ProjectStatus status = ProjectStatus.Active) =>
         InUnitOfWorkAsync(factory, async (services, ct) =>
         {
-            var project = Project.Create(organizationId, Name(name), key, Now, Creator);
+            var project = Project.Create(organizationId, Name(name), key, Now, Creator, "blue");
 
             if (status == ProjectStatus.Deactivated)
             {
@@ -142,7 +142,7 @@ public static class OrganizationsTestData
         InUnitOfWorkAsync(factory, async (services, ct) =>
         {
             var organizationId = await OrganizationOfAsync(services, projectId, ct);
-            var team = Team.Create(organizationId, Name(name));
+            var team = Team.Create(organizationId, await TeamDepartmentAsync(services, organizationId, ct), "blue", Name(name));
             var teams = services.GetRequiredService<ITeamRepository>();
             teams.Add(team);
             services.GetRequiredService<IProjectTeamRepository>().Add(ProjectTeam.Link(organizationId, projectId, team.Id, Creator, Now));
@@ -155,7 +155,50 @@ public static class OrganizationsTestData
     public static Task<Team> AddUnlinkedTeamAsync(MustaskApiFactory factory, Guid organizationId, string name) =>
         InUnitOfWorkAsync(factory, async (services, ct) =>
         {
-            var team = Team.Create(organizationId, Name(name));
+            var team = Team.Create(organizationId, await TeamDepartmentAsync(services, organizationId, ct), "blue", Name(name));
+            var teams = services.GetRequiredService<ITeamRepository>();
+            teams.Add(team);
+            await teams.SaveAsync(ct);
+
+            return team;
+        });
+
+    /// <summary>
+    /// The department the helpers put a test team in (mod-021 BR-TD-1: a team stands in one): the organization's oldest department, made
+    /// here when it has none. A test about departments names its own with <see cref="AddDepartmentAsync"/> and <c>AddTeamInAsync</c>.
+    /// </summary>
+    private static async Task<Guid> TeamDepartmentAsync(IServiceProvider services, Guid organizationId, CancellationToken cancellationToken)
+    {
+        var existing = await services.GetRequiredService<Mustask.Infrastructure.MustaskDbContext>().Areas
+            .AsNoTracking()
+            .Where(area => area.OrganizationId == organizationId && area.Type == AreaType.Department)
+            .OrderBy(area => area.CreatedAt)
+            .Select(area => (Guid?)area.Id)
+            .FirstOrDefaultAsync(cancellationToken);
+
+        if (existing is { } id)
+        {
+            return id;
+        }
+
+        var areas = services.GetRequiredService<IAreaRepository>();
+        await areas.LockTreeAsync(organizationId, cancellationToken);
+        var department = Area.CreateDepartment(organizationId, "blue", Name("Отдел для команд"), null, Creator, Now);
+        areas.Add(department);
+        await areas.SaveAsync(cancellationToken);
+
+        return department.Id;
+    }
+
+    /// <summary>The department the helpers put a test team in (see <see cref="TeamDepartmentAsync"/>), by id.</summary>
+    public static Task<Guid> DepartmentForTeamsAsync(MustaskApiFactory factory, Guid organizationId) =>
+        InUnitOfWorkAsync(factory, (services, ct) => TeamDepartmentAsync(services, organizationId, ct));
+
+    /// <summary>A team of the organization that stands in <paramref name="departmentId"/> and is linked to no project.</summary>
+    public static Task<Team> AddTeamInAsync(MustaskApiFactory factory, Guid organizationId, Guid departmentId, string name, string color = "blue") =>
+        InUnitOfWorkAsync(factory, async (services, ct) =>
+        {
+            var team = Team.Create(organizationId, departmentId, color, Name(name));
             var teams = services.GetRequiredService<ITeamRepository>();
             teams.Add(team);
             await teams.SaveAsync(ct);
@@ -212,7 +255,7 @@ public static class OrganizationsTestData
         {
             var areas = services.GetRequiredService<IAreaRepository>();
             await areas.LockTreeAsync(organizationId, ct);
-            var area = Area.CreateDepartment(organizationId, Name(name), null, Creator, Now);
+            var area = Area.CreateDepartment(organizationId, "blue", Name(name), null, Creator, Now);
             areas.Add(area);
             await areas.SaveAsync(ct);
 
@@ -242,12 +285,14 @@ public static class OrganizationsTestData
             .SingleAsync(area => area.ProjectId == projectId && area.Type == AreaType.Project);
     }
 
-    /// <summary>Links a department to a team, as the link writes it (mod-018 BR-AW-8).</summary>
-    public static Task LinkAreaToTeamAsync(MustaskApiFactory factory, Guid organizationId, Guid areaId, Guid teamId) =>
+    /// <summary>Puts a team into a department, as the move writes it (mod-021 BR-TD-4); no check of links, the arrangement is the test's.</summary>
+    public static Task PlaceTeamAsync(MustaskApiFactory factory, Guid organizationId, Guid departmentId, Guid teamId) =>
         InUnitOfWorkAsync(factory, async (services, ct) =>
         {
-            var links = services.GetRequiredService<IAreaLinkRepository>();
-            await links.LinkTeamsAsync(organizationId, [(areaId, teamId)], Creator, Now, ct);
+            var teams = services.GetRequiredService<ITeamRepository>();
+            var team = await teams.LockForNoKeyUpdateAsync(organizationId, teamId, ct) ?? throw new ArgumentException("No such team.", nameof(teamId));
+            team.MoveTo(departmentId);
+            await teams.SaveAsync(ct);
 
             return true;
         });
