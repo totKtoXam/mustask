@@ -8,6 +8,7 @@ using Mustask.Api.Authentication.Readiness;
 using Mustask.Api.Authorization;
 using Mustask.Api.Features.Boards;
 using Mustask.Api.Features.Dictionaries;
+using Mustask.Api.Features.Imports;
 using Mustask.Api.Features.Organizations;
 using Mustask.Api.Features.Process;
 using Mustask.Api.Features.Session;
@@ -142,6 +143,7 @@ builder.Services.AddSingleton<IAuthorizationMiddlewareResultHandler, ForbiddenEr
 // the anonymous constant.
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<ICurrentUser, HttpContextCurrentUser>();
+builder.Services.AddSingleton<Mustask.Application.Abstractions.Imports.IReasonText, Mustask.Api.Features.Imports.ReasonText>();
 
 // mod-016 (ADR-0027): the role the scoped check resolved for this request, for the handlers that need it (the served access,
 // the second code of a parent write). Asking on a route without the check throws.
@@ -310,6 +312,7 @@ app.MapGrantEndpoints();
 app.MapProcessEndpoints();
 app.MapSessionEndpoints();
 app.MapWorkItemEndpoints();
+app.MapImportEndpoints();
 app.MapBoardEndpoints();
 app.MapAggregateViewEndpoints();
 
