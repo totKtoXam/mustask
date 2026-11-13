@@ -137,3 +137,13 @@ Scope: US-1..US-5, US-9, US-10 screens (design § 3-§ 8). E2E: skipped by the h
 ### Verdict
 
 blockers: 0 · majors: 3 (D-1, D-2, D-3) · result: fail, back to the frontend-developer; the re-check covers the three fixes (flip the three `it.fails` to `it`) and the outcome page's other blocks. The visibility clauses are feat-041's.
+
+### Frontend re-check, cycle 1 (f5a84ab4)
+
+- D-1 fixed: the h1 is the sprint name, trail «Спринты» via `ancestors`, the state `Tag` beside it. Pinned test now plain, green.
+- D-2 fixed: «Итого» is the last row of the same list, with its own expander (`Динамика: Итого`). Pinned test green.
+- D-3 fixed: the purged row shows the recorded project. Pinned test green.
+- D-4 fixed: a read-only or team-less field opens nothing and sends no read. Test added.
+- D-5 fixed: a failed list shows «Повторить» under the field; it reads again. Tests added (and none for a read-only field).
+
+Verdict: blockers: 0 · majors: 0 · result: pass. Debts: none open from the Frontend section.

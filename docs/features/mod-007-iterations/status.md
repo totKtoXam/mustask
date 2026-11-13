@@ -3,7 +3,7 @@
 - type: module
 - size: L
 - branch: mod/007-iterations
-- stage: 05-frontend
+- stage: 06-code-review
 - epic: core/iterations-planning
 - deps: feat-040
 - gates: gate-1, gate-2, gate-3
@@ -109,3 +109,4 @@ the projects' «Спринты». The team's «Спринты» (teams/:t/sprint
 project's «Спринты» (projects/:p/sprints) are sections of their own pages
 (doc-012 BR-MX-13..-15; US-9, US-12, US-10).
 - 2026-11-12 [qa-engineer] frontend QA: FAIL, 3 majors on the outcome page (h1, «Итого» not expandable, purged project blank), 2 minors; 35 tests added (3 it.fails pin the majors); no E2E (standing NO)
+- 2026-11-13 [qa-engineer] frontend QA re-check of f5a84ab4: D-1..D-5 fixed and verified, 3 tests added for D-4/D-5; 0 blocker, 0 major; PASS, to code review; no E2E (standing NO)

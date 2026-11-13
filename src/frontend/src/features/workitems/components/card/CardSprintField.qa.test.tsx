@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import { screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { recordRequests } from '../../../../test/api';
+import { recordRequests, serveProblem } from '../../../../test/api';
 import { renderWithProviders } from '../../../../test/renderWithProviders';
 import { ORG, SPRINTS_ROUTE, TEAM, sprintId, sprintRow } from '../../../iterations/testApi';
 import { CardSprintField } from './CardSprintField';
@@ -32,7 +32,7 @@ const field = () => screen.getByRole('combobox', { name: 'Спринт' });
 
 describe('mod-007 design § 7 QA: the field of a reader', () => {
   it('shows the value, opens no list when read-only', async () => {
-    recordRequests('get', SPRINTS_ROUTE, () => ({ items: [], nextBefore: null }));
+    const reads = recordRequests('get', SPRINTS_ROUTE, () => ({ items: [], nextBefore: null }));
     const onChange = renderField({
       readOnly: true,
       value: { id: sprintId(2), name: 'Спринт 2', state: 'Active' },
@@ -41,6 +41,7 @@ describe('mod-007 design § 7 QA: the field of a reader', () => {
     expect(field()).toHaveValue('Спринт 2 · активен');
     await userEvent.click(field());
     expect(screen.queryByRole('option')).not.toBeInTheDocument();
+    expect(reads.requests).toHaveLength(0);
     expect(onChange).not.toHaveBeenCalled();
   });
 });
@@ -67,5 +68,25 @@ describe('mod-007 design § 7 QA: the options', () => {
     await userEvent.click(field());
     await userEvent.click(await screen.findByRole('option', { name: 'Спринт 3' }));
     expect(onChange).toHaveBeenCalledWith({ id: sprintId(3), name: 'Спринт 3', state: 'Planned' });
+  });
+});
+
+describe('mod-007 design § 7 QA: a failed list', () => {
+  it('offers «Повторить», which reads the sprints again', async () => {
+    serveProblem('get', SPRINTS_ROUTE, 'organizations.access.forbidden', {}, { status: 500 });
+    renderField();
+
+    await userEvent.click(field());
+    const retry = await screen.findByRole('button', { name: 'Повторить' });
+    recordRequests('get', SPRINTS_ROUTE, () => ({ items: [sprintRow(3)], nextBefore: null }));
+    await userEvent.click(retry);
+    await vi.waitFor(() => expect(screen.queryByRole('button', { name: 'Повторить' })).toBeNull());
+  });
+
+  it('offers no «Повторить» to a read-only field', async () => {
+    serveProblem('get', SPRINTS_ROUTE, 'organizations.access.forbidden', {}, { status: 500 });
+    renderField({ readOnly: true });
+    await userEvent.click(field());
+    expect(screen.queryByRole('button', { name: 'Повторить' })).not.toBeInTheDocument();
   });
 });
