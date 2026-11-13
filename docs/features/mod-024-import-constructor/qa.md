@@ -132,3 +132,129 @@ Nothing nearby broke. D-5 stays open as a minor for gate-3.
 ### Verdict
 
 blockers: 0 · majors open: 0 (D-1..D-4 fixed) · minor: 1 (D-5, carried to gate-3) · result: pass.
+
+## Frontend
+
+E2E: skipped by the human's standing answer (NO until revoked); the question was not asked again and nothing under `src/frontend/e2e/` was written or run. No dev server was started.
+
+### Test plan (written from spec + US-1..-4, -7, design.md, status.md decisions and api-contract BEFORE reading the implementation)
+
+| # | Criterion / screen | Check | Type |
+|---|---|---|---|
+| F1 | S1 list: rights from served flags (`canCreate`, `canRun`; per row `canEdit`, `canCopy`, `canDelete`, `canRun`); a member sees rows + «Столбцы» only; «Импорт» visible to every member | no control the flag forbids | page |
+| F2 | S1 states: loading, error + retry, empty (can / cannot create), empty after filter, copy notice, limit alert, delete confirm, delete of a gone template | each state's text | page |
+| F3 | S2 editor: four tabs, save (whole template), server `errors` onto fields/tabs, name taken, no-file frame, read-only (S2b), not found, access denied | | page |
+| F4 | «Проверить файл» enabled only for a saved, unchanged template; absent without `canRun` | link / disabled / absent | page |
+| F5 | Source tab: pick a file (multipart), preview with cell addresses, sheet / header row / first data row / csv options re-read the columns, remove file, refusal texts for every file reason, template untouched on refusal, no picker when read-only | | component |
+| F6 | Mapping tab: one row per column, proposals (BR-IE-4), one source per field, «Очистить» only if `supportsClear`, «Тип без поля» only for typed fields, required-field lines, chain dialog (add / remove / reorder / params / 10 limit / apply only to the draft) | | component |
+| F7 | Values tab (US-2): one section per recoded mapping, counts from the file or «—», suggestion applies only on acceptance, «Принять все», no removed state as a target, «Оставить пустым» only where allowed, default policy needs a value, outdated mark, type-specific entry, >1 000 values warning, read-only | | component |
+| F8 | Identifier tab (BR-IE-10): column or «Нет», empty-identifier policy disabled without a column | | component |
+| F9 | S3: no-run frame, progress + cancel, refusals incl. `columns_missing` / `sheet_missing`, error banner + retry, totals filter refetches `?result=`, 50-row caption, notes by catalogue text, stale, all-error / empty-file notices, row detail old -> new, report download, only runnable templates offered, `AccessDenied` without `canRun` | | page |
+| F10 | Error codes render the Russian text from `contracts/errors/imports.json` | | unit |
+| F11 | Nothing clickable for feat-066/067/068/069 | no «Импортировать», «Экспорт», «Внешние ссылки», «Участники», «скоро» on the page | page |
+
+### Coverage matrix (after reading `plan-frontend.md` and the diff)
+
+| Plan | Covered by | Status |
+|---|---|---|
+| F1, F2 | `TemplatesListPage.test.tsx` (8) | covered; sort / pager / filter requests not covered (low risk) |
+| F3 | `TemplateEditorPage.test.tsx` (7), `draft.test.ts`, `serverErrors.test.ts` | covered |
+| F4, F11, editor rights | added `TemplateEditorPage.qa.test.tsx` | covered now |
+| F5 | added `SourceTab.test.tsx` (18, incl. 9 refusal codes) | covered now; found QA-FD-1 |
+| F6 | `TemplateEditorPage.mapping.test.tsx` (2) + added chain dialog tests | partly: reorder, the 10-step limit, per-converter params and the sample table remain untested (minor debt) |
+| F7 | added `ValuesTab.test.tsx` (14) | covered now |
+| F8 | none | not covered (70 lines; the identifier logic is in `draft.test.ts`); minor debt |
+| F9 | `CheckFilePage.test.tsx` (7) + added `CheckFilePage.qa.test.tsx` (11 + 1 skipped) | covered; found QA-FD-4 |
+| F10 | `errorCodes.imports.test.ts` (drift); refusals asserted with `problemText` | covered |
+
+### Reconciliation with design.md: the developer's deviations
+
+| Deviation | Verdict |
+|---|---|
+| Kit components instead of raw MUI (P-1) | acceptable: `ui-kit.md` and `kitGuard` require it; texts are design.md's |
+| Tab error count instead of a dot (P-5) | acceptable: more information, and it is the tab's accessible name; tested |
+| Values filter is a select, not a toggle group | acceptable: same four options, labelled |
+| Fields already taken left out of the field select (design: marked «Уже сопоставлено») | acceptable in effect (one source per field holds) but the reason is invisible to the user: minor, QA-FD-8 |
+| No drag-and-drop area | acceptable: the hint is truthful, nothing unusable is drawn |
+| No «Открыть» on the copy notice | acceptable: a convenience; the copy is in the list |
+| Skeleton instead of a progress bar | acceptable (kit rule); «Проверяем файл…» with `role="status"` and «Отменить» are present |
+| Extra a11y labels | acceptable |
+| Merge / constant are sources, not chain steps | matches api-contract (`isSource`) |
+| «Проверить файл» absent on an unsaved template; a notice instead of a tooltip when dirty | acceptable |
+| Extra «Все» button in the totals group | acceptable: needed to leave a filter |
+| «Оставить как есть» policy of «По таблице» | conflicts with the contract: QA-FD-3 |
+| Stale report not greyed (design § 5) | minor deviation, carried (QA-FD-8) |
+
+### Additional scenarios (beyond the spec)
+
+| # | Scenario | Expectation | Status |
+|---|---|---|---|
+| A1 | Edit the header row / first data row, leave the field | columns re-read (design § 3.1) | FAIL, QA-FD-1 (test skipped) |
+| A2 | Upload a sample, save, keep working | sample still held | FAIL, QA-FD-2 (test skipped) |
+| A3 | «По таблице» with the third policy, save | API accepts | FAIL, QA-FD-3 (test skipped) |
+| A4 | Stale report with fine rows | only the stale warning | FAIL, QA-FD-4 (test skipped) |
+| A5 | Dry run refused with `columns_missing` / `sheet_missing` | Russian reason with the names | pass |
+| A6 | Row with no flags | no copy, delete, open; only «Столбцы» | pass |
+| A7 | Out-of-scope controls on the editor page | none | pass |
+
+### Defects
+
+#### QA-FD-1: leaving the header-row or first-data-row field never re-reads the columns
+
+- Severity: major
+- Steps: upload a sample, change «Строка заголовков», press Tab.
+- Expected: the columns are read again; a row without headers says «В этой строке нет заголовков. Выберите другую строку.» (design § 3.1). Actual: no request is sent. `SourceTab.tsx` (the two `InlineNumberField`s) attaches the re-read to `inputProps.onBlur`; the kit's `InputField` (`shared/ui/fields/InputField.tsx:79-90`) hands `inputProps` to MUI through `slotProps.input` and that blur handler never fires. The draft keeps a new `headerRow` with the headers of the old one and the save sends the mismatch. Sheet, encoding and delimiter work (re-read on change).
+- Test: `SourceTab.test.tsx` «says a header row without headers under the field (QA-FD-1)», skipped; fails as described when un-skipped.
+- Status: open
+
+#### QA-FD-3: the third «По таблице» policy is refused by the API
+
+- Severity: major
+- Steps: mapping tab -> chain dialog -> «По таблице» -> «Если значения нет в таблице» = «Оставить как есть» -> add an entry -> Apply -> Save.
+- Expected: a saved template. Actual: the panel sends `policy: "keep"` (`ChainDialog.tsx` LookupForm, `texts.ts:178`); the API takes only `error | default | empty` (`TemplateValidator.cs:305-307`, api-contract § 2.1) and answers `converter_param_invalid`. Design § 3.2: the policy is "as § 3.3", i.e. «Оставить пустым» = `empty`.
+- Test: `TemplateEditorPage.qa.test.tsx` (QA-FD-3), skipped.
+- Status: open
+
+#### QA-FD-2: the sample file is lost right after «Сохранить»
+
+- Severity: minor (a re-upload fixes it, but the notice it triggers is false)
+- Steps: upload a sample, change anything, save. Expected: the sample stays (design § 7.2, 24 h). Actual: `useReplaceTemplate` writes the new version into the query and `TemplateEditorPage.tsx` keys the editor by `id:version`, so it remounts and the `sample` state is dropped; a create navigates to the saved route with the same effect. The source tab then says «Файл-образец больше не хранится…» though the file is stored, and the values counts read «—».
+- Test: `TemplateEditorPage.qa.test.tsx` (QA-FD-2), skipped.
+- Status: open
+
+#### QA-FD-4: a stale report also says «Нет строк, которые можно импортировать»
+
+- Severity: minor
+- Steps: dry run, then the template is saved; rows are fine, `importable=false` only because of `stale`. Actual: both the stale warning and the all-errors warning show (`CheckFilePage.tsx`, `!report.importable && !empty`); the second is untrue.
+- Test: `CheckFilePage.qa.test.tsx` (QA-FD-4), skipped.
+- Status: open
+
+#### Other minors (read from the code, no test)
+
+- QA-FD-5: `ChainDialog.tsx:53` `stepError` lets a «По таблице» with no entries, or the default policy with an empty default, pass; the API refuses both (`TemplateValidator.cs:307,315`), so the refusal returns as a generic row error, not the dialog's text.
+- QA-FD-6: `hooks/useReferences.ts:42-47` lists the states of every type in one select, so «Новая» appears five times with no hint of the type; a type-less entry then stores the first type's state id.
+- QA-FD-7: ESLint `react-refresh/only-export-components` warnings at `ChainDialog.tsx:53` and `SourceTab.tsx:37` (0 errors).
+- QA-FD-8: stale report not greyed (design § 5); a field taken by another row is not marked «Уже сопоставлено».
+
+### Tests added
+
+- `src/frontend/src/features/imports/components/SourceTab.test.tsx`: 18 (1 skipped: QA-FD-1).
+- `src/frontend/src/features/imports/components/ValuesTab.test.tsx`: 14.
+- `src/frontend/src/features/imports/pages/TemplateEditorPage.qa.test.tsx`: 12 (2 skipped: QA-FD-2, -3).
+- `src/frontend/src/features/imports/pages/CheckFilePage.qa.test.tsx`: 12 (1 skipped: QA-FD-4).
+- `src/frontend/src/features/imports/testFixtures.ts`: `fileRead`, `uploaded`, `serveFile`.
+
+### Runs
+
+| Date | What was run | Result |
+|---|---|---|
+| 2026-11-13 | `vitest run src/features/imports` before adding tests | 35 passed |
+| 2026-11-13 | the four skipped tests with `skip` removed | 4 failed as described |
+| 2026-11-13 | `vitest run src/features/imports src/shared/api src/shared/ui/actions src/test/kitGuard src/test/colourLiterals src/test/noRawHtml src/app/navigation src/app/AppLayout.access` | 39 files, 929 passed, 5 skipped (4 are the open defects), 0 failed |
+| 2026-11-13 | `tsc -b`; `eslint src/features/imports`; prettier on the new files | clean; 0 errors, 2 warnings (QA-FD-7) |
+
+Not run: the whole frontend suite and `verify.sh` (CI, economy mode); E2E (standing answer: no).
+
+### Verdict
+
+blockers: 0 · majors open: 2 (QA-FD-1, QA-FD-3, back to the frontend developer) · minors: 6 (QA-FD-2, -4, -5, -6, -7, -8; carried to gate-3 unless taken with the majors) · result: not passed yet; the re-check covers QA-FD-1, -3 and un-skips the four tests as each is fixed.

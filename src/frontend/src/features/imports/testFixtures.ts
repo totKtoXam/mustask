@@ -7,9 +7,11 @@ import type {
   Catalogue,
   DryRun,
   DryRunRow,
+  FileRead,
   TemplateDto,
   TemplateList,
   TemplateListItem,
+  UploadedFile,
 } from './api/importsApi';
 
 export const ORG = ids.alfa;
@@ -184,6 +186,57 @@ export function dryRun(overrides: Partial<DryRun> = {}): DryRun {
     rowsShown: 2,
     ...overrides,
   };
+}
+
+export const FILE_ID = 'a0000000-0000-4000-8000-000000000001';
+
+/** A made-up read of a sample workbook: two columns, two sheets, one data row. */
+export function fileRead(overrides: Partial<FileRead> = {}): FileRead {
+  return {
+    format: 'xlsx',
+    sheets: ['Лист1', 'Лист2'],
+    sheet: 'Лист1',
+    headerRow: 1,
+    firstDataRow: 2,
+    encoding: null,
+    delimiter: null,
+    encodingDetected: false,
+    delimiterDetected: false,
+    dateSystem: '1900',
+    dataRowCount: 2,
+    columns: [
+      { index: 0, header: 'Название', address: 'A1', proposedField: 'title' },
+      { index: 1, header: 'Статус', address: 'B1', proposedField: null },
+    ],
+    sampleRows: [
+      {
+        row: 2,
+        cells: [
+          { text: 'Первая задача', kind: 'text', address: 'A2' },
+          { text: 'Новая', kind: 'text', address: 'B2' },
+        ],
+      },
+    ],
+    ...overrides,
+  };
+}
+
+export function uploaded(read: FileRead = fileRead()): UploadedFile {
+  return {
+    fileId: FILE_ID,
+    fileName: 'tasks.xlsx',
+    size: 20480,
+    expiresAt: '2026-11-14T10:00:00Z',
+    read,
+  };
+}
+
+/** Serves the upload and the re-read of the sample file with `read`. */
+export function serveFile(read: FileRead = fileRead()) {
+  server.use(
+    http.post(apiUrl(`${IMPORTS_URL}/files`), () => HttpResponse.json(uploaded(read))),
+    http.get(apiUrl(`${IMPORTS_URL}/files/:id/columns`), () => HttpResponse.json(read)),
+  );
 }
 
 /** Serves the read side of the API the pages share: the catalogue, the list and one template. */
