@@ -139,7 +139,7 @@ describe('mod-002 US-8 Scenario: Settings through the shell’s navigation', () 
       within(navigation)
         .getAllByRole('link')
         .map((link) => link.textContent),
-    ).toEqual(['Общие', 'Процесс', 'Языки']);
+    ).toEqual(['Общие', 'Процесс', 'Импорт', 'Языки']);
     expect(within(navigation).getByText('Организация')).toBeInTheDocument();
     expect(within(navigation).getByRole('link', { name: 'Общие' })).toHaveAttribute(
       'aria-current',

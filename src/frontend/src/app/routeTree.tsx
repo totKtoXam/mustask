@@ -74,6 +74,16 @@ import {
   ProcessDefinitionPage,
   processPermissions,
 } from '../features/process';
+import {
+  CheckFilePage,
+  IMPORT_CHECK_ROUTE,
+  IMPORT_TEMPLATE_NEW_ROUTE,
+  IMPORT_TEMPLATE_ROUTE,
+  IMPORTS_ROUTE,
+  TemplateEditorPage,
+  TemplatesListPage,
+  importsPermissions,
+} from '../features/imports';
 import { UI_KIT_PATH, UiKitShowcasePage } from '../features/uikit';
 import { WORK_ITEMS_ROUTE, WORK_ITEM_ROUTE, WorkItemFormPage } from '../features/workitems';
 import { HOME_PATH } from '../shared/config/paths';
@@ -348,6 +358,56 @@ export const routeTree = (
                 skeleton="form"
               >
                 <ProcessDefinitionPage />
+              </OrganizationPage>
+            }
+          />
+          {/* Import templates and the dry run (mod-024): one read code, the rest is the server's flags. */}
+          <Route
+            path={IMPORTS_ROUTE}
+            element={
+              <OrganizationPage
+                code={importsPermissions.templateRead}
+                title="Импорт"
+                skeleton="registry"
+                columns={['Название', 'Источник', 'Автор', 'Изменён']}
+              >
+                <TemplatesListPage />
+              </OrganizationPage>
+            }
+          />
+          <Route
+            path={IMPORT_TEMPLATE_NEW_ROUTE}
+            element={
+              <OrganizationPage
+                code={importsPermissions.templateRead}
+                title="Новый шаблон"
+                skeleton="form"
+              >
+                <TemplateEditorPage />
+              </OrganizationPage>
+            }
+          />
+          <Route
+            path={IMPORT_TEMPLATE_ROUTE}
+            element={
+              <OrganizationPage
+                code={importsPermissions.templateRead}
+                title="Шаблон импорта"
+                skeleton="form"
+              >
+                <TemplateEditorPage />
+              </OrganizationPage>
+            }
+          />
+          <Route
+            path={IMPORT_CHECK_ROUTE}
+            element={
+              <OrganizationPage
+                code={importsPermissions.templateRead}
+                title="Проверка файла"
+                skeleton="form"
+              >
+                <CheckFilePage />
               </OrganizationPage>
             }
           />

@@ -246,6 +246,7 @@ export const importErrorCodes = {
   templateNotFound: 'imports.template.not_found',
   templateNameTaken: 'imports.template.name_taken',
   templateLimitReached: 'imports.template.limit_reached',
+  headerEmpty: 'imports.source.header_empty',
   fileRefused: 'imports.file.refused',
   fileNotFound: 'imports.file.not_found',
   dryRunNotFound: 'imports.dry_run.not_found',

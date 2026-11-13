@@ -97,3 +97,8 @@ export type { DefaultMark, ProjectTeam } from './api/organizationsApi';
 // opening), and the card dialog of a team's view finds an identifier's project among the
 // organization's active projects by key (BR-TS-4, api-contract § 7).
 export type { ProjectListItem, TeamProject } from './api/organizationsApi';
+// mod-024: the import constructor's recoding tables pick what exists — the active members and the
+// organization's teams — on this slice's keys.
+export { useMembers, useOrganizationTeams } from './hooks/queries';
+export type { Member } from './api/membershipApi';
+export type { TeamListItem } from './api/organizationsApi';
