@@ -49,6 +49,69 @@ guarantees it exists and differs from the Russian, not its quality
 |http.service_unavailable|503|Сервис временно недоступен, повторите позже.|Қызмет уақытша қолжетімсіз, кейінірек қайталаңыз.|assigned by HTTP status|—|needs review|
 |http.too_many_requests|429|Сервис сейчас занят. Повторите запрос через несколько секунд.|Қызмет қазір бос емес. Сұранысты бірнеше секундтан кейін қайталаңыз.|assigned by HTTP status|—|needs review|
 |http.unauthorized|401|Требуется аутентификация.|Аутентификация қажет.|assigned by HTTP status|—|needs review|
+|imports.access_forbidden|403|У вас нет прав на эту операцию.|Бұл әрекетке құқығыңыз жоқ.|imports|—|needs review|
+|imports.dry_run.empty_file|any|В файле нет строк данных.|Файлда деректер жолдары жоқ.|imports|—|needs review|
+|imports.dry_run.no_identifier_column|any|Без столбца идентификатора каждая строка создаёт новый элемент.|Сәйкестендіргіш бағаны болмаса, әр жол жаңа элемент жасайды.|imports|—|needs review|
+|imports.dry_run.not_found|404|Результат проверки не найден или устарел. Проверьте файл снова.|Тексеру нәтижесі табылмады немесе ескірді. Файлды қайта тексеріңіз.|imports|—|needs review|
+|imports.file.columns_missing|400|В файле нет столбцов, которые указаны в шаблоне: {columns}.|Файлда үлгіде көрсетілген бағандар жоқ: {columns}.|imports|—|needs review|
+|imports.file.expands_too_much|400|Файл слишком велик после распаковки и не принят.|Файл ашылғаннан кейін тым үлкен болып, қабылданбады.|imports|—|needs review|
+|imports.file.external_reference|400|Файл ссылается на другой файл и не принят.|Файл басқа файлға сілтейді, сондықтан қабылданбады.|imports|—|needs review|
+|imports.file.has_macros|400|В файле есть макросы, такой файл не принят.|Файлда макростар бар, мұндай файл қабылданбайды.|imports|—|needs review|
+|imports.file.not_found|404|Файл не найден или срок его хранения истёк. Загрузите его снова.|Файл табылмады немесе сақтау мерзімі аяқталды. Оны қайта жүктеңіз.|imports|—|needs review|
+|imports.file.refused|400|Файл не принят.|Файл қабылданбады.|imports|—|needs review|
+|imports.file.sheet_missing|400|В файле нет листа «{sheet}», указанного в шаблоне.|Файлда үлгіде көрсетілген «{sheet}» парағы жоқ.|imports|—|needs review|
+|imports.file.too_large|400|Файл больше 10 МБ.|Файл 10 МБ-тан үлкен.|imports|—|needs review|
+|imports.file.too_many_columns|400|В файле больше 200 столбцов.|Файлда 200-ден астам баған бар.|imports|—|needs review|
+|imports.file.too_many_rows|400|В файле больше 5 000 строк данных. Разделите его на части.|Файлда 5 000-нан астам деректер жолы бар. Оны бөліктерге бөліңіз.|imports|—|needs review|
+|imports.file.too_many_sheets|400|В книге больше 50 листов.|Кітапта 50-ден астам парақ бар.|imports|—|needs review|
+|imports.file.unreadable|400|Файл не удалось прочитать. Проверьте, что он не повреждён.|Файлды оқу мүмкін болмады. Оның зақымдалмағанын тексеріңіз.|imports|—|needs review|
+|imports.file.unsupported_format|400|Поддерживаются файлы .xlsx и .csv.|.xlsx және .csv файлдарына қолдау көрсетіледі.|imports|—|needs review|
+|imports.mapping.chain_too_long|400|В цепочке не больше 10 преобразований.|Тізбекте 10-нан артық түрлендіру болмауы керек.|imports|—|needs review|
+|imports.mapping.clear_not_allowed|400|Для этого поля нельзя очищать значение.|Бұл өрістің мәнін тазалауға болмайды.|imports|—|needs review|
+|imports.mapping.column_unknown|400|В файле нет столбца «{column}».|Файлда «{column}» бағаны жоқ.|imports|—|needs review|
+|imports.mapping.converter_param_invalid|400|Укажите значение.|Мәнді көрсетіңіз.|imports|—|needs review|
+|imports.mapping.converter_unknown|400|Неизвестное преобразование.|Белгісіз түрлендіру.|imports|—|needs review|
+|imports.mapping.field_taken|400|Это поле уже сопоставлено.|Бұл өріс бұрын сәйкестендірілген.|imports|—|needs review|
+|imports.mapping.field_unknown|400|Это поле не поддерживается.|Бұл өріс қолдау көрсетілмейді.|imports|—|needs review|
+|imports.mapping.list_into_single|400|Поле «{field}» хранит одно значение: уберите «Разделить» из цепочки.|«{field}» өрісі бір мәнді сақтайды: тізбектен «Бөлу» әрекетін алып тастаңыз.|imports|—|needs review|
+|imports.mapping.pattern_invalid|400|Некорректное регулярное выражение.|Тұрақты өрнек дұрыс емес.|imports|—|needs review|
+|imports.mapping.pattern_too_long|400|Шаблон — не больше 500 символов.|Үлгі — 500 таңбадан көп емес.|imports|—|needs review|
+|imports.mapping.source_required|400|Укажите столбец или константу.|Бағанды немесе тұрақтыны көрсетіңіз.|imports|—|needs review|
+|imports.recoding.default_required|400|Выберите значение.|Мәнді таңдаңыз.|imports|—|needs review|
+|imports.recoding.empty_not_allowed|400|Для этого поля нельзя оставить пустым.|Бұл өрісті бос қалдыруға болмайды.|imports|—|needs review|
+|imports.recoding.target_unknown|400|Значение больше недоступно. Выберите другое.|Мән енді қолжетімді емес. Басқасын таңдаңыз.|imports|—|needs review|
+|imports.recoding.too_many_entries|400|В таблице не больше 1 000 значений: столбец с большим числом разных значений — свободный текст.|Кестеде 1 000-нан артық мән болмауы керек: мәндері көп баған — еркін мәтін.|imports|—|needs review|
+|imports.row.assignee_not_found|any|Исполнитель не найден или не имеет доступа к проекту.|Орындаушы табылмады немесе жобаға қолжетімділігі жоқ.|imports|—|needs review|
+|imports.row.convert_failed|any|Не удалось преобразовать: столбец «{column}», ячейка {cell}, значение «{value}», преобразование «{converter}».|Түрлендіру мүмкін болмады: «{column}» бағаны, {cell} ұяшығы, «{value}» мәні, «{converter}» түрлендіруі.|imports|—|needs review|
+|imports.row.date_out_of_range|any|Укажите дату с 2000 по 2099 год.|2000 жылдан 2099 жылға дейінгі күнді көрсетіңіз.|imports|—|needs review|
+|imports.row.empty|any|Пустая строка.|Бос жол.|imports|—|needs review|
+|imports.row.field_not_on_type|any|Это поле недоступно для рабочего элемента этого типа.|Бұл өріс осы түрдегі жұмыс элементі үшін қолжетімсіз.|imports|—|needs review|
+|imports.row.identifier_deleted|any|Элемент находится в корзине.|Элемент себетте.|imports|—|needs review|
+|imports.row.identifier_duplicate|any|Тот же идентификатор в строке {row}.|Дәл сол сәйкестендіргіш {row}-жолда.|imports|—|needs review|
+|imports.row.identifier_not_found|any|Элемент не найден.|Элемент табылмады.|imports|—|needs review|
+|imports.row.identifier_skipped|any|Строка без идентификатора пропущена по настройке шаблона.|Сәйкестендіргіші жоқ жол үлгі параметрі бойынша өткізілді.|imports|—|needs review|
+|imports.row.project_changed|any|Проект элемента нельзя изменить импортом.|Элементтің жобасын импортпен өзгертуге болмайды.|imports|—|needs review|
+|imports.row.project_forbidden|any|Нет прав на импорт в этот проект.|Бұл жобаға импорттауға құқық жоқ.|imports|—|needs review|
+|imports.row.project_not_found|any|Проект не найден.|Жоба табылмады.|imports|—|needs review|
+|imports.row.recoding_outdated|any|Значение MUSTASK, выбранное для «{value}», больше недоступно.|«{value}» үшін таңдалған MUSTASK мәні енді қолжетімді емес.|imports|—|needs review|
+|imports.row.regex_timeout|any|Шаблон выполняется слишком долго.|Үлгі тым ұзақ орындалады.|imports|—|needs review|
+|imports.row.required_missing|any|Не заполнено обязательное поле «{field}».|«{field}» міндетті өрісі толтырылмаған.|imports|—|needs review|
+|imports.row.state_not_found|any|Состояние не найдено среди состояний этого типа.|Күй осы түрдің күйлері арасында табылмады.|imports|—|needs review|
+|imports.row.team_not_linked|any|Команда не участвует в проекте.|Команда жобаға қатыспайды.|imports|—|needs review|
+|imports.row.type_changed|any|Тип элемента нельзя изменить импортом.|Элементтің түрін импортпен өзгертуге болмайды.|imports|—|needs review|
+|imports.row.type_not_found|any|Тип рабочего элемента не найден.|Жұмыс элементінің түрі табылмады.|imports|—|needs review|
+|imports.row.value_invalid|any|Недопустимое значение поля «{field}».|«{field}» өрісінің мәні жарамсыз.|imports|—|needs review|
+|imports.row.value_not_recoded|any|Значение «{value}» не сопоставлено ни с одним значением MUSTASK.|«{value}» мәні MUSTASK-тың ешбір мәнімен сәйкестендірілмеген.|imports|—|needs review|
+|imports.row.value_truncated|any|Значение поля «{field}» обрезано до допустимой длины.|«{field}» өрісінің мәні рұқсат етілген ұзындыққа дейін қысқартылды.|imports|—|needs review|
+|imports.source.first_data_row_invalid|400|Первая строка данных должна быть ниже строки заголовков.|Деректердің бірінші жолы тақырыптар жолынан төмен болуы керек.|imports|—|needs review|
+|imports.source.header_empty|400|В этой строке нет заголовков. Выберите другую строку.|Бұл жолда тақырыптар жоқ. Басқа жолды таңдаңыз.|imports|—|needs review|
+|imports.source.header_row_invalid|400|Строка заголовков — число от 1 до 50.|Тақырыптар жолы — 1-ден 50-ге дейінгі сан.|imports|—|needs review|
+|imports.template.limit_reached|409|В организации уже 100 шаблонов — это предел. Удалите ненужный шаблон.|Ұйымда 100 үлгі бар — бұл шектеу. Қажетсіз үлгіні жойыңыз.|imports|—|needs review|
+|imports.template.name_required|400|Укажите название.|Атауын көрсетіңіз.|imports|—|needs review|
+|imports.template.name_taken|409|Шаблон с таким названием уже есть.|Мұндай атаумен үлгі бар.|imports|—|needs review|
+|imports.template.name_too_long|400|Название — не больше 100 символов.|Атау — 100 таңбадан көп емес.|imports|—|needs review|
+|imports.template.not_found|404|Шаблон не найден.|Үлгі табылмады.|imports|—|needs review|
+|imports.validation_failed|400|Проверьте правильность заполнения полей.|Өрістердің дұрыс толтырылғанын тексеріңіз.|imports|—|needs review|
 |organizations.access.forbidden|403|Недостаточно прав|Құқықтар жеткіліксіз|organizations|—|needs review|
 |organizations.area.depth_exceeded|409|Дерево областей не может быть глубже 10 уровней|Аймақ ағашы 10 деңгейден терең болмауы керек|organizations|—|needs review|
 |organizations.area.is_team_default|409|Область используется как область по умолчанию команды «{team}»|Аймақ «{team}» командасының әдепкі аймағы ретінде пайдаланылады|organizations|yes|needs review|
