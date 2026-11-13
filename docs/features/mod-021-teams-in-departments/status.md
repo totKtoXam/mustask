@@ -10,7 +10,7 @@
 
 ## Gates
 
-gate-3: approved (2026-11-13, by the human in chat, after the gate-3 package; ADR-0040 accepted with it; debts R-4, R-5 accepted)
+gate-3: approved (2026-11-13, by the human in chat, after the gate-3 package; ADR-0040 accepted with it; debts R-4, R-5 accepted) · PR #188 https://github.com/totKtoXam/mustask/pull/188
 
 ## Plan
 
@@ -49,3 +49,4 @@ Verification: affected tests locally, the full verify.sh in CI.
 - 2026-11-13 [orchestrator] code review round 1 fixes: R-1 (notes in feat-028/043/049, mod-018 status.md), R-2 (`organizations.area.link_type_not_allowed` deprecated), R-3 (ColorPaletteParityTests), R-6 (mojibake in GetAreaTeamsHandler; no other in the diff). R-4 and R-5 stay debts for gate-3 (R-5 to mod-023).
 - 2026-11-13 [code-reviewer] review delta read of e2ebb631: approved; R-1, R-2, R-3, R-6 closed, R-4/R-5 remain debts. 0 blocker/major open.
 - 2026-11-13 [orchestrator] gate-3 approved by the human in chat; ADR-0040 accepted with it. Accepted with it: the developer's restore-first copy «Связь с деактивированным проектом нельзя отключить. Сначала восстановите проект в списке деактивированных проектов организации.»; debts R-4 (project-node write answers return color null) and R-5 (the move dialog reads deletion-counts under team.delete; to mod-023); D-2 ICU checked. Weekly usage at gate: 18% (started at 4%).
+- 2026-11-13 [orchestrator] merged fresh origin/main (bb643699: four test-count conflicts, Designer regenerated after AddSprints, AddSprintsMigrationTests fixtures adapted); push was stuck 44 min because this worktree's core.hooksPath pointed at the doc-012 worktree's stale pre-push hook (full tests) — repointed to .githooks; pushed; PR #188 opened (merge commit by the human, branch kept).
