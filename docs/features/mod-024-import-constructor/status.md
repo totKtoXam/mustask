@@ -49,6 +49,8 @@ fixtures use made-up data only.
 - 2026-11-13 [orchestrator] queue line taken by scripts/queue.sh take mod-024, PR #171 with squash auto-merge.
 - 2026-11-13 [orchestrator] route confirmed by the human in chat: L from stage 3 (L thresholds: a new module; new permission codes with managers' scope); spec and stories inherited from doc-017 (gate-1 approved 2026-11-10), gate-1 not repeated; gates gate-2 and gate-3. Question 3.2 not applicable: only the module's own new tables.
 
+- 2026-11-13 [ux-designer] stage 3 done: design.md (S1 list, S2 editor with 4 tabs and chain dialog, S3 dry run; all states, RU copy) and prototype/index.html (opened in headless Chrome, scripted walk-through without runtime errors; the human still looks at it in a browser). gate-2 stays pending.
+
 ## Notes
 
 Summary (from the queue line): Founds the import module: import templates per organization (create, edit, copy, delete), .xlsx/.csv source reading, column mapping, recoding tables, the converter catalogue, the identifier setting, and the dry run with its per-row report; registers the template and import permission codes, managers' scope included (doc-017 US-1..-4, US-7; ADR-0042)
