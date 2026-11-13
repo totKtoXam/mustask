@@ -838,7 +838,7 @@ if [ "$need_shell$need_ci" != 00 ]; then
     touches_cd=0
     for file in $changed; do
         case "$file" in
-            deploy/vm/mustask-cd.sh|deploy/vm/runner-setup.sh|deploy/vm/runner-job-guard.sh|scripts/tests/cd-runner-cases.sh|.github/workflows/*)
+            deploy/vm/mustask-cd.sh|deploy/vm/runner-setup.sh|deploy/vm/runner-job-guard.sh|deploy/vm/smoke.sh|scripts/tests/cd-runner-cases.sh|.github/workflows/*)
                 touches_cd=1 ;;
         esac
     done

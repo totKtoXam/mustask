@@ -457,6 +457,9 @@ the flag (an update of the kit) keeps `https`. `--forwarded-proto scheme` goes
 back to the default. The flag is only for `--path`: a site of 7.1 ends TLS
 itself, and `$scheme` is right there.
 
+In this layout the smoke check of section 8 needs `--resolve-to=<edge address>`
+when, on the VM, the portal's name points at the VM itself.
+
 ## 8. First start and smoke check
 
 ```bash
@@ -481,6 +484,33 @@ with its path (`https://portal.example.com/mustask/…`), and the `http://`
 check expects the redirect from the portal's own port-80 server. Before DNS points at the VM add
 `--resolve-local`; `--insecure` accepts a certificate the VM does not trust
 (rehearsals only).
+
+**TLS ended by a proxy in front of the VM.** The checks go to the site's name
+as the VM resolves it. Ubuntu writes the VM's own name into `/etc/hosts`
+(`127.0.1.1 portal.example.com portal`), so on such a VM the name reaches the
+local nginx, not the public proxy: `http://` answers 200 instead of the
+proxy's redirect, and `https://` meets the local certificate (self-signed
+`curl: (60)`). Nothing is wrong with the site; the check took the wrong hop.
+Check `getent hosts portal.example.com` on the VM, and that the VM reaches
+the proxy:
+
+```bash
+curl -sS -o /dev/null -w '%{http_code} %{redirect_url}\n' \
+    --resolve portal.example.com:80:<edge address> http://portal.example.com/mustask/
+```
+
+`301 https://…` means it does. Then send the name to the proxy:
+
+```bash
+sudo bash mustask-v0.1.0/kit/smoke.sh --resolve-to=203.0.113.10
+```
+
+`--resolve-to=<IPv4>` sends every check through the proxy to that address,
+as `--resolve-local` sends them to `127.0.0.1`. No check is relaxed: the
+certificate is verified, the redirect is the proxy's, and the panel, the API
+and the realm redirect come back through it. Only one of `--resolve-local`
+and `--resolve-to` is accepted. If the proxy's address changes, the check
+fails until the flag is updated (section 11.2).
 
 The rest needs a person in a browser; `smoke.sh` prints it as a list:
 
@@ -553,7 +583,8 @@ under `/opt/mustask/releases/`; delete the ones you no longer need by hand
 | The deploy job waits for "a runner … with labels self-hosted, linux, mustask-prod" | The runner is offline: `systemctl status 'actions.runner.*'` on the VM, and Settings → Actions → Runners (section 11.2). |
 | Deploy run: `sudo: a password is required` | `runner-setup.sh` has not run on this VM, or `/etc/sudoers.d/mustask-runner` is gone: run it again (section 11.2). |
 | Deploy run: `mustask-cd: refused: …` | The artifact is not one release made by `build-release.sh`; the message names what is wrong. Nothing was installed. |
-| Deploy run: `mustask-cd: refused: /etc/mustask/cd-smoke-args` | That file holds something other than `--resolve-local` / `--insecure`: re-run `runner-setup.sh --smoke-args "…"`. |
+| Deploy run: `mustask-cd: refused: /etc/mustask/cd-smoke-args` | That file holds something other than `--insecure` and one of `--resolve-local` / `--resolve-to=<IPv4>`: re-run `runner-setup.sh --smoke-args "…"`. |
+| Smoke on the VM: `http:// redirects to https:// — got '200 '` and every `https://` check `curl: (60) … self-signed certificate`, while the site works from outside | TLS and the redirect are a proxy's in front of the VM, and on the VM the name points at the VM itself (`/etc/hosts`). Add `--resolve-to=<edge address>` (section 8; for CD, section 11.2). |
 | A job fails in "Set up runner" with `mustask runner guard: this job may not run on the production runner` | Working as intended for anything but `deploy.yml` from `main` or a `v*` tag (section 11.4). For a real deploy, check that `/etc/mustask/cd-repository` names this repository (it changes if the repository is renamed or moved: re-run `runner-setup.sh` with the new `--url`). |
 
 ## 11. Continuous deployment (GitHub Actions)
@@ -638,8 +669,10 @@ sudo bash runner-setup.sh --url https://github.com/totKtoXam/mustask \
   does not echo it, and it never goes on a command line or into a file.
 - Add `--smoke-args --resolve-local` when the VM cannot reach its own public
   name. That is the same flag as `smoke.sh --resolve-local` in section 8. Add
-  `--insecure` while the certificate is one the VM does not trust. The
-  flags are kept in `/etc/mustask/cd-smoke-args`.
+  `--insecure` while the certificate is one the VM does not trust. Behind a
+  proxy that ends TLS, where the VM's name points at the VM itself, add
+  `--smoke-args --resolve-to=<edge address>` instead of `--resolve-local`
+  (section 8). The flags are kept in `/etc/mustask/cd-smoke-args`.
 
 What the script does:
 

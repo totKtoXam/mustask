@@ -3,7 +3,7 @@
 - type: bugfix
 - size: S
 - branch: bug/006-smoke-behind-edge-proxy
-- stage: 04-backend
+- stage: 05-qa
 - epic: platform/ci
 - deps: tech-066
 - gates: gate-3
@@ -14,7 +14,35 @@ gate-3: pending
 
 ## Plan
 
-<!-- S/M: implementation plan, 3-10 lines. L: see plan-backend.md / plan-frontend.md -->
+Diagnosis on the VM (2026-11-13, read-only, over Warpgate):
+
+- `/etc/hosts` has the distribution's hostname line `127.0.1.1 portal.devexpert.kz portal`,
+  so on the VM the site's name resolves to the VM itself, not to the edge.
+- The local nginx (sites `portal-tls`, `portal.devexpert.kz`) listens on 80 and 443:
+  443 serves a self-signed `CN=portal.devexpert.kz` (2026-09-30..2036), port 80 answers
+  200 without a redirect. Public TLS and the http->https redirect are the edge's.
+- The VM reaches the public edge 91.244.102.30: `--resolve portal.devexpert.kz:80:91.244.102.30`
+  gives `301 https://portal.devexpert.kz/mustask/`, `:443:` gives 200 with the
+  certificate verified.
+
+So nothing is wrong with the deployment; smoke.sh checks the wrong hop.
+
+Plan:
+
+1. `smoke.sh --resolve-to=<IPv4>`: send the site's host name to that address (the
+   public edge) for every check through the proxy, exactly as `--resolve-local`
+   does for 127.0.0.1. Every check stays as it is, nothing is relaxed; the
+   default (no flag) is unchanged. `--resolve-local` and `--resolve-to` together,
+   a repeat, or a value that is not a dotted IPv4 address: exit 2.
+2. `mustask-cd.sh` `smoke_args_of` and `runner-setup.sh --smoke-args` accept
+   `--resolve-to=<IPv4>` (one word, so the flags file stays a word list), at most one.
+3. Tests: `scripts/tests/cd-runner-cases.sh` — flag-file cases, and smoke.sh run
+   against a stub curl that models this VM (own name -> self-signed local hop,
+   edge -> healthy): fails without the flag, passes with `--resolve-to=<edge>`,
+   bad flags exit 2 before any request. verify.sh runs the cases when smoke.sh changes.
+4. Docs: vm.md sections 7.2, 8, 10, 11.2 and vm.ru.md in the same change.
+5. Rollout after merge: re-run runner-setup.sh with `--smoke-args --resolve-to=91.244.102.30`,
+   then redeploy a tag (the new smoke.sh comes with the release kit).
 
 ## Log
 

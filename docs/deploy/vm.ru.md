@@ -456,6 +456,9 @@ sudo bash mustask-v0.1.0/kit/install.sh nginx --path /mustask --forwarded-proto 
 возвращает значение по умолчанию. Флаг только для `--path`: сайт из 7.1 сам
 завершает TLS, и там `$scheme` верен.
 
+В такой схеме smoke-проверке из раздела 8 нужен `--resolve-to=<адрес edge>`,
+если на самой VM имя портала указывает на эту же VM.
+
 ## 8. Первый запуск и smoke-проверка
 
 ```bash
@@ -481,6 +484,33 @@ sudo bash mustask-v0.1.0/kit/smoke.sh
 VM, добавьте
 `--resolve-local`; `--insecure` принимает сертификат, которому VM не доверяет
 (только для репетиций).
+
+**TLS завершает прокси перед VM.** Проверки идут на имя сайта так, как его
+резолвит сама VM. Ubuntu записывает собственное имя VM в `/etc/hosts`
+(`127.0.1.1 portal.example.com portal`), поэтому на такой VM имя ведёт на
+локальный nginx, а не на публичный прокси: `http://` отвечает 200 вместо
+редиректа прокси, а `https://` встречает локальный сертификат (самоподписанный,
+`curl: (60)`). С сайтом всё в порядке — проверка пошла не через тот узел.
+Проверьте `getent hosts portal.example.com` на VM и то, что VM достаёт до
+прокси:
+
+```bash
+curl -sS -o /dev/null -w '%{http_code} %{redirect_url}\n' \
+    --resolve portal.example.com:80:<адрес edge> http://portal.example.com/mustask/
+```
+
+`301 https://…` — достаёт. Тогда направьте имя на прокси:
+
+```bash
+sudo bash mustask-v0.1.0/kit/smoke.sh --resolve-to=203.0.113.10
+```
+
+`--resolve-to=<IPv4>` отправляет все проверки через прокси на этот адрес, так
+же как `--resolve-local` отправляет их на `127.0.0.1`. Ни одна проверка не
+ослаблена: сертификат проверяется, редирект — прокси, а панель, API и
+редирект на realm возвращаются через него. Принимается только один из
+`--resolve-local` и `--resolve-to`. Если адрес прокси сменится, проверка будет
+падать, пока флаг не обновят (раздел 11.2).
 
 Остальное требует человека с браузером; `smoke.sh` печатает это списком:
 
@@ -554,7 +584,8 @@ sudo bash mustask-v0.2.0/kit/install.sh status      # активный VERSION �
 | Job деплоя ждёт «a runner … with labels self-hosted, linux, mustask-prod» | Раннер офлайн: `systemctl status 'actions.runner.*'` на VM и Settings → Actions → Runners (раздел 11.2). |
 | Запуск деплоя: `sudo: a password is required` | `runner-setup.sh` на этой VM не запускался или `/etc/sudoers.d/mustask-runner` пропал: запустите его снова (раздел 11.2). |
 | Запуск деплоя: `mustask-cd: refused: …` | Артефакт — не один релиз от `build-release.sh`; сообщение говорит, что не так. Ничего не установлено. |
-| Запуск деплоя: `mustask-cd: refused: /etc/mustask/cd-smoke-args` | В файле что-то кроме `--resolve-local` / `--insecure`: перезапустите `runner-setup.sh --smoke-args "…"`. |
+| Запуск деплоя: `mustask-cd: refused: /etc/mustask/cd-smoke-args` | В файле что-то кроме `--insecure` и одного из `--resolve-local` / `--resolve-to=<IPv4>`: перезапустите `runner-setup.sh --smoke-args "…"`. |
+| Smoke на VM: `http:// redirects to https:// — got '200 '`, а каждая проверка `https://` — `curl: (60) … self-signed certificate`, хотя снаружи сайт работает | TLS и редирект делает прокси перед VM, а на самой VM имя указывает на неё же (`/etc/hosts`). Добавьте `--resolve-to=<адрес edge>` (раздел 8; для CD — раздел 11.2). |
 | Job падает в «Set up runner» с `mustask runner guard: this job may not run on the production runner` | Так и задумано для всего, кроме `deploy.yml` из `main` или тега `v*` (раздел 11.4). Если это настоящий деплой, проверьте, что `/etc/mustask/cd-repository` называет этот репозиторий (он меняется, если репозиторий переименован или перенесён: перезапустите `runner-setup.sh` с новым `--url`). |
 
 ## 11. Непрерывное развёртывание (GitHub Actions)
@@ -640,8 +671,10 @@ sudo bash runner-setup.sh --url https://github.com/totKtoXam/mustask \
   не попадает ни в командную строку, ни в файл.
 - Добавьте `--smoke-args --resolve-local`, если VM не достучится до своего
   публичного имени. Это тот же флаг, что `smoke.sh --resolve-local` в разделе
-  8. `--insecure` нужен, пока VM не доверяет сертификату. Флаги
-  сохраняются в `/etc/mustask/cd-smoke-args`.
+  8. `--insecure` нужен, пока VM не доверяет сертификату. За прокси,
+  который завершает TLS, когда имя VM указывает на неё же, вместо
+  `--resolve-local` добавьте `--smoke-args --resolve-to=<адрес edge>`
+  (раздел 8). Флаги сохраняются в `/etc/mustask/cd-smoke-args`.
 
 Что делает скрипт:
 

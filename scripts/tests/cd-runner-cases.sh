@@ -1,20 +1,21 @@
 #!/bin/sh
 # Regression cases for CD on the production VM (tech-066).
 #
-# Two halves. The wrapper deploy/vm/mustask-cd.sh, the one thing the runner may
+# Three parts. The wrapper deploy/vm/mustask-cd.sh, the one thing the runner may
 # run as root: what tarball it accepts, which smoke flags it passes, and that
 # a deploy runs the release's own install.sh on the unpacked release. And the
 # workflows: the repository is public, so a job on the self-hosted runner must
 # never be reachable from a pull request — deploy.yml triggers only on v* tags
 # and workflow_dispatch, only its deploy job targets the VM, and every other
-# workflow stays on GitHub-hosted runners.
+# workflow stays on GitHub-hosted runners. And smoke.sh itself, run against a
+# stub curl that models a VM behind an edge proxy (bug-006).
 #
 # The wrapper is sourced (its main only runs when it is executed), so the cases
 # need no root and no VM. The workflow checks read the YAML as text: the files
 # are plain enough, and the cases then need no python.
 #
 # Usage: sh scripts/tests/cd-runner-cases.sh
-# (verify.sh runs it when the wrapper, runner-setup.sh, a workflow or this
+# (verify.sh runs it when the wrapper, runner-setup.sh, smoke.sh, a workflow or this
 # file changes)
 
 set -eu
@@ -77,7 +78,90 @@ flags "both, CRLF" "--resolve-local --insecure\r${nl}" "--resolve-local --insecu
 flags "a repeat is dropped" "--insecure --insecure" "--insecure"
 flags "an unknown flag" "--resolve-local; rm -rf /" REFUSED
 flags "a stray word" "resolve-local" REFUSED
+flags "resolve-to an IPv4 address" "--resolve-to=91.244.102.30 --insecure${nl}" "--resolve-to=91.244.102.30 --insecure"
+flags "resolve-to repeated as is" "--resolve-to=10.0.0.1 --resolve-to=10.0.0.1" "--resolve-to=10.0.0.1"
+flags "resolve-to with no address" "--resolve-to=" REFUSED
+flags "resolve-to a host name" "--resolve-to=edge.example.com" REFUSED
+flags "resolve-to with a shell tail" "--resolve-to=10.0.0.1;id" REFUSED
+flags "resolve-to as two words" "--resolve-to 10.0.0.1" REFUSED
+flags "two addresses" "--resolve-to=10.0.0.1 --resolve-to=10.0.0.2" REFUSED
+flags "resolve-local and resolve-to" "--resolve-local --resolve-to=10.0.0.1" REFUSED
 got=$(w smoke_args_of "$sandbox/missing") && [ -z "$got" ] && ok "smoke flags: no file, none" || bad "smoke flags: no file"
+
+# --- smoke.sh against a VM behind an edge proxy (bug-006) -------------------------
+# A stub curl models the production layout: on the VM the site's name resolves
+# to the VM itself, whose nginx serves a self-signed certificate and answers
+# http with 200; the edge (192.0.2.10 here) ends TLS, redirects http and passes
+# everything through. A request reaches the edge only when curl was given
+# --resolve <host>:<port>:192.0.2.10.
+smoke=$root/deploy/vm/smoke.sh
+mkdir -p "$sandbox/stub"
+cat > "$sandbox/stub/curl" <<'STUB'
+#!/usr/bin/env bash
+printf '%s\n' "$*" >> "$STUB_LOG"
+fmt='' url='' edge=0
+while [ $# -gt 0 ]; do
+    case $1 in
+        -w) fmt=$2; shift ;;
+        -o|--max-time) shift ;;
+        --resolve) case $2 in portal.example.com:*:192.0.2.10) edge=1 ;; esac; shift ;;
+        http*) url=$1 ;;
+    esac
+    shift
+done
+index='<div id="root"></div><script type="module" src="/mustask/assets/index-1.js"></script>'
+say() { if [ -n "$fmt" ]; then printf '%s' "$1"; else printf '%s' "$2"; fi; }
+case $url in
+    http://127.0.0.1:5000/health) printf 'Healthy'; exit 0 ;;
+esac
+if [ "$edge" = 0 ]; then
+    case $url in
+        http://*) say '200 ' "$index"; exit 0 ;;
+        *) echo 'curl: (60) SSL certificate problem: self-signed certificate' >&2
+           [ -n "$fmt" ] && printf '000 '; exit 60 ;;
+    esac
+fi
+case $url in
+    http://portal.example.com/mustask/) say '301 https://portal.example.com/mustask/' '' ;;
+    https://portal.example.com/mustask/assets/index-1.js) say '200 text/javascript' 'x' ;;
+    https://portal.example.com/mustask/api/dictionaries/languages) say '401' '' ;;
+    https://portal.example.com/mustask/api/session/login) say '302 https://kc.example.com/realms/R/protocol/openid-connect/auth?x' '' ;;
+    https://portal.example.com/mustask/*) say '200 ' "$index" ;;
+    *) say '404 ' 'not found' ;;
+esac
+STUB
+chmod +x "$sandbox/stub/curl"
+printf 'Session__PanelUrl=https://portal.example.com/mustask\nKeycloak__Authority="https://kc.example.com/realms/R"\n' > "$sandbox/mustask.env"
+run_smoke() { # <flags...>; prints the exit code, the curl calls go to $sandbox/curls
+    : > "$sandbox/curls"
+    set +e
+    STUB_LOG=$sandbox/curls MUSTASK_ENV_FILE=$sandbox/mustask.env PATH="$sandbox/stub:$PATH" \
+        bash "$smoke" "$@" > "$sandbox/smoke.out" 2>&1
+    printf '%s' "$?"
+    set -e
+}
+smoke_case() { # <name> <expected exit code> <flags...>
+    name=$1 want=$2; shift 2
+    got=$(run_smoke "$@")
+    [ "$got" = "$want" ] && ok "smoke.sh: $name" || { bad "smoke.sh: $name (exit $got, expected $want)"; sed 's/^/        /' "$sandbox/smoke.out"; }
+}
+smoke_case "the VM's own hop fails, as on production" 1
+smoke_case "--resolve-local still checks the VM's own hop" 1 --resolve-local
+smoke_case "--resolve-to the edge passes every check" 0 --resolve-to=192.0.2.10
+grep -q 'automated checks: passed' "$sandbox/smoke.out" && ! grep -q FAIL "$sandbox/smoke.out" \
+    && ok "smoke.sh: --resolve-to reports no FAIL" || bad "smoke.sh: --resolve-to output has a FAIL"
+# Every request but the loopback /health went to the edge on its own port.
+if grep -v '127.0.0.1:5000' "$sandbox/curls" | grep -qv -- '--resolve portal.example.com:443:192.0.2.10 --resolve portal.example.com:80:192.0.2.10'; then
+    bad "smoke.sh: a request went out without --resolve to the edge"
+else ok "smoke.sh: every request through the proxy goes to the edge"; fi
+smoke_case "--insecure with --resolve-to passes too" 0 --insecure --resolve-to=192.0.2.10
+smoke_case "--resolve-to another address fails" 1 --resolve-to=192.0.2.99
+for f in --resolve-to= --resolve-to=edge.example.com --resolve-to=1.2.3 "--resolve-to=1.2.3.4;id"; do
+    smoke_case "refuses $f before any request" 2 "$f"
+    [ -s "$sandbox/curls" ] && bad "smoke.sh: $f made a request" || true
+done
+smoke_case "refuses --resolve-local with --resolve-to" 2 --resolve-local --resolve-to=192.0.2.10
+smoke_case "refuses two --resolve-to" 2 --resolve-to=192.0.2.10 --resolve-to=192.0.2.10
 
 # --- a deploy, with a stub install.sh ---------------------------------------------
 # Builds mustask-<tag>.tar.gz whose kit/install.sh records how it was called.
