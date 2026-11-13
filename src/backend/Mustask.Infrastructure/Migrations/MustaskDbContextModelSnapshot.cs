@@ -17,7 +17,7 @@ namespace Mustask.Infrastructure.Migrations
         {
 #pragma warning disable 612, 618
             modelBuilder
-                .HasAnnotation("ProductVersion", "10.0.11")
+                .HasAnnotation("ProductVersion", "10.0.14")
                 .HasAnnotation("Relational:MaxIdentifierLength", 63);
 
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
@@ -102,6 +102,269 @@ namespace Mustask.Infrastructure.Migrations
 
                             t.Property("UpdatedBy")
                                 .HasColumnName("updated_by");
+
+                            t.Property("xmin")
+                                .HasColumnName("xmin");
+                        });
+                });
+
+            modelBuilder.Entity("Mustask.Domain.Imports.ImportDryRun", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTimeOffset>("ExpiresAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("FileId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("FileName")
+                        .IsRequired()
+                        .HasMaxLength(260)
+                        .HasColumnType("character varying(260)");
+
+                    b.Property<string>("Notes")
+                        .IsRequired()
+                        .HasColumnType("jsonb");
+
+                    b.Property<Guid>("OrganizationId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Rows")
+                        .IsRequired()
+                        .HasColumnType("jsonb");
+
+                    b.Property<Guid>("TemplateId")
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("TemplateVersion")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Totals")
+                        .IsRequired()
+                        .HasColumnType("jsonb");
+
+                    b.Property<string>("UserId")
+                        .IsRequired()
+                        .HasMaxLength(255)
+                        .HasColumnType("character varying(255)");
+
+                    b.Property<uint>("xmin")
+                        .IsConcurrencyToken()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("xid")
+                        .HasColumnName("xmin");
+
+                    b.HasKey("Id")
+                        .HasName("pk_import_dry_runs");
+
+                    b.HasIndex("ExpiresAt")
+                        .HasDatabaseName("ix_import_dry_runs_expires_at");
+
+                    b.HasIndex("OrganizationId")
+                        .HasDatabaseName("ix_import_dry_runs_organization_id");
+
+                    b.ToTable("import_dry_runs", null, t =>
+                        {
+                            t.Property("Id")
+                                .HasColumnName("id");
+
+                            t.Property("CreatedAt")
+                                .HasColumnName("created_at");
+
+                            t.Property("ExpiresAt")
+                                .HasColumnName("expires_at");
+
+                            t.Property("FileId")
+                                .HasColumnName("file_id");
+
+                            t.Property("FileName")
+                                .HasColumnName("file_name");
+
+                            t.Property("Notes")
+                                .HasColumnName("notes");
+
+                            t.Property("OrganizationId")
+                                .HasColumnName("organization_id");
+
+                            t.Property("Rows")
+                                .HasColumnName("rows");
+
+                            t.Property("TemplateId")
+                                .HasColumnName("template_id");
+
+                            t.Property("TemplateVersion")
+                                .HasColumnName("template_version");
+
+                            t.Property("Totals")
+                                .HasColumnName("totals");
+
+                            t.Property("UserId")
+                                .HasColumnName("user_id");
+
+                            t.Property("xmin")
+                                .HasColumnName("xmin");
+                        });
+                });
+
+            modelBuilder.Entity("Mustask.Domain.Imports.ImportFile", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid");
+
+                    b.Property<byte[]>("Content")
+                        .IsRequired()
+                        .HasColumnType("bytea");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTimeOffset>("ExpiresAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("FileName")
+                        .IsRequired()
+                        .HasMaxLength(260)
+                        .HasColumnType("character varying(260)");
+
+                    b.Property<Guid>("OrganizationId")
+                        .HasColumnType("uuid");
+
+                    b.Property<long>("Size")
+                        .HasColumnType("bigint");
+
+                    b.Property<string>("UserId")
+                        .IsRequired()
+                        .HasMaxLength(255)
+                        .HasColumnType("character varying(255)");
+
+                    b.Property<uint>("xmin")
+                        .IsConcurrencyToken()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("xid")
+                        .HasColumnName("xmin");
+
+                    b.HasKey("Id")
+                        .HasName("pk_import_files");
+
+                    b.HasIndex("ExpiresAt")
+                        .HasDatabaseName("ix_import_files_expires_at");
+
+                    b.HasIndex("OrganizationId", "UserId")
+                        .HasDatabaseName("ix_import_files_organization_user");
+
+                    b.ToTable("import_files", null, t =>
+                        {
+                            t.Property("Id")
+                                .HasColumnName("id");
+
+                            t.Property("Content")
+                                .HasColumnName("content");
+
+                            t.Property("CreatedAt")
+                                .HasColumnName("created_at");
+
+                            t.Property("ExpiresAt")
+                                .HasColumnName("expires_at");
+
+                            t.Property("FileName")
+                                .HasColumnName("file_name");
+
+                            t.Property("OrganizationId")
+                                .HasColumnName("organization_id");
+
+                            t.Property("Size")
+                                .HasColumnName("size");
+
+                            t.Property("UserId")
+                                .HasColumnName("user_id");
+
+                            t.Property("xmin")
+                                .HasColumnName("xmin");
+                        });
+                });
+
+            modelBuilder.Entity("Mustask.Domain.Imports.Templates.ImportTemplate", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("AuthorId")
+                        .IsRequired()
+                        .HasMaxLength(255)
+                        .HasColumnType("character varying(255)");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<string>("NameKey")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<Guid>("OrganizationId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Settings")
+                        .IsRequired()
+                        .HasColumnType("jsonb");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("Version")
+                        .HasColumnType("integer");
+
+                    b.Property<uint>("xmin")
+                        .IsConcurrencyToken()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("xid")
+                        .HasColumnName("xmin");
+
+                    b.HasKey("Id")
+                        .HasName("pk_import_templates");
+
+                    b.HasIndex("OrganizationId", "NameKey")
+                        .IsUnique()
+                        .HasDatabaseName("ux_import_templates_organization_name_key");
+
+                    b.ToTable("import_templates", null, t =>
+                        {
+                            t.Property("Id")
+                                .HasColumnName("id");
+
+                            t.Property("AuthorId")
+                                .HasColumnName("author_id");
+
+                            t.Property("CreatedAt")
+                                .HasColumnName("created_at");
+
+                            t.Property("Name")
+                                .HasColumnName("name");
+
+                            t.Property("NameKey")
+                                .HasColumnName("name_key");
+
+                            t.Property("OrganizationId")
+                                .HasColumnName("organization_id");
+
+                            t.Property("Settings")
+                                .HasColumnName("settings");
+
+                            t.Property("UpdatedAt")
+                                .HasColumnName("updated_at");
+
+                            t.Property("Version")
+                                .HasColumnName("version");
 
                             t.Property("xmin")
                                 .HasColumnName("xmin");
@@ -2143,6 +2406,36 @@ namespace Mustask.Infrastructure.Migrations
                             t.Property("xmin")
                                 .HasColumnName("xmin");
                         });
+                });
+
+            modelBuilder.Entity("Mustask.Domain.Imports.ImportDryRun", b =>
+                {
+                    b.HasOne("Mustask.Domain.Organizations.Organization", null)
+                        .WithMany()
+                        .HasForeignKey("OrganizationId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_import_dry_runs_organizations_organization_id");
+                });
+
+            modelBuilder.Entity("Mustask.Domain.Imports.ImportFile", b =>
+                {
+                    b.HasOne("Mustask.Domain.Organizations.Organization", null)
+                        .WithMany()
+                        .HasForeignKey("OrganizationId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_import_files_organizations_organization_id");
+                });
+
+            modelBuilder.Entity("Mustask.Domain.Imports.Templates.ImportTemplate", b =>
+                {
+                    b.HasOne("Mustask.Domain.Organizations.Organization", null)
+                        .WithMany()
+                        .HasForeignKey("OrganizationId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_import_templates_organizations_organization_id");
                 });
 
             modelBuilder.Entity("Mustask.Domain.Organizations.Area", b =>

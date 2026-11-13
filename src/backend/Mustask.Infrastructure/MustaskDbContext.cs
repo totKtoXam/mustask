@@ -72,6 +72,13 @@ public sealed class MustaskDbContext(DbContextOptions<MustaskDbContext> options)
     /// <summary>M3's work items (mod-003); their per-project counter is mapped too, with no DbSet (raw SQL only).</summary>
     public DbSet<WorkItem> WorkItems => Set<WorkItem>();
 
+    /// <summary>mod-024: import templates, uploaded files and stored dry runs (no reference to work items).</summary>
+    public DbSet<Domain.Imports.Templates.ImportTemplate> ImportTemplates => Set<Domain.Imports.Templates.ImportTemplate>();
+
+    public DbSet<Domain.Imports.ImportFile> ImportFiles => Set<Domain.Imports.ImportFile>();
+
+    public DbSet<Domain.Imports.ImportDryRun> ImportDryRuns => Set<Domain.Imports.ImportDryRun>();
+
     protected override void ConfigureConventions(ModelConfigurationBuilder configurationBuilder)
     {
         base.ConfigureConventions(configurationBuilder);
