@@ -10,7 +10,7 @@
 
 ## Gates
 
-gate-3: pending
+gate-3: approved · 2026-11-13 (fix review m1-m7 before the PR)
 
 ## Plan
 
@@ -29,9 +29,10 @@ gate-3: pending
 - 2026-11-13 [new-task] task started, worktree C:/Users/khamb/Workspace/devex/internal_products/mustask/.claude/worktrees/tech-069-release-notes
 - 2026-11-13 [orchestrator] route confirmed by the human («⭐ Подтверждаю S»): tech, S (ADR + git.md + deploy.yml + one script with case tests, no runtime code), developer → QA (light) → code-reviewer → gate-3 → PR. Gates: gate-3 only. Session bound to this worktree (EnterWorktree); queue line taken via queue PR #172. Economy mode.
 - 2026-11-13 [developer] done: scripts/release-notes.sh (ref may be any ref; a non-tag is "Unreleased"), scripts/tests/release-notes-cases.sh (36 cases green, wired into verify.sh), deploy.yml (run-name, notes job, deploy needs [build, notes]), cd-runner-cases.sh adjusted to the new job (all green), ADR-0043 accepted + index, git.md § Releases, vm.md/vm.ru.md § 11. Commits 80d2612d fd41b2da d191a7c4 9d8c6863 91094e19. verify.sh not run (CI is the gate). Real repo: release-notes.sh v0.4.1 v0.4.0 lists #157 and #169.
+- 2026-11-13 [qa] light QA done: 14 checks, no blocker/major, 4 minor (qa.md); added 5 edge cases to release-notes-cases.sh (41 green), cd-runner-cases green; actionlint not installed; E2E no
 - 2026-11-13 [code-review] round 1: approve; 0 blocker, 0 major, 7 minor open as debts (review.md)
+- 2026-11-13 [orchestrator] gate-3 answer from the human: «⭐ Починить все 7 → PR» — fix review minors m1-m7 before the PR, no further review round (the human sees the diff in the PR); m7 fixed here (the QA line moved under Log); QA minors 1-2 fixed along (one-line each), 3-4 accepted (ADR-0043 states them).
 
 ## Notes
 
 Summary (from the queue line or an argument): Every release describes its changes: a v* tag makes the Deploy workflow publish a GitHub Release with notes generated from the merged PRs since the previous tag (grouped feat/fix/tech, queue sync PRs left out) and name its run after the tag; an ADR records the decision and docs/conventions/git.md § Releases gets the rule for humans and agents
-- 2026-11-13 [qa] light QA done: 14 checks, no blocker/major, 4 minor (qa.md); added 5 edge cases to release-notes-cases.sh (41 green), cd-runner-cases green; actionlint not installed; E2E no
