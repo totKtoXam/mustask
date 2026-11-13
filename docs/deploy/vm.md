@@ -584,7 +584,7 @@ under `/opt/mustask/releases/`; delete the ones you no longer need by hand
 | Deploy run: `sudo: a password is required` | `runner-setup.sh` has not run on this VM, or `/etc/sudoers.d/mustask-runner` is gone: run it again (section 11.2). |
 | Deploy run: `mustask-cd: refused: …` | The artifact is not one release made by `build-release.sh`; the message names what is wrong. Nothing was installed. |
 | Deploy run: `mustask-cd: refused: /etc/mustask/cd-smoke-args` | That file holds something other than `--insecure` and one of `--resolve-local` / `--resolve-to=<IPv4>`: re-run `runner-setup.sh --smoke-args "…"`. |
-| Smoke on the VM: `http:// redirects to https:// — got '200 '` and every `https://` check `curl: (60) … self-signed certificate`, while the site works from outside | TLS and the redirect are a proxy's in front of the VM, and on the VM the name points at the VM itself (`/etc/hosts`). Add `--resolve-to=<edge address>` (section 8; for CD, section 11.2). |
+| Smoke on the VM: `http:// redirects to https:// — got '200 '` and the `https://` checks fail with `curl: (60) … self-signed certificate`, while the site works from outside | TLS and the redirect are a proxy's in front of the VM, and on the VM the name points at the VM itself (`/etc/hosts`). Add `--resolve-to=<edge address>` (section 8; for CD, section 11.2). |
 | A job fails in "Set up runner" with `mustask runner guard: this job may not run on the production runner` | Working as intended for anything but `deploy.yml` from `main` or a `v*` tag (section 11.4). For a real deploy, check that `/etc/mustask/cd-repository` names this repository (it changes if the repository is renamed or moved: re-run `runner-setup.sh` with the new `--url`). |
 
 ## 11. Continuous deployment (GitHub Actions)

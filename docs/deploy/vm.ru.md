@@ -585,7 +585,7 @@ sudo bash mustask-v0.2.0/kit/install.sh status      # активный VERSION �
 | Запуск деплоя: `sudo: a password is required` | `runner-setup.sh` на этой VM не запускался или `/etc/sudoers.d/mustask-runner` пропал: запустите его снова (раздел 11.2). |
 | Запуск деплоя: `mustask-cd: refused: …` | Артефакт — не один релиз от `build-release.sh`; сообщение говорит, что не так. Ничего не установлено. |
 | Запуск деплоя: `mustask-cd: refused: /etc/mustask/cd-smoke-args` | В файле что-то кроме `--insecure` и одного из `--resolve-local` / `--resolve-to=<IPv4>`: перезапустите `runner-setup.sh --smoke-args "…"`. |
-| Smoke на VM: `http:// redirects to https:// — got '200 '`, а каждая проверка `https://` — `curl: (60) … self-signed certificate`, хотя снаружи сайт работает | TLS и редирект делает прокси перед VM, а на самой VM имя указывает на неё же (`/etc/hosts`). Добавьте `--resolve-to=<адрес edge>` (раздел 8; для CD — раздел 11.2). |
+| Smoke на VM: `http:// redirects to https:// — got '200 '`, а проверки `https://` падают с `curl: (60) … self-signed certificate`, хотя снаружи сайт работает | TLS и редирект делает прокси перед VM, а на самой VM имя указывает на неё же (`/etc/hosts`). Добавьте `--resolve-to=<адрес edge>` (раздел 8; для CD — раздел 11.2). |
 | Job падает в «Set up runner» с `mustask runner guard: this job may not run on the production runner` | Так и задумано для всего, кроме `deploy.yml` из `main` или тега `v*` (раздел 11.4). Если это настоящий деплой, проверьте, что `/etc/mustask/cd-repository` называет этот репозиторий (он меняется, если репозиторий переименован или перенесён: перезапустите `runner-setup.sh` с новым `--url`). |
 
 ## 11. Непрерывное развёртывание (GitHub Actions)
