@@ -7,7 +7,7 @@
 
 As a **member who takes part in only some of the organization**, I want **the search to find only what I see (doc-016 BR-TD-12..-15) and to show no trace of the rest**, so that **it is not a way around the access rules**.
 
-Cast: Olga (member of VENUS, no grants) sees «Логистика», MARS, VENUS and project «Альфа» (ALP); not «Браво» (BRV), «Финансы», JUPITER, «Чарли», «Дельта». Max sees every project.
+Cast: Olga (member of VENUS, no grants) sees «Логистика», MARS, VENUS and project «Альфа» (ALP); not «Браво» (BRV), «Финансы», JUPITER, «Чарли», «Дельта». Max sees every project through his department grants; every «Видим всей организации» is off.
 
 ## Acceptance criteria
 
@@ -44,8 +44,8 @@ Scenario: Order does not depend on hidden rows
   Then the visible rows come in the same order and the same groups
 
 Scenario: Users
-  Given Olga lacks `organizations.membership.read`
-  Then the group «Пользователи» is absent for her, and a typed email finds nothing
+  Given a caller without `organizations.membership.read` (no built-in role today; a handler test)
+  Then the group «Пользователи» is absent for them, and a typed email finds nothing
 
 Scenario: Sight changes between requests
   Given Olga searched and saw ALP
@@ -63,9 +63,14 @@ Scenario: Foreign organization
   Then «Зет» and ZED-US-1 of «Другая» are not found
 
 Scenario: Not a member
-  Given Ann is no member of «Другая» (an instance administrator too)
-  When a search read for «Другая» is sent
+  Given Ann is no member of «Другая», and neither is an instance administrator
+  When either sends a search read or a recent-items read for «Другая»
   Then it answers «Организация не найдена.»
+
+Scenario: Membership ends while the palette is open
+  Given Olga has the palette open on «Другая»
+  When her membership of «Другая» ends and she types again
+  Then the palette says «Организация не найдена.» with no «Повторить»
 
 Scenario: Entry-point tests
   Then there is a test per object kind (department, team, project, sub-area, user, work item) that holds a hidden one out of results, "more" and live region

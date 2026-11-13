@@ -39,9 +39,15 @@ Scenario: Users by name and email
   And typing «max@exa» finds the same row
 
 Scenario: Users need the membership read code
-  Given a role without `organizations.membership.read` in the organization
-  When that user types «орл»
+  Given a caller without `organizations.membership.read` in the organization (no built-in role today; a handler test with such a caller)
+  When the read runs for «орл»
   Then the group «Пользователи» is absent
+
+Scenario: Former and disabled members
+  Given «Ромашка» has a former member «Пётр Орлов» and a member «Ирина Орлова» whose account is disabled
+  When Ann types «орлов»
+  Then «Пётр Орлов» is not found
+  And «Ирина Орлова» is found and reads «(неактивен)»
 
 Scenario: Ranking within a group
   Given Ann sees teams «Орион», «Мориарти» and «Корионов»
@@ -50,8 +56,8 @@ Scenario: Ranking within a group
   And a name that equals the query exactly comes before a name that merely starts with it
 
 Scenario: Group order follows the best match
-  Given Ann sees a department «Склад» and a team «Складчина»
-  When she types «склад»
+  Given «Ромашка» has a department «Снабжение» and a team «Снабжение-2», both seen by Ann
+  When she types «снабжение»
   Then «Департаменты» comes before «Команды» because its best row is an exact match
 
 Scenario: At most 5 rows a group and «Показать ещё»
@@ -68,9 +74,9 @@ Scenario: Sub-areas
   Then «Области» holds «Сборка» with the grey line «Альфа · Логистика»
 
 Scenario: Deactivated and deleted objects
-  Given the project «Старый» is deactivated and the team «Бывшая» is deleted
-  When Ann types their names
-  Then neither is found
+  Given the project «Старый» with its sub-area «Архив» is deactivated and the team «Бывшая» is deleted
+  When Ann types «старый», «архив» or «бывшая»
+  Then none of them is found
 
 Scenario: Too short
   When Ann types one character

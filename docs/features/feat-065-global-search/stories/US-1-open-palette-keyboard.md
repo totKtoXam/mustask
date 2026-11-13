@@ -64,9 +64,20 @@ Scenario: Narrow screen
   Then it fits the width and every control stays reachable by keyboard
 
 Scenario: Typing a shortcut inside a text field of the page
-  Given Olga is typing in a work item's description editor
+  Given Olga is typing in a plain text field of a page (a form's «Заголовок»)
   When she presses Ctrl+K
-  Then the palette opens, and the editor's text is unchanged
+  Then the palette opens, and the field's text is unchanged
+
+Scenario: The rich-text editor keeps its own Ctrl+K
+  Given Olga is typing in a work item's «Описание» editor
+  When she presses Ctrl+K
+  Then the editor's link command runs as today and the palette does not open
+  And the magnifier in the header still opens the palette
+
+Scenario: Another dialog is open
+  Given a modal dialog of the page is open (a «Новый рабочий элемент» form)
+  When Olga presses Ctrl+K
+  Then nothing happens and the dialog keeps the focus
 
 Scenario: IME composition
   Given an input method composition is open in the field
@@ -83,4 +94,5 @@ Scenario: Scope organization
   When she opens the palette
   Then the scope chip names her remembered organization, else her first by name
   And choosing another organization in the chip changes the palette's scope only, not the header's selectors
+  And after the palette closes and opens again, the chip shows the default organization again
 ```

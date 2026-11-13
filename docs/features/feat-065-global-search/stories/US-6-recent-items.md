@@ -59,12 +59,21 @@ Scenario: Nothing yet
   Then the palette says «Здесь появятся недавно открытые объекты»
 
 Scenario: Clear
-  When Max chooses «Очистить недавние»
-  Then the list for this organization is emptied after confirmation by Enter or a click, and the stored value is removed
+  When Max chooses «Очистить недавние» by Enter or a click
+  Then the list for this organization is emptied at once, with no confirmation step, and the stored value is removed
 
 Scenario: Unreadable storage
   Given the stored value is malformed or localStorage is unavailable
   Then the list is empty, the palette works, and nothing throws
+
+Scenario: Which page records what
+  When Max opens project «Альфа»'s «Канбан», then «Альфа»'s «Структура» node page, then the sub-area «Сборка»'s page, then ALP-US-7's card with `?teamId=` of MARS in the address
+  Then the list is ALP-US-7, «Сборка», «Альфа» (once), and MARS is not recorded
+
+Scenario: The resolving read fails
+  Given the list holds an id the server would omit
+  When the resolving read fails
+  Then the palette shows «Не удалось выполнить поиск. Попробуйте ещё раз.» with «Повторить» and no stored id is dropped
 
 Scenario: Not recorded
   Then a search query, a hidden or not-found object, and a page that answered «не найден» are never recorded

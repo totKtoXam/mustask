@@ -68,6 +68,11 @@ Scenario: Show all
   Then the group shows 5 rows, «Показать ещё» (up to 20 rows) and «Все рабочие элементы по запросу»
   And choosing the latter opens the organization's «Рабочие элементы» list with «оплата» in its keyword field
 
+Scenario: Show all uses the list's own keyword
+  When Max types «ALP-7» and the group shows ALP-US-7
+  And he chooses «Все рабочие элементы по запросу»
+  Then the list opens with «ALP-7» as its keyword and shows what feat-003's keyword finds (BR-GS-9), which may be no row
+
 Scenario: Characters with a meaning elsewhere are literal
   When Max types «100%» or «a_b» or «\»
   Then they match only titles that contain those characters

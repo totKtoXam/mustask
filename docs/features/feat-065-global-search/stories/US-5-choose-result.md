@@ -29,6 +29,13 @@ Scenario: A department
   When Ann chooses the department «Финансы»
   Then its page opens and the team and project reset to «все» with «Выбор сброшен: команда MARS, проект Альфа.»
 
+Scenario: A choice that fits resets nothing
+  Given the selection is «Ромашка › Логистика › все › Альфа»
+  When Ann chooses the team VENUS (linked to «Альфа»)
+  Then the selection is «Ромашка › Логистика › VENUS › Альфа» with no notice
+  When she then chooses the department «Логистика»
+  Then the selection stays «Ромашка › Логистика › VENUS › Альфа», the department's page opens, and no notice is shown
+
 Scenario: A sub-area
   When Ann chooses the sub-area «Сборка» of project «Альфа»
   Then the node's page opens and the selection shows project «Альфа» and its department (ADR-0032 § 5)
@@ -43,6 +50,11 @@ Scenario: A user
   When Ann chooses the user «Макс Орлов»
   Then the organization's «Рабочие элементы» opens with «Исполнитель» = Макс Орлов
   And no user page is opened (none exists)
+
+Scenario: A user assigned nothing
+  Given Vera «Вера Лис» is assigned no live item in a project Ann sees
+  When Ann chooses Vera's row
+  Then the list opens empty, as for any «Исполнитель» value that selects nothing (feat-003 BR-WS-10): the band shows a filter is on and offers «Очистить фильтры»
 
 Scenario: New tab
   When Ann presses Ctrl+Enter, Cmd+Enter or middle-clicks a row
