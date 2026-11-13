@@ -145,7 +145,7 @@ public static class ConverterEngine
             ConverterIds.Trim => Trim(value, step),
             ConverterIds.Truncate => Truncate(value, step),
             ConverterIds.Number => ToNumber(value),
-            ConverterIds.ExcelDate => ExcelDate(value),
+            ConverterIds.ExcelDate => ExcelDate(value, step),
             ConverterIds.DateFormat => ParseDate(value, step.Format),
             ConverterIds.IsoDate => ParseDate(value, DateFormatIds.YmdDash),
             ConverterIds.Split => Split(value, step),
@@ -197,7 +197,7 @@ public static class ConverterEngine
             : null;
     }
 
-    private static ConversionValue? ExcelDate(ConversionValue value)
+    private static ConversionValue? ExcelDate(ConversionValue value, ConverterStep step)
     {
         if (value.Kind == ConversionKind.Date)
         {
@@ -218,7 +218,8 @@ public static class ConverterEngine
             return null;
         }
 
-        return ConversionValue.OfDate(DateOnly.FromDateTime(new DateTime(1899, 12, 30).AddDays((double)serial)));
+        var origin = step.Format == "1904" ? new DateTime(1904, 1, 1) : new DateTime(1899, 12, 30);
+        return ConversionValue.OfDate(DateOnly.FromDateTime(origin.AddDays((double)serial)));
     }
 
     private static ConversionValue? ParseDate(ConversionValue value, string? format)

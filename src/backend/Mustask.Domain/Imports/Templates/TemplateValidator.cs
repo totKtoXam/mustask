@@ -61,6 +61,7 @@ public static class ChainParams
     public static ConverterStep ToEngine(ChainStepSettings step) => step.Converter switch
     {
         ConverterIds.Trim => new(step.Converter, Collapse: Bool(step, "collapse")),
+        ConverterIds.ExcelDate => new(step.Converter, Format: Text(step, "system") ?? Int(step, "system")?.ToString()),
         ConverterIds.Truncate => new(step.Converter, Length: Int(step, "length")),
         ConverterIds.DateFormat => new(step.Converter, Format: Text(step, "format")),
         ConverterIds.Split => new(step.Converter, Separator: Text(step, "delimiter")),
