@@ -41,6 +41,9 @@ public sealed class OrganizationRoleBundlesTests
         (PermissionCatalog.WorkItemsWorkItemPurge, true, false, false),
         (PermissionCatalog.BoardsBacklogReorder, true, true, false),
         (PermissionCatalog.BoardsProjectBacklogReorder, true, true, false),
+        (PermissionCatalog.ImportsTemplateRead, true, true, true),
+        (PermissionCatalog.ImportsTemplateWrite, true, false, false),
+        (PermissionCatalog.ImportsImportRun, true, false, false),
     ];
 
     public static TheoryData<string, OrganizationRole, bool> Cells()
@@ -86,7 +89,7 @@ public sealed class OrganizationRoleBundlesTests
     {
         var viewer = OrganizationRoleBundles.CodesOf(OrganizationRole.Viewer);
 
-        Assert.Equal(7, viewer.Count);
+        Assert.Equal(8, viewer.Count);
         Assert.All(viewer, code => Assert.EndsWith(".read", code, StringComparison.Ordinal));
     }
 
