@@ -244,7 +244,7 @@ $('#rrec').onclick=function(){seedRecent();toast('Недавние заполн�
 $('#othx').onclick=function(){$('#oth').classList.remove('open')};
 // ---------- fake pages (hash routes) ----------
 function record(e){if(e.t==='user')return;var l=S.recent[e.org]||(S.recent[e.org]=[]);var k=l.indexOf(e.uid);if(k>=0)l.splice(k,1);l.unshift(e.uid);l.length=Math.min(l.length,10)}
-function ctxChain(e){var c=[e.org];if(e.dept)c.push(e.dept);if((e.t==='item'||e.t==='area')&&e.proj)c.push(e.proj);if(e.t!=='item'&&e.t!=='user'&&c.indexOf(e.name)<0)c.push(e.name);var hp=document.getElementById('hpath');if(hp)hp.textContent=c.join(' › ');return c.join(' › ')}
+function ctxChain(e){var c=[e.org],dp=e.dept;if(!dp&&e.proj){for(var k=0;k<E.length;k++){if(E[k].t==='proj'&&E[k].org===e.org&&E[k].name===e.proj){dp=E[k].dept;break}}}if(dp)c.push(dp);if((e.t==='item'||e.t==='area')&&e.proj)c.push(e.proj);if(e.t!=='item'&&e.t!=='user'&&c.indexOf(e.name)<0)c.push(e.name);var hp=document.getElementById('hpath');if(hp)hp.textContent=c.join(' › ');return c.join(' › ')}
 function route(){var h=location.hash.replace(/^#/,'')||'/',m=$('#main'),u=USERS[S.user];
  var mm=/^\/e\/(\d+)$/.exec(h);
  if(mm){var e=E[+mm[1]];if(!e){m.innerHTML='<h1 tabindex="-1">Не найдено</h1>';return}
