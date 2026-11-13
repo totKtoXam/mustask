@@ -47,7 +47,6 @@ public sealed class DeleteTeamHandler(
     IProjectRepository projects,
     ITeamRepository teams,
     IProjectTeamRepository links,
-    IAreaLinkRepository areaLinks,
     ITeamMembershipRepository teamMemberships,
     IGrantRepository grants,
     IWorkItemTeamOwnership ownership,
@@ -101,10 +100,10 @@ public sealed class DeleteTeamHandler(
                 await places.DropForTeamAsync(team.Id, ct);
                 await ownership.ReassignOwnedAsync(linkedProjectIds, team.Id, destinationTeamId: null, clock.UtcNow, ct);
                 await links.RemoveTeamLinksAsync(organizationId, team.Id, ct);
-                await areaLinks.RemoveTeamLinksAsync(organizationId, team.Id, ct);
                 await teamMemberships.EndAllAsync(team.Id, ct);
                 await grants.RemoveAllAsync(ResourceScope.Team, team.Id, ct);
 
+                // The department is cleared with the status (BR-TD-1): a deleted team never blocks a department's deletion.
                 team.Delete();
 
                 // 6. Save. The name is freed by the status alone (the unique index covers active teams only), and no other unique

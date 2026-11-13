@@ -13,4 +13,5 @@ public sealed record ProjectResponse(
     string? Description,
     IReadOnlyList<string>? Codes = null,
     DepartmentRefView? Department = null,
-    bool? InheritsAccess = null);
+    bool? InheritsAccess = null,
+    string? Color = null);

@@ -21,6 +21,9 @@ internal sealed class TeamReadModel(MustaskDbContext context) : ITeamReadModel
                 team.Id,
                 team.Name,
                 team.Description,
+                team.DepartmentId,
+                team.Color,
+                DepartmentName = context.Areas.Where(area => area.Id == team.DepartmentId).Select(area => area.Name).FirstOrDefault()!,
                 IsMember = context.TeamMemberships.Any(membership => membership.TeamId == team.Id && membership.UserId == userId),
             })
             .ToListAsync(cancellationToken);
@@ -44,7 +47,8 @@ internal sealed class TeamReadModel(MustaskDbContext context) : ITeamReadModel
         var byTeam = links.ToLookup(link => link.TeamId, link => link.Project);
 
         return teams
-            .Select(team => new OrganizationTeamRow(team.Id, team.Name, team.Description, byTeam[team.Id].ToList(), team.IsMember))
+            .Select(team => new OrganizationTeamRow(
+                team.Id, team.Name, team.Description, byTeam[team.Id].ToList(), team.DepartmentId!.Value, team.DepartmentName, team.Color, team.IsMember))
             .ToList();
     }
 
@@ -52,7 +56,13 @@ internal sealed class TeamReadModel(MustaskDbContext context) : ITeamReadModel
         context.ActiveTeamsOf(organizationId)
             .AsNoTracking()
             .Where(team => team.Id == teamId)
-            .Select(team => new TeamRow(team.Id, team.Name, team.Description))
+            .Select(team => new TeamRow(
+                team.Id,
+                team.Name,
+                team.Description,
+                team.DepartmentId!.Value,
+                context.Areas.Where(area => area.Id == team.DepartmentId).Select(area => area.Name).First(),
+                team.Color))
             .SingleOrDefaultAsync(cancellationToken);
 
     public async Task<IReadOnlyList<LinkedTeamRow>> ListLinkedAsync(
@@ -71,7 +81,8 @@ internal sealed class TeamReadModel(MustaskDbContext context) : ITeamReadModel
                 team.Name,
                 context.Projects.Any(project => project.Id == projectId && project.DefaultTeamId == team.Id),
                 context.LinkedTeams(organizationId, projectId).Count(),
-                context.TeamMemberships.Any(membership => membership.TeamId == team.Id && membership.UserId == userId)))
+                context.TeamMemberships.Any(membership => membership.TeamId == team.Id && membership.UserId == userId),
+                team.Color))
             .ToListAsync(cancellationToken);
 
         return rows.Select(ToRow).ToList();
@@ -87,7 +98,8 @@ internal sealed class TeamReadModel(MustaskDbContext context) : ITeamReadModel
                 team.Name,
                 context.Projects.Any(project => project.Id == projectId && project.DefaultTeamId == team.Id),
                 context.LinkedTeams(organizationId, projectId).Count(),
-                false))
+                false,
+                team.Color))
             .SingleOrDefaultAsync(cancellationToken);
 
         return row is null ? null : ToRow(row);
@@ -114,7 +126,8 @@ internal sealed class TeamReadModel(MustaskDbContext context) : ITeamReadModel
         team.Id,
         team.Name,
         ProjectDefaultTeam.MarkOf(team.IsNamed, team.LinkedActiveTeams),
-        team.IsMember);
+        team.IsMember,
+        team.Color);
 
-    private sealed record StoredTeam(Guid Id, string Name, bool IsNamed, int LinkedActiveTeams, bool IsMember);
+    private sealed record StoredTeam(Guid Id, string Name, bool IsNamed, int LinkedActiveTeams, bool IsMember, string Color);
 }

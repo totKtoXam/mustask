@@ -50,7 +50,7 @@ public sealed class SetProjectDescriptionHandler(IProjectRepository projects, IU
                 await projects.SaveAsync(ct);
 
                 return new SetProjectDescriptionResult(
-                    new ProjectResponse(project.Id, project.OrganizationId, project.Name, project.Key, project.Description));
+                    new ProjectResponse(project.Id, project.OrganizationId, project.Name, project.Key, project.Description, project.Color));
             },
             cancellationToken);
 }

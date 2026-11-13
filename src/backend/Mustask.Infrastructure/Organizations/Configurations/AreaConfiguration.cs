@@ -28,6 +28,7 @@ internal sealed class AreaConfiguration : IEntityTypeConfiguration<Area>
         builder.Property(area => area.Name).HasMaxLength(OrganizationLimits.NameMaxLength).IsRequired();
         builder.Property(area => area.NormalizedName).HasMaxLength(OrganizationLimits.NameMaxLength).IsRequired();
         builder.Property(area => area.Description).HasColumnType("text");
+        builder.Property(area => area.Color).HasMaxLength(OrganizationLimits.ColorMaxLength);
         builder.Property(area => area.InheritsAccess).HasDefaultValue(true).IsRequired();
         builder.Property(area => area.CreatedBy).HasMaxLength(OrganizationLimits.LinkedByMaxLength).IsRequired();
         builder.Property(area => area.CreatedAt).IsRequired();
@@ -58,6 +59,7 @@ internal sealed class AreaConfiguration : IEntityTypeConfiguration<Area>
         {
             table.HasCheckConstraint("ck_areas_name_length", OrganizationsConstraints.NameLengthCheck);
             table.HasCheckConstraint("ck_areas_description_length", OrganizationsConstraints.DescriptionLengthCheck);
+            table.HasCheckConstraint("ck_areas_color", "(type = 1 AND color IS NOT NULL AND " + OrganizationsConstraints.ColorCheck + ") OR (type <> 1 AND color IS NULL)");
             table.HasCheckConstraint(
                 OrganizationsConstraints.AreaTypeShape,
                 "(type = 1 AND project_id IS NULL AND parent_id IS NULL) "

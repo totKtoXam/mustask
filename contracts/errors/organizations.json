@@ -217,6 +217,27 @@
       "kk": "Жобалары, ішкі аймақтары немесе жұмыс элементтері бар аймақты жоюға болмайды",
       "kkNeedsReview": true
     },
+    "organizations.area.has_teams": {
+      "statuses": [409],
+      "params": {},
+      "ru": "Нельзя удалить департамент, в котором есть команды",
+      "kk": "Командалары бар департаментті жоюға болмайды",
+      "kkNeedsReview": true
+    },
+    "organizations.team.has_links": {
+      "statuses": [409],
+      "params": {},
+      "ru": "Команда связана с проектами. Отключите её от них перед перемещением.",
+      "kk": "Команда жобалармен байланысты. Көшірмес бұрын оны жобалардан ажыратыңыз.",
+      "kkNeedsReview": true
+    },
+    "organizations.team.department_required": {
+      "statuses": [400],
+      "params": {},
+      "ru": "Выберите департамент",
+      "kk": "Департаментті таңдаңыз",
+      "kkNeedsReview": true
+    },
     "organizations.area.root_is_fixed": {
       "statuses": [409],
       "params": {},

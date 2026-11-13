@@ -5,7 +5,7 @@ using Microsoft.EntityFrameworkCore;
 namespace Mustask.Infrastructure.Organizations;
 
 /// <summary>
-/// The typed area tree and the team links of departments, one statement per read whatever the number of nodes (mod-018 NFR Query
+/// The typed area tree and the teams standing in a department, one statement per read whatever the number of nodes (mod-018 NFR Query
 /// shape). Pre-order and paths are assembled from these rows by the handler through <c>AreaTree</c>. Every statement carries the
 /// organization.
 /// </summary>
@@ -27,22 +27,16 @@ internal sealed class AreaTreeReadModel(MustaskDbContext context) : IAreaTreeRea
                     area.ProjectId,
                     project == null ? null : project.Status == ProjectStatus.Active,
                     project == null ? null : project.Key,
-                    area.InheritsAccess))
+                    area.InheritsAccess,
+                    area.Type == AreaType.Project ? (project == null ? null : project.Color) : area.Color))
             .ToListAsync(cancellationToken);
 
     public async Task<IReadOnlyList<AreaTeamRow>> ListTeamsAsync(Guid organizationId, Guid areaId, CancellationToken cancellationToken) =>
-        await (
-                from link in context.AreaTeams.AsNoTracking()
-                join team in context.ActiveTeamsOf(organizationId) on link.TeamId equals team.Id
-                where link.OrganizationId == organizationId && link.AreaId == areaId
-                orderby EF.Functions.Collate(team.Name, OrganizationsCollation.Russian), team.Id
-                select new AreaTeamRow(team.Id, team.Name))
-            .ToListAsync(cancellationToken);
-
-    public async Task<IReadOnlyList<Guid>> ListAreaIdsOfTeamAsync(Guid organizationId, Guid teamId, CancellationToken cancellationToken) =>
-        await context.AreaTeams
+        await context.ActiveTeamsOf(organizationId)
             .AsNoTracking()
-            .Where(link => link.OrganizationId == organizationId && link.TeamId == teamId)
-            .Select(link => link.AreaId)
+            .Where(team => team.DepartmentId == areaId)
+            .OrderBy(team => EF.Functions.Collate(team.Name, OrganizationsCollation.Russian))
+            .ThenBy(team => team.Id)
+            .Select(team => new AreaTeamRow(team.Id, team.Name, team.Color))
             .ToListAsync(cancellationToken);
 }

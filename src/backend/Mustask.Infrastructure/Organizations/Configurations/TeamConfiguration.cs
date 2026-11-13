@@ -24,6 +24,7 @@ internal sealed class TeamConfiguration : IEntityTypeConfiguration<Team>
         builder.Property(team => team.Name).HasMaxLength(OrganizationLimits.NameMaxLength).IsRequired();
         builder.Property(team => team.NormalizedName).HasMaxLength(OrganizationLimits.NameMaxLength).IsRequired();
         builder.Property(team => team.Description).HasColumnType("text");
+        builder.Property(team => team.Color).HasMaxLength(OrganizationLimits.ColorMaxLength).IsRequired();
         builder.Property(team => team.Status)
             .HasConversion<string>()
             .HasMaxLength(OrganizationLimits.StatusMaxLength)
@@ -34,6 +35,17 @@ internal sealed class TeamConfiguration : IEntityTypeConfiguration<Team>
             .HasForeignKey(team => team.OrganizationId)
             .OnDelete(DeleteBehavior.Restrict);
 
+        // The place (doc-016 BR-TD-1): the key is composite, so the database refuses a department of another organization; Restrict, because
+        // a department holding a team is not deleted (BR-TD-5) and a deleted team has none. That it is a department (type 1) is the handler's rule,
+        // judged under the department's lock.
+        builder.HasOne<Area>()
+            .WithMany()
+            .HasForeignKey(team => new { team.OrganizationId, team.DepartmentId })
+            .HasPrincipalKey(area => new { area.OrganizationId, area.Id })
+            .OnDelete(DeleteBehavior.Restrict);
+
+        builder.HasIndex(team => new { team.OrganizationId, team.DepartmentId }, "ix_teams_organization_id_department_id");
+
         builder.HasIndex(team => new { team.OrganizationId, team.NormalizedName }, OrganizationsConstraints.TeamName)
             .IsUnique()
             .HasFilter("status = 'Active'");
@@ -43,6 +55,8 @@ internal sealed class TeamConfiguration : IEntityTypeConfiguration<Team>
             table.HasCheckConstraint("ck_teams_status", "status IN ('Active', 'Deleted')");
             table.HasCheckConstraint("ck_teams_name_length", OrganizationsConstraints.NameLengthCheck);
             table.HasCheckConstraint("ck_teams_description_length", OrganizationsConstraints.DescriptionLengthCheck);
+            table.HasCheckConstraint("ck_teams_color", OrganizationsConstraints.ColorCheck);
+            table.HasCheckConstraint("ck_teams_department_place", "(status = 'Active' AND department_id IS NOT NULL) OR (status = 'Deleted' AND department_id IS NULL)");
         });
     }
 }

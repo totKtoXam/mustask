@@ -19,7 +19,8 @@ public sealed record AreaNodeResponse(
     string? Description,
     string Path,
     int Depth,
-    bool? InheritsAccess = null);
+    bool? InheritsAccess = null,
+    string? Color = null);
 
 /// <summary>The handler's outcome: the whole tree, pre-order.</summary>
 public sealed record GetAreaTreeResult(IReadOnlyList<AreaNodeResponse> Items);
@@ -57,7 +58,8 @@ public sealed class GetAreaTreeHandler(IAreaTreeReadModel readModel, IOrganizati
                 byId[node.Id].Description,
                 tree.PathOf(node.Id),
                 tree.LevelOf(node.Id),
-                node.Type == AreaType.Department ? null : byId[node.Id].InheritsAccess))
+                node.Type == AreaType.Department ? null : byId[node.Id].InheritsAccess,
+                byId[node.Id].Color))
             .ToList();
 
         return new GetAreaTreeResult(items);

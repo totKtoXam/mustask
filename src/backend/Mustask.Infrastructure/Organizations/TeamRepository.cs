@@ -68,6 +68,18 @@ internal sealed class TeamRepository(MustaskDbContext context) : ITeamRepository
             .Select(team => team.Name)
             .FirstOrDefaultAsync(cancellationToken);
 
+    public async Task<IReadOnlyList<string>> ListActiveColorsAsync(Guid organizationId, Guid departmentId, CancellationToken cancellationToken) =>
+        await context.Teams
+            .AsNoTracking()
+            .Where(team => team.OrganizationId == organizationId && team.Status == TeamStatus.Active && team.DepartmentId == departmentId)
+            .Select(team => team.Color)
+            .ToListAsync(cancellationToken);
+
+    public Task<bool> AnyActiveInDepartmentAsync(Guid organizationId, Guid departmentId, CancellationToken cancellationToken) =>
+        context.Teams.AnyAsync(
+            team => team.OrganizationId == organizationId && team.Status == TeamStatus.Active && team.DepartmentId == departmentId,
+            cancellationToken);
+
     public void Add(Team team) => context.Teams.Add(team);
 
     public Task SaveAsync(CancellationToken cancellationToken) => OrganizationsSaveChanges.SaveAsync(context, cancellationToken);

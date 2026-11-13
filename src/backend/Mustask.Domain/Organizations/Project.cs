@@ -21,9 +21,11 @@ public sealed class Project
         string key,
         EntityDescription? description,
         DateTimeOffset createdAt,
-        string createdBy)
+        string createdBy,
+        string color)
     {
         Id = id;
+        Color = color;
         OrganizationId = organizationId;
         Name = name.Value;
         NormalizedName = name.Normalized;
@@ -47,6 +49,9 @@ public sealed class Project
 
     /// <summary>Set once at creation and never changed (BR-M1-1): there is no setter beyond EF's.</summary>
     public string Key { get; private set; } = null!;
+
+    /// <summary>The palette key chosen at creation (BR-TD-20); never edited, kept when the project moves.</summary>
+    public string Color { get; private set; } = null!;
 
     public ProjectStatus Status { get; private set; }
 
@@ -92,6 +97,7 @@ public sealed class Project
         string key,
         DateTimeOffset createdAt,
         string createdBy,
+        string color,
         EntityDescription? description = null,
         Guid? parentAreaId = null)
     {
@@ -107,7 +113,12 @@ public sealed class Project
 
         Organization.EnsureCreator(createdBy);
 
-        var project = new Project(Guid.CreateVersion7(), organizationId, name, key, description, createdAt, createdBy);
+        if (!ColorPalette.IsKey(color))
+        {
+            throw new ArgumentException("The colour is a key of the palette.", nameof(color));
+        }
+
+        var project = new Project(Guid.CreateVersion7(), organizationId, name, key, description, createdAt, createdBy, color);
         var root = Area.CreateProjectNode(organizationId, parentAreaId, project.Id, name, createdBy, createdAt);
 
         return new NewProject(project, root);

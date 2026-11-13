@@ -56,9 +56,6 @@ public interface IOrganizationStructure
 
     /// <summary>The node of that organization (mod-018). <c>null</c> for an unknown node or one of another organization.</summary>
     Task<AreaInfo?> FindAreaAsync(Guid organizationId, Guid areaId, CancellationToken cancellationToken);
-
-    /// <summary>The departments the team is linked to, by pre-order of the tree (mod-018 BR-AW-6). Empty for a team of another organization.</summary>
-    Task<IReadOnlyList<AreaInfo>> ListAreasOfTeamAsync(Guid organizationId, Guid teamId, CancellationToken cancellationToken);
 }
 
 /// <summary>An organization for another module.</summary>

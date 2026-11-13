@@ -80,7 +80,7 @@ public sealed class RenameTeamHandler(ITeamRepository teams, IUnitOfWork unitOfW
                 // the repository answers it with the pre-check's code (plan-backend § 6.3).
                 await teams.SaveAsync(ct);
 
-                return new RenameTeamResult(new TeamResponse(team.Id, team.Name, team.Description));
+                return new RenameTeamResult(new TeamResponse(team.Id, team.Name, team.Description, team.DepartmentId, team.Color));
             },
             cancellationToken);
 }

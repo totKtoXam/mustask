@@ -13,4 +13,4 @@ public interface IProjectReadModel
 }
 
 /// <summary>One project as the panel sees it. <paramref name="Description"/> is read with it (feat-028 BR-OL-3) and shown by the single-project reads only.</summary>
-public sealed record ProjectRow(Guid Id, Guid OrganizationId, string Name, string Key, string? Description = null);
+public sealed record ProjectRow(Guid Id, Guid OrganizationId, string Name, string Key, string? Description = null, string? Color = null);

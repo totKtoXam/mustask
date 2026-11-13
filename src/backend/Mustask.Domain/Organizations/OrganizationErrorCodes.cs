@@ -114,6 +114,17 @@ public static class OrganizationErrorCodes
     /// <summary>A team linked as an area-team link to a node that is not a department (OQ-8 A, OQ-11 A).</summary>
     public const string AreaLinkTypeNotAllowed = "organizations.area.link_type_not_allowed";
 
+    // ----- mod-021 (doc-016): teams stand in departments -----
+
+    /// <summary>A department holding an active team is not deleted; decided before <see cref="AreaNotEmpty"/> (BR-TD-5).</summary>
+    public const string AreaHasTeams = "organizations.area.has_teams";
+
+    /// <summary>A team linked to a project is not moved to another department (BR-TD-4, OQ-9 A).</summary>
+    public const string TeamHasLinks = "organizations.team.has_links";
+
+    /// <summary>The field reason of a team request that names no department (BR-TD-1): «Выберите департамент».</summary>
+    public const string TeamDepartmentRequired = "organizations.team.department_required";
+
     // ----- mod-016: organization access (api-contract § 5) -----
 
     /// <summary>
