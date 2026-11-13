@@ -26,7 +26,6 @@ import { AreaTypeMark, commandIcon } from '../components/AreaTypeMark';
 import { DiagramLegend } from '../components/DiagramLines';
 import { ListFilter } from '../components/ListFilter';
 import { StructureDiagram } from '../components/StructureDiagram';
-import { useRoleFloor } from '../access/useRoleFloor';
 import { useAreaTree, useWritableAreaIds } from '../hooks/queries';
 import { useSelectorOffers } from '../hooks/navigationQueries';
 import { useAreaRowLink } from '../hooks/useAreaRowLink';
@@ -63,16 +62,11 @@ export function AreasPage() {
   const offers = useSelectorOffers(organizationId, { enabled: showDiagram });
   const access = useAccessCheck();
   // `area.write` is decided per node (mod-019 BR-SA-11, X-4): the tree read's sibling serves, once, the ids
-  // where the caller holds it, and the row commands and the dialogs' lock follow those ids. The link of
-  // teams asks the role's floor, the tree carrying no codes of its own (BR-SA-18).
+  // where the caller holds it, and the row commands and the dialogs' lock follow those ids.
   const writable = useWritableAreaIds(organizationId);
   const writableIds = useMemo(() => new Set(writable.data ?? []), [writable.data]);
   const canWrite = writableIds.size > 0;
   const canCreate = access(organizationsPermissions.areaCreate, 'organization');
-  const floor = useRoleFloor(organizationId);
-  const canLinkTeams =
-    (floor?.includes(organizationsPermissions.areaLink) ?? false) &&
-    (floor?.includes(organizationsPermissions.teamLink) ?? false);
   const treeRef = useRef<TreeRegistryHandle>(null);
   const [dialog, setDialog] = useState<NodeDialog>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -320,7 +314,6 @@ export function AreasPage() {
           organizationId={organizationId}
           dialog={dialog}
           canCreate={canCreate}
-          canLinkTeams={canLinkTeams}
           onDone={done}
           onClose={closeDialog}
         />

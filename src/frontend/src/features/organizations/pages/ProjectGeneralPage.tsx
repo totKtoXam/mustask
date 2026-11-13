@@ -217,7 +217,6 @@ export function ProjectGeneralPage() {
           organizationId={organizationId}
           dialog={{ kind: 'move', node }}
           canCreate={access(organizationsPermissions.areaCreate, 'organization')}
-          canLinkTeams={false}
           onDone={() => setDialog(null)}
           onClose={closeDialog}
         />
