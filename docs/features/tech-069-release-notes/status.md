@@ -3,7 +3,7 @@
 - type: tech
 - size: S
 - branch: tech/069-release-notes
-- stage: 06-code-review
+- stage: gate-3
 - epic: platform/ci
 - deps: tech-066
 - gates: gate-3
@@ -29,6 +29,7 @@ gate-3: pending
 - 2026-11-13 [new-task] task started, worktree C:/Users/khamb/Workspace/devex/internal_products/mustask/.claude/worktrees/tech-069-release-notes
 - 2026-11-13 [orchestrator] route confirmed by the human («⭐ Подтверждаю S»): tech, S (ADR + git.md + deploy.yml + one script with case tests, no runtime code), developer → QA (light) → code-reviewer → gate-3 → PR. Gates: gate-3 only. Session bound to this worktree (EnterWorktree); queue line taken via queue PR #172. Economy mode.
 - 2026-11-13 [developer] done: scripts/release-notes.sh (ref may be any ref; a non-tag is "Unreleased"), scripts/tests/release-notes-cases.sh (36 cases green, wired into verify.sh), deploy.yml (run-name, notes job, deploy needs [build, notes]), cd-runner-cases.sh adjusted to the new job (all green), ADR-0043 accepted + index, git.md § Releases, vm.md/vm.ru.md § 11. Commits 80d2612d fd41b2da d191a7c4 9d8c6863 91094e19. verify.sh not run (CI is the gate). Real repo: release-notes.sh v0.4.1 v0.4.0 lists #157 and #169.
+- 2026-11-13 [code-review] round 1: approve; 0 blocker, 0 major, 7 minor open as debts (review.md)
 
 ## Notes
 
