@@ -79,11 +79,12 @@ public class ConverterEngineTests
     }
 
     [Fact]
-    public void Extract_TakesTheGroup_AndGivesEmptyWhenNothingMatches()
+    public void Extract_TakesTheFirstGroupByDefault_AndGivesEmptyWhenNothingMatches()
     {
-        var step = new ConverterStep(ConverterIds.Extract, Pattern: @"№(\d+)", Group: 1);
+        var step = new ConverterStep(ConverterIds.Extract, Pattern: @"№(\d+)");
 
         Assert.Equal("42", Run("Заявка №42 от марта", step).Value.Display());
+        Assert.Equal("№42", Run("Заявка №42 от марта", new ConverterStep(ConverterIds.Extract, Pattern: @"№\d+")).Value.Display());
         Assert.True(Run("без номера", step).Value.IsEmpty);
     }
 

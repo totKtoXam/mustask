@@ -54,7 +54,8 @@ public sealed class TemplateHandlersTests
                 new Dictionary<string, DryRunMemberRef>(),
                 new Dictionary<Guid, string>(),
                 new Dictionary<Guid, IReadOnlySet<Guid>>(),
-                new Dictionary<string, DryRunItemRef>()));
+                new Dictionary<string, DryRunItemRef>(),
+                (_, _) => true));
     }
 
     /// <summary>An access that holds the import codes of a role bundle plus, for a manager, a grant on <see cref="ProjectId"/>.</summary>

@@ -19,7 +19,7 @@ public sealed class DryRunEngineQaTests
     private static readonly Guid FixedId = Guid.Parse("00000000-0000-0000-0000-0000000000c4");
     private static readonly Guid TeamId = Guid.Parse("00000000-0000-0000-0000-0000000000d1");
 
-    private static DryRunContext Context(bool teamLinked = false, Func<Guid, bool>? canRead = null, params DryRunItemRef[] items) => new()
+    private static DryRunContext Context(bool teamLinked = false, Func<Guid, bool>? canRead = null, Func<string, Guid, bool>? canMemberRead = null, params DryRunItemRef[] items) => new()
     {
         Projects = new Dictionary<Guid, DryRunProjectRef> { [PlatformId] = new(PlatformId, "Платформа", true) },
         Types = new Dictionary<Guid, DryRunTypeRef>
@@ -35,6 +35,7 @@ public sealed class DryRunEngineQaTests
         Items = items.ToDictionary(i => DryRunEngine.NormalizeIdentifier(i.Identifier)),
         CanImportInto = _ => true,
         CanRead = canRead ?? (_ => true),
+        CanMemberRead = canMemberRead ?? ((_, _) => true),
     };
 
     private static DryRunItemRef Item(string identifier, Guid? type = null, string title = "Старое", string? description = null) =>
@@ -65,7 +66,7 @@ public sealed class DryRunEngineQaTests
 
     private static bool Has(DryRunRowResult row, string code) => row.Reasons.Any(r => r.Code == code);
 
-    [Fact(Skip = "QA D-2 (open): the diff compares ignoring case, so a case-only change reads as unchanged; remove Skip when fixed")]
+    [Fact]
     public void Update_ThatOnlyChangesLetterCase_IsAnUpdate()
     {
         var row = Single(Settings(), Table(["Идентификатор", "Заголовок"], ["PLT-TASK-1", "СТАРОЕ"]), Context(items: Item("PLT-TASK-1")));
@@ -73,7 +74,7 @@ public sealed class DryRunEngineQaTests
         Assert.Equal(RowResults.Updated, row.Result);
     }
 
-    [Fact(Skip = "QA D-2 (open): same defect on the description")]
+    [Fact]
     public void Update_ThatOnlyChangesTheCaseOfTheDescription_IsAnUpdate()
     {
         var row = Single(
@@ -199,7 +200,7 @@ public sealed class DryRunEngineQaTests
         {
             Projects = new Dictionary<Guid, DryRunProjectRef>(context.Projects) { [other] = new(other, "Финансы", true) },
             Types = context.Types, Members = context.Members, Teams = context.Teams, ProjectTeams = context.ProjectTeams, Items = context.Items,
-            CanImportInto = context.CanImportInto, CanRead = context.CanRead,
+            CanImportInto = context.CanImportInto, CanRead = context.CanRead, CanMemberRead = context.CanMemberRead,
         };
         var settings = new TemplateSettings { Mappings = [Const("project", other.ToString()), Const("type", TaskTypeId.ToString()), Col("title", "Заголовок")] };
 
@@ -225,7 +226,7 @@ public sealed class DryRunEngineQaTests
         Chain = [new ChainStepSettings { Converter = converter, Params = JsonSerializer.Deserialize<Dictionary<string, JsonElement>>(json) }],
     };
 
-    [Fact(Skip = "QA D-4 (open): the template's extract step carries no group, so the whole match is written instead of the first group; remove Skip when fixed")]
+    [Fact]
     public void Extract_OnATemplateStep_TakesTheFirstGroup_NotTheWholeMatch()
     {
         var settings = new TemplateSettings
@@ -238,7 +239,38 @@ public sealed class DryRunEngineQaTests
         Assert.Equal("4521", row.Title);
     }
 
-    [Fact(Skip = "QA D-3 (open): «Дата из ISO 8601» refuses a date-time (with or without an offset); remove Skip when fixed")]
+    [Fact]
+    public void Extract_WithoutAGroup_TakesTheWholeMatch()
+    {
+        var settings = new TemplateSettings
+        {
+            Mappings = [Const("project", PlatformId.ToString()), Const("type", TaskTypeId.ToString()), WithChain(Col("title", "Задача"), "extract", "{\"pattern\":\"#\\\\d+\"}")],
+        };
+
+        var row = Single(settings, Table(["Задача"], ["Задача #4521"]), Context());
+
+        Assert.Equal("#4521", row.Title);
+    }
+
+    [Fact]
+    public void Assignee_WhoCannotReadTheRowsProject_IsRefused_AndOneWhoCanIsAccepted()
+    {
+        var assignee = Col("assignee", "Кто");
+        var settings = Settings(assignee) with
+        {
+            Recoding = [Table(assignee, TemplateTokens.PolicyError, new RecodingEntrySettings { FileValue = "Анна", Target = "user-1" })],
+        };
+        var table = Table(["Заголовок", "Кто"], ["А", "Анна"]);
+
+        var refused = Single(settings, table, Context(canMemberRead: (_, _) => false));
+        var accepted = Single(settings, table, Context(canMemberRead: (user, project) => user == "user-1" && project == PlatformId));
+
+        Assert.Equal(RowResults.Error, refused.Result);
+        Assert.True(Has(refused, ImportErrorCodes.RowAssigneeNotFound));
+        Assert.Equal(RowResults.Created, accepted.Result);
+    }
+
+    [Fact]
     public void IsoDate_OnATemplateStep_ReadsADateTimeWithOffsetAsWritten()
     {
         var table = Table(["Начало"], ["2026-03-15"], ["2026-03-15T23:30:00-05:00"], ["2026-03-15T23:30:00"]);

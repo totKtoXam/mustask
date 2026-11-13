@@ -37,6 +37,9 @@ public sealed class DryRunContext
 
     /// <summary>Whether the importer may read the project's items.</summary>
     public required Func<Guid, bool> CanRead { get; init; }
+
+    /// <summary>Whether the organization member (by user id) may read the project's items; an assignee who may not is refused (BR-IE-12).</summary>
+    public required Func<string, Guid, bool> CanMemberRead { get; init; }
 }
 
 /// <summary>What the organization holds that a template's targets and a file's identifiers are checked against (read, never written).</summary>
@@ -46,7 +49,8 @@ public sealed record ImportReferences(
     IReadOnlyDictionary<string, DryRunMemberRef> Members,
     IReadOnlyDictionary<Guid, string> Teams,
     IReadOnlyDictionary<Guid, IReadOnlySet<Guid>> ProjectTeams,
-    IReadOnlyDictionary<string, DryRunItemRef> Items)
+    IReadOnlyDictionary<string, DryRunItemRef> Items,
+    Func<string, Guid, bool> CanMemberRead)
 {
     /// <summary>The dry run's context over these references and the importer's reach.</summary>
     public DryRunContext ToContext(Func<Guid, bool> canImportInto, Func<Guid, bool> canRead) => new()
@@ -59,5 +63,6 @@ public sealed record ImportReferences(
         Items = Items,
         CanImportInto = canImportInto,
         CanRead = canRead,
+        CanMemberRead = CanMemberRead,
     };
 }

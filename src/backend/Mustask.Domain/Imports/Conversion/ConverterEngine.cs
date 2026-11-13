@@ -147,7 +147,7 @@ public static class ConverterEngine
             ConverterIds.Number => ToNumber(value),
             ConverterIds.ExcelDate => ExcelDate(value, step),
             ConverterIds.DateFormat => ParseDate(value, step.Format),
-            ConverterIds.IsoDate => ParseDate(value, DateFormatIds.YmdDash),
+            ConverterIds.IsoDate => ParseIsoDate(value),
             ConverterIds.Split => Split(value, step),
             ConverterIds.Hyperlink => Hyperlink(value, hyperlink),
             ConverterIds.Lookup => Lookup(value, step),
@@ -220,6 +220,31 @@ public static class ConverterEngine
 
         var origin = step.Format == "1904" ? new DateTime(1904, 1, 1) : new DateTime(1899, 12, 30);
         return ConversionValue.OfDate(DateOnly.FromDateTime(origin.AddDays((double)serial)));
+    }
+
+    private static readonly Regex IsoDateTime = new(
+        @"^(?<date>\d{4}-\d{1,2}-\d{1,2})(?:[T ]\d{1,2}:\d{2}(?::\d{2}(?:[.,]\d+)?)?\s*(?:Z|[+-]\d{2}(?::?\d{2})?)?)?$",
+        RegexOptions.CultureInvariant, ImportLimits.PatternTimeout);
+
+    /// <summary>
+    /// «Дата из ISO 8601» (QA-D-3): a date, or a date-time with or without an offset. The date is the one written in the source (the spec:
+    /// the time and offset are dropped), so 2026-03-15T23:30:00-05:00 is 15.03.2026 and no offset shifts it to the next day in UTC.
+    /// </summary>
+    private static ConversionValue? ParseIsoDate(ConversionValue value)
+    {
+        if (value.Kind == ConversionKind.Date)
+        {
+            return value;
+        }
+
+        if (value.Kind != ConversionKind.Text)
+        {
+            return null;
+        }
+
+        var match = IsoDateTime.Match(value.Text.Trim());
+
+        return match.Success ? ParseDate(ConversionValue.OfText(match.Groups["date"].Value), DateFormatIds.YmdDash) : null;
     }
 
     private static ConversionValue? ParseDate(ConversionValue value, string? format)
@@ -336,7 +361,8 @@ public static class ConverterEngine
             return ConversionValue.Empty;
         }
 
-        var group = step.Group ?? 0;
+        // The first capture group when the pattern has one, else the whole match (spec, converter catalogue; QA-D-4).
+        var group = step.Group ?? (regex.GetGroupNumbers().Length > 1 ? 1 : 0);
         return group < match.Groups.Count ? ConversionValue.OfText(match.Groups[group].Value.Trim()) : null;
     }
 }

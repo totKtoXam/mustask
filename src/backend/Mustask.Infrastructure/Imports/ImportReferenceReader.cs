@@ -1,7 +1,9 @@
 using System.Globalization;
 using Microsoft.EntityFrameworkCore;
 using Mustask.Application.Abstractions.Imports;
+using Mustask.Application.Abstractions.Organizations;
 using Mustask.Application.Abstractions.UserDirectory;
+using Mustask.Domain.Identity;
 using Mustask.Domain.Imports;
 using Mustask.Domain.Imports.DryRun;
 using Mustask.Domain.Organizations;
@@ -43,8 +45,9 @@ public sealed class ImportReferenceReader(MustaskDbContext context, IUserDirecto
                 t.Appearance,
                 states.Where(s => s.WorkItemTypeId == t.Id).Select(s => new DryRunStateRef(s.Id, s.Name, s.Category == StateCategory.Removed)).ToList()));
 
-        var memberIds = await context.OrganizationMemberships.AsNoTracking()
-            .Where(m => m.OrganizationId == organizationId).Select(m => m.UserId).ToListAsync(cancellationToken);
+        var roles = await context.OrganizationMemberships.AsNoTracking()
+            .Where(m => m.OrganizationId == organizationId).Select(m => new { m.UserId, m.Role }).ToListAsync(cancellationToken);
+        var memberIds = roles.Select(r => r.UserId).ToList();
         var lookup = memberIds.Count == 0 ? null : await directory.LookupAsync(memberIds, cancellationToken);
         var members = memberIds.ToDictionary(
             id => id,
@@ -71,8 +74,49 @@ public sealed class ImportReferenceReader(MustaskDbContext context, IUserDirecto
             members,
             teams.ToDictionary(t => t.Id, t => t.Name),
             projectTeams,
-            items);
+            items,
+            await MemberReadAsync(organizationId, roles.ToDictionary(r => r.UserId, r => r.Role, StringComparer.Ordinal), cancellationToken));
     }
+
+    /// <summary>
+    /// Per-member project read (QA-D-1, BR-IE-12): the mod-019 access model in its set form, built for every member from one read of the
+    /// organization's tree and grants (four statements, however many members), the administrator by role alone.
+    /// </summary>
+    private async Task<Func<string, Guid, bool>> MemberReadAsync(
+        Guid organizationId, IReadOnlyDictionary<string, OrganizationRole> roles, CancellationToken cancellationToken)
+    {
+        var nodes = await context.Areas.AsNoTracking().Where(a => a.OrganizationId == organizationId)
+            .Select(a => new AccessNode(a.Id, a.Type, a.ParentId, a.ProjectId, a.InheritsAccess)).ToListAsync(cancellationToken);
+        var area = Grants(await context.AreaGrants.AsNoTracking().Where(g => g.OrganizationId == organizationId).Select(g => new { g.UserId, g.ObjectId, g.Role }).ToListAsync(cancellationToken), g => (g.UserId, g.ObjectId, g.Role));
+        var project = Grants(await context.ProjectGrants.AsNoTracking().Where(g => g.OrganizationId == organizationId).Select(g => new { g.UserId, g.ObjectId, g.Role }).ToListAsync(cancellationToken), g => (g.UserId, g.ObjectId, g.Role));
+        var team = Grants(await context.TeamGrants.AsNoTracking().Where(g => g.OrganizationId == organizationId).Select(g => new { g.UserId, g.ObjectId, g.Role }).ToListAsync(cancellationToken), g => (g.UserId, g.ObjectId, g.Role));
+        var sets = new Dictionary<string, AccessSet>(StringComparer.Ordinal);
+
+        return (userId, projectId) =>
+        {
+            if (!roles.TryGetValue(userId, out var role))
+            {
+                return false;
+            }
+
+            if (!sets.TryGetValue(userId, out var set))
+            {
+                set = new AccessSet(role, nodes, For(area, userId), For(project, userId), For(team, userId));
+                sets[userId] = set;
+            }
+
+            return set.Holds(PermissionCatalog.WorkItemsWorkItemRead, projectId);
+        };
+    }
+
+    private static Dictionary<string, Dictionary<Guid, IReadOnlyList<GrantRole>>> Grants<T>(List<T> rows, Func<T, (string UserId, Guid ObjectId, GrantRole Role)> read) =>
+        rows.Select(read).GroupBy(r => r.UserId, StringComparer.Ordinal).ToDictionary(
+            u => u.Key,
+            u => u.GroupBy(r => r.ObjectId).ToDictionary(o => o.Key, o => (IReadOnlyList<GrantRole>)o.Select(r => r.Role).ToList()),
+            StringComparer.Ordinal);
+
+    private static IReadOnlyDictionary<Guid, IReadOnlyList<GrantRole>> For(Dictionary<string, Dictionary<Guid, IReadOnlyList<GrantRole>>> grants, string userId) =>
+        grants.TryGetValue(userId, out var own) ? own : new Dictionary<Guid, IReadOnlyList<GrantRole>>();
 
     private async Task<IReadOnlyDictionary<string, DryRunItemRef>> LoadItemsAsync(
         Guid organizationId,

@@ -38,6 +38,7 @@ public sealed class DryRunEngineTests
         Items = items.ToDictionary(i => DryRunEngine.NormalizeIdentifier(i.Identifier)),
         CanImportInto = id => id != OtherProjectId,
         CanRead = _ => true,
+        CanMemberRead = (_, _) => true,
     };
 
     private static DryRunItemRef Item(string identifier, string title = "Старое", bool deleted = false, Guid? project = null, Guid? type = null) =>

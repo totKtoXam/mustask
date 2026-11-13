@@ -408,7 +408,7 @@ public static class DryRunEngine
             var old = item!.Values.GetValueOrDefault(c.Field);
             var now = c.Clear ? DefaultForClear(c.Field) : c.Canonical;
 
-            if (!string.Equals(old ?? string.Empty, now ?? string.Empty, StringComparison.OrdinalIgnoreCase))
+            if (!string.Equals(old ?? string.Empty, now ?? string.Empty, ComparisonOf(c.Field)))
             {
                 diff.Add(Field(c.Field, now, old ?? string.Empty, context));
             }
@@ -416,6 +416,11 @@ public static class DryRunEngine
 
         return Result(state, diff.Count == 0 ? RowResults.Unchanged : RowResults.Updated, title, shownIdentifier, projectRef, diff);
     }
+
+    /// <summary>Change detection (QA-D-2): free texts compare exactly, so a change of letter case is an update; ids and enum names ignore case. Matching a file value to a recoding entry or a name stays case-insensitive (BR-IE-5) elsewhere.</summary>
+    private static StringComparison ComparisonOf(string field) => field is ImportFieldCatalogue.Title or ImportFieldCatalogue.Description or ImportFieldCatalogue.ReproSteps or ImportFieldCatalogue.SystemInfo
+        ? StringComparison.Ordinal
+        : StringComparison.OrdinalIgnoreCase;
 
     private static string? Pick(List<Resolved> changes, string field) => changes.FirstOrDefault(c => c.Field == field)?.Canonical;
 
@@ -558,7 +563,8 @@ public static class DryRunEngine
                     return null;
                 }
 
-                if (!context.Members.TryGetValue(target, out var member) || !member.Active)
+                if (!context.Members.TryGetValue(target, out var member) || !member.Active
+                    || (projectId is { } assigneeProject && !context.CanMemberRead(member.Id, assigneeProject))) // QA-D-1: BR-IE-12, the assignee must read the row's project
                 {
                     state.Error(ImportErrorCodes.RowAssigneeNotFound, null, eval.Column, eval.Cell, eval.Original);
                     return null;

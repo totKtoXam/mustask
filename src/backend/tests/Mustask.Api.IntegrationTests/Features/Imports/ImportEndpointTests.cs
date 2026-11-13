@@ -278,6 +278,53 @@ public sealed class ImportEndpointTests(MustaskApiFactory factory)
     }
 
     [Fact]
+    public async Task DryRun_Assignee_WhoReadsTheProject_IsAccepted_ThroughTheRealAccessModel()
+    {
+        var world = await WorldAsync();
+        var reader = await MembershipTestData.NewNamedMemberAsync(factory, world.OrganizationId, OrganizationRole.Viewer, "Анна", "Тестова");
+        var assigneeId = Guid.NewGuid();
+        var body = new
+        {
+            name = "Исполнители",
+            settings = new
+            {
+                source = new { format = "csv", headerRow = 1, firstDataRow = 2, encoding = "utf-8", delimiter = ";", headers = new[] { "Заголовок", "Кто" } },
+                mappings = new object[]
+                {
+                    new { id = Guid.NewGuid(), field = "project", source = new { kind = "constant", value = world.Items.ProjectId.ToString() } },
+                    new { id = Guid.NewGuid(), field = "type", source = new { kind = "constant", value = world.Items.Types["TASK"].Id.ToString() } },
+                    new { id = Guid.NewGuid(), field = "title", source = new { kind = "column", column = "Заголовок" } },
+                    new { id = assigneeId, field = "assignee", source = new { kind = "column", column = "Кто" } },
+                },
+                recoding = new[]
+                {
+                    new
+                    {
+                        mappingId = assigneeId,
+                        policy = "error",
+                        entries = new[]
+                        {
+                            new { fileValue = "Анна", target = reader.Id },
+                        },
+                    },
+                },
+            },
+        };
+        var created = await SendAsync(HttpMethod.Post, Imports(world.OrganizationId, "/templates"), body, world.Admin);
+        var uploaded = await UploadAsync(world.OrganizationId, "исполнители.csv", Csv("Заголовок;Кто", "Первая;Анна", "Вторая;Анна"), world.Admin);
+
+        var run = await SendAsync(
+            HttpMethod.Post,
+            Imports(world.OrganizationId, $"/templates/{created.Body.GetProperty("id").GetGuid()}/dry-runs"),
+            new { fileId = uploaded.Body.GetProperty("fileId").GetGuid() },
+            world.Admin);
+
+        Assert.Equal(HttpStatusCode.Created, created.Status);
+        Assert.Equal(2, run.Body.GetProperty("totals").GetProperty("created").GetInt32());
+        Assert.Equal(0, run.Body.GetProperty("totals").GetProperty("error").GetInt32());
+    }
+
+    [Fact]
     public async Task DryRun_RefusesAFileWithoutAMappedColumn_AndAViewerCannotRun()
     {
         var world = await WorldAsync();
