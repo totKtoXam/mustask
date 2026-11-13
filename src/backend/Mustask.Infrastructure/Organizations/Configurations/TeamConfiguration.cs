@@ -56,7 +56,7 @@ internal sealed class TeamConfiguration : IEntityTypeConfiguration<Team>
             table.HasCheckConstraint("ck_teams_name_length", OrganizationsConstraints.NameLengthCheck);
             table.HasCheckConstraint("ck_teams_description_length", OrganizationsConstraints.DescriptionLengthCheck);
             table.HasCheckConstraint("ck_teams_color", OrganizationsConstraints.ColorCheck);
-            table.HasCheckConstraint("ck_teams_department_place", "(status = 'Active' AND department_id IS NOT NULL) OR (status = 'Deleted' AND department_id IS NULL)");
+            table.HasCheckConstraint("ck_teams_department_place", "(status <> 'Deleted' AND department_id IS NOT NULL) OR (status = 'Deleted' AND department_id IS NULL)");
         });
     }
 }

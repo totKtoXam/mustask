@@ -824,7 +824,7 @@ namespace Mustask.Infrastructure.Migrations
                         {
                             t.HasCheckConstraint("ck_teams_color", "color IN ('blue', 'orange', 'green', 'purple', 'red', 'teal', 'amber', 'pink', 'indigo', 'lime', 'magenta', 'cyan')");
 
-                            t.HasCheckConstraint("ck_teams_department_place", "(status = 'Active' AND department_id IS NOT NULL) OR (status = 'Deleted' AND department_id IS NULL)");
+                            t.HasCheckConstraint("ck_teams_department_place", "(status <> 'Deleted' AND department_id IS NOT NULL) OR (status = 'Deleted' AND department_id IS NULL)");
 
                             t.HasCheckConstraint("ck_teams_description_length", "description IS NULL OR char_length(description) BETWEEN 1 AND 2000");
 

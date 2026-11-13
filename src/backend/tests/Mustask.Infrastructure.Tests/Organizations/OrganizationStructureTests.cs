@@ -82,7 +82,7 @@ public sealed class OrganizationStructureTests(OrganizationsDatabaseFixture data
 
         // The deletion clears the setting in its own operation; this read also guards a stale one: a named team that is not active
         // is no longer named.
-        await database.ExecuteAsync("UPDATE teams SET status = 'Deleted' WHERE id = @second", ("second", second));
+        await database.ExecuteAsync("UPDATE teams SET status = 'Deleted', department_id = NULL WHERE id = @second", ("second", second));
         Assert.Equal(first, (await ReadAsync(seam => seam.FindProjectAsync(organizationId, projectId, CancellationToken.None)))!.DefaultTeamId);
 
         await database.ExecuteAsync("UPDATE projects SET default_team_id = NULL WHERE id = @id", ("id", projectId));
@@ -110,7 +110,7 @@ public sealed class OrganizationStructureTests(OrganizationsDatabaseFixture data
         var (organizationId, projectId, secondId) = (structure.Organization.Id, structure.Project.Project.Id, structure.SecondTeam.Id);
 
         var before = await ReadAsync(seam => seam.FindTeamAsync(organizationId, secondId, CancellationToken.None));
-        await database.ExecuteAsync("UPDATE teams SET status = 'Deleted' WHERE id = @second", ("second", secondId));
+        await database.ExecuteAsync("UPDATE teams SET status = 'Deleted', department_id = NULL WHERE id = @second", ("second", secondId));
         var after = await ReadAsync(seam => seam.FindTeamAsync(organizationId, secondId, CancellationToken.None));
         var linked = await ReadAsync(seam => seam.ListLinkedTeamsAsync(organizationId, projectId, CancellationToken.None));
 
@@ -125,9 +125,9 @@ public sealed class OrganizationStructureTests(OrganizationsDatabaseFixture data
     {
         var structure = await database.CreateStructureAsync();
         var (organizationId, projectId) = (structure.Organization.Id, structure.Project.Project.Id);
-        var later = Team.Create(organizationId, Name("яблоко"));
-        var earlier = Team.Create(organizationId, Name("Аналитика"));
-        var unlinked = Team.Create(organizationId, Name("Не связана"));
+        var later = Team.Create(organizationId, structure.Department.Id, "blue", Name("яблоко"));
+        var earlier = Team.Create(organizationId, structure.Department.Id, "blue", Name("Аналитика"));
+        var unlinked = Team.Create(organizationId, structure.Department.Id, "blue", Name("Не связана"));
         await using (var context = database.NewContext())
         {
             context.Teams.AddRange(later, earlier, unlinked);
@@ -148,7 +148,7 @@ public sealed class OrganizationStructureTests(OrganizationsDatabaseFixture data
     {
         var structure = await database.CreateStructureAsync();
         var (organizationId, projectId) = (structure.Organization.Id, structure.Project.Project.Id);
-        var unlinked = Team.Create(organizationId, Name("Не связана"));
+        var unlinked = Team.Create(organizationId, structure.Department.Id, "blue", Name("Не связана"));
         await using (var context = database.NewContext())
         {
             context.Teams.Add(unlinked);

@@ -231,7 +231,7 @@ public sealed class MembershipRepositoriesTests(OrganizationsDatabaseFixture dat
     {
         var structure = await database.CreateStructureAsync();
         var projectId = structure.Project.Project.Id;
-        var analytics = Team.Create(structure.Organization.Id, TestData.Name("Аналитика"));
+        var analytics = Team.Create(structure.Organization.Id, structure.Department.Id, "blue", TestData.Name("Аналитика"));
         await using (var context = database.NewContext())
         {
             context.Teams.Add(analytics);

@@ -351,7 +351,7 @@ namespace Mustask.Infrastructure.Migrations
             migrationBuilder.AddCheckConstraint(
                 name: "ck_teams_department_place",
                 table: "teams",
-                sql: "(status = 'Active' AND department_id IS NOT NULL) OR (status = 'Deleted' AND department_id IS NULL)");
+                sql: "(status <> 'Deleted' AND department_id IS NOT NULL) OR (status = 'Deleted' AND department_id IS NULL)");
 
             migrationBuilder.AddCheckConstraint(
                 name: "ck_projects_color",

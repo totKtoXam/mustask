@@ -83,7 +83,7 @@ public sealed class ScopedAccessStatementCountTests(OrganizationsDatabaseFixture
         var department = OrganizationsDatabaseFixture.NewDepartment(organization, OrganizationsDatabaseFixture.UniqueName("Департамент"));
         var project = Project.Create(
             organization, OrganizationsDatabaseFixture.Name(OrganizationsDatabaseFixture.UniqueName("Проект")), "DEP", OrganizationsDatabaseFixture.Now,
-            OrganizationsDatabaseFixture.Creator, null, department.Id);
+            OrganizationsDatabaseFixture.Creator, "blue", null, department.Id);
         var areas = new List<Area> { department, project.Root };
         var deepest = project.Root;
 

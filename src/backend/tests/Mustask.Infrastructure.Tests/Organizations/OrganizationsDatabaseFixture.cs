@@ -175,20 +175,21 @@ public sealed class OrganizationsDatabaseFixture : IAsyncLifetime
                 var processId = await seed.SeedAsync(organizationId, ct);
                 var organization = Organization.Create(
                     organizationId, Name(organizationName ?? UniqueName("Организация")), processId, Now, Creator);
-                var project = Project.Create(organizationId, Name(projectName), key, Now, Creator);
-                var first = Team.Create(organizationId, Name(projectName));
-                var second = Team.Create(organizationId, Name("Платформа"));
+                var project = Project.Create(organizationId, Name(projectName), key, Now, Creator, "blue");
+                var department = Area.CreateDepartment(organizationId, "blue", Name("Отдел структуры"), null, Creator, Now);
+                var first = Team.Create(organizationId, department.Id, "orange", Name(projectName));
+                var second = Team.Create(organizationId, department.Id, "magenta", Name("Платформа"));
 
                 context.Organizations.Add(organization);
                 context.Projects.Add(project.Project);
                 context.Teams.AddRange(first, second);
-                context.Areas.Add(project.Root);
+                context.Areas.AddRange(project.Root, department);
                 context.ProjectTeams.AddRange(
                     ProjectTeam.Link(organizationId, project.Project.Id, first.Id, Creator, Now),
                     ProjectTeam.Link(organizationId, project.Project.Id, second.Id, Creator, Now));
                 await context.SaveChangesAsync(ct);
 
-                return new SeededStructure(organization, project, first, second);
+                return new SeededStructure(organization, project, first, second, department);
             },
             CancellationToken.None);
     }
@@ -197,13 +198,36 @@ public sealed class OrganizationsDatabaseFixture : IAsyncLifetime
     public async Task<Team> AddTeamAsync(Guid organizationId, string name, params Guid[] linkedProjects)
     {
         await using var context = NewContext();
-        var team = Team.Create(organizationId, Name(name));
+        var team = Team.Create(organizationId, await DepartmentOfAsync(organizationId), "blue", Name(name));
 
         context.Teams.Add(team);
         context.ProjectTeams.AddRange(linkedProjects.Select(projectId => ProjectTeam.Link(organizationId, projectId, team.Id, Creator, Now)));
         await context.SaveChangesAsync();
 
         return team;
+    }
+
+    /// <summary>The id of a department of the organization a test team can stand in: the oldest one, made here when there is none yet.</summary>
+    public async Task<Guid> DepartmentOfAsync(Guid organizationId)
+    {
+        await using var context = NewContext();
+
+        var existing = await context.Areas
+            .Where(area => area.OrganizationId == organizationId && area.Type == AreaType.Department)
+            .OrderBy(area => area.CreatedAt)
+            .Select(area => (Guid?)area.Id)
+            .FirstOrDefaultAsync();
+
+        if (existing is { } id)
+        {
+            return id;
+        }
+
+        var department = Area.CreateDepartment(organizationId, "blue", Name("Отдел для команд"), null, Creator, Now);
+        context.Areas.Add(department);
+        await context.SaveChangesAsync();
+
+        return department.Id;
     }
 
     /// <summary>Links an existing team to a project, recording <see cref="Creator"/> and <see cref="Now"/>.</summary>
@@ -219,7 +243,7 @@ public sealed class OrganizationsDatabaseFixture : IAsyncLifetime
     public async Task<NewProject> AddProjectAsync(Guid organizationId, string name, string key)
     {
         await using var context = NewContext();
-        var project = Project.Create(organizationId, Name(name), key, Now, Creator);
+        var project = Project.Create(organizationId, Name(name), key, Now, Creator, "blue");
 
         context.Projects.Add(project.Project);
         context.Areas.Add(project.Root);
@@ -307,8 +331,8 @@ public sealed class OrganizationsDatabaseFixture : IAsyncLifetime
     }
 
     /// <summary>A department (top level), not yet stored.</summary>
-    public static Area NewDepartment(Guid organizationId, string name) =>
-        Area.CreateDepartment(organizationId, Name(name), null, Creator, Now);
+    public static Area NewDepartment(Guid organizationId, string name, string color = "blue") =>
+        Area.CreateDepartment(organizationId, color, Name(name), null, Creator, Now);
 
     /// <summary>A sub-area under a project node or a sub-area, not yet stored.</summary>
     public static Area NewSubArea(Area parent, string name) =>
@@ -340,7 +364,7 @@ public sealed class OrganizationsDatabaseFixture : IAsyncLifetime
 }
 
 /// <summary>What <see cref="OrganizationsDatabaseFixture.CreateStructureAsync"/> wrote.</summary>
-public sealed record SeededStructure(Organization Organization, NewProject Project, Team FirstTeam, Team SecondTeam);
+public sealed record SeededStructure(Organization Organization, NewProject Project, Team FirstTeam, Team SecondTeam, Area Department);
 
 /// <summary>What <see cref="OrganizationsDatabaseFixture.CreateLegacyStructureAsync"/> wrote: ids only, the model cannot read that shape.</summary>
 public sealed record LegacyStructure(Guid OrganizationId, Guid ProjectId, Guid FirstTeamId, Guid RootAreaId, Guid SecondTeamId, Guid SecondAreaId);

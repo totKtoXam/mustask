@@ -38,7 +38,7 @@ internal static class OrganizationsConstraints
     public const string TeamMembershipTeamKey = "fk_team_memberships_teams_organization_id_team_id";
 
     /// <summary>BR-TD-20: the stored colour is one key of the fixed palette (the list repeats <c>ColorPalette</c>; a test keeps them equal).</summary>
-    public const string ColorCheck = "color IN ('blue', 'orange', 'green', 'purple', 'red', 'teal', 'amber', 'pink', 'indigo', 'lime', 'magenta', 'cyan')";
+    internal static readonly string ColorCheck = "color IN ('blue', 'orange', 'green', 'purple', 'red', 'teal', 'amber', 'pink', 'indigo', 'lime', 'magenta', 'cyan')";
 
     /// <summary>BR-M1-12: a name among siblings.</summary>
     public const string AreaName = "ix_areas_organization_id_parent_id_normalized_name";

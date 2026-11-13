@@ -99,7 +99,7 @@ public sealed class OrganizationLevelTeamsSchemaTests(OrganizationsDatabaseFixtu
         await database.ExecuteAsync("DELETE FROM project_teams WHERE team_id = @team", parameters);
 
         var held = await Assert.ThrowsAsync<PostgresException>(() => database.ExecuteAsync(
-            "INSERT INTO teams (id, organization_id, name, normalized_name, status) SELECT gen_random_uuid(), organization_id, name, normalized_name, 'Active' FROM teams WHERE id = @team",
+            "INSERT INTO teams (id, organization_id, name, normalized_name, status, color, department_id) SELECT gen_random_uuid(), organization_id, name, normalized_name, 'Active', 'blue', (SELECT id FROM areas WHERE organization_id = teams.organization_id AND type = 1 LIMIT 1) FROM teams WHERE id = @team",
             parameters));
 
         Assert.Equal(OrganizationsConstraints.TeamName, held.ConstraintName);

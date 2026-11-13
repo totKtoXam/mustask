@@ -39,20 +39,20 @@ public sealed class OrganizationsSchemaTests(OrganizationsDatabaseFixture databa
         },
         {
             "BR-M1-1: a project name in the organization, all statuses",
-            "INSERT INTO projects (id, organization_id, name, normalized_name, key, status, created_at, created_by) "
-            + "SELECT gen_random_uuid(), organization_id, name, normalized_name, 'ZZZ', 'Deactivated', now(), 'x' FROM projects WHERE id = @project",
+            "INSERT INTO projects (id, organization_id, name, normalized_name, key, status, created_at, created_by, color) "
+            + "SELECT gen_random_uuid(), organization_id, name, normalized_name, 'ZZZ', 'Deactivated', now(), 'x', 'blue' FROM projects WHERE id = @project",
             "ix_projects_organization_id_normalized_name"
         },
         {
             "BR-M1-1: a project key in the organization, all statuses",
-            "INSERT INTO projects (id, organization_id, name, normalized_name, key, status, created_at, created_by) "
-            + "SELECT gen_random_uuid(), organization_id, 'Иной', 'ИНОЙ', key, 'Deactivated', now(), 'x' FROM projects WHERE id = @project",
+            "INSERT INTO projects (id, organization_id, name, normalized_name, key, status, created_at, created_by, color) "
+            + "SELECT gen_random_uuid(), organization_id, 'Иной', 'ИНОЙ', key, 'Deactivated', now(), 'x', 'blue' FROM projects WHERE id = @project",
             "ix_projects_organization_id_key"
         },
         {
             "feat-028 BR-OL-3: an active team name in the organization",
-            "INSERT INTO teams (id, organization_id, name, normalized_name, status) "
-            + "SELECT gen_random_uuid(), organization_id, name, normalized_name, 'Active' FROM teams WHERE id = @second",
+            "INSERT INTO teams (id, organization_id, name, normalized_name, status, color, department_id) "
+            + "SELECT gen_random_uuid(), organization_id, name, normalized_name, 'Active', 'blue', (SELECT id FROM areas WHERE organization_id = teams.organization_id AND type = 1 LIMIT 1) FROM teams WHERE id = @second",
             "ix_teams_organization_id_normalized_name"
         },
         {
@@ -170,10 +170,10 @@ public sealed class OrganizationsSchemaTests(OrganizationsDatabaseFixture databa
     {
         var parameters = await ParametersAsync();
 
-        await database.ExecuteAsync("UPDATE teams SET status = 'Deleted' WHERE id = @second", parameters);
+        await database.ExecuteAsync("UPDATE teams SET status = 'Deleted', department_id = NULL WHERE id = @second", parameters);
         await database.ExecuteAsync(
-            "INSERT INTO teams (id, organization_id, name, normalized_name, status) "
-            + "SELECT gen_random_uuid(), organization_id, name, normalized_name, 'Active' FROM teams WHERE id = @second",
+            "INSERT INTO teams (id, organization_id, name, normalized_name, status, color, department_id) "
+            + "SELECT gen_random_uuid(), organization_id, name, normalized_name, 'Active', 'blue', (SELECT id FROM areas WHERE organization_id = teams.organization_id AND type = 1 LIMIT 1) FROM teams WHERE id = @second",
             parameters);
     }
 
@@ -200,7 +200,7 @@ public sealed class OrganizationsSchemaTests(OrganizationsDatabaseFixture databa
     {
         var parameters = await ParametersAsync();
 
-        await database.ExecuteAsync("UPDATE teams SET status = 'Deleted' WHERE id = @first", parameters);
+        await database.ExecuteAsync("UPDATE teams SET status = 'Deleted', department_id = NULL WHERE id = @first", parameters);
     }
 
     // mod-017 BR-OT-10: the owner and default columns of an area, and the first-team marker of a team, are gone.
@@ -258,7 +258,7 @@ public sealed class OrganizationsSchemaTests(OrganizationsDatabaseFixture databa
         var structure = await database.CreateStructureAsync();
         var other = await database.CreateStructureAsync();
         var sibling = await database.AddProjectAsync(structure.Organization.Id, "Соседний проект", "SIB");
-        var unlinkedTeam = Team.Create(structure.Organization.Id, OrganizationsDatabaseFixture.Name("Не связана"));
+        var unlinkedTeam = Team.Create(structure.Organization.Id, structure.Department.Id, "blue", OrganizationsDatabaseFixture.Name("Не связана"));
         await using (var context = database.NewContext())
         {
             context.Teams.Add(unlinkedTeam);

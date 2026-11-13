@@ -47,7 +47,7 @@ public sealed class OwningTeamStatementCountTests(OrganizationsDatabaseFixture d
     private const int ListStatements = 7;
     private const int TeamsListStatements = 2;
     private const int OwnedCountStatements = 3;
-    private const int DeletionStatements = 15;   // 11 + the hierarchy lock's two statements (mod-005 QD-1) + the area links ended (mod-018 BR-AW-10) + the team grants ended (mod-019 BR-SA-3)
+    private const int DeletionStatements = 14;   // 11 + the hierarchy lock's two statements (mod-005 QD-1) + the team grants ended (mod-019 BR-SA-3)
     private const int ItemGetStatements = 7;
     private const int TeamGetStatements = 1;
     private const int TeamChangeSaveStatements = 16;
@@ -304,7 +304,7 @@ public sealed class OwningTeamStatementCountTests(OrganizationsDatabaseFixture d
         {
             for (var index = teamIds.Count; index < teams; index++)
             {
-                var team = Team.Create(organization, OrganizationsDatabaseFixture.Name($"Команда {index:D2}"));
+                var team = Team.Create(organization, structure.Department.Id, "blue", OrganizationsDatabaseFixture.Name($"Команда {index:D2}"));
                 context.Teams.Add(team);
                 context.ProjectTeams.Add(ProjectTeam.Link(organization, project, team.Id, OrganizationsDatabaseFixture.Creator, OrganizationsDatabaseFixture.Now));
                 teamIds.Add(team.Id);
