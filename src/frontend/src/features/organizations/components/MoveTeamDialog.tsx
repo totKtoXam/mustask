@@ -4,9 +4,9 @@ import Typography from '@mui/material/Typography';
 import { organizationErrorCodes } from '../../../shared/api/errorCodes';
 import { ApiError } from '../../../shared/api/httpClient';
 import { apiErrorText } from '../../../shared/lib/apiErrorText';
-import { ActionButton, FormDialog, TruncatedText } from '../../../shared/ui';
+import { ActionButton, FormDialog, Tag, TruncatedText } from '../../../shared/ui';
 import type { AreaNode, TeamPlace, TeamProject } from '../api/organizationsApi';
-import { useAreaTree } from '../hooks/queries';
+import { useAreaTree, useDeletionCounts } from '../hooks/queries';
 import { useFocusInvalid } from '../hooks/useFocusInvalid';
 import { useFocusOnMount } from '../hooks/useFocusOnMount';
 import { departmentsOf } from '../lib/areaTree';
@@ -57,6 +57,11 @@ export function MoveTeamDialog({
   const [contextGone, setContextGone] = useState(false);
   const focusField = useFocusOnMount<HTMLInputElement>();
   const focusInvalid = useFocusInvalid();
+
+  // A link of any status refuses the move (BR-TD-4); the team's page lists the active projects only,
+  // so the deactivated ones come from the deletion counts, which name every linked project.
+  const counts = useDeletionCounts(organizationId, team.id, { enabled: linksText !== null });
+  const inactive = (counts.data?.projects ?? []).filter((project) => !project.active);
 
   const options = departmentsOf(tree.data ?? []).filter((node) => node.id !== team.departmentId);
   const chosen = options.find((node) => node.id === departmentId) ?? null;
@@ -114,6 +119,15 @@ export function MoveTeamDialog({
             />
           </Box>
         ))}
+        {inactive.map((project) => (
+          <Box key={project.projectId} sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            <TruncatedText>{project.name}</TruncatedText>
+            <Tag label={moveTeamDialog.deactivated} />
+          </Box>
+        ))}
+        {inactive.length > 0 && (
+          <Typography variant="body2">{moveTeamDialog.restoreFirst}</Typography>
+        )}
       </Box>
     ) : null;
 

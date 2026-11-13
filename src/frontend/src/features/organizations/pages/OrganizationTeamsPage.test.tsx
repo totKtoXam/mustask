@@ -72,6 +72,8 @@ describe('feat-028 US-1 Scenario: The organization’s teams are listed in its s
       'href',
       `/organizations/${ids.alfa}/areas/${ids.platformArea}/overview`,
     );
+    // design § 7.1: the department column carries the department's own dot beside the name.
+    expect(within(rows[1]!).getAllByTestId('colour-dot')).toHaveLength(2);
     // A team of another organization is not listed.
     expect(within(table).queryByText('Отчётность')).not.toBeInTheDocument();
   });

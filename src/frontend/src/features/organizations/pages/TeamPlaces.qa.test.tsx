@@ -83,25 +83,22 @@ describe('mod-021 QA: «Перемещение команды» refusals', () =>
     expect(api.writes().map((write) => write.method)).toEqual(['PUT']);
   });
 
-  // F-1 (qa.md, major): the server refuses a move for a link to a project of ANY status, the dialog lists the
-  // active projects only. The team of the deactivated «Старый проект» gets the refusal with nothing to unlink.
-  // `it.fails` keeps CI green while the defect lives and turns red when it is fixed: then drop `.fails`.
-  it.fails(
-    'a team linked only to a deactivated project gets a way out of the refusal, not an empty list (F-1)',
-    async () => {
-      serveOrganizations();
-      const dialog = await openMove(ids.oldTeam);
-      await chooseDepartment(dialog, 'Отчёты');
-      await userEvent.click(within(dialog).getByRole('button', { name: 'Переместить' }));
-      await within(dialog).findByText(
-        'Команда связана с проектами. Отключите её от них перед перемещением.',
-      );
+  // F-1 (qa.md, major): the server refuses a move for a link to a project of ANY status; the deactivated
+  // ones cannot be unlinked, so the dialog names them, tagged, and says to restore the project first.
+  it('a team linked only to a deactivated project: the refusal names it, tagged, with no «Отключить» and the way out (F-1)', async () => {
+    serveOrganizations();
+    const dialog = await openMove(ids.oldTeam);
+    await chooseDepartment(dialog, 'Отчёты');
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Переместить' }));
+    await within(dialog).findByText(
+      'Команда связана с проектами. Отключите её от них перед перемещением.',
+    );
 
-      expect(within(dialog).getAllByRole('button', { name: /^Отключить/ }).length).toBeGreaterThan(
-        0,
-      );
-    },
-  );
+    expect(await within(dialog).findByText('Старый проект')).toBeVisible();
+    expect(within(dialog).getByText('деактивирован')).toBeVisible();
+    expect(within(dialog).getByText(/Сначала восстановите проект/)).toBeVisible();
+    expect(within(dialog).queryByRole('button', { name: /^Отключить/ })).not.toBeInTheDocument();
+  });
 });
 
 describe('mod-021 QA: «Новая команда», the department field', () => {

@@ -171,8 +171,13 @@ export function useTeamProjects(
  * confirmation opens and kept for no longer (`gcTime: 0`): the next opening counts afresh.
  * Never retried: a failure is the dialog's «Повторить».
  */
-export function useDeletionCounts(organizationId: string, teamId: string) {
+export function useDeletionCounts(
+  organizationId: string,
+  teamId: string,
+  options: { enabled?: boolean } = {},
+) {
   return useQuery({
+    enabled: options.enabled ?? true,
     queryKey: organizationsKeys.deletionCounts(organizationId, teamId),
     queryFn: () => getDeletionCounts(organizationId, teamId),
     gcTime: 0,

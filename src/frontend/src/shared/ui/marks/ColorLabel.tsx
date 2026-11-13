@@ -16,13 +16,42 @@ export interface ColorLabelProps {
 }
 
 /**
+ * The dot alone (doc-016 design § 7.1), for a place that holds one icon, such as a page title. It is
+ * `aria-hidden`: the name is always beside it.
+ */
+export function ColorDot({
+  colour,
+  size = 'child',
+}: {
+  colour: string;
+  size?: 'department' | 'child';
+}) {
+  const theme = useTheme();
+  const dot = size === 'department' ? theme.layout.mark.categoryDotField : theme.layout.categoryDot;
+  return (
+    <Box
+      component="span"
+      aria-hidden="true"
+      data-testid="colour-dot"
+      sx={{
+        display: 'inline-block',
+        width: dot,
+        height: dot,
+        borderRadius: '50%',
+        flexShrink: 0,
+        backgroundColor: theme.workTracking.objectColour(colour),
+      }}
+    />
+  );
+}
+
+/**
  * An object's name with its colour as a dot before it (doc-016 design § 7.1). The dot is
  * `aria-hidden` and the name always stands beside it: colour is never the only carrier. A missing
  * colour draws the name alone.
  */
 export function ColorLabel({ colour, name, size = 'child', to, linkState }: ColorLabelProps) {
   const theme = useTheme();
-  const dot = size === 'department' ? theme.layout.mark.categoryDotField : theme.layout.categoryDot;
   return (
     <Box
       component="span"
@@ -34,21 +63,7 @@ export function ColorLabel({ colour, name, size = 'child', to, linkState }: Colo
         maxWidth: '100%',
       }}
     >
-      {colour ? (
-        <Box
-          component="span"
-          aria-hidden="true"
-          data-testid="colour-dot"
-          sx={{
-            display: 'inline-block',
-            width: dot,
-            height: dot,
-            borderRadius: '50%',
-            flexShrink: 0,
-            backgroundColor: theme.workTracking.objectColour(colour),
-          }}
-        />
-      ) : null}
+      {colour ? <ColorDot colour={colour} size={size} /> : null}
       <TruncatedText to={to} linkState={linkState} look="link">
         {name}
       </TruncatedText>

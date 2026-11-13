@@ -36,3 +36,8 @@ Projects in departments and «Верхний уров"» (mod-022), department m
 search and sight (feat-061..065, feat-041/052/054), «Список»/«Дерево» of «Структура» and the upgrade notice (doc-016 § 7.2,
 § 8: they belong to the structure-list lines), the colour on the path button and in panel columns (they do not exist yet).
 The panel has one (light) theme: one hex per key serves it; dark variants arrive with a dark theme.
+
+## 4. After frontend QA (F-1..F-3)
+
+- F-1: after a `has_links` refusal the move dialog also lists the team's deactivated linked projects (from `GET …/deletion-counts`, which already names every linked project with `active`), tagged «деактивирован», with no «Отключить», and a line. **Copy for gate-3** (design § 4.2 has none, written by the developer): «Связь с деактивированным проектом нельзя отключить. Сначала восстановите проект в списке деактивированных проектов организации.» The read needs the deletion-counts code; if the caller lacks it the deactivated rows are simply absent.
+- F-2: the team page title carries the team's dot (kit `ColorDot`, the dot alone). F-3: the «Департамент» column draws the department's dot; the colour comes from the area tree (`color` of the department node), the list item has none.

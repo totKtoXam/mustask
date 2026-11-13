@@ -12,6 +12,7 @@ import { apiErrorText } from '../../../shared/lib/apiErrorText';
 import { useWorkContext } from '../../../shared/lib/workContext';
 import {
   ActionButton,
+  ColorDot,
   ColorLabel,
   DataTable,
   InlineEmpty,
@@ -252,6 +253,7 @@ export function TeamPage() {
     <ObjectAccess codes={query.data?.codes}>
       <PageHeader
         title={team ? teamPage.title(team.name) : teamPage.titleLoading}
+        titleIcon={team?.color ? <ColorDot colour={team.color} /> : undefined}
         commands={commands}
       />
       {loading ? (

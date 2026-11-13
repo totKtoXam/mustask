@@ -84,6 +84,10 @@ export const moveTeamDialog = {
   submit: 'Переместить',
   noOther: 'Нет другого департамента, в который вы можете переместить команду.',
   projects: 'Проекты:',
+  /** mod-021 qa F-1: copy written by the developer, design § 4.2 has none (for gate-3). */
+  restoreFirst:
+    'Связь с деактивированным проектом нельзя отключить. Сначала восстановите проект в списке деактивированных проектов организации.',
+  deactivated: 'деактивирован',
   unlink: 'Отключить',
   unlinkRow: (project: string) => `Отключить от проекта «${project}»`,
   moved: (team: string, department: string) => `Команда «${team}» перемещена в «${department}».`,

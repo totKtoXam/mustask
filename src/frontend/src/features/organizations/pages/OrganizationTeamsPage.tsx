@@ -27,7 +27,7 @@ import { useNotify } from '../components/notice';
 import { TeamDialogs, type TeamDialog } from '../components/TeamDialogs';
 import { RoleFloorAccess } from '../access/RoleFloorAccess';
 import { useCreateTeam } from '../hooks/mutations';
-import { useOrganizationTeams } from '../hooks/queries';
+import { useAreaTree, useOrganizationTeams } from '../hooks/queries';
 import { useObjectLink } from '../hooks/useObjectLink';
 import { teamsList } from '../lib/navigationTexts';
 import { notFoundLevel } from '../lib/notFoundLevel';
@@ -60,6 +60,8 @@ function OrganizationTeams({ organizationId }: { organizationId: string }) {
   const notify = useNotify();
   const navigate = useNavigate();
   const objectLink = useObjectLink(organizationId);
+  const tree = useAreaTree(organizationId);
+  const departmentColours = new Map((tree.data ?? []).map((node) => [node.id, node.color]));
   const [text, setText] = useState('');
   const access = useAccessCheck();
   const canCreate = access(organizationsPermissions.teamCreate, 'organization');
@@ -131,9 +133,13 @@ function OrganizationTeams({ organizationId }: { organizationId: string }) {
       render: (team) => {
         const link = objectLink('department', team.departmentId);
         return team.departmentName ? (
-          <TruncatedText to={link.to} linkState={link.state} look="link">
-            {team.departmentName}
-          </TruncatedText>
+          <ColorLabel
+            colour={departmentColours.get(team.departmentId)}
+            name={team.departmentName}
+            size="department"
+            to={link.to}
+            linkState={link.state}
+          />
         ) : null;
       },
     },

@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { px, rgb, theme } from '../../../test/kitTesting';
-import { ColorLabel } from './ColorLabel';
+import { ColorDot, ColorLabel } from './ColorLabel';
 
 // doc-016 BR-TD-20, design § 7.1: the stored palette key as a dot beside the name.
 
@@ -58,5 +58,12 @@ describe('doc-016 Scenario: ColorLabel', () => {
     ];
     const hexes = keys.map((key) => theme.workTracking.objectColour(key));
     expect(new Set(hexes).size).toBe(12);
+  });
+
+  it('ColorDot alone is the same aria-hidden dot, for a page title’s icon', () => {
+    render(<ColorDot colour="green" size="department" />);
+    const dot = screen.getByTestId('colour-dot');
+    expect(dot).toHaveAttribute('aria-hidden', 'true');
+    expect(getComputedStyle(dot).backgroundColor).toBe(rgb('#2E8B57'));
   });
 });

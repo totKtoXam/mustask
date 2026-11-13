@@ -38,6 +38,14 @@ describe('mod-021 design § 4.2: the department on the team’s «Обзор»',
     expect(screen.queryByRole('button', { name: 'Добавить департамент' })).not.toBeInTheDocument();
   });
 
+  it('puts the team’s colour dot before its title (design § 7.1)', async () => {
+    serveOrganizations();
+    renderPage({ path: teamPage(ids.platformTeam) });
+
+    const title = await screen.findByRole('heading', { level: 1, name: 'Команда: Платформа' });
+    expect(title.parentElement?.querySelector('[data-testid="colour-dot"]')).not.toBeNull();
+  });
+
   it('offers «Переместить» to the holder of the team-creation code only', async () => {
     serveOrganizations();
     renderPage({ path: teamPage(ids.platformTeam), role: 'member' });
