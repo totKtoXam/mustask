@@ -10,7 +10,7 @@
 
 ## Gates
 
-gate-3: approved · 2026-11-13 (fix m1, m2, m4, m5 before the PR; m3 fixed in the PR on the human's request) · PR #144 https://github.com/totKtoXam/mustask/pull/144
+gate-3: approved · 2026-11-13 (fix m1, m2, m4, m5 before the PR; m3 fixed on the human's request) · PR #144 https://github.com/totKtoXam/mustask/pull/144 · merged 2026-11-13 (auto-merge, before m3) · m3 follow-up PR below
 
 ## Plan
 
@@ -39,6 +39,8 @@ gate-3: approved · 2026-11-13 (fix m1, m2, m4, m5 before the PR; m3 fixed in th
 - 2026-11-13 [orchestrator] CI on PR #144 red: scopeGuard (mod-019 BR-SA-18) did not know useAggregateNewWorkItem.tsx; registered (reads useProjectCodes), scopeGuard 12 passed.
 - 2026-11-13 [orchestrator] the human: «Исправить в #144» — m3 fixed in the PR instead of the queued debt tech-067 (queued by mistake of order, withdrawn via queue PR #154).
 - 2026-11-13 [frontend] m3, commit c3bac16a: a create reloads only the open lane cell(s) of the column holding the new item's state (by-project: that project's lane only) plus the header counts; pages loaded with «Показать ещё» elsewhere survive. Vitest 7 files / 416 passed, 1 skipped (incl. scopeGuard, kitGuard); tsc + eslint clean. No further review round (the human sees the diff in the PR).
+
+- 2026-11-13 [orchestrator] PR #144 merged by its auto-merge (enabled by the human 2026-11-12) at 06:31Z once CI went green on c9972261 (the scope-guard fix) — before c3bac16a (m3) and the log commit were pushed. They go to main in a follow-up PR from the same branch.
 
 ## Notes
 
