@@ -236,6 +236,147 @@ public sealed class TeamsInDepartmentsMigrationTests(OrganizationsDatabaseFixtur
         Assert.Equal(["0"], await QueryAsync(connectionString, "SELECT count(*) FROM team_place_upgrade_log"));
     }
 
+    // --- Backend QA (mod-021): ties and fallbacks the cast does not reach --------------------------------------------------
+
+    // BR-TD-19 step 1 · ties are broken by department NAME, not by creation order or id: the department created first has the later name.
+    // A tie of projects, and several links with no project of the team standing in any department.
+    [Fact]
+    public async Task Upgrade_TieAndFirstLink_GoByDepartmentName_NotByCreationOrder()
+    {
+        var legacy = await SeedLegacyAsync(existingFallback: false);
+        var yabloko = await InsertDepartmentAsync(legacy.ConnectionString, legacy.Romashka, "Яблоко", 20);
+        var audit = await InsertDepartmentAsync(legacy.ConnectionString, legacy.Romashka, "Аудит", 21);
+        var projectY = await InsertProjectAsync(legacy.ConnectionString, legacy.Romashka, "PY", yabloko, "Active", 30);
+        var projectA = await InsertProjectAsync(legacy.ConnectionString, legacy.Romashka, "PA", audit, "Active", 31);
+        var tied = await InsertTeamAsync(legacy.ConnectionString, legacy.Romashka, "TIED", "Active", 20);
+        var firstLink = await InsertTeamAsync(legacy.ConnectionString, legacy.Romashka, "FIRSTLINK", "Active", 21);
+
+        foreach (var (project, team) in new[] { (projectY, tied), (projectA, tied) })
+        {
+            await ExecuteAsync(
+                legacy.ConnectionString,
+                "INSERT INTO project_teams (project_id, team_id, organization_id, linked_by, linked_at) VALUES (@p, @t, @o, 'legacy-0', @at)",
+                ("p", project), ("t", team), ("o", legacy.Romashka), ("at", Epoch));
+        }
+
+        foreach (var department in new[] { yabloko, audit })
+        {
+            await ExecuteAsync(
+                legacy.ConnectionString,
+                "INSERT INTO area_teams (area_id, team_id, organization_id, linked_by, linked_at) VALUES (@a, @t, @o, 'legacy-0', @at)",
+                ("a", department), ("t", firstLink), ("o", legacy.Romashka), ("at", Epoch));
+        }
+
+        await MigrateAsync(legacy.ConnectionString, null);
+
+        Assert.Equal("Аудит", Assert.Single(await QueryAsync(legacy.ConnectionString, "SELECT a.name FROM teams t JOIN areas a ON a.id = t.department_id WHERE t.id = @t", ("t", tied))));
+        Assert.Equal("Аудит", Assert.Single(await QueryAsync(legacy.ConnectionString, "SELECT a.name FROM teams t JOIN areas a ON a.id = t.department_id WHERE t.id = @t", ("t", firstLink))));
+        Assert.Equal(
+            ["FIRSTLINK|first_link", "TIED|tie_by_name"],
+            await QueryAsync(
+                legacy.ConnectionString,
+                "SELECT concat_ws('|', team_name, rule) FROM team_place_upgrade_log WHERE kind = 'team_placed' AND team_name IN ('TIED', 'FIRSTLINK') ORDER BY team_name"));
+    }
+
+    // BR-TD-20 · the SQL rule equals the domain rule at scale, including the all-used case: departments created at one instant are
+    // coloured by name; 14 teams and 14 projects (one deactivated, not counted afterwards) in the first department follow the rule, the
+    // department's own colour counted as used. Teams, projects and departments are separate scopes.
+    [Fact]
+    public async Task Upgrade_ColoursAtScale_EqualTheDomainRule_IncludingTheAllUsedCase()
+    {
+        var cs = await NewLegacyDatabaseAsync();
+        var organization = await CreateOrganizationAsync(cs, "Большая");
+        var departments = new List<Guid>();
+
+        // Inserted in reverse so that neither the insertion order nor the id order is the name order; the same created_at makes it a tie.
+        for (var index = 14; index >= 1; index--)
+        {
+            departments.Add(await InsertDepartmentAsync(cs, organization, $"Д{index:00}", 0));
+        }
+
+        var first = departments[^1];
+        var used = new List<string>();
+        var expectedDepartments = new List<string>();
+
+        for (var index = 0; index < 14; index++)
+        {
+            var colour = ColorPalette.Choose(used);
+            expectedDepartments.Add(colour);
+            used.Add(colour);
+        }
+
+        var teamNames = new List<string>();
+
+        for (var index = 1; index <= 14; index++)
+        {
+            var team = await InsertTeamAsync(cs, organization, $"T{index:00}", "Active", index);
+            await ExecuteAsync(
+                cs,
+                "INSERT INTO area_teams (area_id, team_id, organization_id, linked_by, linked_at) VALUES (@a, @t, @o, 'legacy-0', @at)",
+                ("a", first), ("t", team), ("o", organization), ("at", Epoch));
+            teamNames.Add($"T{index:00}");
+        }
+
+        var projectNames = new List<string>();
+
+        for (var index = 1; index <= 14; index++)
+        {
+            var status = index == 6 ? "Deactivated" : "Active";
+            await InsertProjectAsync(cs, organization, $"P{index:00}", first, status, index);
+            projectNames.Add($"P{index:00}");
+        }
+
+        await MigrateAsync(cs, null);
+
+        Assert.Equal(
+            expectedDepartments,
+            await QueryAsync(cs, "SELECT color FROM areas WHERE type = 1 AND organization_id = @o ORDER BY name COLLATE \"ru-x-icu\"", ("o", organization)));
+
+        var departmentColour = expectedDepartments[0];
+        var teamUsed = new List<string> { departmentColour };
+        var expectedTeams = new List<string>();
+
+        foreach (var _ in teamNames)
+        {
+            var colour = ColorPalette.Choose(teamUsed);
+            expectedTeams.Add(colour);
+            teamUsed.Add(colour);
+        }
+
+        Assert.Equal(expectedTeams, await QueryAsync(cs, "SELECT color FROM teams WHERE organization_id = @o ORDER BY name", ("o", organization)));
+
+        var projectUsed = new List<string> { departmentColour };
+        var expectedProjects = new List<string>();
+
+        foreach (var name in projectNames)
+        {
+            var colour = ColorPalette.Choose(projectUsed);
+            expectedProjects.Add(colour);
+
+            if (name != "P06")
+            {
+                projectUsed.Add(colour);
+            }
+        }
+
+        Assert.Equal(expectedProjects, await QueryAsync(cs, "SELECT color FROM projects WHERE organization_id = @o ORDER BY name", ("o", organization)));
+    }
+
+    // The upgrade of an organization with only deleted teams creates no fallback department and writes no placement.
+    [Fact]
+    public async Task Upgrade_OfAnOrganizationWithOnlyDeletedTeams_CreatesNoDepartment()
+    {
+        var cs = await NewLegacyDatabaseAsync();
+        var organization = await CreateOrganizationAsync(cs, "Пустая");
+        await InsertTeamAsync(cs, organization, "GONE", "Deleted", 1);
+
+        await MigrateAsync(cs, null);
+
+        Assert.Equal(["0"], await QueryAsync(cs, "SELECT count(*) FROM areas WHERE organization_id = @o", ("o", organization)));
+        Assert.Equal(["blue"], await QueryAsync(cs, "SELECT color FROM teams WHERE organization_id = @o", ("o", organization)));
+        Assert.Equal(["0"], await QueryAsync(cs, "SELECT count(*) FROM team_place_upgrade_log WHERE organization_id = @o", ("o", organization)));
+    }
+
     // --- The cast ----------------------------------------------------------------------------------------------------
 
     /// <summary>
