@@ -3,14 +3,14 @@
 - type: bugfix
 - size: S
 - branch: bug/006-smoke-behind-edge-proxy
-- stage: 05-qa
+- stage: complete
 - epic: platform/ci
 - deps: tech-066
 - gates: gate-3
 
 ## Gates
 
-gate-3: pending
+gate-3: approved (2026-11-13, the human, relayed by the parent session)
 
 ## Plan
 
@@ -50,6 +50,8 @@ Plan:
 - 2026-11-12 [orchestrator] route confirmed by the human (relayed by the parent session): bugfix, S, take -> VM diagnosis -> plan -> dev -> QA -> review -> gate-3 -> PR; gate-1/gate-2 have no subject; artifacts = this status.md with the plan. Economy mode: one agent per stage, verify.sh in CI only
 - 2026-11-12 [orchestrator] queue line taken: PR #141 (auto-merge)
 - 2026-11-13 [code-reviewer] review round 1: approve; 0 blocker/major open, 3 minors left as debt (review.md)
+- 2026-11-13 [orchestrator] review m-2 fixed (troubleshooting row wording); m-1 (IPv4 shape-only) and m-3 (smoke.sh refuses an exact repeat by hand) stay as they are, the human agreed
+- 2026-11-13 [gate-3] approved by the human in the parent session, answering "Одобряешь?" with "Одобряю, открывай PR"; relayed here by that session. PR opened with a merge commit, branch kept
 
 ## Notes
 
