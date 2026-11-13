@@ -43,6 +43,9 @@ public interface IAreaRepository
 
     Task<bool> HasChildrenAsync(Guid organizationId, Guid areaId, CancellationToken cancellationToken);
 
+    /// <summary>The colours of the organization's departments, one entry per department (BR-TD-20): the input of the colour rule for a new one. A deleted department is gone, so it frees its colour.</summary>
+    Task<IReadOnlyList<string>> ListDepartmentColorsAsync(Guid organizationId, CancellationToken cancellationToken);
+
     /// <summary>
     /// Whether a child of <paramref name="parentId"/> (<c>null</c>: a top-level area), other than <paramref name="exceptId"/>, holds the
     /// normalized name (BR-AW-4).

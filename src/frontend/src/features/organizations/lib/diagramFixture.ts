@@ -43,11 +43,11 @@ const project = (id: string, key: string, teamIds: string[]): OfferedProject => 
   departmentName: null,
   teamIds,
 });
-const team = (id: string, departmentIds: string[]): OfferedTeam => ({
+const team = (id: string, departmentId: string): OfferedTeam => ({
   id,
   name: id,
   isMember: false,
-  departmentIds,
+  departmentId,
 });
 
 export const diagramOffers: SelectorOffers = {
@@ -58,10 +58,10 @@ export const diagramOffers: SelectorOffers = {
     project('pF', 'MOB', ['JUPITER']),
   ],
   teams: [
-    team('ATLAS', []),
-    team('JUPITER', ['d1', 'd2']),
-    team('MARS', ['d1']),
-    team('SATURN', ['d2']),
-    team('VENUS', ['d1', 'missing']),
+    team('ATLAS', 'missing'),
+    team('JUPITER', 'd2'),
+    team('MARS', 'd1'),
+    team('SATURN', 'd2'),
+    team('VENUS', 'd1'),
   ],
 };

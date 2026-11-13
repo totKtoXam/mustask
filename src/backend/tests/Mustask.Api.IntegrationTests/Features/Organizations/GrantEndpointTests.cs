@@ -135,7 +135,7 @@ public sealed class GrantEndpointTests(MustaskApiFactory factory)
         var project = await OrganizationsTestData.InUnitOfWorkAsync(factory, async (services, ct) =>
         {
             var projects = services.GetRequiredService<IProjectRepository>();
-            var created = Project.Create(structure.OrganizationId, OrganizationsTestData.Name("Под отделом"), "DPT", OrganizationsTestData.Now, "seed", parentAreaId: department.Id);
+            var created = Project.Create(structure.OrganizationId, OrganizationsTestData.Name("Под отделом"), "DPT", OrganizationsTestData.Now, "seed", "blue", parentAreaId: department.Id);
             projects.Add(created);
             await projects.SaveAsync(ct);
 

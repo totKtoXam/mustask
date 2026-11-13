@@ -42,19 +42,23 @@ export interface OfferedProject {
   departmentId: string | null;
   departmentName: string | null;
   teamIds: string[];
+  /** mod-021 api-contract § 3: the stored palette key. */
+  color?: string;
 }
 
-/** § 2: a team with the departments linked to it directly. */
+/** § 2 with mod-021 § 3: a team with the department it stands in (its place, BR-TD-1). */
 export interface OfferedTeam {
   id: string;
   name: string;
   isMember: boolean;
-  departmentIds: string[];
+  departmentId: string;
+  /** mod-021 api-contract § 3: the stored palette key. */
+  color?: string;
 }
 
 /** § 2: everything the selectors and the lists «Проекты» and «Команды» need, in one read. */
 export interface SelectorOffers {
-  departments: { id: string; name: string }[];
+  departments: { id: string; name: string; color?: string }[];
   projects: OfferedProject[];
   teams: OfferedTeam[];
 }

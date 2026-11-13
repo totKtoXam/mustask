@@ -36,7 +36,10 @@ public sealed class GetOrganizationTeamsHandler(ITeamReadModel teams, ICurrentUs
                     row.Name,
                     row.Description,
                     row.Projects.Select(project => new TeamProjectResponse(project.Id, project.Name)).ToList(),
-                    row.IsMember))
+                    row.IsMember,
+                    row.DepartmentId,
+                    row.DepartmentName,
+                    row.Color))
                 .ToList());
     }
 }

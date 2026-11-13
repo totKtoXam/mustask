@@ -102,7 +102,15 @@ export const showcaseRegistry: readonly ShowcaseSection[] = [
     id: 'marks',
     title: 'Типы, состояния и люди',
     usage: 'Тип работы и состояние всегда подписаны текстом; цвет и значок только помогают.',
-    covers: ['TypeMark', 'TypeLabel', 'CategoryMarker', 'StateLabel', 'UserAvatar', 'PersonLabel'],
+    covers: [
+      'TypeMark',
+      'TypeLabel',
+      'CategoryMarker',
+      'StateLabel',
+      'UserAvatar',
+      'PersonLabel',
+      'ColorLabel',
+    ],
     Demo: MarksDemo,
   },
   {

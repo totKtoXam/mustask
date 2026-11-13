@@ -29,6 +29,15 @@ public interface ITeamRepository
     /// <summary>The team's name, any status; <c>null</c> when there is none. For a refusal that names a team.</summary>
     Task<string?> FindNameAsync(Guid teamId, CancellationToken cancellationToken);
 
+    /// <summary>
+    /// The colours of the department's active teams, one entry per team (BR-TD-20): the input of the colour rule for a new team. A
+    /// deleted team frees its colour. Read after the department's lock.
+    /// </summary>
+    Task<IReadOnlyList<string>> ListActiveColorsAsync(Guid organizationId, Guid departmentId, CancellationToken cancellationToken);
+
+    /// <summary>Whether an active team of the organization stands in the department (BR-TD-5).</summary>
+    Task<bool> AnyActiveInDepartmentAsync(Guid organizationId, Guid departmentId, CancellationToken cancellationToken);
+
     /// <summary>Adds a team of the organization (<see cref="Team.Create"/>).</summary>
     void Add(Team team);
 

@@ -89,23 +89,11 @@ export const areaPage = {
   },
   teams: {
     title: 'Команды',
-    add: 'Добавить команды',
+    create: 'Создать команду',
     tableLabel: 'Команды департамента',
     columns: { team: 'Команда' },
-    empty: 'К департаменту не привязаны команды',
-    unlink: 'Отключить от департамента',
+    empty: 'Команд нет',
   },
-  rowMenu: (name: string) => `Ещё действия: ${name}`,
-} as const;
-
-/** The section «Департаменты» of a team's page (design § 6, D-10). */
-export const teamDepartmentsSection = {
-  title: 'Департаменты',
-  add: 'Добавить департамент',
-  tableLabel: 'Департаменты команды',
-  column: 'Департамент',
-  empty: 'Команда не входит ни в один департамент',
-  unlink: 'Отключить от команды',
   rowMenu: (name: string) => `Ещё действия: ${name}`,
 } as const;
 
@@ -115,11 +103,7 @@ export const createDepartmentDialog = {
   submit: 'Создать',
   name: { label: 'Название', hint: 'От 1 до 100 символов.' },
   description: { label: 'Описание', hint: 'Необязательно. Не более 2000 символов.' },
-  teams: {
-    label: 'Команды',
-    hint: 'Необязательно. Можно добавить позже.',
-    none: 'В организации пока нет команд.',
-  },
+  colourHelper: 'Цвет назначается автоматически',
   created: (name: string) => `Департамент «${name}» создан.`,
 } as const;
 
@@ -199,11 +183,9 @@ export const deleteAreaDialog = {
   areaTitle: 'Удаление области',
   departmentConfirm: 'Удалить департамент',
   areaConfirm: 'Удалить область',
-  withTeams: (name: string) =>
-    `Удалить департамент «${name}»? Его связи с командами будут удалены, сами команды не изменятся.`,
+  hasTeams: 'Нельзя удалить департамент, в котором есть команды',
   departmentNoTeams: (name: string) =>
     `Удалить департамент «${name}»? Восстановить департамент будет нельзя.`,
-  departmentIrreversible: 'Восстановить департамент будет нельзя.',
   area: (name: string) => `Удалить область «${name}»? Восстановить область будет нельзя.`,
   hasChildren:
     'Нельзя удалить область, в которой есть проекты, вложенные области или рабочие элементы',
@@ -214,68 +196,15 @@ export const deleteAreaDialog = {
   areaDeleted: (name: string) => `Область «${name}» удалена.`,
 } as const;
 
-/** The two ends of the link dialog (design § 6.1). */
-export type AreaLinkEnd = 'departmentTeams' | 'teamDepartments';
-
-export const areaLinkDialog = {
-  submit: 'Добавить',
-  retry: 'Повторить',
-  more: (shown: number, total: number) => `Показаны первые ${shown} из ${total}. Уточните запрос.`,
-  departmentTeams: {
-    title: 'Добавление команд в департамент',
-    label: 'Команды',
-    text: (own: string) =>
-      `Выбранные команды войдут в департамент «${own}». Работу команд и доступ их участников это не меняет.`,
-    allLinked: 'Все команды уже входят в департамент.',
-    noneExist: 'В организации пока нет команд. Создайте первую в разделе «Организация» → ',
-    sectionName: '«Команды»',
-    loadFailed: 'Не удалось загрузить команды. Попробуйте ещё раз.',
-    linkedOne: (name: string) => `Команда «${name}» добавлена.`,
-    linkedMany: (count: number) => `Команды добавлены: ${count}.`,
-  },
-  teamDepartments: {
-    title: 'Добавление департаментов в команду',
-    label: 'Департаменты',
-    text: (own: string) =>
-      `Команда «${own}» войдёт в выбранные департаменты. Её работу и доступ её участников это не меняет.`,
-    allLinked: 'Команда уже входит во все департаменты.',
-    noneExist: 'В организации пока нет департаментов. Создайте первый в разделе «Организация» → ',
-    sectionName: '«Структура»',
-    loadFailed: 'Не удалось загрузить департаменты. Попробуйте ещё раз.',
-    linkedOne: (name: string) => `Департамент «${name}» добавлен.`,
-    linkedMany: (count: number) => `Департаменты добавлены: ${count}.`,
-  },
-} as const;
-
-/** «Отключение …» (design § 6.2). */
-export const areaUnlinkDialog = {
-  confirm: 'Отключить',
-  departmentTeam: {
-    title: 'Отключение команды от департамента',
-    text: (name: string, own: string) =>
-      `Отключить команду «${name}» от департамента «${own}»? Сама команда и её рабочие элементы не изменятся.`,
-    done: 'Команда отключена от департамента.',
-  },
-  teamDepartment: {
-    title: 'Отключение департамента от команды',
-    text: (name: string, own: string) =>
-      `Отключить департамент «${name}» от команды «${own}»? Сам департамент и команда не изменятся.`,
-    done: 'Департамент отключён от команды.',
-  },
-} as const;
+/** The picker's last line when more match than it draws (mod-018 design D-1). */
+export const pickerMore = (shown: number, total: number) =>
+  `Показаны первые ${shown} из ${total}. Уточните запрос.`;
 
 /** «Расположение» of «Новый проект» and of the project's «Общие» (design § 7). */
 export const placementField = {
   label: 'Расположение',
   hint: 'Необязательно. Без департамента проект появится на верхнем уровне.',
   move: 'Переместить',
-} as const;
-
-/** The department picker of «Новая команда». */
-export const departmentsField = {
-  label: 'Департаменты',
-  none: 'В организации пока нет департаментов.',
-  teamHint: 'Необязательно. Департаменты можно добавить позже на странице команды.',
 } as const;
 
 /** Russian plural: `one` for 1, `few` for 2-4, `many` otherwise (11-14 are `many`). */
@@ -295,7 +224,6 @@ export const structureDiagram = {
   legend: {
     nesting: 'вложенность',
     relation: 'команда работает над проектом',
-    copy: 'та же команда в другом департаменте',
     hidden: 'связь через скрытый узел',
   },
   sections: { outside: 'Без департамента', departments: 'Департаменты, проекты и области' },

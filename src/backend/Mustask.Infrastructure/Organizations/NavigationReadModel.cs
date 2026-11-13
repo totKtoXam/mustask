@@ -57,7 +57,7 @@ internal sealed class NavigationReadModel(MustaskDbContext context) : INavigatio
         var departments = await Departments(organizationId)
             .OrderBy(area => EF.Functions.Collate(area.Name, OrganizationsCollation.Russian))
             .ThenBy(area => area.Id)
-            .Select(area => new NavigationRef(area.Id, area.Name))
+            .Select(area => new OfferDepartmentRow(area.Id, area.Name, area.Color!))
             .ToListAsync(cancellationToken);
 
         // Statement 2: the active projects with the department holding their node (a project at the top level has none).
@@ -75,6 +75,7 @@ internal sealed class NavigationReadModel(MustaskDbContext context) : INavigatio
                     project.Key,
                     DepartmentId = place == null ? (Guid?)null : place.Id,
                     DepartmentName = place == null ? null : place.Name,
+                    project.Color,
                 })
             .ToListAsync(cancellationToken);
 
@@ -87,29 +88,20 @@ internal sealed class NavigationReadModel(MustaskDbContext context) : INavigatio
                 select new { link.ProjectId, link.TeamId })
             .ToListAsync(cancellationToken);
 
-        // Statement 4: the active teams, the caller's membership read with them.
-        var teams = await TeamsWithMembership(organizationId, caller.UserId).ToListAsync(cancellationToken);
-
-        // Statement 5: every link of an active team to a department.
-        var departmentLinks = await (
-                from link in context.AreaTeams.AsNoTracking()
-                join department in Departments(organizationId) on link.AreaId equals department.Id
-                join team in context.ActiveTeamsOf(organizationId) on link.TeamId equals team.Id
-                where link.OrganizationId == organizationId
-                select new { link.AreaId, link.TeamId })
-            .ToListAsync(cancellationToken);
+        // Statement 4: the active teams with the department each stands in (their place, doc-016 BR-TD-1), the caller's membership read
+        // with them.
+        var teams = await ActiveTeamPlaces(organizationId, caller.UserId).ToListAsync(cancellationToken);
 
         var teamsOfProject = projectLinks.ToLookup(link => link.ProjectId, link => link.TeamId);
-        var departmentsOfTeam = departmentLinks.ToLookup(link => link.TeamId, link => link.AreaId);
 
         return new SelectorOfferRows(
             departments,
             projects
                 .Select(project => new OfferProjectRow(
-                    project.Id, project.Name, project.Key, project.DepartmentId, project.DepartmentName, teamsOfProject[project.Id].ToList()))
+                    project.Id, project.Name, project.Key, project.DepartmentId, project.DepartmentName, teamsOfProject[project.Id].ToList(), project.Color))
                 .ToList(),
             teams
-                .Select(team => new OfferTeamRow(team.Id, team.Name, team.IsMember, departmentsOfTeam[team.Id].ToList()))
+                .Select(team => new OfferTeamRow(team.Id, team.Name, team.IsMember, team.DepartmentId, team.Color))
                 .ToList());
     }
 
@@ -127,4 +119,19 @@ internal sealed class NavigationReadModel(MustaskDbContext context) : INavigatio
                 team.Id,
                 team.Name,
                 context.TeamMemberships.Any(membership => membership.TeamId == team.Id && membership.UserId == userId)));
+
+    /// <summary>The organization's active teams by name, then id, with their place and colour and whether <paramref name="userId"/> is in each.</summary>
+    private IQueryable<TeamPlaceRow> ActiveTeamPlaces(Guid organizationId, string userId) =>
+        context.ActiveTeamsOf(organizationId)
+            .AsNoTracking()
+            .OrderBy(team => EF.Functions.Collate(team.Name, OrganizationsCollation.Russian))
+            .ThenBy(team => team.Id)
+            .Select(team => new TeamPlaceRow(
+                team.Id,
+                team.Name,
+                team.DepartmentId!.Value,
+                team.Color,
+                context.TeamMemberships.Any(membership => membership.TeamId == team.Id && membership.UserId == userId)));
+
+    private sealed record TeamPlaceRow(Guid Id, string Name, Guid DepartmentId, string Color, bool IsMember);
 }

@@ -41,6 +41,6 @@ public sealed class GetDeactivatedProjectsHandler(IOrganizationReadModel organiz
         var rows = await projects.ListAsync(organizationId, ProjectStatus.Deactivated, cancellationToken);
 
         return new GetDeactivatedProjectsResult(
-            rows.Select(row => new ProjectListItemResponse(row.Id, row.Name, row.Key)).ToList());
+            rows.Select(row => new ProjectListItemResponse(row.Id, row.Name, row.Key, row.Color)).ToList());
     }
 }

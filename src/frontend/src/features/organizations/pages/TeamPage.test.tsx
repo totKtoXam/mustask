@@ -467,14 +467,14 @@ describe('feat-028 US-1, US-2 Scenario: A team id that names no team of the orga
 });
 
 describe('feat-043 design § 7.2: a team’s «Обзор» and its menu', () => {
-  it('shows the description, the members and projects counts and the departments', async () => {
+  it('shows the description, the members and projects counts and the department', async () => {
     serveOrganizations();
     renderPage({ path: teamPage(ids.platformTeam) });
 
     const panel = (await screen.findByText('Участников')).closest('dl') as HTMLElement;
     await waitFor(() => expect(panel).toHaveTextContent('Проектов1'));
     expect(panel).toHaveTextContent('ОписаниеОписание не задано');
-    expect(await screen.findByRole('table', { name: 'Департаменты команды' })).toBeInTheDocument();
+    expect(panel).toHaveTextContent('ДепартаментПлатформа');
     expect(screen.queryByRole('button', { name: 'Переименовать' })).not.toBeInTheDocument();
   });
 });

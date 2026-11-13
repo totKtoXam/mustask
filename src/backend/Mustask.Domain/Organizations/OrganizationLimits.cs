@@ -16,6 +16,9 @@ public static class OrganizationLimits
     /// <summary>The width of a stored status name (<c>Active</c>, <c>Deactivated</c>, <c>Deleted</c>).</summary>
     public const int StatusMaxLength = 16;
 
+    /// <summary>The longest palette key (BR-TD-20), stored as text.</summary>
+    public const int ColorMaxLength = 16;
+
     /// <summary>The width of a creator record: an opaque Keycloak subject (<c>sub</c>).</summary>
     public const int CreatedByMaxLength = 255;
 

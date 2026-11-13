@@ -15,11 +15,8 @@ public interface IAreaTreeReadModel
     /// </summary>
     Task<IReadOnlyList<AreaTreeRow>> GetRowsAsync(Guid organizationId, CancellationToken cancellationToken);
 
-    /// <summary>The active teams linked to the department, by name then id. Empty for any other node (OQ-8 A, OQ-11 A).</summary>
+    /// <summary>The active teams standing in the department (their place, BR-TD-1), by name then id. Empty for any other node.</summary>
     Task<IReadOnlyList<AreaTeamRow>> ListTeamsAsync(Guid organizationId, Guid areaId, CancellationToken cancellationToken);
-
-    /// <summary>The ids of the departments linked to the team.</summary>
-    Task<IReadOnlyList<Guid>> ListAreaIdsOfTeamAsync(Guid organizationId, Guid teamId, CancellationToken cancellationToken);
 }
 
 /// <summary>One node: its place, name, description, type and, below a project's node, the project and whether it is active.</summary>
@@ -32,11 +29,12 @@ public sealed record AreaTreeRow(
     Guid? ProjectId = null,
     bool? ProjectActive = null,
     string? ProjectKey = null,
-    bool InheritsAccess = true)
+    bool InheritsAccess = true,
+    string? Color = null)
 {
     /// <summary>The row as <see cref="AreaTree"/> takes it.</summary>
     public AreaNode ToNode() => new(Id, ParentId, Name, Type, ProjectId);
 }
 
-/// <summary>A team linked to a department.</summary>
-public sealed record AreaTeamRow(Guid Id, string Name);
+/// <summary>A team standing in a department.</summary>
+public sealed record AreaTeamRow(Guid Id, string Name, string Color);

@@ -24,7 +24,7 @@ namespace Mustask.Application.Features.Organizations.AddTeam;
 /// name's pre-check (409 <c>name_taken</c>); the save.
 /// </para>
 /// <para>
-/// <b>Locks</b> (plan-backend § 7.2): none. The team is new and nothing binds to it yet. Two creations of one name, and a creation
+/// <b>Locks</b> (ADR-0040 § 1): the tree lock, then the department <c>FOR SHARE</c>; the team itself is new and nothing binds to it yet. Two creations of one name, and a creation
 /// against a rename to it, are closed by <c>ix_teams_organization_id_normalized_name</c>, and the loser gets
 /// <see cref="OrganizationErrorCodes.TeamNameTaken"/> from the repository's constraint map (plan-backend § 6.3); a membership removed
 /// between the member check and the flush fails the composite key onto the organization membership, which answers
@@ -38,7 +38,6 @@ public sealed class AddTeamHandler(
     ITeamRepository teams,
     IProjectTeamRepository links,
     IAreaRepository areas,
-    IAreaLinkRepository areaLinks,
     ITeamMembershipRepository teamMemberships,
     IMemberReadModel members,
     IUserDirectory directory,
@@ -53,12 +52,6 @@ public sealed class AddTeamHandler(
         // bundles only «Администратор» holds team.create, so nothing differs.
         if (command.ProjectIds is { Count: > 0 }
             && (!access.Holds(PermissionCatalog.OrganizationsTeamLink) || !access.Holds(PermissionCatalog.OrganizationsProjectLink)))
-        {
-            throw new ForbiddenException(OrganizationErrorCodes.AccessForbidden);
-        }
-
-        if (command.AreaIds is { Count: > 0 }
-            && (!access.Holds(PermissionCatalog.OrganizationsTeamLink) || !access.Holds(PermissionCatalog.OrganizationsAreaLink)))
         {
             throw new ForbiddenException(OrganizationErrorCodes.AccessForbidden);
         }
@@ -91,6 +84,12 @@ public sealed class AddTeamHandler(
                     errors["description"] = [EntityDescription.LengthReason];
                 }
 
+                // The department is required (BR-TD-1): «Выберите департамент». A malformed id names nothing: the 404 below.
+                if (command.DepartmentId is null)
+                {
+                    errors["departmentId"] = [new FieldError(OrganizationErrorCodes.TeamDepartmentRequired)];
+                }
+
                 if (errors.Count > 0)
                 {
                     throw new ValidationException(OrganizationErrorCodes.ValidationFailed, errors);
@@ -115,24 +114,23 @@ public sealed class AddTeamHandler(
                     throw new NotFoundException(OrganizationErrorCodes.ProjectNotFound);
                 }
 
-                // 3a. The areas named (404): each an area of this organization, all or nothing, locked FOR SHARE (the binder's lock, rule 8)
-                // by one statement whose own answer says which exist.
-                var areaIds = AreaRequests.ParseIds(command.AreaIds, OrganizationErrorCodes.AreaNotFound);
-
-                if (areaIds.Count > 0)
+                // 3a. The department (BR-TD-1), under the tree lock and the department FOR SHARE (ADR-0040 § 1): a creation against the
+                // department's deletion ends in one order, because the deletion holds the tree lock first. The department is judged
+                // present by the lock statement's own answer: malformed, unknown, foreign and deleted ids alike are 404; a project's node
+                // or a sub-area is 409 type_not_allowed.
+                if (!AddressedId.TryParse(command.DepartmentId, out var departmentId))
                 {
-                    var lockedAreas = await areas.LockManyForShareAsync(organizationId, areaIds, ct);
+                    throw new NotFoundException(OrganizationErrorCodes.AreaNotFound);
+                }
 
-                    if (lockedAreas.Count != areaIds.Count)
-                    {
-                        throw new NotFoundException(OrganizationErrorCodes.AreaNotFound);
-                    }
+                await areas.LockTreeAsync(organizationId, ct);
 
-                    // A team links to a department only (OQ-8 A).
-                    if (lockedAreas.Values.Any(type => type != AreaType.Department))
-                    {
-                        throw new ConflictException(OrganizationErrorCodes.AreaLinkTypeNotAllowed);
-                    }
+                var department = await areas.LockForShareAsync(organizationId, departmentId, ct)
+                    ?? throw new NotFoundException(OrganizationErrorCodes.AreaNotFound);
+
+                if (department.Type != AreaType.Department)
+                {
+                    throw new ConflictException(OrganizationErrorCodes.AreaTypeNotAllowed);
                 }
 
                 // 4. The members named (409): each an active member of this organization, known to the directory and active there
@@ -162,7 +160,11 @@ public sealed class AddTeamHandler(
                     throw new ConflictException(OrganizationErrorCodes.TeamNameTaken);
                 }
 
-                var created = Team.Create(organizationId, name, description);
+                // BR-TD-20: the colour from the department's active teams, the department's own colour counted as used.
+                var inUse = (await teams.ListActiveColorsAsync(organizationId, departmentId, ct)).ToList();
+                inUse.Add(department.Color!);
+
+                var created = Team.Create(organizationId, departmentId, ColorPalette.Choose(inUse), name, description);
                 teams.Add(created);
 
                 var now = clock.UtcNow;
@@ -170,11 +172,6 @@ public sealed class AddTeamHandler(
                 foreach (var projectId in projectIds)
                 {
                     links.Add(ProjectTeam.Link(organizationId, projectId, created.Id, currentUser.SubjectId, now));
-                }
-
-                foreach (var areaId in areaIds)
-                {
-                    areaLinks.Add(AreaTeam.Link(organizationId, areaId, created.Id, currentUser.SubjectId, now));
                 }
 
                 foreach (var userId in userIds)
@@ -186,7 +183,7 @@ public sealed class AddTeamHandler(
                 // member removed from the organization meanwhile fails the composite key; each answers with its pre-check's code.
                 await teams.SaveAsync(ct);
 
-                return new AddTeamResult(new TeamResponse(created.Id, created.Name, created.Description));
+                return new AddTeamResult(new TeamResponse(created.Id, created.Name, created.Description, departmentId, department.Name, created.Color));
             },
             cancellationToken);
     }

@@ -25,6 +25,7 @@ internal sealed class ProjectConfiguration : IEntityTypeConfiguration<Project>
         builder.Property(project => project.Name).HasMaxLength(OrganizationLimits.NameMaxLength).IsRequired();
         builder.Property(project => project.NormalizedName).HasMaxLength(OrganizationLimits.NameMaxLength).IsRequired();
         builder.Property(project => project.Key).HasMaxLength(OrganizationLimits.KeyMaxLength).IsRequired();
+        builder.Property(project => project.Color).HasMaxLength(OrganizationLimits.ColorMaxLength).IsRequired();
         builder.Property(project => project.Status)
             .HasConversion<string>()
             .HasMaxLength(OrganizationLimits.StatusMaxLength)
@@ -57,6 +58,7 @@ internal sealed class ProjectConfiguration : IEntityTypeConfiguration<Project>
             table.HasCheckConstraint("ck_projects_name_length", OrganizationsConstraints.NameLengthCheck);
             table.HasCheckConstraint("ck_projects_key_format", "key ~ '^[A-Z][A-Z0-9]{1,9}$'");
             table.HasCheckConstraint("ck_projects_description_length", OrganizationsConstraints.DescriptionLengthCheck);
+            table.HasCheckConstraint("ck_projects_color", OrganizationsConstraints.ColorCheck);
         });
     }
 }

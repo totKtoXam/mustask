@@ -28,18 +28,24 @@ async function teamsTable() {
   return screen.findByRole('table', { name: 'Команды' });
 }
 
+/** mod-021 BR-TD-1: a team is created in a department, so the form's required picker is filled first. */
+async function pickDepartment(dialog: HTMLElement, name = 'Платформа') {
+  await userEvent.click(within(dialog).getByRole('combobox', { name: /Департамент/ }));
+  await userEvent.click(await screen.findByRole('option', { name }));
+}
+
 async function openMenu(name: string) {
   await userEvent.click(screen.getByRole('button', { name: `Ещё действия: ${name}` }));
   return screen.findByRole('menu');
 }
 
 describe('feat-028 US-1 Scenario: The organization’s teams are listed in its settings', () => {
-  it('loads with the two column labels, then lists the active teams by name', async () => {
+  it('loads with the three column labels, then lists the active teams by name', async () => {
     serveOrganizations();
     renderPage({ path: ALFA_TEAMS });
 
     const skeleton = screen.getByRole('status', { name: 'Загрузка данных' });
-    for (const label of ['Название', 'Описание']) {
+    for (const label of ['Название', 'Департамент', 'Описание']) {
       expect(within(skeleton).getByText(label)).toBeInTheDocument();
     }
 
@@ -48,7 +54,7 @@ describe('feat-028 US-1 Scenario: The organization’s teams are listed in its s
       within(table)
         .getAllByRole('columnheader')
         .map((header) => header.textContent),
-    ).toEqual(['Название', 'Описание', '']);
+    ).toEqual(['Название', 'Департамент', 'Описание', '']);
     const rows = within(table).getAllByRole('row').slice(1);
     expect(rows.map((row) => within(row).getAllByRole('cell')[0]?.textContent)).toEqual([
       'Аналитика',
@@ -56,10 +62,18 @@ describe('feat-028 US-1 Scenario: The organization’s teams are listed in its s
       'Пример проекта',
       'Старый проект',
     ]);
-    expect(within(rows[1]!).getByRole('link', { name: 'Платформа' })).toHaveAttribute(
+    expect(within(rows[1]!).getAllByRole('link', { name: 'Платформа' })[0]).toHaveAttribute(
       'href',
       `/organizations/${ids.alfa}/teams/${ids.platformTeam}/overview`,
     );
+    // mod-021 BR-TD-1: the department the team stands in, as a link to it.
+    expect(within(rows[1]!).getAllByRole('cell')[1]).toHaveTextContent('Платформа');
+    expect(within(rows[1]!).getAllByRole('link', { name: 'Платформа' })[1]).toHaveAttribute(
+      'href',
+      `/organizations/${ids.alfa}/areas/${ids.platformArea}/overview`,
+    );
+    // design § 7.1: the department column carries the department's own dot beside the name.
+    expect(within(rows[1]!).getAllByTestId('colour-dot')).toHaveLength(2);
     // A team of another organization is not listed.
     expect(within(table).queryByText('Отчётность')).not.toBeInTheDocument();
   });
@@ -74,8 +88,8 @@ describe('feat-028 US-1 Scenario: The organization’s teams are listed in its s
     const table = await teamsTable();
     const rows = within(table).getAllByRole('row').slice(1);
 
-    expect(within(rows[1]!).getAllByRole('cell')[1]).toHaveTextContent('Платформа и инструменты');
-    expect(within(rows[0]!).getAllByRole('cell')[1]).toHaveTextContent('');
+    expect(within(rows[1]!).getAllByRole('cell')[2]).toHaveTextContent('Платформа и инструменты');
+    expect(within(rows[0]!).getAllByRole('cell')[2]).toHaveTextContent('');
   });
 
   it('offers «Новая команда» as the one filled action of the head', async () => {
@@ -131,6 +145,7 @@ describe('feat-028 US-7 Scenario: No team at all is the first state, right after
     const dialog = await screen.findByRole('dialog', { name: 'Новая команда' });
 
     await userEvent.type(within(dialog).getByRole('textbox', { name: 'Название' }), 'MARS');
+    await pickDepartment(dialog);
     await userEvent.click(within(dialog).getByRole('button', { name: 'Создать' }));
 
     expect(await screen.findByText('Команда «MARS» создана.')).toBeInTheDocument();
@@ -151,28 +166,37 @@ describe('feat-028 US-1 Scenario: «Новая команда»', () => {
     return { api, dialog };
   }
 
-  it('opens on «Название» with the four fields and their hints; «Проекты» is drawn for the holder of both link codes', async () => {
+  it('opens on «Название» with the five fields and their hints; «Проекты» is drawn for the holder of both link codes', async () => {
     const { dialog } = await openCreate();
 
     expect(within(dialog).getByRole('textbox', { name: 'Название' })).toHaveFocus();
     expect(within(dialog).getByRole('textbox', { name: 'Описание' })).toBeVisible();
+    expect(within(dialog).getByRole('combobox', { name: /Департамент/ })).toBeVisible();
     expect(within(dialog).getByRole('combobox', { name: 'Участники' })).toBeVisible();
     expect(within(dialog).getByRole('combobox', { name: 'Проекты' })).toBeVisible();
+    expect(
+      within(dialog).getByText('Команда принадлежит одному департаменту.'),
+    ).toBeInTheDocument();
     expect(within(dialog).getByText('От 1 до 100 символов.')).toBeInTheDocument();
     expect(within(dialog).getByText('Необязательно. Не более 2000 символов.')).toBeInTheDocument();
     expect(within(dialog).getByText('Среди активных участников организации.')).toBeInTheDocument();
     expect(within(dialog).getByText('Необязательно. Можно добавить позже.')).toBeInTheDocument();
   });
 
-  it('creates a team with a name only: one request with the name, a notice, the row listed with no project', async () => {
+  it('creates a team with a name and a department only: one request with the name, a notice, the row listed with no project', async () => {
     const { api, dialog } = await openCreate();
 
     await userEvent.type(within(dialog).getByRole('textbox', { name: 'Название' }), 'Ядро');
+    await pickDepartment(dialog);
     await userEvent.click(within(dialog).getByRole('button', { name: 'Создать' }));
 
     expect(await screen.findByText('Команда «Ядро» создана.')).toBeInTheDocument();
     expect(api.writes()).toEqual([
-      { method: 'POST', path: `/api/organizations/${ids.alfa}/teams`, body: { name: 'Ядро' } },
+      {
+        method: 'POST',
+        path: `/api/organizations/${ids.alfa}/teams`,
+        body: { name: 'Ядро', departmentId: ids.platformArea },
+      },
     ]);
     // The new team opens on its own page (feat-043 design § 5.3).
     expect(
@@ -190,6 +214,7 @@ describe('feat-028 US-1 Scenario: «Новая команда»', () => {
     const dialog = await screen.findByRole('dialog', { name: 'Новая команда' });
     await userEvent.type(within(dialog).getByRole('textbox', { name: 'Название' }), 'JUPITER');
     await userEvent.type(within(dialog).getByRole('textbox', { name: 'Описание' }), ' Первая');
+    await pickDepartment(dialog, 'Отчёты');
     const members = within(dialog).getByRole('combobox', { name: 'Участники' });
     await userEvent.click(members);
     await userEvent.type(members, 'Ива');
@@ -209,6 +234,7 @@ describe('feat-028 US-1 Scenario: «Новая команда»', () => {
     expect(write?.body).toEqual({
       name: 'JUPITER',
       description: ' Первая',
+      departmentId: ids.reportsArea,
       memberIds: [people.ivan.id],
       projectIds: [ids.prm],
     });
@@ -235,7 +261,7 @@ describe('feat-028 US-1 Scenario: «Новая команда»', () => {
     expect(await screen.findByRole('option', { name: 'Пользователи не найдены' })).toBeVisible();
   });
 
-  it('refuses an empty name and a description over 2 000 characters before anything is sent, both at once', async () => {
+  it('refuses an empty name, no department and a description over 2 000 characters before anything is sent, all at once', async () => {
     const { api, dialog } = await openCreate();
     fireEvent.change(within(dialog).getByRole('textbox', { name: 'Описание' }), {
       target: { value: 'я'.repeat(2001) },
@@ -249,6 +275,7 @@ describe('feat-028 US-1 Scenario: «Новая команда»', () => {
     expect(
       within(dialog).getByText('Описание должно содержать не более 2000 символов'),
     ).toBeInTheDocument();
+    expect(within(dialog).getByText('Выберите департамент')).toBeInTheDocument();
     expect(within(dialog).getByRole('textbox', { name: 'Название' })).toHaveAttribute(
       'aria-invalid',
       'true',
@@ -265,6 +292,7 @@ describe('feat-028 US-1 Scenario: «Новая команда»', () => {
     const name = within(dialog).getByRole('textbox', { name: 'Название' });
 
     await userEvent.type(name, '  платформа ');
+    await pickDepartment(dialog);
     await userEvent.click(within(dialog).getByRole('button', { name: 'Создать' }));
 
     expect(
@@ -281,6 +309,7 @@ describe('feat-028 US-1 Scenario: «Новая команда»', () => {
     const { api, dialog } = await openCreate();
 
     await userEvent.type(within(dialog).getByRole('textbox', { name: 'Название' }), 'Отчётность');
+    await pickDepartment(dialog);
     await userEvent.click(within(dialog).getByRole('button', { name: 'Создать' }));
 
     expect(await screen.findByText('Команда «Отчётность» создана.')).toBeInTheDocument();
@@ -298,6 +327,7 @@ describe('feat-028 US-1 Scenario: «Новая команда»', () => {
     const { dialog } = await openCreate();
     serveProblem('post', ORG_TEAMS_URL, problem(code));
     await userEvent.type(within(dialog).getByRole('textbox', { name: 'Название' }), 'Ядро');
+    await pickDepartment(dialog);
 
     await userEvent.click(within(dialog).getByRole('button', { name: 'Создать' }));
 
@@ -313,6 +343,7 @@ describe('feat-028 US-1 Scenario: «Новая команда»', () => {
     const { dialog } = await openCreate();
     serveProblem('post', ORG_TEAMS_URL, problem('organizations.access.forbidden'));
     await userEvent.type(within(dialog).getByRole('textbox', { name: 'Название' }), 'Ядро');
+    await pickDepartment(dialog);
 
     await userEvent.click(within(dialog).getByRole('button', { name: 'Создать' }));
 
@@ -473,10 +504,13 @@ describe('feat-028 US-5 Scenario: Deleted after a confirmation that counts every
     await userEvent.click(within(dialog).getByRole('button', { name: 'Удалить команду' }));
 
     expect(await screen.findByText('Команда «Платформа» удалена.')).toBeInTheDocument();
+    // The team's row leaves; its department's name may still stand in a column of the others.
     await waitFor(() =>
       expect(
-        within(screen.getByRole('table', { name: 'Команды' })).queryByText('Платформа'),
-      ).toBeNull(),
+        within(screen.getByRole('table', { name: 'Команды' }))
+          .getAllByRole('row')
+          .map((row) => within(row).queryAllByRole('cell')[0]?.textContent),
+      ).not.toContain('Платформа'),
     );
     expect(api.writes()).toEqual([
       {
@@ -612,7 +646,9 @@ describe('feat-028 US-5 Scenario: Deleted after a confirmation that counts every
 
     await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
     expect(api.writes()).toEqual([]);
-    expect(within(await teamsTable()).getByRole('link', { name: 'Платформа' })).toBeInTheDocument();
+    expect(
+      within(await teamsTable()).getAllByRole('link', { name: 'Платформа' })[0],
+    ).toBeInTheDocument();
   });
 
   it('under StrictMode it opens with focus on «Отмена» each time and gives focus back to the row’s menu', async () => {

@@ -17,7 +17,7 @@ public interface INavigationReadModel
 
     /// <summary>
     /// The selectors' offers and the lists «Проекты» and «Команды» (US-2, US-8): every department, active project (with its place) and
-    /// active team of the organization, with the links the panel needs to judge which values fit each other (BR-NV-17). Five statements.
+    /// active team of the organization, with the links the panel needs to judge which values fit each other (BR-NV-17). Four statements.
     /// </summary>
     Task<SelectorOfferRows> ReadSelectorOffersAsync(CallerAccess caller, CancellationToken cancellationToken);
 }
@@ -50,13 +50,16 @@ public sealed record OverviewRows(
 
 /// <summary>An active project with its place (the department holding its node, none at the top level) and the active teams linked to it.</summary>
 public sealed record OfferProjectRow(
-    Guid Id, string Name, string Key, Guid? DepartmentId, string? DepartmentName, IReadOnlyList<Guid> TeamIds);
+    Guid Id, string Name, string Key, Guid? DepartmentId, string? DepartmentName, IReadOnlyList<Guid> TeamIds, string Color);
 
-/// <summary>An active team, whether the caller is in it, and the departments it is linked to directly.</summary>
-public sealed record OfferTeamRow(Guid Id, string Name, bool IsMember, IReadOnlyList<Guid> DepartmentIds);
+/// <summary>An active team, whether the caller is in it, and the department it stands in (doc-016 BR-TD-1).</summary>
+public sealed record OfferTeamRow(Guid Id, string Name, bool IsMember, Guid DepartmentId, string Color);
+
+/// <summary>A department with its colour (BR-TD-20).</summary>
+public sealed record OfferDepartmentRow(Guid Id, string Name, string Color);
 
 /// <summary>The selectors' offers: departments, projects and teams, each by name (Russian collation, then id).</summary>
 public sealed record SelectorOfferRows(
-    IReadOnlyList<NavigationRef> Departments,
+    IReadOnlyList<OfferDepartmentRow> Departments,
     IReadOnlyList<OfferProjectRow> Projects,
     IReadOnlyList<OfferTeamRow> Teams);

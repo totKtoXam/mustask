@@ -46,11 +46,11 @@ public sealed class TeamStatementCountTests(OrganizationsDatabaseFixture databas
     private const int DeletionCountsStatements = 3;
     private const int LinkTeamsStatements = 4;
     private const int LinkProjectsStatements = 4;
-    private const int AddTeamStatements = 5;
+    private const int AddTeamStatements = 10;
     private const int NewTeamMemberCandidatesStatements = 2;
-    private const int CreateProjectStatements = 9;    // 6 + the area tree lock (2) and the project node insert + the department parent read (mod-018, ADR-0031)
+    private const int CreateProjectStatements = 10;   // 6 + the area tree lock (2) and the project node insert + the department parent read (mod-018, ADR-0031) + the colours in use (mod-021)
     private const int UnlinkStatements = 14;     // 11 + the hierarchy lock's two (mod-005 QD-1) + the open-sprint lock (mod-007, ADR-0028 rule 7)
-    private const int DeletionStatements = 16;   // 11 + the same two, + the open-sprint lock (mod-007), for every linked project at once, + the area links ended (mod-018 BR-AW-10) + the team grants ended (mod-019 BR-SA-3)
+    private const int DeletionStatements = 15;   // 11 + the same two, + the open-sprint lock (mod-007), for every linked project at once, + the team grants ended (mod-019 BR-SA-3); the area links ended retired (mod-021)
 
     /// <summary>An organization of <c>Projects</c> projects, <c>Teams</c> teams each linked to two of them, and the first project's ids.</summary>
     private sealed record Seeded(Guid OrganizationId, IReadOnlyList<Guid> ProjectIds, IReadOnlyList<Guid> TeamIds, Guid RootAreaId)
@@ -149,10 +149,12 @@ public sealed class TeamStatementCountTests(OrganizationsDatabaseFixture databas
         var smallMembers = await SeedMembersAsync(small.OrganizationId, 1);
         var largeMembers = await SeedMembersAsync(large.OrganizationId, 200);
 
+        var smallDepartment = Id(await database.DepartmentOfAsync(small.OrganizationId));
+        var largeDepartment = Id(await database.DepartmentOfAsync(large.OrganizationId));
         var smallCount = await CountAsync((p, ct) => p.GetRequiredService<AddTeamHandler>().Handle(
-            new AddTeamCommand(Id(small.OrganizationId), "Новая малая", "Описание", smallMembers, [Id(small.Project)]), ct));
+            new AddTeamCommand(Id(small.OrganizationId), "Новая малая", "Описание", smallMembers, [Id(small.Project)], smallDepartment), ct));
         var largeCount = await CountAsync((p, ct) => p.GetRequiredService<AddTeamHandler>().Handle(
-            new AddTeamCommand(Id(large.OrganizationId), "Новая большая", "Описание", largeMembers, large.ProjectIds.Select(Id).ToList()), ct));
+            new AddTeamCommand(Id(large.OrganizationId), "Новая большая", "Описание", largeMembers, large.ProjectIds.Select(Id).ToList(), largeDepartment), ct));
 
         Assert.Equal(smallCount, largeCount);
         Assert.Equal(AddTeamStatements, largeCount);
@@ -380,7 +382,7 @@ public sealed class TeamStatementCountTests(OrganizationsDatabaseFixture databas
 
         for (var index = 1; index < projects; index++)
         {
-            var project = Project.Create(organization, OrganizationsDatabaseFixture.Name($"Проект {index:D3}"), $"P{index:D3}", OrganizationsDatabaseFixture.Now, OrganizationsDatabaseFixture.Creator);
+            var project = Project.Create(organization, OrganizationsDatabaseFixture.Name($"Проект {index:D3}"), $"P{index:D3}", OrganizationsDatabaseFixture.Now, OrganizationsDatabaseFixture.Creator, "blue");
             context.Projects.Add(project.Project);
             context.Areas.Add(project.Root);
             projectIds.Add(project.Project.Id);
@@ -390,7 +392,7 @@ public sealed class TeamStatementCountTests(OrganizationsDatabaseFixture databas
 
         for (var index = 0; index < teams; index++)
         {
-            var team = Team.Create(organization, OrganizationsDatabaseFixture.Name($"Команда {index:D3}"));
+            var team = Team.Create(organization, first.Department.Id, "blue", OrganizationsDatabaseFixture.Name($"Команда {index:D3}"));
             context.Teams.Add(team);
             teamIds.Add(team.Id);
 

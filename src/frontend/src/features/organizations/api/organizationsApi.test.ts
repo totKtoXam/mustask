@@ -20,11 +20,6 @@ import {
   getAreaTeams,
   getAreaTree,
   getProjectAreaTree,
-  getTeamAreas,
-  linkAreasToTeam,
-  linkTeamsToArea,
-  unlinkAreaFromTeam,
-  unlinkTeamFromArea,
   getDeletionCounts,
   getOrganization,
   getOrganizationTeams,
@@ -34,6 +29,7 @@ import {
   getTeam,
   getTeamProjects,
   getTeams,
+  moveTeam,
   getUnlinkCount,
   linkProjectsToTeam,
   linkTeamsToProject,
@@ -97,7 +93,7 @@ describe('mod-002 api-contract § 5: one function per route, as the contract nam
     await setDefaultTeam('o', 'p', null);
     await getAreaTree('o');
     await createArea('o', { parentId: 'r', name: 'API' });
-    await createArea('o', { name: 'Департамент', teamIds: ['t'] });
+    await createArea('o', { name: 'Департамент' });
     await createProject('o', { name: 'Ядро', key: 'CORE', parentAreaId: 'd' });
     await getArea('o', 'a');
     await renameArea('o', 'a', 'Шлюз');
@@ -107,12 +103,8 @@ describe('mod-002 api-contract § 5: one function per route, as the contract nam
     await getAreaDeletion('o', 'a');
     await deleteArea('o', 'a');
     await getAreaTeams('o', 'a');
-    await linkTeamsToArea('o', 'a', ['t']);
-    await unlinkTeamFromArea('o', 'a', 't');
     await getProjectAreaTree('o', 'p');
-    await getTeamAreas('o', 't');
-    await linkAreasToTeam('o', 't', ['a']);
-    await unlinkAreaFromTeam('o', 't', 'a');
+    await moveTeam('o', 't', 'a');
 
     const base = '/api/organizations';
     expect(sent).toEqual([
@@ -143,7 +135,7 @@ describe('mod-002 api-contract § 5: one function per route, as the contract nam
       {
         method: 'POST',
         path: `${base}/o/areas`,
-        body: { name: 'Департамент', teamIds: ['t'] },
+        body: { name: 'Департамент' },
       },
       {
         method: 'POST',
@@ -158,12 +150,8 @@ describe('mod-002 api-contract § 5: one function per route, as the contract nam
       { method: 'GET', path: `${base}/o/areas/a/deletion`, body: undefined },
       { method: 'DELETE', path: `${base}/o/areas/a`, body: undefined },
       { method: 'GET', path: `${base}/o/areas/a/teams`, body: undefined },
-      { method: 'POST', path: `${base}/o/areas/a/teams`, body: { teamIds: ['t'] } },
-      { method: 'DELETE', path: `${base}/o/areas/a/teams/t`, body: undefined },
       { method: 'GET', path: `${base}/o/projects/p/areas`, body: undefined },
-      { method: 'GET', path: `${base}/o/teams/t/areas`, body: undefined },
-      { method: 'POST', path: `${base}/o/teams/t/areas`, body: { areaIds: ['a'] } },
-      { method: 'DELETE', path: `${base}/o/teams/t/areas/a`, body: undefined },
+      { method: 'PUT', path: `${base}/o/teams/t/department`, body: { departmentId: 'a' } },
     ]);
   });
 
@@ -179,6 +167,7 @@ describe('feat-028 api-contract §§ 2.1–2.4, 4: the teams are the organizatio
     await createTeam('o', {
       name: 'Ядро',
       description: 'Платформа',
+      departmentId: 'd',
       memberIds: ['u-1'],
       projectIds: ['p'],
     });
@@ -203,7 +192,13 @@ describe('feat-028 api-contract §§ 2.1–2.4, 4: the teams are the organizatio
       {
         method: 'POST',
         path: `${base}/teams`,
-        body: { name: 'Ядро', description: 'Платформа', memberIds: ['u-1'], projectIds: ['p'] },
+        body: {
+          name: 'Ядро',
+          description: 'Платформа',
+          departmentId: 'd',
+          memberIds: ['u-1'],
+          projectIds: ['p'],
+        },
       },
       { method: 'GET', path: `${base}/teams/t`, body: undefined },
       { method: 'PUT', path: `${base}/teams/t/name`, body: { name: 'Mars' } },

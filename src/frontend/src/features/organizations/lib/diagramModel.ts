@@ -4,7 +4,7 @@ import { TREE_EXPAND_ALL_LIMIT, structureDiagram as texts } from './areaTexts';
 
 /**
  * The diagram's data model (feat-049 design §§ 4.1, 4.5, 4.7): the area tree and the selector
- * offers, with a team drawn as a copy under every department it is linked to. Pure functions, no
+ * offers, with a team drawn once, inside the department it stands in (mod-021, BR-TD-1). Pure functions, no
  * DOM; the layout and the page read this.
  */
 
@@ -105,8 +105,9 @@ export function buildModel(
   const teamsOfDepartment = new Map<string, string[]>();
   for (const team of offers?.teams ?? []) {
     teamNames.set(team.id, team.name);
-    // A link to a department missing in the tree is ignored (BR-SD-16).
-    const departments = team.departmentIds.filter((id) => nodes.get(id)?.kind === 'department');
+    // A place that is missing from the tree leaves the team outside any department (BR-SD-16).
+    const departments =
+      nodes.get(team.departmentId)?.kind === 'department' ? [team.departmentId] : [];
     departmentsOfTeam.set(team.id, departments);
     for (const department of departments.length > 0 ? departments : [null]) {
       const copy: DiagramNode = {

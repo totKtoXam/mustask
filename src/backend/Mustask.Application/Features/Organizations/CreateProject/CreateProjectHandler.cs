@@ -132,6 +132,8 @@ public sealed class CreateProjectHandler(
 
                 await areas.LockTreeAsync(organizationId, ct);
 
+                string? departmentColor = null;
+
                 if (parentAreaId is { } lockedParentId)
                 {
                     var department = await areas.LockForShareAsync(organizationId, lockedParentId, ct)
@@ -141,6 +143,8 @@ public sealed class CreateProjectHandler(
                     {
                         throw new ConflictException(OrganizationErrorCodes.AreaTypeNotAllowed);
                     }
+
+                    departmentColor = department.Color;
                 }
 
                 var teamIds = new HashSet<Guid>();
@@ -199,7 +203,18 @@ public sealed class CreateProjectHandler(
                 // (BR-OL-7). The creator is the token's subject (BR-M1-21).
                 var now = clock.UtcNow;
                 var creatorId = currentUser.SubjectId;
-                var created = Project.Create(organizationId, name, key, now, creatorId, description, parentAreaId);
+
+                // BR-TD-20: the colour from the department's active projects, the department's own colour counted as used; a project that
+                // still stands at the top level (until mod-022) has the top level as its scope.
+                var inUse = (await projects.ListActiveColorsAsync(organizationId, parentAreaId, ct)).ToList();
+
+                if (departmentColor is not null)
+                {
+                    inUse.Add(departmentColor);
+                }
+
+                var color = ColorPalette.Choose(inUse);
+                var created = Project.Create(organizationId, name, key, now, creatorId, color, description, parentAreaId);
                 projects.Add(created);
 
                 foreach (var teamId in teamIds)
@@ -214,7 +229,7 @@ public sealed class CreateProjectHandler(
                 var project = created.Project;
 
                 return new CreateProjectResult(
-                    new ProjectResponse(project.Id, project.OrganizationId, project.Name, project.Key, project.Description));
+                    new ProjectResponse(project.Id, project.OrganizationId, project.Name, project.Key, project.Description, project.Color));
             },
             cancellationToken);
     }

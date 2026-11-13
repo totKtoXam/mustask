@@ -21,7 +21,7 @@ public sealed class DeleteAreaHandlerTests
             Areas = new FakeAreaRepository(Store);
             Usage = new FakeAreaUsage();
             Handler = new DeleteAreaHandler(
-                new FakeOrganizationReadModel(Store), new FakeProjectRepository(Store), Areas, Usage, new FakeUnitOfWork());
+                new FakeOrganizationReadModel(Store), new FakeProjectRepository(Store), Areas, Usage, new FakeTeamRepository(Store), new FakeUnitOfWork());
         }
 
         public InMemoryOrganizations Store { get; } = new();
@@ -58,20 +58,47 @@ public sealed class DeleteAreaHandlerTests
         Assert.Contains(f.Store.Areas, area => area.Id == f.Node.Id);
     }
 
-    // US-2 · "An empty department is deleted; its team links go with it" (BR-AW-9).
+    // mod-021 US-4 · BR-TD-5: an empty department with no active team is deleted; a deleted team never blocks.
     [Fact]
-    public async Task Handle_EmptyDepartment_IsDeleted_WithItsTeamLinks()
+    public async Task Handle_EmptyDepartment_WithOnlyADeletedTeamBehind_IsDeleted()
     {
         var f = new Fixture();
         var empty = f.Store.AddDepartment(f.Organization, "Пустой");
-        var team = f.Store.AddTeam(f.Organization);
-        f.Store.LinkArea(empty, team);
+        var team = f.Store.AddTeam(f.Organization, department: empty);
+        team.Delete();
 
         await f.HandleAsync(empty);
 
         Assert.DoesNotContain(f.Store.Areas, area => area.Id == empty.Id);
-        Assert.Empty(f.Store.AreaTeams);
         Assert.Contains(f.Store.Teams, candidate => candidate.Id == team.Id);
+    }
+
+    // mod-021 US-4 · BR-TD-5: a department holding an active team is not deleted, even when it is otherwise empty.
+    [Fact]
+    public async Task Handle_DepartmentWithAnActiveTeam_IsAreaHasTeams_AndNothingChanges()
+    {
+        var f = new Fixture();
+        var empty = f.Store.AddDepartment(f.Organization, "Пустой");
+        f.Store.AddTeam(f.Organization, department: empty);
+        var before = f.Store.Areas.Count;
+
+        var refusal = await Assert.ThrowsAsync<ConflictException>(() => f.HandleAsync(empty));
+
+        Assert.Equal(OrganizationErrorCodes.AreaHasTeams, refusal.Code);
+        Assert.Equal(before, f.Store.Areas.Count);
+        Assert.Equal(0, f.Store.SaveCount);
+    }
+
+    // mod-021 US-4 · the team answer wins over «не пусто»: the department holds a project node and a team.
+    [Fact]
+    public async Task Handle_DepartmentWithTeamsAndProjects_AnswersHasTeamsFirst()
+    {
+        var f = new Fixture();
+        f.Store.AddTeam(f.Organization, department: f.Department);
+
+        var refusal = await Assert.ThrowsAsync<ConflictException>(() => f.HandleAsync(f.Department));
+
+        Assert.Equal(OrganizationErrorCodes.AreaHasTeams, refusal.Code);
     }
 
     // US-2 · "A department holding a project node is not deleted": the changed «не пусто» text.

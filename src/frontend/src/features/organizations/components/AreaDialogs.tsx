@@ -15,15 +15,10 @@ import {
 } from '../../../shared/ui';
 import { organizationErrorCodes } from '../../../shared/api/errorCodes';
 import { ApiError } from '../../../shared/api/httpClient';
-import type { Area, AreaNode, CreateAreaBody, TeamListItem } from '../api/organizationsApi';
+import type { Area, AreaNode, CreateAreaBody } from '../api/organizationsApi';
 import { useFocusInvalid } from '../hooks/useFocusInvalid';
 import { useFocusOnMount } from '../hooks/useFocusOnMount';
-import {
-  useAreaDeletion,
-  useAreaTree,
-  useOrganizationTeams,
-  useProjectAreaTree,
-} from '../hooks/queries';
+import { useAreaDeletion, useAreaTree, useProjectAreaTree } from '../hooks/queries';
 import {
   areaMoveOptions,
   descendantCount,
@@ -39,7 +34,7 @@ import {
 } from '../lib/areaTexts';
 import { placeRefusal, type RefusalField } from '../lib/refusals';
 import { descriptionError, nameError } from '../lib/validation';
-import { LocalMultiPicker, LocalPicker } from './AreaPickers';
+import { LocalPicker } from './AreaPickers';
 
 /** What every area dialog shares: the outcome hand-back (mod-002 design § 4.3). */
 interface DialogEnd<R> {
@@ -54,31 +49,20 @@ const placeLabel = (place: PlaceOption) => place.label;
 const placeKey = (place: PlaceOption) => place.id ?? '__top__';
 
 /**
- * «Новый департамент» (mod-018 design § 5.1; US-1): «Название» (1–100 once trimmed), «Описание» (at
- * most 2 000, as typed) and «Команды» as a searchable multiselect, drawn only with the link codes of
- * both ends. There is no parent field: a department stands at the top (OQ-3 A). Checked on «Создать»;
- * nothing is sent while a field is refused. Refusals land on their field with the input kept; the team
- * list is read again after a refusal of a chosen team, and a choice no longer offered drops.
+ * «Новый департамент» (mod-018 design § 5.1; US-1): «Название» (1–100 once trimmed) and «Описание» (at
+ * most 2 000, as typed). There is no parent field: a department stands at the top (OQ-3 A), and no team
+ * field: a team is placed in its department when it is created (mod-021, BR-TD-2). The colour is
+ * automatic. Checked on «Создать»; nothing is sent while a field is refused.
  */
 export function CreateDepartmentDialog({
-  organizationId,
-  canLinkTeams,
   submit,
   onSucceeded,
   onClose,
 }: DialogEnd<Area> & {
-  organizationId: string;
-  /** The user holds `area.link` and `team.link`. */
-  canLinkTeams: boolean;
   submit(body: CreateAreaBody): Promise<Area>;
 }) {
-  const teamsQuery = useOrganizationTeams(organizationId, {
-    enabled: canLinkTeams,
-    fresh: true,
-  });
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
-  const [teams, setTeams] = useState<TeamListItem[]>([]);
   const [errors, setErrors] = useState<FieldErrors>({});
   const [alert, setAlert] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -99,7 +83,6 @@ export function CreateDepartmentDialog({
     }
     const body: CreateAreaBody = { name };
     if (description !== '') body.description = description;
-    if (canLinkTeams && teams.length > 0) body.teamIds = teams.map((entry) => entry.id);
     setBusy(true);
     setAlert(null);
     setErrors({});
@@ -107,21 +90,12 @@ export function CreateDepartmentDialog({
       onSucceeded(await submit(body));
     } catch (error) {
       const fields: RefusalField[] = ['name', 'description'];
-      if (canLinkTeams) fields.push('teams');
       const placed = placeRefusal(error, fields);
       setErrors(placed.fields);
       setAlert(placed.alert);
       setContextGone((gone) => gone || placed.contextGone);
       setBusy(false);
       focusInvalid();
-      if (placed.fields.teams !== undefined) {
-        void teamsQuery.refetch().then((result) => {
-          const offered = result.data;
-          if (offered) {
-            setTeams((current) => current.filter((t) => offered.some((o) => o.id === t.id)));
-          }
-        });
-      }
     }
   }
 
@@ -161,24 +135,9 @@ export function CreateDepartmentDialog({
           setErrors((current) => ({ ...current, description: undefined }));
         }}
       />
-      {canLinkTeams && (
-        <LocalMultiPicker<TeamListItem>
-          label={createDepartmentDialog.teams.label}
-          hint={createDepartmentDialog.teams.hint}
-          error={errors.teams}
-          busy={busy}
-          options={teamsQuery.data ?? []}
-          loading={teamsQuery.isPending}
-          emptyText={teamsQuery.isError ? undefined : createDepartmentDialog.teams.none}
-          value={teams}
-          onChange={(next) => {
-            setTeams(next);
-            setErrors((current) => ({ ...current, teams: undefined }));
-          }}
-          getKey={(team) => team.id}
-          getLabel={(team) => team.name}
-        />
-      )}
+      <Typography variant="body2" sx={{ color: 'text.secondary' }}>
+        {createDepartmentDialog.colourHelper}
+      </Typography>
     </FormDialog>
   );
 }
@@ -424,8 +383,8 @@ export function MoveAreaDialog({
 }
 
 /**
- * The deletion (design § 5.5; BR-AW-9): destructive, focus on «Отмена». A department names its team
- * links, read when the dialog opens; a sub-area has none to count. A node the tree knows to have
+ * The deletion (design § 5.5; BR-AW-9): destructive, focus on «Отмена». A department with active teams
+ * is refused with their names (mod-021, BR-TD-5), read when the dialog opens; a sub-area has none to count. A node the tree knows to have
  * children says so in place of the question. A refusal is the alert, and the page reads itself
  * again when the dialog closes. A project node is never deleted here: it goes with its project.
  */
@@ -478,7 +437,7 @@ export function DeleteAreaDialog({
       cancelAutoFocus
       busy={busy}
       error={alert}
-      confirmDisabled={!ready}
+      confirmDisabled={!ready || (isDepartment && teams.length > 0)}
       onConfirm={() => void confirm()}
       onClose={() => onClose(stale)}
     >
@@ -497,7 +456,7 @@ export function DeleteAreaDialog({
         <Typography variant="body1">{deleteAreaDialog.area(area.name)}</Typography>
       ) : teams.length > 0 ? (
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-          <Typography variant="body1">{deleteAreaDialog.withTeams(area.name)}</Typography>
+          <InlineNotice severity="warning">{deleteAreaDialog.hasTeams}</InlineNotice>
           <Box
             sx={(theme) => ({ maxHeight: theme.spacing(40), overflowY: 'auto' })}
             tabIndex={0}
@@ -515,7 +474,6 @@ export function DeleteAreaDialog({
               ))}
             </List>
           </Box>
-          <Typography variant="body1">{deleteAreaDialog.departmentIrreversible}</Typography>
         </Box>
       ) : (
         <Typography variant="body1">{deleteAreaDialog.departmentNoTeams(area.name)}</Typography>

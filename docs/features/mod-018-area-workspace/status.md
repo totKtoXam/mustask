@@ -73,6 +73,7 @@ Superseded by the rework (2026-10-28): the gate-3 of 2026-10-27 and the list bel
 - m-3 / DEF-4 (→ mod-019): AreasPage.tsx and AreaPage.tsx gate the create dialog on `areaWrite`; gate it on `areaCreate || areaWrite` when the codes split.
 - m-5 (→ mod-007): ADR-0028 *Item save* bullet does not place the hierarchy tier; mod-007 must state the hierarchy lock stands before the sprint (rule 8 steps 5 → 6).
 - 2026-11-02 — Broken by feat-043: BR-AW-12 and, in part, BR-AW-10 (a deactivated project's node is marked «деактивирован» in «Области» and is not a link; its page answers «Проект не найден», OQ-3 A; see feat-043 spec, "Breaks").
+- 2026-11-13 [orchestrator] mod-021 changed this line (doc-016 BR-TD-1, ADR-0040): the five department–team link routes are retired (BR-AW-6/-7 and the department-end link codes with them); a team stands in one department; BR-AW-9 gains has_teams; see mod-021 api-contract.md § 1/§ 3.
 
 ## Notes
 

@@ -15,12 +15,7 @@ using Mustask.Application.Features.Organizations.GetAreaTeams;
 using Mustask.Application.Features.Organizations.GetAreaTree;
 using Mustask.Application.Features.Organizations.GetWritableAreaIds;
 using Mustask.Application.Features.Organizations.GetProjectAreas;
-using Mustask.Application.Features.Organizations.GetTeamAreas;
-using Mustask.Application.Features.Organizations.LinkAreasToTeam;
-using Mustask.Application.Features.Organizations.LinkTeamsToArea;
 using Mustask.Application.Features.Organizations.SetAreaDescription;
-using Mustask.Application.Features.Organizations.UnlinkAreaFromTeam;
-using Mustask.Application.Features.Organizations.UnlinkTeamFromArea;
 using Mustask.Application.Features.Organizations.GetDeactivatedOrganizations;
 using Mustask.Application.Features.Organizations.GetDeactivatedProjects;
 using Mustask.Application.Features.Organizations.GetOrganization;
@@ -39,6 +34,7 @@ using Mustask.Application.Features.Organizations.GetTeams;
 using Mustask.Application.Features.Organizations.LinkProjectsToTeam;
 using Mustask.Application.Features.Organizations.LinkTeamsToProject;
 using Mustask.Application.Features.Organizations.MoveArea;
+using Mustask.Application.Features.Organizations.MoveTeam;
 using Mustask.Application.Features.Organizations.RenameArea;
 using Mustask.Application.Features.Organizations.RenameOrganization;
 using Mustask.Application.Features.Organizations.RenameProject;
@@ -71,8 +67,6 @@ namespace Mustask.Api.Features.Organizations;
 public static class OrganizationEndpoints
 {
     private const string Tag = "Organizations";
-
-    private const string EitherEnd = "removing a department–team link needs either end's link code (mod-019 BR-SA-15), so no one code can be declared on the addressed object";
 
     private const string PlaceInBody = "the addressed object is the place, carried in the body (mod-018 api-contract § 4); decided at step 0, before any lookup (mod-019 BR-SA-17)";
 
@@ -404,17 +398,6 @@ public static class OrganizationEndpoints
             .Produces<IReadOnlyList<AreaTeamResponse>>()
             .WithReadProblems();
 
-        areas.MapPost("/{areaId}/teams", LinkTeamsToAreaAsync)
-            .RequiresOrganizationPermission(PermissionCatalog.OrganizationsAreaLink, ResourceScope.Area)
-            .Produces(StatusCodes.Status204NoContent)
-            .WithReadProblems()
-            .ProducesProblem(StatusCodes.Status409Conflict);
-
-        areas.MapDelete("/{areaId}/teams/{teamId}", UnlinkTeamFromAreaAsync)
-            .RequiresOrganizationPermissionDecidedInHandler(PermissionCatalog.OrganizationsAreaLink, EitherEnd)
-            .Produces(StatusCodes.Status204NoContent)
-            .WithReadProblems();
-
         // The project's and the team's ends of the same links (mod-018 api-contract § 3).
         // The project node's read-only «Команды» (design § 4, OQ-6 A): the linked teams of a project of any status.
         projects.MapGet("/{projectId}/team-links", GetProjectTeamLinksAsync)
@@ -427,21 +410,16 @@ public static class OrganizationEndpoints
             .Produces<IReadOnlyList<ProjectAreaResponse>>()
             .WithReadProblems();
 
-        teams.MapGet("/{teamId}/areas", GetTeamAreasAsync)
-            .RequiresOrganizationPermission(PermissionCatalog.OrganizationsAreaRead)
-            .Produces<IReadOnlyList<TeamAreaResponse>>()
-            .WithReadProblems();
-
-        teams.MapPost("/{teamId}/areas", LinkAreasToTeamAsync)
-            .RequiresOrganizationPermission(PermissionCatalog.OrganizationsTeamLink, ResourceScope.Team)
-            .Produces(StatusCodes.Status204NoContent)
-            .WithReadProblems()
+        // doc-016 BR-TD-4: a team moves to another department of its organization, only while it is linked to no project. Until
+        // mod-023 (department managers run their teams) the route declares the administrator's team.create, as the creation does.
+        teams.MapPut("/{teamId}/department", MoveTeamAsync)
+            .RequiresOrganizationPermission(PermissionCatalog.OrganizationsTeamCreate)
+            .Produces<TeamPlaceResponse>()
+            .ProducesProblem(StatusCodes.Status400BadRequest)
+            .ProducesProblem(StatusCodes.Status401Unauthorized)
+            .ProducesProblem(StatusCodes.Status403Forbidden)
+            .ProducesProblem(StatusCodes.Status404NotFound)
             .ProducesProblem(StatusCodes.Status409Conflict);
-
-        teams.MapDelete("/{teamId}/areas/{areaId}", UnlinkAreaFromTeamAsync)
-            .RequiresOrganizationPermissionDecidedInHandler(PermissionCatalog.OrganizationsTeamLink, EitherEnd)
-            .Produces(StatusCodes.Status204NoContent)
-            .WithReadProblems();
 
 
         return app;
@@ -572,7 +550,7 @@ public static class OrganizationEndpoints
         string organizationId, AddTeamRequest? request, AddTeamHandler handler, CancellationToken cancellationToken)
     {
         var result = await handler.Handle(
-            new AddTeamCommand(organizationId, request?.Name, request?.Description, request?.MemberIds, request?.ProjectIds, request?.AreaIds),
+            new AddTeamCommand(organizationId, request?.Name, request?.Description, request?.MemberIds, request?.ProjectIds, request?.DepartmentId),
             cancellationToken);
 
         return Results.Created($"/api/organizations/{organizationId.ToLowerInvariant()}/teams/{result.Response.Id}", result.Response);
@@ -676,7 +654,7 @@ public static class OrganizationEndpoints
     {
         var result = await handler.Handle(
             new CreateAreaCommand(
-                organizationId, request?.Name, request?.ParentId, request?.Description, request?.TeamIds),
+                organizationId, request?.Name, request?.ParentId, request?.Description),
             cancellationToken);
 
         return Results.Created($"/api/organizations/{organizationId.ToLowerInvariant()}/areas/{result.Response.Id}", result.Response);
@@ -722,22 +700,6 @@ public static class OrganizationEndpoints
         string organizationId, string areaId, GetAreaTeamsHandler handler, CancellationToken cancellationToken) =>
         Results.Ok((await handler.Handle(new GetAreaTeamsQuery(organizationId, areaId), cancellationToken)).Items);
 
-    private static async Task<IResult> LinkTeamsToAreaAsync(
-        string organizationId, string areaId, LinkTeamsRequest? request, LinkTeamsToAreaHandler handler, CancellationToken cancellationToken)
-    {
-        await handler.Handle(new LinkTeamsToAreaCommand(organizationId, areaId, request?.TeamIds), cancellationToken);
-
-        return Results.NoContent();
-    }
-
-    private static async Task<IResult> UnlinkTeamFromAreaAsync(
-        string organizationId, string areaId, string teamId, UnlinkTeamFromAreaHandler handler, CancellationToken cancellationToken)
-    {
-        await handler.Handle(new UnlinkTeamFromAreaCommand(organizationId, areaId, teamId), cancellationToken);
-
-        return Results.NoContent();
-    }
-
     private static async Task<IResult> GetProjectTeamLinksAsync(
         string organizationId, string projectId, GetProjectTeamLinksHandler handler, CancellationToken cancellationToken) =>
         Results.Ok((await handler.Handle(new GetProjectTeamLinksQuery(organizationId, projectId), cancellationToken)).Items);
@@ -746,25 +708,9 @@ public static class OrganizationEndpoints
         string organizationId, string projectId, GetProjectAreasHandler handler, CancellationToken cancellationToken) =>
         Results.Ok((await handler.Handle(new GetProjectAreasQuery(organizationId, projectId), cancellationToken)).Items);
 
-    private static async Task<IResult> GetTeamAreasAsync(
-        string organizationId, string teamId, GetTeamAreasHandler handler, CancellationToken cancellationToken) =>
-        Results.Ok((await handler.Handle(new GetTeamAreasQuery(organizationId, teamId), cancellationToken)).Items);
-
-    private static async Task<IResult> LinkAreasToTeamAsync(
-        string organizationId, string teamId, LinkAreasRequest? request, LinkAreasToTeamHandler handler, CancellationToken cancellationToken)
-    {
-        await handler.Handle(new LinkAreasToTeamCommand(organizationId, teamId, request?.AreaIds), cancellationToken);
-
-        return Results.NoContent();
-    }
-
-    private static async Task<IResult> UnlinkAreaFromTeamAsync(
-        string organizationId, string teamId, string areaId, UnlinkAreaFromTeamHandler handler, CancellationToken cancellationToken)
-    {
-        await handler.Handle(new UnlinkAreaFromTeamCommand(organizationId, teamId, areaId), cancellationToken);
-
-        return Results.NoContent();
-    }
+    private static async Task<IResult> MoveTeamAsync(
+        string organizationId, string teamId, DepartmentRequest? request, MoveTeamHandler handler, CancellationToken cancellationToken) =>
+        Results.Ok((await handler.Handle(new MoveTeamCommand(organizationId, teamId, request?.DepartmentId), cancellationToken)).Response);
 
     /// <summary>
     /// The canonical address of a project for a <c>Location</c> header. The
@@ -787,7 +733,7 @@ public static class OrganizationEndpoints
         string? Description,
         IReadOnlyList<string?>? MemberIds,
         IReadOnlyList<string?>? ProjectIds,
-        IReadOnlyList<string?>? AreaIds = null);
+        string? DepartmentId = null);
 
     /// <summary>feat-028 api-contract § 2.1, § 2.4: <c>description</c> a string, or <c>null</c> (or absent) to clear it.</summary>
     private sealed record DescriptionRequest(string? Description);
@@ -805,14 +751,14 @@ public static class OrganizationEndpoints
     /// <summary>mod-017 api-contract § 2.8: <c>teamId</c> a string, or <c>null</c> (or absent) to clear the setting.</summary>
     private sealed record DefaultTeamRequest(string? TeamId);
 
-    /// <summary>mod-018 api-contract § 2: a department or a sub-area with its optional description and the teams to link (a department only).</summary>
+    /// <summary>mod-018 api-contract § 2: a department or a sub-area with its optional description.</summary>
     private sealed record CreateAreaRequest(
         string? Name,
         string? ParentId,
-        string? Description,
-        IReadOnlyList<string?>? TeamIds);
+        string? Description);
 
-    private sealed record LinkAreasRequest(IReadOnlyList<string?>? AreaIds);
+    /// <summary>mod-021: the body of a team move.</summary>
+    private sealed record DepartmentRequest(string? DepartmentId);
 
     private sealed record ParentRequest(string? ParentId);
     private sealed record InheritsAccessRequest(bool? Value);

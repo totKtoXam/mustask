@@ -45,7 +45,7 @@ public sealed class ReadModelsTests(OrganizationsDatabaseFixture database)
             readModel => readModel.GetRowsAsync(structure.Organization.Id, CancellationToken.None));
 
         Assert.Single(counter.Commands);
-        Assert.Equal(451, rows.Count);
+        Assert.Equal(452, rows.Count);
         Assert.Equal(10, new AreaTree(rows.Select(row => row.ToNode())).LevelOf(areas[^1].Id));
     }
 
@@ -66,6 +66,7 @@ public sealed class ReadModelsTests(OrganizationsDatabaseFixture database)
         Assert.Equal(
             [
                 (api.Id, (Guid?)structure.Project.Root.Id, "API", AreaType.Area),
+                (structure.Department.Id, null, "Отдел структуры", AreaType.Department),
                 (structure.Project.Root.Id, null, "Пример проекта", AreaType.Project),
                 (department.Id, null, "Разработка", AreaType.Department),
             ],
@@ -88,12 +89,12 @@ public sealed class ReadModelsTests(OrganizationsDatabaseFixture database)
             null,
             readModel => readModel.GetRowsAsync(Guid.CreateVersion7(), CancellationToken.None));
 
-        var node = Assert.Single(rows);
+        var node = Assert.Single(rows, row => row.Type == AreaType.Project);
         Assert.Equal((false, AreaType.Project), (node.ProjectActive, node.Type));
         Assert.Empty(foreign);
-        Assert.Single(await ReadAsync<IAreaTreeReadModel, IReadOnlyList<AreaTreeRow>>(
+        Assert.Equal(2, (await ReadAsync<IAreaTreeReadModel, IReadOnlyList<AreaTreeRow>>(
             null,
-            readModel => readModel.GetRowsAsync(other.Organization.Id, CancellationToken.None)));
+            readModel => readModel.GetRowsAsync(other.Organization.Id, CancellationToken.None))).Count);
     }
 
     // mod-017 US-4 · "The project's teams": by name in Russian collation, letter case not deciding, no team first (BR-OT-11), each
@@ -104,8 +105,8 @@ public sealed class ReadModelsTests(OrganizationsDatabaseFixture database)
     {
         var structure = await database.CreateStructureAsync(projectName: "Ядро");
         var (organizationId, projectId) = (structure.Organization.Id, structure.Project.Project.Id);
-        var alpha = Team.Create(organizationId, Name("альфа"));
-        var unlinked = Team.Create(organizationId, Name("Не связана"));
+        var alpha = Team.Create(organizationId, structure.Department.Id, "blue", Name("альфа"));
+        var unlinked = Team.Create(organizationId, structure.Department.Id, "blue", Name("Не связана"));
         await AddTeamAsync(alpha);
         await AddTeamAsync(unlinked);
         await LinkAsync(organizationId, projectId, alpha.Id);
@@ -133,7 +134,7 @@ public sealed class ReadModelsTests(OrganizationsDatabaseFixture database)
     {
         var structure = await database.CreateStructureAsync();
         var projectId = structure.Project.Project.Id;
-        await database.ExecuteAsync("UPDATE teams SET status = 'Deleted' WHERE id = @second", ("second", structure.SecondTeam.Id));
+        await database.ExecuteAsync("UPDATE teams SET status = 'Deleted', department_id = NULL WHERE id = @second", ("second", structure.SecondTeam.Id));
 
         var only = await ReadAsync<ITeamReadModel, LinkedTeamRow?>(
             null,
@@ -150,9 +151,9 @@ public sealed class ReadModelsTests(OrganizationsDatabaseFixture database)
     {
         var structure = await database.CreateStructureAsync();
         var (organizationId, projectId) = (structure.Organization.Id, structure.Project.Project.Id);
-        var unlinked = Team.Create(organizationId, Name("Не связана"));
+        var unlinked = Team.Create(organizationId, structure.Department.Id, "blue", Name("Не связана"));
         await AddTeamAsync(unlinked);
-        await database.ExecuteAsync("UPDATE teams SET status = 'Deleted' WHERE id = @second", ("second", structure.SecondTeam.Id));
+        await database.ExecuteAsync("UPDATE teams SET status = 'Deleted', department_id = NULL WHERE id = @second", ("second", structure.SecondTeam.Id));
 
         var teams = await ReadAsync<ITeamReadModel, IReadOnlyList<LinkedTeamRow>>(
             null,
@@ -296,7 +297,7 @@ public sealed class ReadModelsTests(OrganizationsDatabaseFixture database)
         var foreign = await ReadAsync<IProjectReadModel, ProjectRow?>(
             null, readModel => readModel.FindReachableAsync(other.Organization.Id, projectId, CancellationToken.None));
 
-        Assert.Equal(new ProjectRow(projectId, structure.Organization.Id, "Пример проекта", "PRM"), found);
+        Assert.Equal(new ProjectRow(projectId, structure.Organization.Id, "Пример проекта", "PRM", null, "blue"), found);
         Assert.Null(foreign);
     }
 

@@ -11,7 +11,7 @@ namespace Mustask.Infrastructure.Tests.Organizations;
 
 /// <summary>
 /// feat-043 US-2, US-8 (BR-NV-9, BR-NV-13, BR-NV-17, NFR Volumes) · the navigation reads against a real PostgreSQL: what each
-/// returns, in which order, and the pinned number of statements whatever the volume — seven for «Обзор», five for the selectors'
+/// returns, in which order, and the pinned number of statements whatever the volume — seven for «Обзор», four for the selectors'
 /// offers, at five projects and at two hundred.
 /// </summary>
 [Trait("Category", "Integration")]
@@ -20,7 +20,7 @@ namespace Mustask.Infrastructure.Tests.Organizations;
 public sealed class NavigationReadModelTests(OrganizationsDatabaseFixture database)
 {
     private const int OverviewStatements = 7;
-    private const int OffersStatements = 5;
+    private const int OffersStatements = 4;
 
     // US-2 "Обзор": departments only in the count (OQ-2 A), active projects and teams once each; the lists are cut to five by name.
     [Fact]
@@ -32,7 +32,7 @@ public sealed class NavigationReadModelTests(OrganizationsDatabaseFixture databa
         var rows = await ReadAsync(counter, world.Organization, "u-olga", (model, caller) => model.ReadOverviewAsync(caller, CancellationToken.None));
 
         Assert.Equal(OverviewStatements, counter.Commands.Count);
-        Assert.Equal((6, 9, 9), (rows.DepartmentCount, rows.ProjectCount, rows.TeamCount));
+        Assert.Equal((7, 9, 9), (rows.DepartmentCount, rows.ProjectCount, rows.TeamCount));
         Assert.Equal(NavigationLimits.OverviewRows, rows.Departments.Count);
         Assert.Equal(NavigationLimits.OverviewRows, rows.Projects.Count);
         Assert.Equal(NavigationLimits.OverviewRows, rows.Teams.Count);
@@ -75,7 +75,7 @@ public sealed class NavigationReadModelTests(OrganizationsDatabaseFixture databa
         var overview = await ReadAsync(null, organizationId, "u-x", (model, caller) => model.ReadOverviewAsync(caller, CancellationToken.None));
         var offers = await ReadAsync(null, organizationId, "u-x", (model, caller) => model.ReadSelectorOffersAsync(caller, CancellationToken.None));
 
-        Assert.Equal((0, 1, 2), (overview.DepartmentCount, overview.ProjectCount, overview.TeamCount));
+        Assert.Equal((1, 1, 2), (overview.DepartmentCount, overview.ProjectCount, overview.TeamCount));
         Assert.Equal(["Пример проекта"], offers.Projects.Select(project => project.Name));
         Assert.Equal(2, offers.Projects[0].TeamIds.Count);
     }
@@ -91,21 +91,22 @@ public sealed class NavigationReadModelTests(OrganizationsDatabaseFixture databa
         await database.AddAreasAsync(logistics, finance);
         await PlaceAsync(structure.Project.Root.Id, logistics.Id);
         await database.AddProjectAsync(organizationId, "Верхний", "TOP");
-        await LinkDepartmentAsync(organizationId, logistics.Id, structure.SecondTeam.Id);
 
         var counter = new CommandCountingInterceptor();
         var offers = await ReadAsync(counter, organizationId, "u-x", (model, caller) => model.ReadSelectorOffersAsync(caller, CancellationToken.None));
 
         Assert.Equal(OffersStatements, counter.Commands.Count);
-        Assert.Equal(["Логистика", "Финансы"], offers.Departments.Select(department => department.Name));
+        Assert.Equal(["Логистика", "Отдел структуры", "Финансы"], offers.Departments.Select(department => department.Name));
         var placed = offers.Projects.Single(project => project.Key == "PRM");
         Assert.Equal((logistics.Id, "Логистика"), (placed.DepartmentId, placed.DepartmentName));
         Assert.Equivalent(new[] { structure.FirstTeam.Id, structure.SecondTeam.Id }, placed.TeamIds);
         var unplaced = offers.Projects.Single(project => project.Key == "TOP");
         Assert.Null(unplaced.DepartmentId);
         Assert.Empty(unplaced.TeamIds);
-        Assert.Equal([logistics.Id], offers.Teams.Single(team => team.Id == structure.SecondTeam.Id).DepartmentIds);
-        Assert.Empty(offers.Teams.Single(team => team.Id == structure.FirstTeam.Id).DepartmentIds);
+        // mod-021: a team has one place, the department it stands in, and the colour it was given.
+        Assert.All(offers.Teams, team => Assert.Equal(structure.Department.Id, team.DepartmentId));
+        Assert.Equal("magenta", offers.Teams.Single(team => team.Id == structure.SecondTeam.Id).Color);
+        Assert.Equal("blue", placed.Color);
     }
 
     // NFR Volumes · the statement count does not grow with the objects: the same at 5 projects and at 200 projects, 200 teams, 20 departments.
@@ -126,7 +127,7 @@ public sealed class NavigationReadModelTests(OrganizationsDatabaseFixture databa
         Assert.Equal(projects + 1, overview.ProjectCount);
         Assert.Equal(projects + 1, offers.Projects.Count);
         Assert.Equal(teams + 2, offers.Teams.Count);
-        Assert.Equal(departments, offers.Departments.Count);
+        Assert.Equal(departments + 1, offers.Departments.Count);
     }
 
     private async Task<World> SeedAsync(int projects, int teams, int departments)
@@ -137,7 +138,7 @@ public sealed class NavigationReadModelTests(OrganizationsDatabaseFixture databa
 
         for (var p = 0; p < projects; p++)
         {
-            var project = Project.Create(organizationId, Name($"Проект {p:D3}"), $"P{p:D3}", Now, Creator);
+            var project = Project.Create(organizationId, Name($"Проект {p:D3}"), $"P{p:D3}", Now, Creator, "blue");
             context.Projects.Add(project.Project);
             context.Areas.Add(project.Root);
             context.ProjectTeams.Add(ProjectTeam.Link(organizationId, project.Project.Id, structure.FirstTeam.Id, Creator, Now));
@@ -147,7 +148,7 @@ public sealed class NavigationReadModelTests(OrganizationsDatabaseFixture databa
 
         for (var t = 0; t < teams; t++)
         {
-            var team = Team.Create(organizationId, Name($"Команда {t:D3}"));
+            var team = Team.Create(organizationId, structure.Department.Id, "blue", Name($"Команда {t:D3}"));
             context.Teams.Add(team);
             teamIds.Add(team.Id);
         }
@@ -156,7 +157,6 @@ public sealed class NavigationReadModelTests(OrganizationsDatabaseFixture databa
         {
             var department = NewDepartment(organizationId, $"Департамент {d:D3}");
             context.Areas.Add(department);
-            context.AreaTeams.Add(AreaTeam.Link(organizationId, department.Id, structure.FirstTeam.Id, Creator, Now));
         }
 
         await context.SaveChangesAsync();
@@ -169,13 +169,6 @@ public sealed class NavigationReadModelTests(OrganizationsDatabaseFixture databa
         await using var context = database.NewContext();
         var node = await context.Areas.SingleAsync(area => area.Id == nodeId);
         context.Entry(node).Property(nameof(Area.ParentId)).CurrentValue = departmentId;
-        await context.SaveChangesAsync();
-    }
-
-    private async Task LinkDepartmentAsync(Guid organizationId, Guid departmentId, Guid teamId)
-    {
-        await using var context = database.NewContext();
-        context.AreaTeams.Add(AreaTeam.Link(organizationId, departmentId, teamId, Creator, Now));
         await context.SaveChangesAsync();
     }
 

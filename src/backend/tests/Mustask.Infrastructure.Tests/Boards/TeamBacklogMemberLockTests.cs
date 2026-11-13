@@ -104,7 +104,7 @@ public sealed class TeamBacklogMemberLockTests(OrganizationsDatabaseFixture data
     public async Task LockAsync_ADeletedTeam_IsFalse_NothingIsLocked()
     {
         var world = await TeamViewWorld.SeedAsync(database);
-        await database.ExecuteAsync("UPDATE teams SET status = 'Deleted' WHERE id = @team", ("team", world.Team));
+        await database.ExecuteAsync("UPDATE teams SET status = 'Deleted', department_id = NULL WHERE id = @team", ("team", world.Team));
 
         await using var reorder = database.NewContext();
         await using var transaction = await reorder.Database.BeginTransactionAsync();

@@ -39,7 +39,7 @@ public sealed class GetDeactivatedProjectsEndpointTests(MustaskApiFactory factor
         Assert.Equal("application/json", answer.MediaType);
         Assert.Equal(JsonValueKind.Array, answer.Body.ValueKind);
         var item = Assert.Single(answer.Body.EnumerateArray());
-        Assert.Equal(["id", "key", "name"], PropertyNames(item));
+        Assert.Equal(["color", "id", "key", "name"], PropertyNames(item));
         Assert.Equal(archived.Project.Id.ToString(), item.GetProperty("id").GetString());
         Assert.Equal("Архивный", item.GetProperty("name").GetString());
         Assert.Equal("ARC", item.GetProperty("key").GetString());

@@ -21,9 +21,9 @@ const DATA: FitData = {
     { id: 'd', name: 'D', key: 'D', departmentId: null, teamIds: [] },
   ],
   teams: [
-    { id: 'jupiter', name: 'JUPITER', isMember: false, departmentIds: [] },
-    { id: 'mars', name: 'MARS', isMember: false, departmentIds: ['log'] },
-    { id: 'venus', name: 'VENUS', isMember: true, departmentIds: ['log'] },
+    { id: 'jupiter', name: 'JUPITER', isMember: false, departmentId: 'fin' },
+    { id: 'mars', name: 'MARS', isMember: false, departmentId: 'log' },
+    { id: 'venus', name: 'VENUS', isMember: true, departmentId: 'log' },
   ],
 };
 

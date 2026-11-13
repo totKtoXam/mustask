@@ -53,7 +53,7 @@ public sealed class CreateProjectEndpointTests(MustaskApiFactory factory)
         Assert.Equal("application/json", answer.MediaType);
         var projectId = answer.Body.GetProperty("id").GetGuid();
         Assert.Equal($"/api/organizations/{organization.Id}/projects/{projectId}", answer.Location?.OriginalString);
-        Assert.Equal(["description", "id", "key", "name", "organizationId"], PropertyNames(answer.Body));
+        Assert.Equal(["color", "description", "id", "key", "name", "organizationId"], PropertyNames(answer.Body));
         Assert.Equal(organization.Id, answer.Body.GetProperty("organizationId").GetGuid());
         Assert.Equal("Пример проекта", answer.Body.GetProperty("name").GetString());
         Assert.Equal("PRM", answer.Body.GetProperty("key").GetString());
@@ -80,7 +80,7 @@ public sealed class CreateProjectEndpointTests(MustaskApiFactory factory)
         Assert.Equal("Пример проекта", tree.Root.Name);
 
         var listed = await ListActiveProjectsAsync(organization.Id);
-        Assert.Equal(new ProjectRow(projectId, organization.Id, "Пример проекта", "PRM"), Assert.Single(listed));
+        Assert.Equal(new ProjectRow(projectId, organization.Id, "Пример проекта", "PRM", null, "blue"), Assert.Single(listed));
         Assert.Equal((1, 0, 1), await CountAsync(organization.Id));
     }
 

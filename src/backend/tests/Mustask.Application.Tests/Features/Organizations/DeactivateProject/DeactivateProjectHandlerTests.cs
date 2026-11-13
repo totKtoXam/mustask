@@ -69,6 +69,9 @@ public sealed class DeactivateProjectHandlerTests
         public Task<ProjectStatus?> FindNameHolderAsync(Guid organizationId, string normalizedName, Guid? exceptId, CancellationToken cancellationToken) =>
             inner.FindNameHolderAsync(organizationId, normalizedName, exceptId, cancellationToken);
 
+        public Task<IReadOnlyList<string>> ListActiveColorsAsync(Guid organizationId, Guid? departmentId, CancellationToken cancellationToken) =>
+            inner.ListActiveColorsAsync(organizationId, departmentId, cancellationToken);
+
         public Task<bool> IsKeyTakenAsync(Guid organizationId, string key, CancellationToken cancellationToken) =>
             inner.IsKeyTakenAsync(organizationId, key, cancellationToken);
 

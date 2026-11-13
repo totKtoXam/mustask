@@ -50,6 +50,6 @@ public sealed class GetTeamsHandler(IProjectReadModel projects, ITeamReadModel t
         var rows = await teams.ListLinkedAsync(organizationId, projectId, currentUser.SubjectId, cancellationToken);
         var set = await access.SetAsync(cancellationToken);
 
-        return new GetTeamsResult(rows.Select(row => new TeamResponse(row.Id, row.Name, row.Mark.ToWireName(), row.IsMember, CanUnlink: LinkRules.CanUnlinkProjectTeam(set, projectId, row.Id))).ToList());
+        return new GetTeamsResult(rows.Select(row => new TeamResponse(row.Id, row.Name, row.Mark.ToWireName(), row.IsMember, CanUnlink: LinkRules.CanUnlinkProjectTeam(set, projectId, row.Id), Color: row.Color)).ToList());
     }
 }

@@ -63,8 +63,8 @@ public sealed class NavigationReadsQaTests(MustaskApiFactory factory)
         }
 
         await OrganizationsTestData.LinkAsync(factory, a.Project.Id, venus.Id);
-        await OrganizationsTestData.LinkAreaToTeamAsync(factory, o, logistics.Id, mars.Id);
-        await OrganizationsTestData.LinkAreaToTeamAsync(factory, o, logistics.Id, venus.Id);
+        await OrganizationsTestData.PlaceTeamAsync(factory, o, logistics.Id, mars.Id);
+        await OrganizationsTestData.PlaceTeamAsync(factory, o, logistics.Id, venus.Id);
         await OrganizationsTestData.SetProjectStatusAsync(factory, o, e.Project.Id, ProjectStatus.Deactivated);
 
         var olga = await MembershipTestData.NewMemberAsync(factory, o, OrganizationRole.Member);
@@ -91,8 +91,8 @@ public sealed class NavigationReadsQaTests(MustaskApiFactory factory)
         var teams = offers.GetProperty("teams");
         Assert.True(Row(teams, "VENUS").GetProperty("isMember").GetBoolean());
         Assert.False(Row(teams, "MARS").GetProperty("isMember").GetBoolean());
-        Assert.Equal(new[] { logistics.Id }, Ids(Row(teams, "MARS").GetProperty("departmentIds")));
-        Assert.Empty(Row(teams, "JUPITER").GetProperty("departmentIds").EnumerateArray());
+        Assert.Equal(logistics.Id, Row(teams, "MARS").GetProperty("departmentId").GetGuid());
+        Assert.Equal(logistics.Id, Row(teams, "JUPITER").GetProperty("departmentId").GetGuid());
     }
 
     // BR-NV-17 / US-7 · the offers follow the writes: a project moved to the top level loses its place, a deleted team vanishes everywhere.
@@ -103,7 +103,7 @@ public sealed class NavigationReadsQaTests(MustaskApiFactory factory)
         var o = structure.OrganizationId;
         var department = await OrganizationsTestData.AddDepartmentAsync(factory, o, "Логистика");
         await PlaceAsync(o, structure.ProjectId, department.Id);
-        await OrganizationsTestData.LinkAreaToTeamAsync(factory, o, department.Id, structure.Platform.Id);
+        await OrganizationsTestData.PlaceTeamAsync(factory, o, department.Id, structure.Platform.Id);
 
         var before = (await GetAsync(o, "selector-offers")).Body;
         Assert.Equal(department.Id, before.GetProperty("projects")[0].GetProperty("departmentId").GetGuid());
@@ -118,7 +118,7 @@ public sealed class NavigationReadsQaTests(MustaskApiFactory factory)
         Assert.DoesNotContain(structure.Platform.Id, offers.GetProperty("teams").EnumerateArray().Select(t => t.GetProperty("id").GetGuid()));
         Assert.DoesNotContain(structure.Platform.Id, Ids(offers.GetProperty("projects")[0].GetProperty("teamIds")));
         Assert.Equal(1, overview.GetProperty("teamCount").GetInt32());
-        Assert.Equal(1, overview.GetProperty("departmentCount").GetInt32());
+        Assert.Equal(2, overview.GetProperty("departmentCount").GetInt32());
     }
 
     // BR-NV-13 · a restored project returns to both reads with its place and links as they were.
@@ -165,7 +165,7 @@ public sealed class NavigationReadsQaTests(MustaskApiFactory factory)
         }
     }
 
-    // US-2 "Север": projects and teams, no department - the department count and list are empty, everything else works.
+    // mod-021 BR-TD-1: a team stands in a department, so an organization with teams has at least the department the helpers made; its projects still have no place.
     [Fact]
     public async Task OrganizationWithoutDepartments_CountsZero_ProjectsHaveNoPlace()
     {
@@ -174,8 +174,8 @@ public sealed class NavigationReadsQaTests(MustaskApiFactory factory)
         var overview = (await GetAsync(structure.OrganizationId, "overview")).Body;
         var offers = (await GetAsync(structure.OrganizationId, "selector-offers")).Body;
 
-        Assert.Equal(0, overview.GetProperty("departmentCount").GetInt32());
-        Assert.Equal(0, overview.GetProperty("departments").GetArrayLength());
+        Assert.Equal(1, overview.GetProperty("departmentCount").GetInt32());
+        Assert.Equal(1, overview.GetProperty("departments").GetArrayLength());
         Assert.Equal(JsonValueKind.Null, offers.GetProperty("projects")[0].GetProperty("departmentId").ValueKind);
     }
 
@@ -190,11 +190,11 @@ public sealed class NavigationReadsQaTests(MustaskApiFactory factory)
         var overview = (await GetAsync(mine.OrganizationId, "overview")).Body;
         var offers = (await GetAsync(mine.OrganizationId, "selector-offers")).Body;
 
-        Assert.Equal((0, 1, 2), (overview.GetProperty("departmentCount").GetInt32(), overview.GetProperty("projectCount").GetInt32(), overview.GetProperty("teamCount").GetInt32()));
+        Assert.Equal((1, 1, 2), (overview.GetProperty("departmentCount").GetInt32(), overview.GetProperty("projectCount").GetInt32(), overview.GetProperty("teamCount").GetInt32()));
         Assert.Equal(1, offers.GetProperty("projects").GetArrayLength());
         Assert.Equal(2, offers.GetProperty("teams").GetArrayLength());
         Assert.Equal(mine.ProjectId, offers.GetProperty("projects")[0].GetProperty("id").GetGuid());
-        Assert.Equal(0, offers.GetProperty("departments").GetArrayLength());
+        Assert.Equal(1, offers.GetProperty("departments").GetArrayLength());
     }
 
     // Order · Russian collation, letters before letter case, then id; counts above five are cut to five rows.

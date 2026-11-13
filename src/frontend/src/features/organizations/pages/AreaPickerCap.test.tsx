@@ -5,10 +5,10 @@ import { department, exampleDataset, ids } from '../testFixtures';
 import { serveOrganizations } from '../testApi';
 import { renderPage } from '../testRender';
 
-const PLATFORM_TEAM = `/organizations/${ids.alfa}/teams/${ids.platformTeam}/overview`;
+const ALFA_TEAMS = `/organizations/${ids.alfa}/teams`;
 
 /** mod-018 design D-1: the picker draws at most 50 matches and says how many there are. */
-describe('mod-018 D-1: the department picker caps its list', () => {
+describe('mod-018 D-1: the department picker of «Новая команда» caps its list', () => {
   function manyDepartments() {
     const data = exampleDataset();
     for (let index = 0; index < 60; index += 1) {
@@ -25,13 +25,11 @@ describe('mod-018 D-1: the department picker caps its list', () => {
 
   it('draws 50 options and «Показаны первые 50 из N. Уточните запрос.», narrowing by typing', async () => {
     serveOrganizations(manyDepartments());
-    renderPage({ path: PLATFORM_TEAM });
-    await screen.findByRole('table', { name: 'Департаменты команды' });
-    await userEvent.click(screen.getByRole('button', { name: 'Добавить департамент' }));
-    const dialog = await screen.findByRole('dialog', {
-      name: 'Добавление департаментов в команду',
-    });
-    await userEvent.click(within(dialog).getByRole('combobox', { name: /Департаменты/ }));
+    renderPage({ path: ALFA_TEAMS });
+    await screen.findByRole('table', { name: 'Команды' });
+    await userEvent.click(screen.getByRole('button', { name: 'Создать команду' }));
+    const dialog = await screen.findByRole('dialog', { name: 'Новая команда' });
+    await userEvent.click(within(dialog).getByRole('combobox', { name: /Департамент/ }));
 
     const list = await screen.findByRole('listbox');
     const options = within(list).getAllByRole('option');
@@ -40,7 +38,7 @@ describe('mod-018 D-1: the department picker caps its list', () => {
     expect(within(list).getByText(/^Показаны первые 50 из \d+\. Уточните запрос\.$/)).toBeVisible();
 
     await userEvent.type(
-      within(dialog).getByRole('combobox', { name: /Департаменты/ }),
+      within(dialog).getByRole('combobox', { name: /Департамент/ }),
       'Лишний 07',
     );
     await waitFor(() =>

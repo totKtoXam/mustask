@@ -194,7 +194,7 @@ public sealed class GrantsQaTests(MustaskApiFactory factory)
         var created = await OrganizationsTestData.InUnitOfWorkAsync(factory, async (services, ct) =>
         {
             var projects = services.GetRequiredService<IProjectRepository>();
-            var project = Project.Create(s.OrganizationId, OrganizationsTestData.Name("Под отделом"), "DPT", OrganizationsTestData.Now, "seed", parentAreaId: department.Id);
+            var project = Project.Create(s.OrganizationId, OrganizationsTestData.Name("Под отделом"), "DPT", OrganizationsTestData.Now, "seed", "blue", parentAreaId: department.Id);
             projects.Add(project);
             await projects.SaveAsync(ct);
 
@@ -233,7 +233,7 @@ public sealed class GrantsQaTests(MustaskApiFactory factory)
         var created = await OrganizationsTestData.InUnitOfWorkAsync(factory, async (services, ct) =>
         {
             var projects = services.GetRequiredService<IProjectRepository>();
-            var project = Project.Create(s.OrganizationId, OrganizationsTestData.Name("Под отделом"), "DPT", OrganizationsTestData.Now, "seed", parentAreaId: department.Id);
+            var project = Project.Create(s.OrganizationId, OrganizationsTestData.Name("Под отделом"), "DPT", OrganizationsTestData.Now, "seed", "blue", parentAreaId: department.Id);
             projects.Add(project);
             await projects.SaveAsync(ct);
 
@@ -263,7 +263,7 @@ public sealed class GrantsQaTests(MustaskApiFactory factory)
         var created = await OrganizationsTestData.InUnitOfWorkAsync(factory, async (services, ct) =>
         {
             var projects = services.GetRequiredService<IProjectRepository>();
-            var project = Project.Create(s.OrganizationId, OrganizationsTestData.Name("Под отделом"), "DPT", OrganizationsTestData.Now, "seed", parentAreaId: department.Id);
+            var project = Project.Create(s.OrganizationId, OrganizationsTestData.Name("Под отделом"), "DPT", OrganizationsTestData.Now, "seed", "blue", parentAreaId: department.Id);
             projects.Add(project);
             await projects.SaveAsync(ct);
 

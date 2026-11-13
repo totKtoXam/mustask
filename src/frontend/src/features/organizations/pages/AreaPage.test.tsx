@@ -119,63 +119,50 @@ describe('feat-043 design § 6: a department’s «Проекты» and «Ком
     expect(await within(projects).findByRole('link', { name: 'Аналитика' })).toBeInTheDocument();
   });
 
-  it('lists the teams, adds some and unlinks one after a confirmation', async () => {
-    const api = serveOrganizations();
+  it('lists the teams standing in the department, each with its colour mark and a link (BR-TD-1, BR-TD-20)', async () => {
+    serveOrganizations();
     renderPage({ path: `${PLATFORM}/teams` });
-    const first = await screen.findByRole('table', { name: 'Команды департамента' });
-    expect(within(first).getByRole('link', { name: 'Платформа' })).toHaveAttribute(
+    const table = await screen.findByRole('table', { name: 'Команды департамента' });
+
+    expect(within(table).getByRole('link', { name: 'Платформа' })).toHaveAttribute(
       'href',
       `/organizations/${ids.alfa}/teams/${ids.platformTeam}/overview`,
     );
-
-    await userEvent.click(screen.getByRole('button', { name: 'Добавить команды' }));
-    const dialog = await screen.findByRole('dialog', { name: 'Добавление команд в департамент' });
-    await userEvent.click(within(dialog).getByRole('combobox', { name: /Команды/ }));
-    await userEvent.click(await screen.findByRole('option', { name: 'Аналитика' }));
-    await userEvent.click(within(dialog).getByRole('button', { name: 'Добавить' }));
-    expect(await screen.findByText('Команда «Аналитика» добавлена.')).toBeInTheDocument();
-
-    const table = await screen.findByRole('table', { name: 'Команды департамента' });
-    await waitFor(() => expect(within(table).getByText('Аналитика')).toBeInTheDocument());
-    await userEvent.click(within(table).getByRole('button', { name: 'Ещё действия: Аналитика' }));
-    await userEvent.click(
-      await screen.findByRole('menuitem', { name: 'Отключить от департамента' }),
-    );
-    const confirm = await screen.findByRole('dialog', {
-      name: 'Отключение команды от департамента',
-    });
-    await userEvent.click(within(confirm).getByRole('button', { name: 'Отключить' }));
-
-    expect(await screen.findByText('Команда отключена от департамента.')).toBeInTheDocument();
-    expect(api.writes().map((write) => [write.method, write.path, write.body])).toEqual([
-      ['POST', `${API_BASE}/${ids.platformArea}/teams`, { teamIds: [ids.anlTeam] }],
-      ['DELETE', `${API_BASE}/${ids.platformArea}/teams/${ids.anlTeam}`, undefined],
-    ]);
+    expect(within(table).getAllByTestId('colour-dot').length).toBeGreaterThan(0);
+    // No link control, no row menu: a team stands in one department and is moved from its own page.
+    expect(screen.queryByRole('button', { name: 'Добавить команды' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /^Ещё действия:/ })).not.toBeInTheDocument();
   });
 
-  it('shows a refusal of the department itself as the alert in the dialog', async () => {
+  it('says a department with no team has none', async () => {
     serveOrganizations();
+    renderPage({ path: `${AREAS}/${ids.reportsArea}/teams` });
+    await loaded('Департамент: Отчёты');
+
+    expect(await screen.findByText('Команд нет')).toBeInTheDocument();
+  });
+
+  it('creates a team from the department: the department is pre-set', async () => {
+    const api = serveOrganizations();
     renderPage({ path: `${PLATFORM}/teams` });
     await screen.findByRole('table', { name: 'Команды департамента' });
-    serveProblem('post', `${AREA_URL}/teams`, problem('organizations.area.not_found'), {
-      once: true,
-    });
 
-    await userEvent.click(screen.getByRole('button', { name: 'Добавить команды' }));
-    const dialog = await screen.findByRole('dialog', { name: 'Добавление команд в департамент' });
-    await userEvent.click(within(dialog).getByRole('combobox', { name: /Команды/ }));
-    await userEvent.click(await screen.findByRole('option', { name: 'Аналитика' }));
-    await userEvent.click(within(dialog).getByRole('button', { name: 'Добавить' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Создать команду' }));
+    const dialog = await screen.findByRole('dialog', { name: 'Новая команда' });
+    expect(within(dialog).getByRole('combobox', { name: /Департамент/ })).toHaveValue('Платформа');
+    await userEvent.type(within(dialog).getByRole('textbox', { name: /Название/ }), 'Данные');
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Создать' }));
 
-    expect(await within(dialog).findByText('Область не найдена.')).toBeInTheDocument();
+    expect(await screen.findByText('Команда «Данные» создана.')).toBeInTheDocument();
+    expect(api.writes()[0]?.body).toEqual({ name: 'Данные', departmentId: ids.platformArea });
   });
 
-  it('a member reads the lists: no link control, no row menu', async () => {
+  it('a member reads the lists: no create control, no row menu', async () => {
     serveOrganizations();
     renderPage({ path: `${PLATFORM}/teams`, role: 'member' });
     await screen.findByRole('table', { name: 'Команды департамента' });
 
-    expect(screen.queryByRole('button', { name: 'Добавить команды' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Создать команду' })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /^Ещё действия:/ })).not.toBeInTheDocument();
   });
 });

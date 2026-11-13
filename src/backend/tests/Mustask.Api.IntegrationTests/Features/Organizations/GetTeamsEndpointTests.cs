@@ -59,7 +59,7 @@ public sealed class GetTeamsEndpointTests(MustaskApiFactory factory)
         {
             // mod-016 api-contract § 3.3: each team says whether the caller is in it. feat-028 § 1.3: the shape is ProjectTeam, with
             // no «projectId» (a team is the organization's) — «defaultMark» and «isMember» are the project's view of the team.
-            Assert.Equal(["canUnlink", "defaultMark", "id", "isMember", "name"], PropertyNames(item));
+            Assert.Equal(["canUnlink", "color", "defaultMark", "id", "isMember", "name"], PropertyNames(item));
         });
         Assert.Equal(
             [

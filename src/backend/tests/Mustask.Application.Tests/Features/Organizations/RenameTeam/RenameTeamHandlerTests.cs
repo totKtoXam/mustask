@@ -46,7 +46,7 @@ public sealed class RenameTeamHandlerTests
 
         var result = await f.HandleAsync(f.Command(name: "  Платформа данных "));
 
-        Assert.Equal(new TeamResponse(f.Platform.Id, "Платформа данных", "О команде"), result.Response);
+        Assert.Equal(new TeamResponse(f.Platform.Id, "Платформа данных", "О команде", f.Platform.DepartmentId, "blue"), result.Response);
         Assert.Equal("ПЛАТФОРМА ДАННЫХ", f.Platform.NormalizedName);
     }
 

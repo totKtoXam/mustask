@@ -96,11 +96,7 @@ public static class OrganizationAddressedRoutes
         new("DELETE", Area, PermissionCatalog.OrganizationsAreaWrite),
         new("GET", Area + "/deletion", PermissionCatalog.OrganizationsAreaWrite),
         new("GET", Area + "/teams", PermissionCatalog.OrganizationsAreaRead),
-        new("POST", Area + "/teams", PermissionCatalog.OrganizationsAreaLink),
-        new("DELETE", Area + "/teams/{teamId}", PermissionCatalog.OrganizationsAreaLink),
-        new("GET", OrgTeam + "/areas", PermissionCatalog.OrganizationsAreaRead),
-        new("POST", OrgTeam + "/areas", PermissionCatalog.OrganizationsTeamLink),
-        new("DELETE", OrgTeam + "/areas/{areaId}", PermissionCatalog.OrganizationsTeamLink),
+        new("PUT", OrgTeam + "/department", PermissionCatalog.OrganizationsTeamCreate),
         new("GET", Project + "/areas", PermissionCatalog.OrganizationsAreaRead),
 
         // mod-001: the process read (row 27).
@@ -229,7 +225,7 @@ public static class OrganizationAddressedRoutes
                 description = "Описание",
                 teamIds = Array.Empty<string>(),
                 projectIds = Array.Empty<string>(),
-                areaIds = Array.Empty<string>(),
+                departmentId = Guid.CreateVersion7().ToString(),
                 memberIds = Array.Empty<string>(),
                 destination = new { teamId = (string?)null },
             }

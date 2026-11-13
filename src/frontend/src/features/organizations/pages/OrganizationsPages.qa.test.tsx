@@ -103,12 +103,13 @@ describe('(QA) mod-002 F-6: a dialog answered by an outer level’s not found', 
     expect(field).toHaveValue('Ядро');
     await userEvent.click(within(dialog).getByRole('button', { name: 'Отмена' }));
 
+    // The team's own link leaves; the link to its department (mod-021) is not the team's.
     await waitFor(() =>
       expect(
-        within(screen.getByRole('table', { name: 'Команды' })).queryByRole('link', {
-          name: 'Платформа',
-        }),
-      ).not.toBeInTheDocument(),
+        within(screen.getByRole('table', { name: 'Команды' }))
+          .queryAllByRole('link', { name: 'Платформа' })
+          .filter((link) => link.getAttribute('href')?.includes('/teams/')),
+      ).toHaveLength(0),
     );
   });
 });

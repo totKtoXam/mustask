@@ -36,6 +36,6 @@ public sealed class GetTeamHandler(ITeamReadModel teams, IOrganizationAccess acc
 
         var set = await access.SetAsync(cancellationToken);
 
-        return new GetTeamResult(new TeamResponse(team.Id, team.Name, team.Description, set.CodesInCatalogOrder(ResourceScope.Team, teamId)));
+        return new GetTeamResult(new TeamResponse(team.Id, team.Name, team.Description, team.DepartmentId, team.DepartmentName, team.Color, set.CodesInCatalogOrder(ResourceScope.Team, teamId)));
     }
 }

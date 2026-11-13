@@ -36,15 +36,14 @@ public sealed class AreaVolumeEndpointTests(MustaskApiFactory factory, ITestOutp
             var areas = services.GetRequiredService<IAreaRepository>();
             var projects = services.GetRequiredService<IProjectRepository>();
             var teams = services.GetRequiredService<ITeamRepository>();
-            var links = services.GetRequiredService<IAreaLinkRepository>();
             await areas.LockTreeAsync(organization.Id, ct);
-            hub = Area.CreateDepartment(organization.Id, OrganizationsTestData.Name("Центр"), null, OrganizationsTestData.Creator, OrganizationsTestData.Now);
+            hub = Area.CreateDepartment(organization.Id, "blue", OrganizationsTestData.Name("Центр"), null, OrganizationsTestData.Creator, OrganizationsTestData.Now);
             areas.Add(hub);
 
             for (var index = 0; index < DeepProjects + ShallowProjects; index++)
             {
                 var created = Project.Create(
-                    organization.Id, OrganizationsTestData.Name($"Проект {index:D3}"), $"V{index:D3}", OrganizationsTestData.Now, OrganizationsTestData.Creator);
+                    organization.Id, OrganizationsTestData.Name($"Проект {index:D3}"), $"V{index:D3}", OrganizationsTestData.Now, OrganizationsTestData.Creator, "blue");
                 projects.Add(created);
                 firstProject = firstProject == Guid.Empty ? created.Project.Id : firstProject;
                 var parent = created.Root;
@@ -59,15 +58,12 @@ public sealed class AreaVolumeEndpointTests(MustaskApiFactory factory, ITestOutp
 
             for (var index = 0; index < Teams; index++)
             {
-                var team = Team.Create(organization.Id, OrganizationsTestData.Name($"Команда {index:D3}"));
+                var team = Team.Create(organization.Id, hub.Id, "blue", OrganizationsTestData.Name($"Команда {index:D3}"));
                 teams.Add(team);
                 teamIds.Add(team.Id);
             }
 
             await areas.SaveAsync(ct);
-            await links.LinkTeamsAsync(organization.Id, teamIds.Select(id => (hub.Id, id)).ToList(), OrganizationsTestData.Creator, OrganizationsTestData.Now, ct);
-            await areas.SaveAsync(ct);
-
             return true;
         });
 
@@ -79,7 +75,6 @@ public sealed class AreaVolumeEndpointTests(MustaskApiFactory factory, ITestOutp
             ("teams", $"{area}/teams", Teams),
             ("deletion", $"{area}/deletion", -1),
             ("project subtree", OrganizationsApi.ProjectAreas(organization.Id, firstProject), Depth),
-            ("team departments", OrganizationsApi.TeamAreas(organization.Id, teamIds[0]), 1),
         };
 
         foreach (var (name, path, expected) in reads)

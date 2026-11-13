@@ -27,6 +27,7 @@ public sealed class GetOrganizationTeamsVolumeTests(MustaskApiFactory factory, I
         var organization = await OrganizationsTestData.CreateOrganizationAsync(factory);
         var projectIds = new List<Guid>();
         var teamIds = new List<Guid>();
+        var department = await OrganizationsTestData.DepartmentForTeamsAsync(factory, organization.Id);
 
         await OrganizationsTestData.InUnitOfWorkAsync(factory, async (services, ct) =>
         {
@@ -36,14 +37,14 @@ public sealed class GetOrganizationTeamsVolumeTests(MustaskApiFactory factory, I
 
             for (var p = 0; p < Projects; p++)
             {
-                var project = Project.Create(organization.Id, OrganizationsTestData.Name($"Проект {p:D3}"), $"P{p:D3}", OrganizationsTestData.Now, OrganizationsTestData.Creator);
+                var project = Project.Create(organization.Id, OrganizationsTestData.Name($"Проект {p:D3}"), $"P{p:D3}", OrganizationsTestData.Now, OrganizationsTestData.Creator, "blue");
                 projects.Add(project);
                 projectIds.Add(project.Project.Id);
             }
 
             for (var t = 0; t < Teams; t++)
             {
-                var team = Team.Create(organization.Id, OrganizationsTestData.Name($"Команда {t:D3}"));
+                var team = Team.Create(organization.Id, department, "blue", OrganizationsTestData.Name($"Команда {t:D3}"));
                 teams.Add(team);
                 teamIds.Add(team.Id);
 
