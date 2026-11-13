@@ -29,9 +29,9 @@ const DATA: FitData = {
     { id: 'a', name: 'A', key: 'A', departmentId: 'log', teamIds: ['mars', 'venus'] },
   ],
   teams: [
-    { id: 'jupiter', name: 'JUPITER', isMember: false, departmentIds: [] },
-    { id: 'mars', name: 'MARS', isMember: false, departmentIds: ['log'] },
-    { id: 'venus', name: 'VENUS', isMember: true, departmentIds: ['log'] },
+    { id: 'jupiter', name: 'JUPITER', isMember: false, departmentId: 'fin' },
+    { id: 'mars', name: 'MARS', isMember: false, departmentId: 'log' },
+    { id: 'venus', name: 'VENUS', isMember: true, departmentId: 'log' },
   ],
 };
 
@@ -51,9 +51,9 @@ describe('pairFits', () => {
     ['team linked to the project', 'team', 'venus', 'project', 'a', true],
     ['team not linked to the project', 'team', 'venus', 'project', 'b', false],
     ['team linked to the department directly', 'team', 'venus', 'department', 'log', true],
-    ['team linked through a placed project', 'team', 'mars', 'department', 'fin', true],
-    ['team with no link at all', 'team', 'jupiter', 'department', 'log', false],
-    ['department of the team, reversed', 'department', 'fin', 'team', 'mars', true],
+    ['team in another department than the one asked', 'team', 'mars', 'department', 'fin', false],
+    ['team of another department', 'team', 'jupiter', 'department', 'log', false],
+    ['department of the team, reversed', 'department', 'log', 'team', 'mars', true],
     ['department of the project, reversed', 'department', 'log', 'project', 'c', false],
   ];
   it.each(cases)('%s', (_name, a, idA, b, idB, expected) => {
@@ -86,11 +86,11 @@ describe('offerFor', () => {
       ['jupiter'],
     ],
     [
-      'team selector under a department reached through a project',
+      'team selector under a department: the teams standing in it (a project placed there does not count)',
       { department: 'fin' },
       'team',
-      ['mars'],
-      ['venus', 'jupiter'],
+      ['jupiter'],
+      ['venus', 'mars'],
     ],
     ['department selector under a project', { project: 'a' }, 'department', ['log'], ['fin']],
     [
@@ -145,16 +145,22 @@ describe('applyChoice', () => {
       DATA,
       select({ department: 'log', team: 'mars', project: 'a' }),
       'department',
-      'fin',
+      'log',
     );
-    expect(result.selection).toEqual(select({ department: 'fin', team: 'mars' }));
-    expect(resetNotice(result.reset)).toBe('Выбор сброшен: проект A.');
+    expect(result.selection).toEqual(select({ department: 'log', team: 'mars', project: 'a' }));
+    const moved = applyChoice(DATA, select({ team: 'mars', project: 'a' }), 'project', 'c');
+    expect(moved.selection.team).toBe('mars');
   });
 
   it('names two resets in the order department, team, project', () => {
-    const result = applyChoice(DATA, select({ team: 'mars', project: 'a' }), 'department', 'fin');
+    const result = applyChoice(
+      DATA,
+      select({ team: 'jupiter', project: 'a' }),
+      'department',
+      'fin',
+    );
     expect(result.selection.project).toBeNull();
-    expect(result.selection.team).toBe('mars');
+    expect(result.selection.team).toBe('jupiter');
 
     const both = applyChoice(DATA, select({ team: 'venus', project: 'a' }), 'department', 'fin');
     expect(both.selection).toEqual(select({ department: 'fin' }));
@@ -245,7 +251,7 @@ describe('at volume (BR-NV-9)', () => {
         id: `t${i}`,
         name: `Team ${i}`,
         isMember: i % 10 === 0,
-        departmentIds: [`d${i % 50}`],
+        departmentId: `d${i % 50}`,
       })),
     };
     const started = performance.now();
@@ -273,7 +279,7 @@ describe('resetUnfitted (BR-NV-17, ADR-0032 § 5, US-7: a link change)', () => {
     const after: FitData = {
       ...DATA,
       teams: DATA.teams.map((team) =>
-        team.id === 'venus' ? { ...team, departmentIds: [] } : team,
+        team.id === 'venus' ? { ...team, departmentId: 'fin' } : team,
       ),
       projects: DATA.projects.map((project) =>
         project.id === 'a' ? { ...project, teamIds: ['mars'] } : project,
