@@ -21,7 +21,8 @@ new rules start at BR-M3-19, bare BR-n is doc-001's.
   process (mod-001).
 - The identifier КЛЮЧПРОЕКТА-ТИП-№, resolved inside the organization
   (doc-010 D-8).
-- The fields Заголовок, Описание (plain text), Статус among the type's
+- The fields Заголовок, Описание (plain text here; rich text since feat-018,
+  see BR-M3-19 as amended), Статус among the type's
   states, Исполнитель over the user projection (mod-014), Область from the
   project's tree with its default (doc-010 D-7).
 - The create dialog, the form (read and edit), state changes, the project's
@@ -86,7 +87,7 @@ mod-014's user (by its Keycloak user id).
 | ID | identifier | system | issued at creation | `<ключ проекта>-<ключ типа>-<номер>`; never changes (BR-M3-5) | no |
 | Тип | one of the five types of the organization's process | yes | chosen in the dialog | never changes (BR-M3-1) | no |
 | Заголовок | single-line text | yes | — | 1..255 characters after trimming, no line break (BR-M3-3) | yes |
-| Описание | plain text | no | empty | 0..100 000 characters (BR-M3-19) | yes |
+| Описание | plain text; rich text (html) since feat-018 | no | empty | 0..100 000 characters plain; html per feat-018 (BR-M3-19, amended) | yes |
 | Статус | one state of the item's type | yes | the type's initial state (BR-M3-20) | never «Удалена» in this task (BR-M3-21) | yes |
 | Исполнитель | one user of the directory | no | none («Не назначен») | an active user when newly set (BR-M3-22) | yes |
 | Область | one area of the item's project | yes | the project's root area (BR-M3-20) | an area of the same project (BR-M3-23) | yes |
@@ -131,7 +132,7 @@ The item belongs to one project of one organization for good (BR-M3-2).
 | BR-M3-2 | A work item belongs to exactly one project, of that project's organization, and never moves; its Область is an area of that same project. | doc-002 BR-M3-2; mod-002 BR-M1-22 |
 | BR-M3-3 | Заголовок is trimmed before it is checked and stored trimmed. Empty or white-space-only is refused, more than 255 characters is refused, and a line break anywhere in it is refused. The server enforces all three, not only the browser. | doc-002 BR-M3-3, § Fields («single-line text») |
 | BR-M3-5 | The identifier is `<ключ проекта>-<ключ типа>-<номер>` with one number sequence per project shared by all types, issued at creation, never reused, never changed; gaps are legal; it is resolved inside the organization the address carries, as § The identifier and its number states. | doc-002 BR-M3-5, W-6, W-10, W-11; doc-010 D-8 |
-| BR-M3-19 | Описание is plain text of 0..100 000 characters, stored as entered and shown as entered, line breaks kept; nothing in it is interpreted as markup. | D-2; doc-002 NFR (size) |
+| BR-M3-19 | Описание is plain text of 0..100 000 characters, stored as entered and shown as entered, line breaks kept; nothing in it is interpreted as markup. **Amended by feat-018 (BR-RT-13):** this holds for a description stored in the plain format, which is every description that existed before feat-018 and any a client saves without declaring `descriptionFormat`; a description saved as html (`descriptionFormat: html`) is the reduced rich-text subset of feat-018 instead (up to 1 000 000 characters on the wire, visible length under feat-018 BR-RT-8). | D-2; doc-002 NFR (size); feat-018 BR-RT-13 |
 | BR-M3-20 | A new item takes its type's initial state (the first in the seeded order, «Новая» on all five), no assignee, an empty Описание and the project's root area. The list is a create surface with no team context, so the root, which is the first team's default area, applies; a team's default area applies to items created from that team's board or backlog (mod-006). *Changed by feat-027: an item created beneath a parent (feat-027 BR-T-10) takes the parent's area as stored, over the root and over a team's default.* | mod-001 BR-M2-2; doc-010 D-7; mod-002 BR-M1-14; doc-002 § Fields |
 | BR-M3-21 | Статус moves among its type's states other than «Удалена»: from any one directly to any other, forwards or backwards, with no reason and no rule check. A state of another type and «Удалена» are refused (only mod-005's Delete reaches it). Choosing the current state changes nothing. A state change changes no other field. | doc-001 BR-10, D-6; doc-002 US-3 |
 | BR-M3-22 | Исполнитель is optional. Until mod-016, the candidates are every active user of mod-014's directory, found by display name or e-mail (at least 2 characters, at most 20 shown). An inactive user is never offered, and a save that newly sets one is refused. An assignee who becomes inactive stays assigned and is shown by name, with no mark (D-2); a save of any other field keeps them. «Не назначен» clears the field. | doc-001 BR-13 (members: mod-016); D-3; mod-014 A.3, A.8 |

@@ -31,6 +31,7 @@ const STORY: WorkItem = {
   type: { id: 'type-us', key: 'US', name: 'Пользовательская история', appearance: 'story' },
   title: 'Письмо со ссылкой',
   description: '',
+  descriptionFormat: 'plain',
   state: { id: 'state-new', name: 'Новая', category: { code: 'Proposed', label: 'Новые' } },
   assignee: null,
   area: { id: 'area-platform', path: 'Платформа' },

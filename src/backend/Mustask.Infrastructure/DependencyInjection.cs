@@ -4,6 +4,7 @@ using Mustask.Application.Abstractions.Dictionaries;
 using Mustask.Application.Abstractions.Iterations;
 using Mustask.Application.Abstractions.Organizations;
 using Mustask.Application.Abstractions.Process;
+using Mustask.Application.Abstractions.RichText;
 using Mustask.Application.Features.Boards;
 using Mustask.Application.Features.Organizations;
 using Mustask.Application.Features.WorkItems;
@@ -13,11 +14,13 @@ using Mustask.Infrastructure.Dictionaries.Seeding;
 using Mustask.Infrastructure.Iterations;
 using Mustask.Infrastructure.Organizations;
 using Mustask.Infrastructure.Process;
+using Mustask.Infrastructure.RichText;
 using Mustask.Application.Abstractions.UserDirectory;
 using Mustask.Application.Abstractions.WorkItems;
 using Mustask.Infrastructure.UserDirectory;
 using Mustask.Infrastructure.WorkItems;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 
@@ -102,6 +105,15 @@ public static class DependencyInjection
         services.AddScoped<IWorkItemReadModel, WorkItemReadModel>();
         services.AddScoped<IAreaUsage, WorkItemAreaUsage>();
         services.AddScoped<IWorkItemTeamOwnership, WorkItemTeamOwnership>();
+
+        // feat-018 / ADR-0039: the rich-text reduction. A singleton: it holds the vocabulary and the concurrency gate.
+        services.AddSingleton<IRichTextReducer>(provider =>
+        {
+            var options = new RichTextOptions();
+            provider.GetService<IConfiguration>()?.GetSection(RichTextOptions.SectionName).Bind(options);
+
+            return new HtmlRichTextReducer(RichTextVocabulary.LoadEmbedded(), options);
+        });
 
         return services;
     }

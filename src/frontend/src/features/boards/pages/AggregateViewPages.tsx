@@ -1,7 +1,8 @@
+import { useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { NotFound } from '../../../shared/ui/StateFrame';
 import { AggregateBacklogView } from '../components/AggregateBacklogView';
-import { AggregateBoardView } from '../components/AggregateBoardView';
+import { AggregateBoardView, type CreatedItem } from '../components/AggregateBoardView';
 import { AggregateHeader } from '../components/AggregateHeader';
 import {
   useAddressSelectors,
@@ -9,6 +10,7 @@ import {
   useNarrowedTag,
   type GroupingChoice,
 } from '../hooks/useAggregateView';
+import { useAggregateNewWorkItem } from '../hooks/useAggregateNewWorkItem';
 import { isBoardLevel, type BoardLevelCode } from '../lib/levels';
 
 /**
@@ -31,6 +33,21 @@ export function AggregatePage({
   const selectors = useAddressSelectors();
   const v = useAggregateView({ organizationId, view, level, selectors, choice });
   const narrowed = useNarrowedTag(organizationId, selectors);
+  // feat-060 D-1: the board creates; the aggregate backlog and «Рабочие элементы» keep feat-048's rule.
+  const [created, setCreated] = useState<CreatedItem | undefined>(undefined);
+  const newItem = useAggregateNewWorkItem({
+    organizationId,
+    selectors,
+    groups: v.groups,
+    enabled: view === 'boards',
+    onContextGone: v.readHeadersAgain,
+    onCreated: (item) => {
+      // The header counts are read again, and the board reloads only the cell the item lands in
+      // (its lane's column of the type's initial state); other cells keep their loaded pages.
+      v.readHeadersAgain();
+      setCreated((last) => ({ serial: (last?.serial ?? 0) + 1, item }));
+    },
+  });
   const grouped = v.grouping !== 'none' && (v.groups?.length ?? 0) > 0;
   return (
     <>
@@ -42,8 +59,14 @@ export function AggregatePage({
         grouping={v.grouping}
         onGrouping={v.changeGrouping}
         onCollapseAll={grouped ? v.collapseAll : undefined}
+        primaryAction={newItem.command}
       />
-      {view === 'backlogs' ? <AggregateBacklogView v={v} /> : <AggregateBoardView v={v} />}
+      {view === 'backlogs' ? (
+        <AggregateBacklogView v={v} />
+      ) : (
+        <AggregateBoardView v={v} created={created} />
+      )}
+      {newItem.elements}
     </>
   );
 }

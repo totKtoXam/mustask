@@ -3,6 +3,7 @@ import type { WorkItem, WorkItemRef } from '../api/workItemsApi';
 import { defaultFields } from '../testFixtures';
 import {
   changesOf,
+  descriptionBaseline,
   draftErrors,
   draftOf,
   hasChanges,
@@ -34,6 +35,7 @@ const ITEM: WorkItem = {
   type: { id: 'type-bug', key: 'BUG', name: 'Баг', appearance: 'bug' },
   title: 'Падение при входе',
   description: '',
+  descriptionFormat: 'plain',
   state: {
     id: 'state-active',
     name: 'Активна',
@@ -61,8 +63,12 @@ describe('changesOf', () => {
   });
 
   it('carries only the title and the description when only they changed', () => {
-    const draft = { ...draftOf(ITEM), title: 'Новый', description: 'Шаги' };
-    expect(changesOf(ITEM, draft)).toEqual({ title: 'Новый', description: 'Шаги' });
+    const draft = { ...draftOf(ITEM), title: 'Новый', description: '<p>Шаги</p>' };
+    expect(changesOf(ITEM, draft)).toEqual({
+      title: 'Новый',
+      description: '<p>Шаги</p>',
+      descriptionFormat: 'html',
+    });
   });
 
   it('carries the state alone when only the state changed', () => {
@@ -117,9 +123,84 @@ describe('changesOf', () => {
     expect(hasChanges(changesOf(ITEM, back))).toBe(false);
   });
 
-  it('an empty description is `""`, sent as such', () => {
+  it('an empty description is `""` in html, sent as such with its format', () => {
     const item = { ...ITEM, description: 'Было' };
-    expect(changesOf(item, { ...draftOf(item), description: '' })).toEqual({ description: '' });
+    expect(changesOf(item, { ...draftOf(item), description: '' })).toEqual({
+      description: '',
+      descriptionFormat: 'html',
+    });
+  });
+});
+
+// feat-018 BR-RT-10, BR-RT-11, US-3: the description is the editor's canonical string; its
+// baseline is the stored html, or the legacy conversion of a stored plain text.
+describe('the description: baseline and the pair (feat-018)', () => {
+  const LEGACY = {
+    ...ITEM,
+    description: 'строка 1\nстрока <2>',
+    descriptionFormat: 'plain' as const,
+  };
+  const STORED = {
+    ...ITEM,
+    description: '<p>строка</p><ul><li><p>пункт</p></li></ul>',
+    descriptionFormat: 'html' as const,
+  };
+
+  it('opens with the legacy conversion of a plain text, and the stored html as it is', () => {
+    expect(descriptionBaseline(LEGACY)).toBe('<p>строка 1</p><p>строка &lt;2&gt;</p>');
+    expect(draftOf(LEGACY).description).toBe('<p>строка 1</p><p>строка &lt;2&gt;</p>');
+    expect(descriptionBaseline(STORED)).toBe(STORED.description);
+    expect(descriptionBaseline(ITEM)).toBe('');
+  });
+
+  it('opening is not a change, and neither is another field: no description, no format', () => {
+    for (const item of [LEGACY, STORED, ITEM]) {
+      expect(changesOf(item, draftOf(item))).toEqual({});
+      expect(isDirty(item, draftOf(item))).toBe(false);
+      expect(changesOf(item, { ...draftOf(item), title: 'Другой' })).toEqual({ title: 'Другой' });
+    }
+  });
+
+  it('a changed description is sent with its format, and only then; edited back it is not sent', () => {
+    const edited = { ...draftOf(LEGACY), description: '<p>строка 1</p>' };
+    expect(changesOf(LEGACY, edited)).toEqual({
+      description: '<p>строка 1</p>',
+      descriptionFormat: 'html',
+    });
+    const back = { ...edited, description: descriptionBaseline(LEGACY) };
+    expect(changesOf(LEGACY, back)).toEqual({});
+  });
+
+  it('a stored html with only another formatting is a change', () => {
+    const edited = { ...draftOf(STORED), description: '<p><strong>строка</strong></p>' };
+    expect(isDirty(STORED, edited)).toBe(true);
+  });
+
+  it('blank after an edit of a legacy text is "" in html (the server stores ("", plain))', () => {
+    expect(changesOf(LEGACY, { ...draftOf(LEGACY), description: '' })).toEqual({
+      description: '',
+      descriptionFormat: 'html',
+    });
+  });
+
+  it('checks only a changed description, by the markup ceiling first and then the visible limit', () => {
+    expect(draftErrors(LEGACY, draftOf(LEGACY))).toEqual({});
+    const long = { ...draftOf(ITEM), description: `<p>${'я'.repeat(100_001)}</p>` };
+    expect(draftErrors(ITEM, long)).toEqual({ description: 'Не более 100 000 символов.' });
+    const markup = { ...draftOf(ITEM), description: `<p>${'<b>я</b>x'.repeat(60_000)}</p>` };
+    expect(draftErrors(ITEM, markup)).toEqual({
+      description: 'Слишком много разметки. Упростите форматирование или сократите текст.',
+    });
+    const exact = { ...draftOf(ITEM), description: `<p>${'я'.repeat(100_000)}</p>` };
+    expect(draftErrors(ITEM, exact)).toEqual({});
+  });
+
+  it("after a save the fresh baseline is the server's html, and a touched description survives a rebase", () => {
+    const fresh = { ...ITEM, description: '<p>новое</p>', descriptionFormat: 'html' as const };
+    const touched = { ...draftOf(ITEM), description: '<p>мое</p>' };
+
+    expect(rebaseDraft(ITEM, fresh, touched).description).toBe('<p>мое</p>');
+    expect(rebaseDraft(ITEM, fresh, draftOf(ITEM)).description).toBe('<p>новое</p>');
   });
 });
 
@@ -167,7 +248,8 @@ describe('rebaseDraft: the fresh read after `parent_changed` (feat-001 spec § S
   it('takes the stored parent, keeps the touched fields, and takes the rest from the fresh read', () => {
     const fresh: WorkItem = {
       ...ITEM,
-      description: 'Описал другой участник',
+      description: '<p>Описал другой участник</p>',
+      descriptionFormat: 'html',
       parent: FEAT_8,
       changedAt: '2026-10-05T15:00:00+00:00',
     };

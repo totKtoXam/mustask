@@ -26,6 +26,8 @@ public sealed class WorkItemErrorCatalogTests
         { WorkItemErrorCodes.TitleTooLong, 400, "", "Не более 255 символов." },
         { WorkItemErrorCodes.TitleMultiline, 400, "", "Заголовок должен быть в одну строку." },
         { WorkItemErrorCodes.DescriptionTooLong, 400, "", "Не более 100 000 символов." },
+        { WorkItemErrorCodes.DescriptionMarkupTooLarge, 400, "", "Слишком много разметки. Упростите форматирование или сократите текст." },
+        { WorkItemErrorCodes.DescriptionFormatUnknown, 400, "", "Неизвестный формат описания. Обновите страницу и попробуйте ещё раз." },
         { WorkItemErrorCodes.RequestIdInvalid, 400, "", "Не удалось отправить форму. Обновите страницу и попробуйте ещё раз." },
         { WorkItemErrorCodes.InvalidPage, 400, "", "Некорректный номер страницы." },
         { WorkItemErrorCodes.TypeNotFound, 404, "", "Тип рабочего элемента не найден." },

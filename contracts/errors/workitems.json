@@ -44,6 +44,20 @@
       "kk": "100 000 таңбадан аспауы керек.",
       "kkNeedsReview": true
     },
+    "workitems.workitem.description_markup_too_large": {
+      "statuses": [400],
+      "params": {},
+      "ru": "Слишком много разметки. Упростите форматирование или сократите текст.",
+      "kk": "Белгілеу тым көп. Пішімдеуді жеңілдетіңіз немесе мәтінді қысқартыңыз.",
+      "kkNeedsReview": true
+    },
+    "workitems.workitem.description_format_unknown": {
+      "statuses": [400],
+      "params": {},
+      "ru": "Неизвестный формат описания. Обновите страницу и попробуйте ещё раз.",
+      "kk": "Сипаттама пішімі белгісіз. Бетті жаңартып, қайталап көріңіз.",
+      "kkNeedsReview": true
+    },
     "workitems.workitem.request_id_invalid": {
       "statuses": [400],
       "params": {},

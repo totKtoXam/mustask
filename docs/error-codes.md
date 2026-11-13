@@ -147,6 +147,8 @@ guarantees it exists and differs from the Russian, not its quality
 |workitems.workitem.assignee_unavailable|409|Этого пользователя нельзя назначить исполнителем.|Бұл пайдаланушыны орындаушы етіп тағайындауға болмайды.|workitems|—|needs review|
 |workitems.workitem.date_out_of_range|400|Укажите дату с 2000 по 2099 год.|2000 жылдан 2099 жылға дейінгі күнді көрсетіңіз.|workitems|—|needs review|
 |workitems.workitem.deleted|409|Рабочий элемент удалён и доступен только для чтения.|Жұмыс элементі жойылған және тек оқуға арналған.|workitems|—|needs review|
+|workitems.workitem.description_format_unknown|400|Неизвестный формат описания. Обновите страницу и попробуйте ещё раз.|Сипаттама пішімі белгісіз. Бетті жаңартып, қайталап көріңіз.|workitems|—|needs review|
+|workitems.workitem.description_markup_too_large|400|Слишком много разметки. Упростите форматирование или сократите текст.|Белгілеу тым көп. Пішімдеуді жеңілдетіңіз немесе мәтінді қысқартыңыз.|workitems|—|needs review|
 |workitems.workitem.description_too_long|400|Не более 100 000 символов.|100 000 таңбадан аспауы керек.|workitems|—|needs review|
 |workitems.workitem.field_not_on_type|400|Это поле недоступно для рабочего элемента этого типа.|Бұл өріс осы түрдегі жұмыс элементі үшін қолжетімсіз.|workitems|—|needs review|
 |workitems.workitem.integer_required|400|Введите целое число.|Бүтін сан енгізіңіз.|workitems|—|needs review|

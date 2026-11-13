@@ -175,6 +175,15 @@ export interface WorkItemFields {
 /** feat-022 § 1's JSON names. */
 export type WorkItemFieldName = keyof WorkItemFields;
 
+/**
+ * feat-018 api-contract § 1, § 2: how a description is stored and read. A closed
+ * set: the server refuses any other string. `plain` is a legacy, never-written
+ * or cleared description (the text exactly as typed); `html` is the reduced,
+ * canonical html the rich-text editor writes.
+ */
+export const DESCRIPTION_FORMATS = ['plain', 'html'] as const;
+export type DescriptionFormat = (typeof DESCRIPTION_FORMATS)[number];
+
 /** § 1.1: the form's item — what create, read and save answer. */
 export interface WorkItem extends WorkItemFields {
   id: string;
@@ -185,8 +194,14 @@ export interface WorkItem extends WorkItemFields {
   project: WorkItemProject;
   type: WorkItemTypeReference;
   title: string;
-  /** `""` when empty, never `null` (§ 0.6). */
+  /** `""` when empty, never `null` (§ 0.6). Read by `descriptionFormat`. */
   description: string;
+  /**
+   * feat-018 api-contract § 2: always present, never `null`; `plain` for every
+   * row stored before the rich-text editor, a new item and an emptied
+   * description.
+   */
+  descriptionFormat: DescriptionFormat;
   state: WorkItemStateReference;
   /** `null`: «Не назначен». */
   assignee: WorkItemAssignee | null;
@@ -235,6 +250,7 @@ export type WorkItemListItem = Omit<
   | 'projectId'
   | 'project'
   | 'description'
+  | 'descriptionFormat'
   | 'createdBy'
   | 'createdAt'
   | 'parent'
@@ -334,7 +350,14 @@ export type SaveFieldsBody = {
  */
 export interface SaveWorkItemBody extends SaveFieldsBody {
   title?: string;
+  /** Read by `descriptionFormat`; absent leaves the description unchanged (BR-M3-25). */
   description?: string;
+  /**
+   * feat-018 api-contract § 1: the format `description` is written in. The
+   * panel sends it together with a `description` and only then (BR-RT-10): its
+   * editor writes `html`. Absent means `plain`, stored exactly as sent.
+   */
+  descriptionFormat?: DescriptionFormat;
   stateId?: string;
   assignee?: { userId: string | null };
   areaId?: string;

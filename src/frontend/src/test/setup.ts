@@ -1,4 +1,6 @@
 import '@testing-library/jest-dom/vitest';
+// Additive jsdom geometry stubs for the rich-text editor (feat-018, plan § 12.2).
+import './richTextDom';
 import { afterAll, afterEach, beforeAll, beforeEach, vi } from 'vitest';
 
 // The files of one worker share a module cache (`isolate: false`,

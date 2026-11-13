@@ -97,6 +97,15 @@ is gone.
   breaks and markup characters kept; more than 100 000 UTF-16 code units →
   `workitems.workitem.description_too_long` (BR-M3-19). An empty description
   is `""`, never `null`.
+  *Amended by feat-018 (BR-RT-13, additive):* a request that declares
+  `descriptionFormat: "html"` sends reduced, sanitised html and the item reads
+  back with `descriptionFormat` (`"plain"` | `"html"`); a request with no
+  declaration keeps exactly the behaviour above. The format-dependent bounds
+  (html up to 1 000 000 characters, plain 100 000), the extra reasons of the
+  `description` field and the shape are in
+  `docs/features/feat-018-work-item-rich-text/api-contract.md` (§ 1.1, § 3).
+  Likewise § 2.4's "a value equal to the stored one changes nothing" reads as
+  equality of (value, format) for the description.
 - **Time** is UTC, ISO 8601 with its offset (`2026-10-05T14:30:00.123456+00:00`;
   the fraction has up to six digits and may be shorter or absent). The panel
   formats it as «05.10.2026 14:30» in the user's time zone.

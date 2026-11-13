@@ -71,6 +71,12 @@ export interface WorkItemEditsOptions {
   onSaved?: (saved: WorkItem) => void;
   /** An accepted read («Обновить»): the dialog's host reads the page behind it again (BR-C-21). */
   onRefreshed?: (fresh: WorkItem) => void;
+  /**
+   * feat-018 plan § 7.2: the description editor reports a change after a short delay, so a
+   * save first asks it to report now and reads the html it last reported (`null`: it holds
+   * nothing the edits lack). The card owns the editor; the hook owns the save.
+   */
+  flushDescription?: () => string | null;
 }
 
 export interface WorkItemEditsState {
@@ -133,6 +139,7 @@ export function useWorkItemEdits({
   onGone,
   onSaved,
   onRefreshed,
+  flushDescription,
 }: WorkItemEditsOptions): WorkItemEditsState {
   const { mutateAsync: sendChanges } = useSaveWorkItem(organizationId, projectId, identifier);
   const readItem = useRefreshWorkItem(organizationId, projectId, identifier);
@@ -255,11 +262,14 @@ export function useWorkItemEdits({
     if (working.current) {
       return 'busy';
     }
-    if (!hasUnsavedEdits(item, edits)) {
+    // feat-018: a description change the editor still holds is reported first, synchronously.
+    const held = flushDescription?.() ?? null;
+    const current = held === null ? edits : withEdit(item, edits, { field: 'description', value: held });
+    if (!hasUnsavedEdits(item, current)) {
       return 'clean';
     }
     // The browser's checks: nothing is sent while one stands.
-    const checked = draftErrors(item, editedDraft(item, edits));
+    const checked = draftErrors(item, editedDraft(item, current));
     if (Object.keys(checked).length > 0) {
       setErrors((current) => ({ ...current, ...checked }));
       focusFirst(checked);
@@ -269,7 +279,7 @@ export function useWorkItemEdits({
     setSaving(true);
     setAlert(null);
     try {
-      const saved = await sendChanges(touchedChanges(item, edits));
+      const saved = await sendChanges(touchedChanges(item, current));
       setEdits(NO_EDITS);
       setErrors({});
       notify(cardTexts.notices.saved);
@@ -281,7 +291,7 @@ export function useWorkItemEdits({
       working.current = null;
       setSaving(false);
     }
-  }, [item, edits, sendChanges, notify, onSaved, refuse, focusFirst]);
+  }, [item, edits, sendChanges, notify, onSaved, refuse, focusFirst, flushDescription]);
 
   const saveAndClose = useCallback(
     async (close: () => void): Promise<SaveOutcome> => {

@@ -118,7 +118,7 @@ Per type: Эпик and Фича gain 8 fields, История 5, Задача 5,
 | BR-M3-33 | Units: Исходная оценка, Оставшаяся работа and Выполненная работа are hours; Оценка в пунктах is points; Трудоёмкость, Бизнес-ценность and Критичность по времени are relative numbers with no unit. Nothing converts or sums them. | doc-002 § Release 2; research § Fields |
 | BR-M3-34 | No field is derived or read-only: each holds what a user last saved. A state change changes none of them — closing a Задача leaves Оставшаяся работа as entered — and no field changes another (Выполненная работа does not reduce Оставшаяся работа). A type never changes (BR-M3-1), so no value ever moves between types. | doc-002 BR-M3-18; doc-001 D-6; mod-003 BR-M3-1, BR-M3-21 |
 | BR-M3-35 | A date is a calendar date with no time or time zone, from 01.01.2000 to 31.12.2099 (`date_out_of_range`). Дата начала and Целевая дата may each be set alone; when both are set after a save, Целевая дата is not earlier than Дата начала (`target_before_start`, reported on «Целевая дата» also when the save changed only Дата начала). | research § Fields; range and order this task's call (OQ-3) |
-| BR-M3-36 | Критерии приёмки, Шаги воспроизведения and Сведения о системе are plain text of 0..100 000 characters, stored and shown as entered with line breaks, nothing interpreted as markup (`text_too_long`), as BR-M3-19 has it for Описание. | doc-002 W-5, US-12; D-2; D-6 (OQ-4); mod-003 BR-M3-19 |
+| BR-M3-36 | Критерии приёмки, Шаги воспроизведения and Сведения о системе are plain text of 0..100 000 characters, stored and shown as entered with line breaks, nothing interpreted as markup (`text_too_long`), as BR-M3-19 has it for a plain-format Описание (feat-018 BR-RT-13: Описание itself may now be rich text; these three texts stay plain). | doc-002 W-5, US-12; D-2; D-6 (OQ-4); mod-003 BR-M3-19 |
 | BR-M3-37 | A new item takes Приоритет 2, on a Баг Серьёзность 3, on an Эпик, Фича or История Вид ценности «Бизнес», and every other new field empty. An item created before this task ships reads the same values from the first moment, and receiving them moves neither its «Изменён» nor its place in the list. | doc-002 § Fields; research § Fields; this task's call for existing items |
 | BR-M3-38 | The new fields join the form's one save under BR-M3-25: a save changes exactly the fields the user changed, all of them or none, so one refused value stores nothing. Emptying an optional field is a change. «Изменён» moves when at least one value changes (BR-M3-28). | mod-003 BR-M3-25, BR-M3-28 |
 | BR-M3-39 | The backlog row and the board card show Приоритет (OQ-1). *Superseded in part by feat-027 BR-T-1, BR-T-3 (D-7): the backlog row no longer shows Приоритет — the backlog table has no such column; the board card keeps it.* | doc-003 BR-M4-14; mod-006 BR-M4-14 |
@@ -288,6 +288,9 @@ optional fields a way to say "empty" (as `assignee` does).
 Amendments to queued lines, for the orchestrator in `main`:
 - feat-018-work-item-rich-text: converts «Критерии приёмки», «Шаги
   воспроизведения» and «Сведения о системе» too (doc-002 BR-M3-4; D-6).
+  **Superseded by feat-018 (BR-RT-13):** feat-018 converts Описание only; the
+  three texts go to the queued line feat-NNN-work-item-rich-text-type-fields
+  and stay plain until then.
 - feat-015-work-item-history: records the new fields.
 - feat-021-work-item-concurrency-token: the new fields join the revision
   check (doc-002 BR-M3-18).

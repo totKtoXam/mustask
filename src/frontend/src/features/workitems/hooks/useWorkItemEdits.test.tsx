@@ -275,7 +275,10 @@ describe('feat-029 US-4: refusals', () => {
 
     // The next save sends «Описание» alone, and clears nothing it did not touch.
     expect(await save(t)).toBe('saved');
-    expect(patches(t.api).at(-1)?.body).toEqual({ description: 'Мой текст' });
+    expect(patches(t.api).at(-1)?.body).toEqual({
+      description: 'Мой текст',
+      descriptionFormat: 'html',
+    });
   });
 });
 
@@ -299,7 +302,10 @@ describe('feat-029 US-5: refresh and undo', () => {
     expect(patches(t.api)).toHaveLength(0);
 
     expect(await save(t)).toBe('saved');
-    expect(patches(t.api)[0]?.body).toEqual({ description: 'Мой текст' });
+    expect(patches(t.api)[0]?.body).toEqual({
+      description: 'Мой текст',
+      descriptionFormat: 'html',
+    });
   });
 
   it('says only «Данные обновлены.» when nothing is touched', async () => {

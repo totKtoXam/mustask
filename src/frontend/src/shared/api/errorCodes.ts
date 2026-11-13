@@ -140,6 +140,16 @@ export const workItemErrorCodes = {
   titleMultiline: 'workitems.workitem.title_multiline',
   /** A field reason of `validationFailed`. */
   descriptionTooLong: 'workitems.workitem.description_too_long',
+  /**
+   * feat-018 api-contract § 4, a field reason of `validationFailed`: an html description whose reduced markup is
+   * over 1 000 000 code points (or a raw value over 2 000 000 UTF-16 units). The field's error, under «Описание».
+   */
+  descriptionMarkupTooLarge: 'workitems.workitem.description_markup_too_large',
+  /**
+   * feat-018 api-contract § 4, a field reason of `validationFailed` reported under `errors.description`: a
+   * `descriptionFormat` other than `plain` or `html` — a panel defect, so the form's banner, not the editor.
+   */
+  descriptionFormatUnknown: 'workitems.workitem.description_format_unknown',
   /** A field reason of `validationFailed`: a panel defect, shown as any other refusal. */
   requestIdInvalid: 'workitems.workitem.request_id_invalid',
   /** A field reason of `validationFailed`: a panel defect, shown as any other refusal. */

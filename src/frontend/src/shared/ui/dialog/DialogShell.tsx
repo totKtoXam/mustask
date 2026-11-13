@@ -17,6 +17,12 @@ export type DialogCloseReason = 'escape' | 'backdrop' | 'close';
 /** The unsaved-changes confirmation a dismissal of a dirty dialog opens first. */
 export interface DialogGuard {
   dirty: boolean;
+  /**
+   * Asked at the moment of a dismissal, when given, instead of `dirty`: a host whose edits
+   * reach its state late (a debounced editor) flushes them here, so a keyboard close right
+   * after typing still asks.
+   */
+  isDirty?: () => boolean;
   /** The question's title, the host's. */
   title: string;
   /** What will be lost; the item's identifier belongs here. */
@@ -157,7 +163,7 @@ export function DialogShell({
 
   function dismiss(reason: DialogCloseReason) {
     if (busy) return;
-    if (guard?.dirty) {
+    if (guard && (guard.isDirty ? guard.isDirty() : guard.dirty)) {
       setConfirming(reason);
       return;
     }

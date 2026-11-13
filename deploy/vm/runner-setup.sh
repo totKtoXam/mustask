@@ -15,8 +15,10 @@
 # unless it matches the checksum.
 # --name defaults to mustask-prod-<hostname>.
 # --smoke-args are the flags `mustask-cd smoke` gives smoke.sh: empty by
-# default, or --resolve-local (the VM cannot reach its own public name) and/or
-# --insecure (a certificate the VM does not trust). Kept in
+# default, or --insecure (a certificate the VM does not trust) and at most one
+# of --resolve-local (the VM cannot reach its own public name) and
+# --resolve-to=<IPv4> (TLS and the http redirect are a proxy's in front of the
+# VM, and on the VM the name points at the VM itself). Kept in
 # /etc/mustask/cd-smoke-args; a re-run without the flag keeps the recorded ones.
 #
 # The registration token (Settings > Actions > Runners > New self-hosted
@@ -78,10 +80,20 @@ printf '%s' "$url" | grep -Eq '^https://github\.com/[A-Za-z0-9_.-]+/[A-Za-z0-9_.
     || die "--url must be https://github.com/<owner>/<repo> (got '$url')"
 name=${name:-mustask-prod-$(hostname -s)}
 printf '%s' "$name" | grep -Eq '^[A-Za-z0-9._-]+$' || die "--name '$name' is not a plain name"
+# The same rule as smoke_args_of in mustask-cd.sh, which refuses the file at
+# every smoke otherwise.
+resolve=''
 for w in $smoke_args; do
     case $w in
-        --resolve-local|--insecure) ;;
-        *) die "--smoke-args: '$w' is not --resolve-local or --insecure" ;;
+        --insecure) ;;
+        --resolve-local|--resolve-to=*)
+            if [ "$w" != --resolve-local ]; then
+                printf '%s' "${w#--resolve-to=}" | grep -Eq '^([0-9]{1,3}\.){3}[0-9]{1,3}$' \
+                    || die "--smoke-args: '$w' is not --resolve-to=<IPv4 address>"
+            fi
+            [ -z "$resolve" ] || [ "$resolve" = "$w" ] || die "--smoke-args: $resolve and $w: give one address"
+            resolve=$w ;;
+        *) die "--smoke-args: '$w' is not --insecure, --resolve-local or --resolve-to=<IPv4>" ;;
     esac
 done
 for f in mustask-cd.sh runner-job-guard.sh; do

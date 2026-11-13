@@ -11,6 +11,10 @@ namespace Mustask.Application.Features.WorkItems.SaveWorkItem;
 /// </summary>
 /// <param name="Assignee"><c>null</c>: not sent; otherwise the user to set, or <c>null</c> inside it for «Не назначен».</param>
 /// <param name="Parent"><c>null</c>: not sent, the parent stays whoever changed it; otherwise feat-001's parent write.</param>
+/// <param name="DescriptionFormat">
+/// feat-018: <c>plain</c> or <c>html</c> as declared, <c>null</c> when not (then <c>plain</c>); anything else is
+/// refused with or without a <paramref name="Description"/>.
+/// </param>
 /// <param name="Fields">feat-022's fields as sent, each <c>null</c> when it was not; <c>null</c> when none was.</param>
 /// <param name="Team">
 /// mod-017 (api-contract § 0.2): <c>null</c>: not sent, the stored team stays whoever changed it (BR-M3-25); otherwise the
@@ -32,6 +36,7 @@ public sealed record SaveWorkItemCommand(
     ParentChange? Parent = null,
     WorkItemFieldsEdit? Fields = null,
     TeamChange? Team = null,
+    string? DescriptionFormat = null,
     SprintChange? Sprint = null);
 
 /// <summary>The sent assignee: a user id, or <c>null</c> to clear it (BR-M3-22).</summary>
