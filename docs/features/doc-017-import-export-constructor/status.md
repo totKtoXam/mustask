@@ -40,7 +40,7 @@ No backend/frontend plan: a docs task. Input: [input-brief.md](input-brief.md)
 - 2026-11-10 [requirements-reviewer] round 2 (delta): needs-human-decision. R-19..R-27: 2 major (no-identifier round trip, per-type state recoding), 7 minor, fixed in place but R-27 (orchestrator); OQ-12, OQ-13 open; verify.sh not run (no shell).
 - 2026-11-10 [orchestrator] human answers in chat: OQ-12 B (a «Менеджер» also creates templates, edits and deletes their own), OQ-13 A; applied to § Roles, BR-IE-18, US-1, US-7, ADR-0039 decision 5.
 - 2026-11-10 [orchestrator] gate-1 approved by the human in chat; ADR-0039 accepted with it (index updated). Next: the delivery lines into the queue, feat-005 and the amended lines reworded, then the final diff and gate-3.
-- 2026-11-13 [orchestrator] delivery lines queued by scripts/queue.sh add (#160..#165): feat-066, mod-024, feat-067, feat-068, feat-069, mod-025; NNN in spec, stories and ADR replaced by these ids.
+- 2026-11-13 [orchestrator] delivery lines queued by scripts/queue.sh add (#160, #162, #164; #163, #165 conflicted and were folded into #161): feat-066, mod-024, feat-067, feat-068, feat-069, mod-025; NNN in spec, stories and ADR replaced by these ids.
 - 2026-11-13 [orchestrator] sync PR #166: feat-005 reworded (OQ-8 A, deps feat-069); feat-015, feat-016, feat-002, mod-004, feat-047 amended per § Decomposition.
 - 2026-11-13 [orchestrator] origin/main merged in: ADR-0039/-0040 were taken there meanwhile, -0041 by another branch; this ADR is now ADR-0042 (file, index, spec, stories). Next: gate-3.
 
