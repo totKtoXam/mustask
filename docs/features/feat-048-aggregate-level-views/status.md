@@ -76,6 +76,8 @@ gate-3: approved 2026-11-04 (the human, in chat): review round 3 approve, the OQ
 
 - 2026-11-04 [orchestrator] Gate-3 approved by the human (debt to the queue). origin/main merged in (a723fe17; ADR index conflict only, ADR-0034 is tech-025's); solution builds, route inventory classes 270/270. Stage complete; PR next. Debt for the queue, passed to the orchestrator: m1, m2', m3, m4, m4', m6, m9 of review.md. Queued as tech-051-aggregate-views-debts (S, platform/ui, deps feat-048) by the orchestrator, queue PR #65.
 
+- 2026-11-12 [orchestrator] Note: feat-060-aggregate-board-colours-create (human decision 2026-11-12) reverses, for the aggregate board only, BR-AV-8 "no create command" and spec § Operation completeness "no create command on the aggregate views": the board gets «Создать» with a required project picker. The aggregate backlog and «Рабочие элементы» keep this rule. See feat-060 status.md, D-1.
+
 ## Notes
 
 Summary (from the queue line): «Рабочие элементы», «Канбан» and «Бэклог» at the organization and department level and «Рабочие элементы» at the team level: the organization-wide work-item list with feat-003's filters and keyword rules, and the aggregate backlogs and boards of every active project (department: the projects placed in it) as one collapsible group (swimlane on the board) per project in the project's own rank order, with a move inside a group and rows loaded per project as a group opens (reads capped at 4 in flight per tab, paged by a cursor), with the additive reads and the budgets of BR-NV-12 and BR-NV-20. Spec and stories US-6, US-10 live in feat-043's folder (its OQ-9); takes feat-042's board and backlog part, BR-NE-8's cross-project list and mod-020 CR-2's test.

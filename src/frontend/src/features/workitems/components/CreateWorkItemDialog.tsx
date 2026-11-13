@@ -44,6 +44,14 @@ export type CreatePlace =
       /** The view's team: «Команда» starts as it, and holds it until a project is chosen (D-4). */
       team: { id: string; name: string };
       filterProjectIds: readonly string[];
+    }
+  | {
+      /**
+       * An aggregate board (feat-060): «Проект» among the projects the view's scope holds, given by
+       * the page; «Команда» is the chosen project's, starting as its default, as on a project's views.
+       */
+      kind: 'scope';
+      projects: readonly TeamProject[];
     };
 
 /**
@@ -94,6 +102,9 @@ export function CreateWorkItemDialog({
   onClose(contextGone: boolean): void;
 }) {
   const teamPlace = place.kind === 'team' ? place : null;
+  const scopePlace = place.kind === 'scope' ? place : null;
+  // «Проект» is chosen in the dialog (a team's views, an aggregate board), not given by the page.
+  const picker = place.kind !== 'project';
   const viewTeam = teamPlace?.team;
   const projects = useTeamProjects(organizationId, viewTeam?.id ?? '', {
     enabled: teamPlace !== null,
@@ -137,20 +148,34 @@ export function CreateWorkItemDialog({
 
   // A team’s view: the project is decided once, when the first read of this opening ends — the
   // view’s filter names exactly one of the team’s projects, else the team has exactly one, else none.
-  const projectsReady = projects.isSuccess && !projects.isFetching;
-  if (teamPlace && projectsReady && project === undefined) {
-    const offered = projects.data;
-    const filtered = offered.filter((candidate) =>
-      teamPlace.filterProjectIds.some((id) => id.toLowerCase() === candidate.id.toLowerCase()),
-    );
+  const projectsReady = scopePlace !== null || (projects.isSuccess && !projects.isFetching);
+  if (picker && projectsReady && project === undefined) {
+    const offered: readonly TeamProject[] = scopePlace
+      ? scopePlace.projects
+      : (projects.data ?? []);
+    // An aggregate board's scope preselects nothing: no filter names a project at its levels.
+    const filtered = teamPlace
+      ? offered.filter((candidate) =>
+          teamPlace.filterProjectIds.some((id) => id.toLowerCase() === candidate.id.toLowerCase()),
+        )
+      : [];
     const preselected =
-      filtered.length === 1 ? filtered[0] : offered.length === 1 ? offered[0] : undefined;
+      filtered.length === 1
+        ? filtered[0]
+        : teamPlace && offered.length === 1
+          ? offered[0]
+          : undefined;
     setProject(preselected ?? null);
+    if (scopePlace && !preselected) {
+      // No project yet: «Команда» holds «Без команды», read-only, until one is chosen.
+      setTeam(null);
+    }
   }
 
-  // A project’s own views: the starting team is decided once, when the first read ends.
+  // A project’s own views, and an aggregate board's once a project is chosen: the starting team is
+  // decided once, when the first read ends.
   const teamsReady = projectId !== undefined && teams.isSuccess && !teams.isFetching;
-  if (place.kind === 'project' && teamsReady && team === undefined) {
+  if ((place.kind === 'project' || scopePlace) && teamsReady && team === undefined) {
     const start = teams.data.find((candidate) => candidate.id === defaultTeamId(teams.data));
     setTeam(start ? { id: start.id, name: start.name } : null);
   }
@@ -168,7 +193,7 @@ export function CreateWorkItemDialog({
 
   // Focus: «Проект» when none is chosen, else «Заголовок» (design § 6.2). The title takes it on
   // opening a project’s dialog (autoFocus); a team’s waits for the decision, once.
-  const decided = teamPlace !== null && project !== undefined;
+  const decided = picker && project !== undefined;
   useEffect(() => {
     if (decided && !focusedOnce.current) {
       focusedOnce.current = true;
@@ -193,6 +218,10 @@ export function CreateWorkItemDialog({
       return;
     }
     setProject(next);
+    if (scopePlace) {
+      // The chosen project's teams decide the starting team afresh.
+      setTeam(undefined);
+    }
     setProjectRefusal(undefined);
     setTeamRefusal(undefined);
     setTeamDropped(null);
@@ -201,10 +230,10 @@ export function CreateWorkItemDialog({
   }
 
   async function handleSubmit() {
-    if (inFlight.current || team === undefined || (teamPlace && project === undefined)) {
+    if (inFlight.current || team === undefined || (picker && project === undefined)) {
       return;
     }
-    const refusedProject = teamPlace && project === null ? projectTexts.required : undefined;
+    const refusedProject = picker && project === null ? projectTexts.required : undefined;
     const refused = titleError(title);
     if (refusedProject !== undefined || refused) {
       setProjectRefusal(refusedProject);
@@ -235,7 +264,7 @@ export function CreateWorkItemDialog({
       const placed = placeRefusal(error, [
         'title',
         'team',
-        ...(teamPlace ? (['project'] as const) : []),
+        ...(picker ? (['project'] as const) : []),
       ]);
       setTitleRefusal(placed.fields.title ?? null);
       setTeamRefusal(placed.fields.team);
@@ -246,7 +275,7 @@ export function CreateWorkItemDialog({
       if (placed.fields.team !== undefined) {
         void teams.refetch();
       }
-      if (placed.fields.project !== undefined) {
+      if (placed.fields.project !== undefined && teamPlace) {
         void projects.refetch();
       }
     } finally {
@@ -261,21 +290,25 @@ export function CreateWorkItemDialog({
   const teamsFailed = projectId !== undefined && teams.isError && !teams.isFetching;
   const projectsFailed = teamPlace !== null && projects.isError && !projects.isFetching;
   const projectsPending = teamPlace !== null && !projectsReady && !projectsFailed;
-  const noProjectChosen = teamPlace !== null && project === null;
+  const noProjectChosen = picker && project === null;
   // The project’s teams are being read after a pick: «Команда» is busy and «Создать» waits.
-  const teamsPending = teamPlace !== null && project != null && !teamsReady && !teamsFailed;
+  const teamsPending = picker && project != null && !teamsReady && !teamsFailed;
 
   const caption =
     teamPlace !== null && project === null
       ? holdingCaption(teamPlace.team.name)
-      : (teamDropped ?? (team !== undefined ? backlogCaption(team?.name ?? null) : null));
+      : scopePlace !== null && project === null
+        ? null
+        : (teamDropped ?? (team !== undefined ? backlogCaption(team?.name ?? null) : null));
   const captionShown = chosenType?.onBacklog === true && caption !== null;
   // The options of «Команда»: the project’s teams; the view’s team alone while no project is
   // chosen or its teams are not read yet (it is the team shown, and is read-only or busy then). A
   // failed read has none, so the list says so (design § 6.4) and opening it reads them again.
   const teamChoices: readonly { id: string; name: string }[] | undefined =
     teamPlace === null
-      ? teams.data
+      ? scopePlace !== null && noProjectChosen
+        ? []
+        : teams.data
       : noProjectChosen
         ? [teamPlace.team]
         : teamsFailed
@@ -293,7 +326,7 @@ export function CreateWorkItemDialog({
       onSubmit={() => void handleSubmit()}
       onClose={() => onClose(contextGone)}
     >
-      {teamPlace !== null && project === null ? (
+      {picker && project === null ? (
         <Typography variant="body2" color="text.secondary">
           {noProjectAreaLine(stateName)}
         </Typography>
@@ -312,7 +345,7 @@ export function CreateWorkItemDialog({
           {`Рабочий элемент будет создан в статусе «${stateName}» в области «${root && tree.data ? projectRelativePath(tree.data, root) : ''}». Остальные поля заполняются в его форме.`}
         </Typography>
       )}
-      {teamPlace !== null &&
+      {picker &&
         (projectsFailed ? (
           <InlineNotice
             severity="error"
@@ -329,14 +362,14 @@ export function CreateWorkItemDialog({
             frame="always"
             required
             placeholder={projectTexts.placeholder}
-            options={projects.data ?? []}
+            options={scopePlace ? scopePlace.projects : (projects.data ?? [])}
             value={project}
             onChange={chooseProject}
             getOptionLabel={(option) => option.name}
             getOptionKey={(option) => option.id}
             isOptionEqualToValue={(option, chosen) => option.id === chosen.id}
             onOpen={() => {
-              if (projects.isError) {
+              if (teamPlace && projects.isError) {
                 void projects.refetch();
               }
             }}
@@ -369,7 +402,7 @@ export function CreateWorkItemDialog({
           </MenuItem>
         ))}
       </TextField>
-      {place.kind === 'project' && teamsFailed ? (
+      {(place.kind === 'project' || scopePlace !== null) && teamsFailed ? (
         <InlineNotice
           severity="error"
           action={{ label: 'Повторить', onClick: () => void teams.refetch() }}
@@ -412,7 +445,7 @@ export function CreateWorkItemDialog({
       )}
       <TextField
         label="Заголовок"
-        autoFocus={teamPlace === null}
+        autoFocus={!picker}
         inputRef={titleInput}
         value={title}
         disabled={busy}
