@@ -597,6 +597,7 @@ for an approval. After it, a self-hosted runner on this VM runs section 9:
 ```
 git push origin v0.2.0
   └─ build  (ubuntu-latest): build-release.sh v0.2.0 $MUSTASK_SITE_URL → artifact + sha256
+  └─ notes  (ubuntu-latest): release-notes.sh v0.2.0 → run summary + GitHub Release
   └─ deploy (this VM, label mustask-prod, environment production → approval):
         sha256 check → sudo -n mustask-cd deploy < mustask-v0.2.0.tar.gz   (install.sh deploy)
                      → sudo -n mustask-cd smoke                             (smoke.sh)
@@ -720,6 +721,14 @@ not re-run it while a deploy is running.
 ```bash
 git tag v0.2.0 && git push origin v0.2.0
 ```
+
+The run is named `Deploy v0.2.0`. Its `notes` job comes before the deploy job:
+it writes the merged pull requests since the previous tag into the run summary
+and creates the GitHub Release of the tag (a redeploy rewrites the notes of a
+release that exists and creates one that is missing, without marking it
+"Latest", so a rollback never makes an old tag the latest release). Read the release page before approving; it is also the
+changelog (`docs/conventions/git.md` § "Releases and versions", ADR-0043).
+Preview it before tagging with `sh scripts/release-notes.sh origin/main`.
 
 Then go to Actions → **Deploy** → the run → "Review deployments" →
 `production` → Approve. The deploy job prints the output of `install.sh deploy` and
