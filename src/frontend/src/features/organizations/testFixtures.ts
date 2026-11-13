@@ -26,8 +26,7 @@ export const ORG_TEAM_URL = `${ORG_TEAMS_URL}/:teamId`;
 export const AREAS_URL = `${ORGANIZATION_URL}/areas`;
 export const AREA_URL = `${AREAS_URL}/:areaId`;
 export const PROJECT_AREAS_URL = `${PROJECT_URL}/areas`;
-export const TEAM_AREAS_URL = `${ORG_TEAM_URL}/areas`;
-export const TEAM_AREA_URL = `${TEAM_AREAS_URL}/:areaId`;
+export const TEAM_DEPARTMENT_URL = `${ORG_TEAM_URL}/department`;
 
 /** Stable ids of the dataset: canonical lowercase uuids, never shown on screen. */
 export const ids = {
@@ -73,6 +72,8 @@ export interface ProjectRecord {
   defaultTeamId?: string | null;
   /** feat-028 BR-OL-3: as typed; absent or `null`: none. */
   description?: string | null;
+  /** mod-021: the stored palette key; absent: `blue`. */
+  color?: string;
 }
 
 /** A team is the organization's (feat-028 BR-OL-1); the projects it works on are `Dataset.links`. */
@@ -82,6 +83,10 @@ export interface TeamRecord {
   name: string;
   description?: string | null;
   deleted: boolean;
+  /** mod-021: the department the team stands in; absent: the organization's first department by name. */
+  departmentId?: string;
+  /** mod-021: the stored palette key; absent: `blue`. */
+  color?: string;
 }
 
 /** One project–team link (feat-028 BR-OL-4): at most one per pair. */
@@ -103,12 +108,8 @@ export interface AreaRecord {
   parentId: string | null;
   name: string;
   description?: string | null;
-}
-
-/** One department–team link: at most one per pair. */
-export interface AreaLinkRecord {
-  areaId: string;
-  targetId: string;
+  /** mod-021: the stored palette key of a department or a project node; absent: `blue`. */
+  color?: string;
 }
 
 /** A user in a team (mod-016 api-contract § 2): the team list's `isMember` reads it. */
@@ -143,8 +144,6 @@ export interface Dataset {
   /** The project–team links; a team with none works on no project, a project with none has no team. */
   links: LinkRecord[];
   areas: AreaRecord[];
-  /** The department–team links; absent: none. */
-  areaTeams?: AreaLinkRecord[];
   /** The projection's users (mod-016 § 0.4); empty by default. */
   users?: UserRecord[];
   /**
@@ -202,11 +201,11 @@ export function exampleDataset(): Dataset {
       { id: ids.arc, organizationId: ids.gamma, name: 'Архив', key: 'ARC', active: true },
     ],
     teams: [
-      team(ids.prmTeam, ids.alfa, 'Пример проекта'),
-      team(ids.platformTeam, ids.alfa, 'Платформа'),
-      team(ids.anlTeam, ids.alfa, 'Аналитика'),
+      team(ids.prmTeam, ids.alfa, 'Пример проекта', null, ids.platformArea),
+      team(ids.platformTeam, ids.alfa, 'Платформа', null, ids.platformArea),
+      team(ids.anlTeam, ids.alfa, 'Аналитика', null, ids.platformArea),
       team(ids.repTeam, ids.beta, 'Отчётность'),
-      team(ids.oldTeam, ids.alfa, 'Старый проект'),
+      team(ids.oldTeam, ids.alfa, 'Старый проект', null, ids.platformArea),
       team(ids.arcTeam, ids.gamma, 'Архив'),
     ],
     links: [
@@ -229,7 +228,6 @@ export function exampleDataset(): Dataset {
       subArea(ids.gatewayArea, ids.alfa, ids.prm, ids.apiArea, 'Шлюз'),
       subArea(ids.mobileArea, ids.alfa, ids.prm, ids.prmRoot, 'Мобильное приложение'),
     ],
-    areaTeams: [{ areaId: ids.platformArea, targetId: ids.platformTeam }],
   };
 }
 
@@ -246,7 +244,6 @@ export function noAreasDataset(): Dataset {
     areas: example.areas
       .filter((node) => node.type === 'project')
       .map((node) => ({ ...node, parentId: null })),
-    areaTeams: [],
   };
 }
 
@@ -264,8 +261,9 @@ export function team(
   organizationId: string,
   name: string,
   description: string | null = null,
+  departmentId?: string,
 ): TeamRecord {
-  return { id, organizationId, name, description, deleted: false };
+  return { id, organizationId, name, description, deleted: false, departmentId };
 }
 
 export function department(
@@ -444,18 +442,23 @@ export const selectorOffersFixture = {
     },
   ],
   teams: [
-    { id: navigationIds.jupiter, name: 'JUPITER', isMember: false, departmentIds: [] },
+    {
+      id: navigationIds.jupiter,
+      name: 'JUPITER',
+      isMember: false,
+      departmentId: navigationIds.finance,
+    },
     {
       id: navigationIds.mars,
       name: 'MARS',
       isMember: false,
-      departmentIds: [navigationIds.logistics],
+      departmentId: navigationIds.logistics,
     },
     {
       id: navigationIds.venus,
       name: 'VENUS',
       isMember: true,
-      departmentIds: [navigationIds.logistics],
+      departmentId: navigationIds.logistics,
     },
   ],
 };

@@ -5,7 +5,6 @@ import {
   getAreaTeams,
   getAreaTree,
   getProjectAreaTree,
-  getTeamAreas,
   getDeletionCounts,
   getOrganization,
   getOrganizationTeams,
@@ -237,7 +236,7 @@ export function useArea(
   });
 }
 
-/** A department's teams, its own links only (§ 3). */
+/** The active teams standing in a department (mod-021 § 3). */
 export function useAreaTeams(organizationId: string, areaId: string, enabled = true) {
   return useQuery({
     enabled,
@@ -262,15 +261,6 @@ export function useAreaDeletion(
     enabled: options.enabled ?? true,
     gcTime: 0,
     retry: false,
-  });
-}
-
-/** A team's linked departments, by path (§ 5). */
-export function useTeamAreas(organizationId: string, teamId: string, enabled = true) {
-  return useQuery({
-    enabled,
-    queryKey: organizationsKeys.teamAreas(organizationId, teamId),
-    queryFn: () => getTeamAreas(organizationId, teamId),
   });
 }
 

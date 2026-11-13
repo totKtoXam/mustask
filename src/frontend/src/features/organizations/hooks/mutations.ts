@@ -12,10 +12,6 @@ import type { OrganizationRole } from '../lib/roles';
 import {
   createArea,
   describeArea,
-  linkAreasToTeam,
-  linkTeamsToArea,
-  unlinkAreaFromTeam,
-  unlinkTeamFromArea,
   createOrganization,
   createProject,
   createTeam,
@@ -28,6 +24,7 @@ import {
   linkProjectsToTeam,
   linkTeamsToProject,
   moveArea,
+  moveTeam,
   renameArea,
   renameOrganization,
   renameProject,
@@ -198,7 +195,6 @@ export function useRenameTeam(organizationId: string) {
         keys.teamPages(organizationId),
         ...linkListKeys(organizationId),
         keys.areaTeamLists(organizationId),
-        keys.teamAreaLists(organizationId),
       ),
   });
 }
@@ -297,7 +293,6 @@ function areaLinkKeys(organizationId: string): (readonly unknown[])[] {
     keys.areaPages(organizationId),
     keys.areaTeamLists(organizationId),
     keys.projectAreaTrees(organizationId),
-    keys.teamAreaLists(organizationId),
   ];
 }
 
@@ -350,30 +345,21 @@ export function useDeleteArea(organizationId: string) {
   });
 }
 
-export function useLinkTeamsToArea(organizationId: string, areaId: string) {
-  return useAreaWrite(organizationId, (teamIds: readonly string[]) =>
-    linkTeamsToArea(organizationId, areaId, teamIds),
-  );
-}
-
-export function useLinkAreasToTeam(organizationId: string, teamId: string) {
-  return useAreaWrite(organizationId, (areaIds: readonly string[]) =>
-    linkAreasToTeam(organizationId, teamId, areaIds),
-  );
-}
-
-/** The two unlinks of design § 6.2, each from the end whose page it is. */
-
-export function useUnlinkTeamFromArea(organizationId: string, areaId: string) {
-  return useAreaWrite(organizationId, (teamId: string) =>
-    unlinkTeamFromArea(organizationId, areaId, teamId),
-  );
-}
-
-export function useUnlinkAreaFromTeam(organizationId: string, teamId: string) {
-  return useAreaWrite(organizationId, (areaId: string) =>
-    unlinkAreaFromTeam(organizationId, teamId, areaId),
-  );
+/** mod-021 § 2: the team's move; every list that shows its place is read again. */
+export function useMoveTeam(organizationId: string) {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: ({ teamId, departmentId }: { teamId: string; departmentId: string }) =>
+      moveTeam(organizationId, teamId, departmentId),
+    // The team's page, the organization's list, the departments' team lists and the shell's offers.
+    onSuccess: () =>
+      invalidate(
+        client,
+        keys.teamPages(organizationId),
+        ...linkListKeys(organizationId),
+        ...areaLinkKeys(organizationId),
+      ),
+  });
 }
 
 // mod-016 members (api-contract § 1.4–§ 1.6) and team members (§ 2.3–§ 2.4)

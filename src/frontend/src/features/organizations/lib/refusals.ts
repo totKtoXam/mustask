@@ -19,7 +19,7 @@ export type RefusalField =
   | 'destination'
   | 'teams'
   | 'projects'
-  | 'areas'
+  | 'department'
   | 'location'
   | 'members';
 
@@ -58,10 +58,9 @@ const FIELDS_OF_CODE: Readonly<Record<string, readonly RefusalField[]>> = {
   // mod-018 design §§ 5.1, 5.3: the parent field of a create and of a move.
   [codes.areaDepthExceeded]: ['parent', 'location'],
   // mod-018 design §§ 5.2, 5.4, 6.1: the place a node cannot take, and a link a node cannot take.
-  [codes.areaTypeNotAllowed]: ['parent', 'location'],
+  [codes.areaTypeNotAllowed]: ['parent', 'location', 'department'],
   [codes.areaOutsideProject]: ['parent'],
-  [codes.areaLinkTypeNotAllowed]: ['teams', 'areas'],
-  [codes.areaNotFound]: ['parent', 'location', 'areas'],
+  [codes.areaNotFound]: ['parent', 'location', 'department'],
   // mod-017 api-contract § 0.2: a team named in the default-team write is refused under «Команда».
   [codes.teamNotFound]: ['team', 'destination', 'teams'],
   [codes.teamNotInProject]: ['team', 'destination'],
@@ -71,6 +70,9 @@ const FIELDS_OF_CODE: Readonly<Record<string, readonly RefusalField[]>> = {
 
 /** `validation_failed`'s field names (api-contract § 0.5; feat-028 § 0.2, § 2.4). */
 const VALIDATED_FIELDS: readonly RefusalField[] = ['name', 'key', 'description', 'destination'];
+
+/** A body key the server names that the panel's field goes by under another name (mod-021: `departmentId`). */
+const FIELD_OF_BODY_KEY: Readonly<Record<string, RefusalField>> = { departmentId: 'department' };
 
 function alertOnly(error: unknown): PlacedRefusal {
   return { fields: {}, alert: apiErrorText(error), contextGone: notFoundLevel(error) !== null };
@@ -97,7 +99,8 @@ export function placeRefusal(error: unknown, fields: readonly RefusalField[]): P
       if (!detail) {
         continue;
       }
-      const field = VALIDATED_FIELDS.find((candidate) => candidate === name);
+      const field =
+        FIELD_OF_BODY_KEY[name] ?? VALIDATED_FIELDS.find((candidate) => candidate === name);
       if (field && fields.includes(field)) {
         placed.fields[field] = detail;
       } else {

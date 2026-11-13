@@ -24,6 +24,7 @@ export const teamCommands = {
   rename: 'Переименовать',
   describe: 'Изменить описание',
   delete: 'Удалить команду',
+  move: 'Переместить',
 } as const;
 
 /** A team's page (design § 4). */
@@ -31,7 +32,13 @@ export const teamPage = {
   /** The title while the team loads, and when it fails. */
   titleLoading: 'Команда',
   title: (name: string) => `Команда: ${name}`,
-  facts: { name: 'Название', description: 'Описание', members: 'Участников', projects: 'Проектов' },
+  facts: {
+    name: 'Название',
+    department: 'Департамент',
+    description: 'Описание',
+    members: 'Участников',
+    projects: 'Проектов',
+  },
   noDescription: 'Описание не задано',
   projects: {
     title: 'Проекты',
@@ -57,7 +64,29 @@ export const createTeamDialog = {
     hint: 'Необязательно. Можно добавить позже.',
     none: 'В организации нет активных проектов.',
   },
+  /** doc-016 design § 4.1. */
+  department: {
+    label: 'Департамент',
+    hint: 'Команда принадлежит одному департаменту.',
+    required: 'Выберите департамент',
+    none: 'Нет доступных департаментов',
+    loadFailed: 'Не удалось загрузить список. Попробуйте ещё раз.',
+  },
   created: (name: string) => `Команда «${name}» создана.`,
+} as const;
+
+/** «Перемещение команды» (doc-016 design § 4.2). */
+export const moveTeamDialog = {
+  title: (name: string) => `Перемещение команды «${name}»`,
+  field: 'Новый департамент',
+  required: 'Выберите департамент',
+  hint: 'Участники, доступы и спринты остаются на месте.',
+  submit: 'Переместить',
+  noOther: 'Нет другого департамента, в который вы можете переместить команду.',
+  projects: 'Проекты:',
+  unlink: 'Отключить',
+  unlinkRow: (project: string) => `Отключить от проекта «${project}»`,
+  moved: (team: string, department: string) => `Команда «${team}» перемещена в «${department}».`,
 } as const;
 
 /** The rename (design § 5.2): today's `NameDialog` with its notice. */

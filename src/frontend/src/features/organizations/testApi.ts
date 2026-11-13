@@ -28,9 +28,9 @@ import type {
   ProjectListItem,
   ProjectTeam,
   Team,
-  TeamArea,
   TeamListItem,
-  LinkedTeam,
+  DepartmentTeam,
+  TeamPlace,
   TeamProject,
 } from './api/organizationsApi';
 import type { GrantRow } from './api/grantsApi';
@@ -50,8 +50,7 @@ import {
   SELECTOR_OFFERS_URL,
   TEAMS_URL,
   TEAM_LINKS_URL,
-  TEAM_AREAS_URL,
-  TEAM_AREA_URL,
+  TEAM_DEPARTMENT_URL,
   exampleDataset,
   projectNode,
   ownedKey,
@@ -408,16 +407,34 @@ export class OrganizationsTestApi {
       key: project.key,
       description: project.description ?? null,
       codes: this.objectCodes(project.organizationId),
+      color: project.color ?? 'blue',
     };
   }
 
+  /** mod-021: a team's department — its own, else the organization's first by name (an old dataset names none). */
+  private placeOf(team: TeamRecord): AreaRecord | undefined {
+    const departments = this.data.areas
+      .filter((area) => area.organizationId === team.organizationId && area.type === 'department')
+      .sort(byName);
+    return departments.find((area) => area.id === team.departmentId) ?? departments[0];
+  }
+
   private teamAnswer(team: TeamRecord): Team {
+    const place = this.placeOf(team);
     return {
       id: team.id,
       name: team.name,
       description: team.description ?? null,
       codes: this.objectCodes(team.organizationId),
+      departmentId: place?.id ?? '',
+      departmentName: place?.name ?? '',
+      color: team.color ?? 'blue',
     };
+  }
+
+  private teamPlace(team: TeamRecord): TeamPlace {
+    const { id, name, description, departmentId, departmentName, color } = this.teamAnswer(team);
+    return { id, name, description, departmentId, departmentName: departmentName ?? '', color };
   }
 
   /** The active projects a team is linked to, by name (feat-028 § 1.2). */
@@ -434,7 +451,7 @@ export class OrganizationsTestApi {
     const areas = this.data.areas.filter((area) => area.organizationId === organization.id);
     const departments = areas
       .filter((area) => area.type === 'department')
-      .map(({ id, name }) => ({ id, name }))
+      .map(({ id, name, color }) => ({ id, name, color: color ?? 'blue' }))
       .sort(byName);
     const teams = this.data.teams.filter(
       (team) => team.organizationId === organization.id && !team.deleted,
@@ -467,9 +484,8 @@ export class OrganizationsTestApi {
           id: team.id,
           name: team.name,
           isMember: this.isMember(team),
-          departmentIds: (this.data.areaTeams ?? [])
-            .filter((link) => link.targetId === team.id)
-            .map((link) => link.areaId),
+          departmentId: this.placeOf(team)?.id ?? '',
+          color: team.color ?? 'blue',
         }))
         .sort(byName),
     };
@@ -565,7 +581,15 @@ export class OrganizationsTestApi {
       name: this.nodeName(area),
       description: this.nodeDescription(area),
       path: this.pathOf(area),
+      color: this.colourOf(area),
     };
+  }
+
+  /** mod-021: a department's own key, a project node's project key, none for a sub-area. */
+  private colourOf(area: AreaRecord): string | null {
+    if (area.type === 'department') return area.color ?? 'blue';
+    if (area.type === 'project') return this.projectOf(area)?.color ?? 'blue';
+    return null;
   }
 
   private node(area: AreaRecord): AreaNode {
@@ -579,6 +603,7 @@ export class OrganizationsTestApi {
       description: this.nodeDescription(area),
       path: this.pathOf(area),
       depth: this.depthOf(area) + 1,
+      color: this.colourOf(area),
     };
   }
 
@@ -632,43 +657,18 @@ export class OrganizationsTestApi {
     };
   }
 
-  private linkedTeamsOfArea(area: AreaRecord): LinkedTeam[] {
-    return (this.data.areaTeams ?? [])
-      .filter((link) => link.areaId === area.id)
-      .map((link) => this.data.teams.find((team) => team.id === link.targetId))
-      .filter((team): team is TeamRecord => team !== undefined && !team.deleted)
+  /** mod-021 api-contract § 3: the active teams standing in a department, by name. */
+  private linkedTeamsOfArea(area: AreaRecord): DepartmentTeam[] {
+    if (area.type !== 'department') return [];
+    return this.data.teams
+      .filter((team) => !team.deleted && this.placeOf(team)?.id === area.id)
       .sort(byName)
-      .map(({ id, name }) => ({ id, name }));
+      .map(({ id, name, color }) => ({ id, name, color: color ?? 'blue' }));
   }
 
-  /** api-contract § 5: the departments a team is linked to, by path. */
-  private teamAreas(teamId: string): TeamArea[] {
-    return (this.data.areaTeams ?? [])
-      .filter((link) => link.targetId === teamId)
-      .map((link) => this.data.areas.find((area) => area.id === link.areaId))
-      .filter((area): area is AreaRecord => area !== undefined)
-      .map((area) => ({ id: area.id, name: this.nodeName(area), path: this.pathOf(area) }))
-      .sort((first, second) =>
-        first.path.localeCompare(second.path, 'ru', { sensitivity: 'base' }),
-      );
-  }
-
-  /** api-contract § 3: the team links a department's deletion ends. */
+  /** api-contract § 3: the teams that block a department's deletion. */
   private areaDeletion(area: AreaRecord): AreaDeletion {
-    return { teams: this.linkedTeamsOfArea(area) };
-  }
-
-  private linkArea(areaId: string, targetId: string): void {
-    const links = (this.data.areaTeams ??= []);
-    if (!links.some((link) => link.areaId === areaId && link.targetId === targetId)) {
-      links.push({ areaId, targetId });
-    }
-  }
-
-  private unlinkArea(areaId: string, targetId: string): void {
-    this.data.areaTeams = (this.data.areaTeams ?? []).filter(
-      (link) => !(link.areaId === areaId && link.targetId === targetId),
-    );
+    return { teams: this.linkedTeamsOfArea(area).map(({ id, name }) => ({ id, name })) };
   }
 
   // ---- writes
@@ -791,14 +791,19 @@ export class OrganizationsTestApi {
    * feat-028 § 2.1: the team, its members and its links in one operation. A refusal creates
    * nothing: the projects are judged first, then the members, then the name.
    */
-  private createTeam(organizationId: string | undefined, body: Record<string, unknown>) {
+  private createTeam(organizationId: string | undefined, body: Record<string, unknown>): TeamPlace {
     const organization = this.organization(organizationId);
     const name = text(body.name);
-    validate({ name: nameReasons(body.name), description: descriptionReasons(body.description) });
+    const departmentId = typeof body.departmentId === 'string' ? body.departmentId : null;
+    validate({
+      name: nameReasons(body.name),
+      description: descriptionReasons(body.description),
+      departmentId: departmentId === null ? ['organizations.team.department_required'] : [],
+    });
     const projects = idList(body.projectIds).map((id) => this.activeProject(organization, id));
-    const areas = idList(body.areaIds).map((areaId) => this.area(organization, areaId));
-    if (areas.some((area) => area.type !== 'department')) {
-      refuse('organizations.area.link_type_not_allowed');
+    const department = this.area(organization, departmentId);
+    if (department.type !== 'department') {
+      refuse('organizations.area.type_not_allowed');
     }
     const memberIds = idList(body.memberIds);
     const members = this.data.memberships;
@@ -821,6 +826,8 @@ export class OrganizationsTestApi {
       name: name.trim(),
       description: descriptionOf(body.description),
       deleted: false,
+      departmentId: department.id,
+      color: 'blue',
     };
     this.data.teams.push(team);
     for (const userId of memberIds) {
@@ -829,10 +836,7 @@ export class OrganizationsTestApi {
     for (const project of projects) {
       this.link(project.id, team.id);
     }
-    for (const area of areas) {
-      this.linkArea(area.id, team.id);
-    }
-    return this.teamAnswer(team);
+    return this.teamPlace(team);
   }
 
   private assertNameFree(organization: OrganizationRecord, name: string, exceptId?: string): void {
@@ -859,6 +863,30 @@ export class OrganizationsTestApi {
     this.assertNameFree(organization, name, team.id);
     team.name = name.trim();
     return this.teamAnswer(team);
+  }
+
+  /** mod-021 api-contract § 2: the department checks, then a no-op to the same place, then the links. */
+  private moveTeam(
+    organization: OrganizationRecord,
+    team: TeamRecord,
+    body: Record<string, unknown>,
+  ): TeamPlace {
+    const departmentId = typeof body.departmentId === 'string' ? body.departmentId : null;
+    validate({
+      departmentId: departmentId === null ? ['organizations.team.department_required'] : [],
+    });
+    const department = this.area(organization, departmentId);
+    if (department.type !== 'department') {
+      refuse('organizations.area.type_not_allowed');
+    }
+    if (this.placeOf(team)?.id === department.id) {
+      return this.teamPlace(team);
+    }
+    if (this.data.links.some((link) => link.teamId === team.id)) {
+      refuse('organizations.team.has_links');
+    }
+    team.departmentId = department.id;
+    return this.teamPlace(team);
   }
 
   private describeTeam(team: TeamRecord, body: Record<string, unknown>) {
@@ -917,7 +945,6 @@ export class OrganizationsTestApi {
       }
     }
     this.data.links = this.data.links.filter((link) => link.teamId !== team.id);
-    this.data.areaTeams = (this.data.areaTeams ?? []).filter((link) => link.targetId !== team.id);
     this.data.teamMembers = (this.data.teamMembers ?? []).filter(
       (member) => member.teamId !== team.id,
     );
@@ -996,12 +1023,6 @@ export class OrganizationsTestApi {
     }
   }
 
-  private assertDepartment(area: AreaRecord): void {
-    if (area.type !== 'department') {
-      refuse('organizations.area.link_type_not_allowed');
-    }
-  }
-
   private assertNodeNameFree(
     organizationId: string,
     parentId: string | null,
@@ -1018,7 +1039,7 @@ export class OrganizationsTestApi {
   }
 
   /**
-   * api-contract § 3: no parent creates a department (teams may be linked in the same step); with
+   * api-contract § 3: no parent creates a department (`teamIds` is gone, mod-021); with
    * a parent a sub-area under a project node or a sub-area. 404s first, then the type rules.
    */
   private createArea(organization: OrganizationRecord, body: Record<string, unknown>) {
@@ -1033,13 +1054,9 @@ export class OrganizationsTestApi {
     if (parent) {
       this.writable(parent);
     }
-    const teams = idList(body.teamIds).map((id) => this.team(organization, id));
     const name = text(body.name).trim();
     if (parent && parent.type === 'department') {
       refuse('organizations.area.type_not_allowed');
-    }
-    if (parent && teams.length > 0) {
-      refuse('organizations.area.link_type_not_allowed');
     }
     if (parent && this.depthOf(parent) + 1 >= MAX_DEPTH) {
       refuse('organizations.area.depth_exceeded');
@@ -1053,11 +1070,9 @@ export class OrganizationsTestApi {
       parentId: parent?.id ?? null,
       name,
       description: descriptionOf(body.description),
+      color: parent ? undefined : 'blue',
     };
     this.data.areas.push(area);
-    for (const team of teams) {
-      this.linkArea(area.id, team.id);
-    }
     return this.areaAnswer(area);
   }
 
@@ -1138,11 +1153,13 @@ export class OrganizationsTestApi {
     if (area.type === 'project') {
       refuse('organizations.area.root_is_fixed');
     }
+    if (area.type === 'department' && this.linkedTeamsOfArea(area).length > 0) {
+      refuse('organizations.area.has_teams');
+    }
     if (this.children(area.organizationId, area.id).length > 0) {
       refuse('organizations.area.not_empty');
     }
     this.data.areas.splice(this.data.areas.indexOf(area), 1);
-    this.data.areaTeams = (this.data.areaTeams ?? []).filter((l) => l.areaId !== area.id);
   }
 
   // ---- MSW
@@ -1203,10 +1220,6 @@ export class OrganizationsTestApi {
       const organization = this.organization(o(p));
       return { organization, area: this.area(organization, one(p, 'areaId')) };
     };
-    const teamsOf = (organization: OrganizationRecord, body: Record<string, unknown>) =>
-      idList(body.teamIds).map((id) => this.team(organization, id));
-    const areasOf = (organization: OrganizationRecord, body: Record<string, unknown>) =>
-      idList(body.areaIds).map((id) => this.area(organization, id));
 
     return [
       http.get(
@@ -1438,53 +1451,16 @@ export class OrganizationsTestApi {
         `${AREA_URL}/teams`,
         answer(200, (p) => this.linkedTeamsOfArea(ar(p).area)),
       ),
-      http.post(
-        `${AREA_URL}/teams`,
-        answer(204, (p, b) => {
-          const { organization, area } = ar(p);
-          const teams = teamsOf(organization, b);
-          this.assertDepartment(area);
-          for (const team of teams) {
-            this.linkArea(area.id, team.id);
-          }
-        }),
-      ),
-      http.delete(
-        `${AREA_URL}/teams/:teamId`,
-        answer(204, (p) => {
-          const { organization, area } = ar(p);
-          const team = this.team(organization, one(p, 'teamId'));
-          this.unlinkArea(area.id, team.id);
-        }),
-      ),
-      // The project's own subtree, and the team's end of the department links.
+      // The project's own subtree.
       http.get(
         PROJECT_AREAS_URL,
         answer(200, (p) => this.projectTree(pr(p))),
       ),
-      http.get(
-        TEAM_AREAS_URL,
-        answer(200, (p) => this.teamAreas(tm(p).team.id)),
-      ),
-      http.post(
-        TEAM_AREAS_URL,
-        answer(204, (p, b) => {
+      http.put(
+        TEAM_DEPARTMENT_URL,
+        answer(200, (p, b) => {
           const { organization, team } = tm(p);
-          const areas = areasOf(organization, b);
-          for (const area of areas) {
-            this.assertDepartment(area);
-          }
-          for (const area of areas) {
-            this.linkArea(area.id, team.id);
-          }
-        }),
-      ),
-      http.delete(
-        TEAM_AREA_URL,
-        answer(204, (p) => {
-          const { organization, team } = tm(p);
-          const area = this.area(organization, one(p, 'areaId'));
-          this.unlinkArea(area.id, team.id);
+          return this.moveTeam(organization, team, b);
         }),
       ),
       // mod-019 api-contract § 3: the switch and what turning it off would do.
