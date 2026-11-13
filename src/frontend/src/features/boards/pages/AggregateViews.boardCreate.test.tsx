@@ -13,6 +13,7 @@ import {
   ORG,
   header,
   mskCard,
+  mskRow,
   orgAddress,
   renderAggregate,
   serveAggregate,
@@ -70,7 +71,8 @@ function serveCreation() {
     ),
     http.post(`${ORG_API}/projects/:projectId/workitems`, async ({ request }) => {
       posts.push({ path: new URL(request.url).pathname, body: await request.json() });
-      return HttpResponse.json({ id: 'row-9' }, { status: 201 });
+      // The project of the test headers is 'p-msk' (see `serveAggregate`); the item is born in «Новая».
+      return HttpResponse.json({ ...mskRow(9), projectId: 'p-msk' }, { status: 201 });
     }),
   );
   return posts;
@@ -226,5 +228,46 @@ describe('feat-060 Scenario: «Новый рабочий элемент» on the
     await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
     expect(await screen.findByText('Элемент 9')).toBeInTheDocument();
     expect(api.of('cells').length).toBeGreaterThan(2);
+  });
+
+  it('reloads only the cell the item lands in; another cell keeps its «Показать ещё» pages', async () => {
+    let created = false;
+    const api = serveAggregate({
+      groups: { project: BOARD },
+      cardsOf: (_group, column, offset) => {
+        if (column === 'InProgress-1') {
+          return offset === 0 ? [mskCard(21), mskCard(22)] : [mskCard(23)];
+        }
+        return created ? [mskCard(9)] : [];
+      },
+    });
+    serveCreation();
+    renderAggregate(orgAddress('boards'), { context: contextWithOffers() });
+
+    await screen.findByText('Элемент 22');
+    await userEvent.click(screen.getByRole('button', { name: 'Показать ещё' }));
+    expect(await screen.findByText('Элемент 23')).toBeInTheDocument();
+    const readsOf = (column: string) =>
+      api.of('cells').filter((read) => read.params.get('column') === column).length;
+    expect(readsOf('InProgress-1')).toBe(2);
+    const proposedBefore = readsOf('Proposed-1');
+
+    const found = await openDialog();
+    const project = await within(found).findByRole('combobox', { name: 'Проект' });
+    await userEvent.click(project);
+    await userEvent.click(await screen.findByRole('option', { name: 'Мастаск' }));
+    await waitFor(() =>
+      expect(within(found).getByRole('combobox', { name: 'Команда' })).toHaveValue('Платформа'),
+    );
+    await userEvent.type(within(found).getByRole('textbox', { name: /Заголовок/ }), 'Новая');
+    created = true;
+    await userEvent.click(within(found).getByRole('button', { name: 'Создать' }));
+
+    expect(await screen.findByText('Элемент 9')).toBeInTheDocument();
+    // The cell of «Новая» was read again; the other kept both loaded pages and was not read again.
+    expect(readsOf('Proposed-1')).toBe(proposedBefore + 1);
+    expect(readsOf('InProgress-1')).toBe(2);
+    expect(screen.getByText('Элемент 21')).toBeInTheDocument();
+    expect(screen.getByText('Элемент 23')).toBeInTheDocument();
   });
 });
