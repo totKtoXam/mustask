@@ -19,9 +19,9 @@ public sealed class GetFileValuesHandler(
     public async Task<FileValuesView> Handle(GetFileValuesQuery query, CancellationToken cancellationToken)
     {
         var organizationId = ImportAddress.Organization(query.OrganizationId);
-        var fileId = ImportAddress.File(query.FileId);
         var rights = await ImportRights.LoadAsync(access, currentUser.SubjectId, cancellationToken);
         rights.EnsureWriteOrRun();
+        var fileId = ImportAddress.File(query.FileId);
 
         var mapping = ImportFileInput.RequireMapping(query.Body);
         var file = await ImportFileInput.LoadAsync(files, organizationId, rights.UserId, fileId, clock.UtcNow, cancellationToken);

@@ -22,8 +22,9 @@ public sealed class UpdateTemplateHandler(
     public async Task<TemplateView> Handle(UpdateTemplateCommand command, CancellationToken cancellationToken)
     {
         var organizationId = ImportAddress.Organization(command.OrganizationId);
-        var templateId = ImportAddress.Template(command.TemplateId);
         var rights = await ImportRights.LoadAsync(access, currentUser.SubjectId, cancellationToken);
+        rights.EnsureCreate();
+        var templateId = ImportAddress.Template(command.TemplateId);
 
         var template = await unitOfWork.ExecuteInTransactionAsync(async ct =>
         {

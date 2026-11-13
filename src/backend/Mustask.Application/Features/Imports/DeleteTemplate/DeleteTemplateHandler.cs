@@ -15,8 +15,9 @@ public sealed class DeleteTemplateHandler(
     public async Task Handle(DeleteTemplateCommand command, CancellationToken cancellationToken)
     {
         var organizationId = ImportAddress.Organization(command.OrganizationId);
-        var templateId = ImportAddress.Template(command.TemplateId);
         var rights = await ImportRights.LoadAsync(access, currentUser.SubjectId, cancellationToken);
+        rights.EnsureCreate();
+        var templateId = ImportAddress.Template(command.TemplateId);
 
         await unitOfWork.ExecuteInTransactionAsync(async ct =>
         {

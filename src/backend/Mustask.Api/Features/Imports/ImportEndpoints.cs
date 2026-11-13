@@ -57,7 +57,7 @@ public static class ImportEndpoints
 
         imports.MapGet("/templates/{templateId}", async (string organizationId, string templateId, GetTemplateHandler handler, CancellationToken ct) =>
                 Results.Ok(await handler.Handle(new GetTemplateQuery(organizationId, templateId), ct)))
-            .RequiresOrganizationPermissionDecidedInHandler(PermissionCatalog.ImportsTemplateRead, DecidedByRights)
+            .RequiresOrganizationPermissionDecidedInHandler(PermissionCatalog.ImportsTemplateWrite, DecidedByRights)
             .Produces<TemplateView>().WithErrors();
 
         imports.MapGet("/templates/{templateId}/columns", async (string organizationId, string templateId, GetTemplateColumnsHandler handler, CancellationToken ct) =>
@@ -71,13 +71,13 @@ public static class ImportEndpoints
 
                 return Results.Created($"/api/organizations/{organizationId}/imports/templates/{created.Id}", created);
             })
-            .RequiresOrganizationPermissionDecidedInHandler(PermissionCatalog.ImportsTemplateRead, DecidedByRights)
+            .RequiresOrganizationPermissionDecidedInHandler(PermissionCatalog.ImportsTemplateWrite, DecidedByRights)
             .Produces<TemplateView>(StatusCodes.Status201Created).WithErrors();
 
         imports.MapPut("/templates/{templateId}", async (
                 string organizationId, string templateId, TemplateBody? body, UpdateTemplateHandler handler, CancellationToken ct) =>
                 Results.Ok(await handler.Handle(new UpdateTemplateCommand(organizationId, templateId, body ?? new TemplateBody(null, null)), ct)))
-            .RequiresOrganizationPermissionDecidedInHandler(PermissionCatalog.ImportsTemplateRead, DecidedByRights)
+            .RequiresOrganizationPermissionDecidedInHandler(PermissionCatalog.ImportsTemplateWrite, DecidedByRights)
             .Produces<TemplateView>().WithErrors();
 
         imports.MapPost("/templates/{templateId}/copy", async (string organizationId, string templateId, CopyTemplateHandler handler, CancellationToken ct) =>
@@ -86,7 +86,7 @@ public static class ImportEndpoints
 
                 return Results.Created($"/api/organizations/{organizationId}/imports/templates/{copy.Id}", copy);
             })
-            .RequiresOrganizationPermissionDecidedInHandler(PermissionCatalog.ImportsTemplateRead, DecidedByRights)
+            .RequiresOrganizationPermissionDecidedInHandler(PermissionCatalog.ImportsTemplateWrite, DecidedByRights)
             .Produces<TemplateView>(StatusCodes.Status201Created).WithErrors();
 
         imports.MapDelete("/templates/{templateId}", async (string organizationId, string templateId, DeleteTemplateHandler handler, CancellationToken ct) =>
@@ -95,11 +95,11 @@ public static class ImportEndpoints
 
                 return Results.NoContent();
             })
-            .RequiresOrganizationPermissionDecidedInHandler(PermissionCatalog.ImportsTemplateRead, DecidedByRights)
+            .RequiresOrganizationPermissionDecidedInHandler(PermissionCatalog.ImportsTemplateWrite, DecidedByRights)
             .Produces(StatusCodes.Status204NoContent).WithErrors();
 
         imports.MapPost("/files", UploadAsync)
-            .RequiresOrganizationPermissionDecidedInHandler(PermissionCatalog.ImportsTemplateRead, DecidedByRights)
+            .RequiresOrganizationPermissionDecidedInHandler(PermissionCatalog.ImportsTemplateWrite, DecidedByRights)
             .Produces<FileUploadedView>(StatusCodes.Status201Created).WithErrors();
 
         imports.MapGet("/files/{fileId}/columns", async (
@@ -107,19 +107,19 @@ public static class ImportEndpoints
                 ReadFileHandler handler, CancellationToken ct) =>
                 Results.Ok(await handler.Handle(
                     new ReadFileQuery(organizationId, fileId, new FileSourceBody(sheet, headerRow, firstDataRow, encoding, delimiter)), ct)))
-            .RequiresOrganizationPermissionDecidedInHandler(PermissionCatalog.ImportsTemplateRead, DecidedByRights)
+            .RequiresOrganizationPermissionDecidedInHandler(PermissionCatalog.ImportsTemplateWrite, DecidedByRights)
             .Produces<FileReadView>().WithErrors();
 
         imports.MapPost("/files/{fileId}/values", async (
                 string organizationId, string fileId, MappingProbeBody? body, GetFileValuesHandler handler, CancellationToken ct) =>
                 Results.Ok(await handler.Handle(new GetFileValuesQuery(organizationId, fileId, body), ct)))
-            .RequiresOrganizationPermissionDecidedInHandler(PermissionCatalog.ImportsTemplateRead, DecidedByRights)
+            .RequiresOrganizationPermissionDecidedInHandler(PermissionCatalog.ImportsTemplateWrite, DecidedByRights)
             .Produces<FileValuesView>().WithErrors();
 
         imports.MapPost("/files/{fileId}/chain-sample", async (
                 string organizationId, string fileId, MappingProbeBody? body, SampleChainHandler handler, CancellationToken ct) =>
                 Results.Ok(await handler.Handle(new SampleChainQuery(organizationId, fileId, body), ct)))
-            .RequiresOrganizationPermissionDecidedInHandler(PermissionCatalog.ImportsTemplateRead, DecidedByRights)
+            .RequiresOrganizationPermissionDecidedInHandler(PermissionCatalog.ImportsTemplateWrite, DecidedByRights)
             .Produces<ChainSampleView>().WithErrors();
 
         imports.MapPost("/templates/{templateId}/dry-runs", async (
@@ -129,12 +129,12 @@ public static class ImportEndpoints
 
                 return Results.Created($"/api/organizations/{organizationId}/imports/dry-runs/{run.Id}", run);
             })
-            .RequiresOrganizationPermissionDecidedInHandler(PermissionCatalog.ImportsTemplateRead, DecidedByRights)
+            .RequiresOrganizationPermissionDecidedInHandler(PermissionCatalog.ImportsImportRun, DecidedByRights)
             .Produces<DryRunView>(StatusCodes.Status201Created).WithErrors();
 
         imports.MapGet("/dry-runs/{dryRunId}", async (string organizationId, string dryRunId, string? result, GetDryRunHandler handler, CancellationToken ct) =>
                 Results.Ok(await handler.Handle(new GetDryRunQuery(organizationId, dryRunId, result), ct)))
-            .RequiresOrganizationPermissionDecidedInHandler(PermissionCatalog.ImportsTemplateRead, DecidedByRights)
+            .RequiresOrganizationPermissionDecidedInHandler(PermissionCatalog.ImportsImportRun, DecidedByRights)
             .Produces<DryRunView>().WithErrors();
 
         imports.MapGet("/dry-runs/{dryRunId}/report", async (string organizationId, string dryRunId, DownloadDryRunReportHandler handler, CancellationToken ct) =>
@@ -143,7 +143,7 @@ public static class ImportEndpoints
 
                 return Results.File(report.Content, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", report.FileName);
             })
-            .RequiresOrganizationPermissionDecidedInHandler(PermissionCatalog.ImportsTemplateRead, DecidedByRights)
+            .RequiresOrganizationPermissionDecidedInHandler(PermissionCatalog.ImportsImportRun, DecidedByRights)
             .Produces(StatusCodes.Status200OK, contentType: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet").WithErrors();
 
         return app;
@@ -163,6 +163,8 @@ public static class ImportEndpoints
     /// </summary>
     private static async Task<IResult> UploadAsync(string organizationId, HttpContext context, UploadFileHandler handler, CancellationToken cancellationToken)
     {
+        await handler.EnsureAllowedAsync(organizationId, cancellationToken);
+
         var request = context.Request;
 
         if (!request.HasFormContentType || request.ContentLength > UploadBodyLimit)

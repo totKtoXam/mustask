@@ -22,9 +22,9 @@ public sealed class GetDryRunHandler(
     public async Task<DryRunView> Handle(GetDryRunQuery query, CancellationToken cancellationToken)
     {
         var organizationId = ImportAddress.Organization(query.OrganizationId);
-        var runId = ImportAddress.DryRun(query.DryRunId);
         var rights = await ImportRights.LoadAsync(access, currentUser.SubjectId, cancellationToken);
         rights.EnsureRun();
+        var runId = ImportAddress.DryRun(query.DryRunId);
 
         var result = string.IsNullOrEmpty(query.Result) ? RowResults.All : query.Result;
 

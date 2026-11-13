@@ -14,9 +14,9 @@ public sealed class ReadFileHandler(
     public async Task<FileReadView> Handle(ReadFileQuery query, CancellationToken cancellationToken)
     {
         var organizationId = ImportAddress.Organization(query.OrganizationId);
-        var fileId = ImportAddress.File(query.FileId);
         var rights = await ImportRights.LoadAsync(access, currentUser.SubjectId, cancellationToken);
         rights.EnsureWriteOrRun();
+        var fileId = ImportAddress.File(query.FileId);
 
         var file = await ImportFileInput.LoadAsync(files, organizationId, rights.UserId, fileId, clock.UtcNow, cancellationToken);
         var table = reader.Read(file.Content, file.FileName, query.Options.ToOptions(ImportLimits.SampleRows));

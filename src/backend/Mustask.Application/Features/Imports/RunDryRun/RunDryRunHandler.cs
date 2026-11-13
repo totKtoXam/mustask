@@ -32,9 +32,9 @@ public sealed class RunDryRunHandler(
     public async Task<DryRunView> Handle(RunDryRunCommand command, CancellationToken cancellationToken)
     {
         var organizationId = ImportAddress.Organization(command.OrganizationId);
-        var templateId = ImportAddress.Template(command.TemplateId);
         var rights = await ImportRights.LoadAsync(access, currentUser.SubjectId, cancellationToken);
         rights.EnsureRun();
+        var templateId = ImportAddress.Template(command.TemplateId);
 
         var template = await templates.FindAsync(organizationId, templateId, cancellationToken)
             ?? throw new NotFoundException(ImportErrorCodes.TemplateNotFound);

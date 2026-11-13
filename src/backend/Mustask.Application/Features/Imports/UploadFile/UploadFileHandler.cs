@@ -20,6 +20,13 @@ public sealed class UploadFileHandler(
     IUnitOfWork unitOfWork,
     IClock clock)
 {
+    /// <summary>The rights check alone, run by the endpoint before it reads a body of up to 10 MB.</summary>
+    public async Task EnsureAllowedAsync(string organizationId, CancellationToken cancellationToken)
+    {
+        _ = ImportAddress.Organization(organizationId);
+        (await ImportRights.LoadAsync(access, currentUser.SubjectId, cancellationToken)).EnsureWriteOrRun();
+    }
+
     public async Task<FileUploadedView> Handle(UploadFileCommand command, CancellationToken cancellationToken)
     {
         var organizationId = ImportAddress.Organization(command.OrganizationId);

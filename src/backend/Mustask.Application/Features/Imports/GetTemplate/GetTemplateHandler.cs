@@ -15,9 +15,9 @@ public sealed class GetTemplateHandler(IImportTemplateRepository templates, IUse
     public async Task<TemplateView> Handle(GetTemplateQuery query, CancellationToken cancellationToken)
     {
         var organizationId = ImportAddress.Organization(query.OrganizationId);
-        var templateId = ImportAddress.Template(query.TemplateId);
         var rights = await ImportRights.LoadAsync(access, currentUser.SubjectId, cancellationToken);
         rights.EnsureWriteOrRun();
+        var templateId = ImportAddress.Template(query.TemplateId);
 
         var template = await templates.FindAsync(organizationId, templateId, cancellationToken)
             ?? throw new NotFoundException(ImportErrorCodes.TemplateNotFound);

@@ -22,13 +22,14 @@ public sealed class CopyTemplateHandler(
     public async Task<TemplateView> Handle(CopyTemplateCommand command, CancellationToken cancellationToken)
     {
         var organizationId = ImportAddress.Organization(command.OrganizationId);
-        var templateId = ImportAddress.Template(command.TemplateId);
         var rights = await ImportRights.LoadAsync(access, currentUser.SubjectId, cancellationToken);
 
         if (!rights.CanCopy)
         {
             throw new ForbiddenException(ImportErrorCodes.AccessForbidden);
         }
+
+        var templateId = ImportAddress.Template(command.TemplateId);
 
         var copy = await unitOfWork.ExecuteInTransactionAsync(async ct =>
         {

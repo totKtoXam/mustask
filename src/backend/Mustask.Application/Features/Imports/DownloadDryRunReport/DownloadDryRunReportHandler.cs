@@ -16,9 +16,9 @@ public sealed class DownloadDryRunReportHandler(
     public async Task<ReportFile> Handle(DownloadDryRunReportQuery query, CancellationToken cancellationToken)
     {
         var organizationId = ImportAddress.Organization(query.OrganizationId);
-        var runId = ImportAddress.DryRun(query.DryRunId);
         var rights = await ImportRights.LoadAsync(access, currentUser.SubjectId, cancellationToken);
         rights.EnsureRun();
+        var runId = ImportAddress.DryRun(query.DryRunId);
 
         var run = await dryRuns.FindAsync(organizationId, rights.UserId, runId, clock.UtcNow, cancellationToken)
             ?? throw new NotFoundException(ImportErrorCodes.DryRunNotFound);

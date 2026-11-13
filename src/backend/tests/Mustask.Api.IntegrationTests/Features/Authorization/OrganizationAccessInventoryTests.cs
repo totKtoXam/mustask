@@ -4,6 +4,7 @@ using System.Text.Json;
 using Mustask.Api.Authorization;
 using Mustask.Api.IntegrationTests.Features.Organizations;
 using Mustask.Domain.Identity;
+using Mustask.Domain.Imports;
 using Mustask.Domain.Organizations;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Builder;
@@ -59,6 +60,19 @@ public sealed class OrganizationAccessInventoryTests(MustaskApiFactory factory)
         "POST /api/organizations/{organizationId}/areas",
         "POST /api/organizations/{organizationId}/projects",
         "GET /api/organizations/{organizationId}/workitems/assignee-candidates",
+        // mod-024: the write-or-run right is held on a project, so the handler reads it once and decides (api-contract § 0).
+        "GET /api/organizations/{organizationId}/imports/templates/{templateId}",
+        "POST /api/organizations/{organizationId}/imports/templates",
+        "PUT /api/organizations/{organizationId}/imports/templates/{templateId}",
+        "POST /api/organizations/{organizationId}/imports/templates/{templateId}/copy",
+        "DELETE /api/organizations/{organizationId}/imports/templates/{templateId}",
+        "POST /api/organizations/{organizationId}/imports/files",
+        "GET /api/organizations/{organizationId}/imports/files/{fileId}/columns",
+        "POST /api/organizations/{organizationId}/imports/files/{fileId}/values",
+        "POST /api/organizations/{organizationId}/imports/files/{fileId}/chain-sample",
+        "POST /api/organizations/{organizationId}/imports/templates/{templateId}/dry-runs",
+        "GET /api/organizations/{organizationId}/imports/dry-runs/{dryRunId}",
+        "GET /api/organizations/{organizationId}/imports/dry-runs/{dryRunId}/report",
     ];
 
     /// <summary>
@@ -373,7 +387,8 @@ public sealed class OrganizationAccessInventoryTests(MustaskApiFactory factory)
         // feat-048 api-contract § 2 adds the aggregate views' eight reads - 82.
         // mod-019 api-contract § 2: fifteen grant routes (five under each of a department, a project and a team) - 97.
         // mod-019 api-contract § 3, § 5: the switch, its impact read and the writable ids - 100.
-        Assert.Equal(100, expected.Count);
+        // mod-024 api-contract § 0: the import constructor's fifteen routes - 115.
+        Assert.Equal(115, expected.Count);
     }
 
     // Every organization code of the catalog is declared by at least one route — a code with no route is a decision nobody enforces
@@ -424,6 +439,9 @@ public sealed class OrganizationAccessInventoryTests(MustaskApiFactory factory)
             OrganizationAddressedRoutes.Body(method),
             caller.Token);
 
+        // mod-024 api-contract § 0: the import routes answer their own module's 403 (`imports.access_forbidden`), decided by the handler.
+        var isImports = route.Template.Contains("/imports/", StringComparison.Ordinal);
+
         if (OrganizationRoleBundles.Holds(role, route.Code))
         {
             Assert.True(answer.Status != HttpStatusCode.Forbidden, $"{route.Key} refused a {role}, whose bundle holds {route.Code}.");
@@ -434,9 +452,9 @@ public sealed class OrganizationAccessInventoryTests(MustaskApiFactory factory)
         else
         {
             Assert.True(
-                answer.Status == HttpStatusCode.Forbidden && answer.ErrorCode == OrganizationErrorCodes.AccessForbidden,
+                answer.Status == HttpStatusCode.Forbidden && answer.ErrorCode == (isImports ? ImportErrorCodes.AccessForbidden : OrganizationErrorCodes.AccessForbidden),
                 $"{route.Key} answered {(int)answer.Status} {answer.ErrorCode} to a {role}, whose bundle lacks {route.Code}.");
-            Assert.Equal("Недостаточно прав", answer.Detail);
+            Assert.Equal(isImports ? "У вас нет прав на эту операцию." : "Недостаточно прав", answer.Detail);
         }
     }
 
