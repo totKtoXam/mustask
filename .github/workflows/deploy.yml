@@ -1,4 +1,9 @@
 name: Deploy
+# The run's title in the Actions list names the release it deploys: the tag
+# a tag push carries, or the tag typed into workflow_dispatch (the ref of a
+# hand-started run is a branch). Without it GitHub shows the tagged commit's
+# subject, which says nothing about the version (tech-070).
+run-name: Deploy ${{ inputs.tag || github.ref_name }}
 
 # CD for the one production VM (tech-066, docs/deploy/vm.md section 11).
 #
