@@ -11,7 +11,7 @@
 ## Gates
 
 gate-1: approved (by the human in chat, 2026-11-13)
-gate-2: pending
+gate-2: approved (by the human in chat, 2026-11-13)
 gate-3: pending
 
 ## Plan
@@ -31,6 +31,8 @@ gate-3: pending
 - 2026-11-13 [ux-designer] design.md and prototype/index.html; questions D-1..D-8 in design § 7.
 - 2026-11-13 [orchestrator] prototype clicked through in the browser pane over local HTTP (palette, recent, typo tier, keyboard, choose, full search page with snippets); fixed: choosing a structure object did not update the header context in the prototype. The human at gate-2: D-1 fixed 10 vh, D-3 «Похожие» caption kept, D-7 POST and the proposed limiter, D-8 the kit split into its own S line `feat-NNN-search-dialog-kit` (spec § Decomposition, now seven lines). gate-2 verdict pending: the human looks at the prototype first.
 - 2026-11-13 [orchestrator] the human after looking at the prototype: «Все организации» scope option (US-8, BR-GS-19, new decomposition line after feat-064, design D-12); the centred modal replaced by a field in the middle of the header with a `Popper` panel that opens like the header context panel (D-1 superseded, D-9); «Очистить недавние» moved to the right end of the «Недавние» heading (D-10); a permanent «Полный поиск» button in the scope row (D-11); Esc closes and keeps the text, ✕ clears it, the panel opens on any focus of the field (D-13, spec BR-GS-16, US-1); the field made minimal — 28 px, max 300 px (360 focused), no border, accent underline on focus (D-14). Prototype fixes: the header path follows the chosen object and keeps the department of a work item's project. Each change clicked through in the browser pane.
+
+- 2026-11-13 [orchestrator] gate-2 approved by the human in chat. Analysis and design done; implementation waits for feat-041 and runs as the eight decomposition lines in spec.md.
 
 ## Notes
 
