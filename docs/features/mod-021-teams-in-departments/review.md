@@ -168,3 +168,22 @@ Direction 2: behaviour the diff changes, the identifiers grepped, and what the h
   - doc-012 audit and doc-015 analysis: dated analyses, not behaviour claims.
 - **Not swept:** prose on the selector fit's dropped "through a project placed in it" path beyond feat-043. Those lines
   (feat-061..065) are out of scope and read doc-016.
+
+## Delta read
+
+Scope: commit e2ebb631 only (R-1, R-2, R-3, R-6). R-4 and R-5 stay accepted debts and are not reopened.
+
+Verdict: **approved**. No open major or blocker.
+
+- **R-1 closed.** The four notes (feat-028, feat-043, feat-049, mod-018 `status.md`) are dated, add one line each, leave merged
+  prose untouched, and match `api-contract.md`: retired link routes and "a team stands in one department" (§ 1), `departmentIds`
+  to `departmentId` in `selector-offers` (§ 3), `has_teams` on `DELETE /areas` (§ 3, the mod-018 BR-AW-9 deletion rule).
+- **R-2 closed.** `"deprecated": true` in `contracts/errors/organizations.json`, `yes` in the `docs/error-codes.md` column, the
+  backend constant removed and the code moved to the retired-codes theory in `OrganizationErrorCatalogTests`. The frontend keeps
+  `areaLinkTypeNotAllowed` and its row in `errorCodes.organizations.test.ts` on purpose: that test holds deprecated codes one to
+  one with the catalog. The constant has no other use. Ran `vitest run src/shared/api` (7 files, 52 tests) and Contracts.Tests
+  `OrganizationErrorCatalogTests` + `ErrorCodesReferenceTests` (61): green.
+- **R-3 closed.** `ColorPaletteParityTests` compares the key lists of `ColorCheck` and the migration's private `Palette`
+  constant (by reflection, with a null guard) against `ColorPalette.Entries` in order; it fails if any list drifts. Not
+  tautological. 2 tests green.
+- **R-6 closed.** "area–team" restored; no other mojibake in the commit.
