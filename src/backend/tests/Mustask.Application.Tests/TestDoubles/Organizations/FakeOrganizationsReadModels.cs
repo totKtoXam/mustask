@@ -66,6 +66,9 @@ public sealed class FakeTeamReadModel(InMemoryOrganizations store) : ITeamReadMo
                 store.InDisplayOrder(ActiveProjectsOf(organizationId, team.Id), project => project.Name, project => project.Id)
                     .Select(project => new ProjectRef(project.Id, project.Name))
                     .ToList(),
+                DepartmentOf(team).Id,
+                DepartmentOf(team).Name,
+                team.Color,
                 store.TeamMemberships.Any(membership => membership.TeamId == team.Id && membership.UserId == userId)))
             .ToList());
     }
@@ -73,7 +76,7 @@ public sealed class FakeTeamReadModel(InMemoryOrganizations store) : ITeamReadMo
     public Task<TeamRow?> FindAsync(Guid organizationId, Guid teamId, CancellationToken cancellationToken) =>
         Task.FromResult(
             ActiveTeams(organizationId).SingleOrDefault(team => team.Id == teamId) is { } team
-                ? new TeamRow(team.Id, team.Name, team.Description)
+                ? new TeamRow(team.Id, team.Name, team.Description, DepartmentOf(team).Id, DepartmentOf(team).Name, team.Color)
                 : null);
 
     public Task<IReadOnlyList<LinkedTeamRow>> ListLinkedAsync(Guid organizationId, Guid projectId, string userId, CancellationToken cancellationToken)
@@ -135,5 +138,11 @@ public sealed class FakeTeamReadModel(InMemoryOrganizations store) : ITeamReadMo
         team.Name,
         ProjectDefaultTeam.MarkOf(
             store.Projects.Any(project => project.Id == projectId && project.DefaultTeamId == team.Id),
-            LinkedActiveTeams(team.OrganizationId, projectId).Count()));
+            LinkedActiveTeams(team.OrganizationId, projectId).Count()),
+        Color: team.Color);
+
+    private (Guid Id, string Name) DepartmentOf(Team team) =>
+        store.Areas.SingleOrDefault(area => area.Id == team.DepartmentId) is { } department
+            ? (department.Id, department.Name)
+            : (team.DepartmentId ?? Guid.Empty, "Департамент");
 }

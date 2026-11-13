@@ -40,7 +40,7 @@ public sealed class SetTeamDescriptionHandlerTests
 
         var result = await f.HandleAsync("  Платформа\nи инструменты ");
 
-        Assert.Equal(new TeamResponse(f.Mars.Id, "MARS", "  Платформа\nи инструменты "), result.Response);
+        Assert.Equal(new TeamResponse(f.Mars.Id, "MARS", "  Платформа\nи инструменты ", f.Mars.DepartmentId, "blue"), result.Response);
         Assert.Equal("  Платформа\nи инструменты ", f.Mars.Description);
     }
 

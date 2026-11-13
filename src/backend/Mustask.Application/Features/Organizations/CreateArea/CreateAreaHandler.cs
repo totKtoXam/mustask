@@ -151,7 +151,7 @@ public sealed class CreateAreaHandler(
                 var path = parentId is { } above ? $"{tree.PathOf(above)}{AreaTree.PathSeparator}{area.Name}" : area.Name;
 
                 return new CreateAreaResult(
-                    new AreaResponse(area.Id, area.ParentId, AreaRequests.TypeName(area.Type), area.ProjectId, area.Name, area.Description, path));
+                    new AreaResponse(area.Id, area.ParentId, AreaRequests.TypeName(area.Type), area.ProjectId, area.Name, area.Description, path, area.Color));
             },
             cancellationToken);
     }

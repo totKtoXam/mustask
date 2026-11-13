@@ -70,7 +70,7 @@ public sealed class RestoreProjectHandlerTests
         var result = await f.HandleAsync(f.Command());
 
         Assert.Equal(
-            new ProjectResponse(f.Project.Project.Id, f.Organization.Id, "Пример проекта", "PRM", null),
+            new ProjectResponse(f.Project.Project.Id, f.Organization.Id, "Пример проекта", "PRM", null, "blue"),
             result.Response);
         Assert.Equal(ProjectStatus.Active, f.Project.Project.Status);
         Assert.Equal(before, f.Beneath());
@@ -123,7 +123,7 @@ public sealed class RestoreProjectHandlerTests
         var result = await f.HandleAsync(f.Command());
 
         Assert.Equal(
-            new ProjectResponse(f.Project.Project.Id, f.Organization.Id, "Пример проекта", "PRM", null),
+            new ProjectResponse(f.Project.Project.Id, f.Organization.Id, "Пример проекта", "PRM", null, "blue"),
             result.Response);
         Assert.Equal(ProjectStatus.Active, f.Project.Project.Status);
         Assert.Equal(before, f.Beneath());

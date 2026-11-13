@@ -88,12 +88,6 @@ public sealed class FakeOrganizationStructure(InMemoryOrganizations store) : IOr
         return Task.FromResult(area is null ? null : InfoOf(area));
     }
 
-    public Task<IReadOnlyList<AreaInfo>> ListAreasOfTeamAsync(Guid organizationId, Guid teamId, CancellationToken cancellationToken) =>
-        Task.FromResult<IReadOnlyList<AreaInfo>>(Ordered(store.AreaTeams
-            .Where(link => link.OrganizationId == organizationId && link.TeamId == teamId)
-            .Select(link => link.AreaId)
-            .ToList()));
-
     private AreaTree TreeOf(Guid organizationId) =>
         new(store.Areas.Where(area => area.OrganizationId == organizationId).Select(area => new AreaNode(area.Id, area.ParentId, area.Name, area.Type, area.ProjectId)));
 
