@@ -123,7 +123,7 @@ ones that matter; the type is in the file.
   selection tint and a thick underline; the focus ring is inside the button. *Don't*: use it for
   page views (those are `PageHeader views`) or for more than four values.
 - Thin icons — chevrons, add, remove, close, expand, more-vertical, refresh,
-  undo, save, person; exported with the `Icon` suffix (`ThinCloseIcon`). **The
+  undo, save, person, search (the magnifier, `ThinSearchIcon`); exported with the `Icon` suffix (`ThinCloseIcon`). **The
   card's header uses these and no Material glyph** (the shell's expand and close,
   the Save group's save and its chevron arrow, refresh, undo, more-vertical, the
   empty assignee's person). Anything else: Material `*Outlined` — heavier than the
@@ -235,6 +235,18 @@ label, show the hint as a permanent helper line.
   plus `trail` (from `usePageHead`); the page scrolls, not the card.
   `ConfirmDialog` — `destructive`, `cancelLabel`, `cancelAutoFocus`; its role
   stays `dialog`.
+
+**Search parts** (feat-070; `fields`, `dialog`; the global search of feat-065 is built from them, no screen uses them yet) —
+`SearchField`: the 28 px borderless header field, a magnifier, an ARIA combobox input (`aria-expanded`,
+`aria-controls`, `aria-activedescendant` come from the host as props), the shortcut `hint` while empty, a clear button
+(`clearLabel`, `onClear`; the field takes the focus back) while not; 300 px wide, 360 focused (`layout.searchField`);
+`anchorRef` gives the frame to the panel. `SearchPanel`: a non-modal `Popper` under `anchorEl` — no backdrop, no focus
+trap, the focus stays in the field — in the `Surface` card look; slots `scope`, `fullSearch`, the scrolling body
+(`children`) and `keys`; `busy` dims the body and marks it `aria-busy`; `compact` is the narrow screen's full width
+with no key hints; `onClose('clickAway' | 'escape')` — the host closes it. `SearchOption`: `role="option"`, never a Tab stop,
+`id` (required, for `aria-activedescendant`), `active` (tint, 3 px edge, `aria-selected`, `↵`), `to` (a real link), `icon`,
+`primary`, `secondary`, `stripe`; `variant="more"` is a plain row with no link. *Don't*: fetch in them, hold a listbox
+state in them, or draw a `Popover`/`Dialog` for a search.
 
 **Tables** (`table`) — one look: a white card with a soft glow, a sticky white
 header of small grey labels, rows with no rules, a light hover, a framed

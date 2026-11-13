@@ -16,6 +16,7 @@ import {
   ThinRefreshIcon,
   ThinRemoveIcon,
   ThinSaveIcon,
+  ThinSearchIcon,
   ThinUndoIcon,
 } from '../../../../shared/ui';
 import { DemoGroup, DemoRow } from '../parts';
@@ -38,6 +39,7 @@ const GLYPHS: readonly (readonly [string, ComponentType])[] = [
   ['ThinUndoIcon', ThinUndoIcon],
   ['ThinSaveIcon', ThinSaveIcon],
   ['ThinPersonIcon', ThinPersonIcon],
+  ['ThinSearchIcon', ThinSearchIcon],
   ['BacklogIcon', BacklogIcon],
 ];
 
