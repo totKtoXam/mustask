@@ -85,6 +85,23 @@ Scenario: Too short
 Scenario: No match
   When Ann types «яблоко» which matches nothing she may see
   Then the dialog says «Ничего не найдено»
+  And it still offers the row «Искать везде, включая описания» (US-7)
+
+Scenario: Typo tolerance as the last tier
+  Given Ann sees the project «Логистика-Север» and the team «Логистика»
+  When she types «логстика» (8 characters, one letter missing)
+  Then «Команды» and «Проекты» hold the near matches, each marked by no emphasis
+  And a similar row is always below every exact, prefix and contains row of its group
+
+Scenario: Typo tolerance needs 4 characters and a short group
+  When Ann types «лог» (3 characters) or a query whose group already holds 5 exact-tier rows
+  Then no similar rows are added
+
+Scenario: Typo tolerance respects sight and users
+  Given Olga does not see the team JUPITER
+  When she types «jupitr»
+  Then JUPITER is not found, as for «jupiter»
+  And a user «Анна Смирнова» is found for «смирнва» for a caller who may see the group
 
 Scenario: The query is trimmed and bounded
   When Ann types « ал » with spaces around it

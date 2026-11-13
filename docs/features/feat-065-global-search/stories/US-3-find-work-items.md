@@ -7,7 +7,7 @@
 
 As a **member of an organization**, I want **to type a work item's identifier or part of its title and get the item**, so that **I open a card I have heard about in chat or on a board without finding its project first**.
 
-Identifier = `<project key>-<type key>-<number>`, one number sequence per project across types (mod-003 BR-M3-5).
+Identifier = `<project key>-<type key>-<number>`, one number sequence per project across types (mod-003 BR-M3-5). This is the quick search; the description is searched on the full search page (US-7).
 
 ## Acceptance criteria
 
@@ -62,16 +62,32 @@ Scenario: Same title in several projects
   When she types «оплата картой» in the palette scoped to «Ромашка»
   Then ALP-US-7 and BRV-BUG-3 are listed and ZED-US-1 is not
 
-Scenario: Show all
+Scenario: More rows
   Given Max sees 9 items whose titles contain «оплата»
   When he types «оплата»
-  Then the group shows 5 rows, «Показать ещё» (up to 20 rows) and «Все рабочие элементы по запросу»
-  And choosing the latter opens the organization's «Рабочие элементы» list with «оплата» in its keyword field
+  Then the group shows 5 rows and «Показать ещё»
+  When he chooses «Показать ещё»
+  Then the group shows all 9 (at most 20)
 
-Scenario: Show all uses the list's own keyword
-  When Max types «ALP-7» and the group shows ALP-US-7
-  And he chooses «Все рабочие элементы по запросу»
-  Then the list opens with «ALP-7» as its keyword and shows what feat-003's keyword finds (BR-GS-9), which may be no row
+Scenario: Typo tolerance fills a short group
+  Given Max sees one item titled «Оплата картой» and no other title near «оплата»
+  When he types «оплта» (4 characters, one letter missing)
+  Then the group shows «Оплата картой» below any exact, prefix or contains rows, with no emphasis on it
+  And typing «опл» (3 characters) finds it only as a prefix, and a 3-character typo «олп» finds nothing
+
+Scenario: Typo tolerance does not displace exact rows
+  Given 5 items contain «оплата» in the title and one more is only similar
+  When Max types «оплата»
+  Then the similar item is not among the 5 rows
+
+Scenario: The full-search row
+  When Max types «оплата»
+  Then the last row of the whole palette is «Искать везде, включая описания», after every group
+  And choosing it opens the full search page (US-7) with «оплата» in its field
+
+Scenario: The full-search row stays when nothing matches
+  When Max types «рефакторинг» which matches no title or name he may see
+  Then the palette says «Ничего не найдено» and still offers «Искать везде, включая описания»
 
 Scenario: Characters with a meaning elsewhere are literal
   When Max types «100%» or «a_b» or «\»

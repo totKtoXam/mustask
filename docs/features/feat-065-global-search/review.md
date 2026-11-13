@@ -33,7 +33,7 @@ Affects: BR-GS-1, US-1 "Typing a shortcut inside a text field of the page"
 Problem: The merged rich-text editor already binds Ctrl/Cmd+K to its link command (`src/frontend/src/shared/ui/RichTextEditor/behaviour/keyboard.ts`, case 'k' → `openLink()`). The scenario required the palette to open from the description editor, which either breaks the editor's link shortcut or is unimplementable as written.
 Required resolution: Decide which wins inside the editor.
 Status: resolved
-Resolution: BR-GS-1 now keeps Ctrl/Cmd+K as the editor's link command inside the editor (the magnifier still opens the palette); US-1 split into a plain-field scenario and an editor scenario. The human may reverse this at gate-1 (then the editor's link shortcut must move, a change to ADR-0039's editor).
+Resolution: BR-GS-1 now keeps Ctrl/Cmd+K as the editor's link command inside the editor (the magnifier still opens the palette); US-1 split into a plain-field scenario and an editor scenario. Gate-1 (2026-11-13): the human kept it; the editor's link shortcut stays.
 
 ### R-2
 Severity: major
@@ -57,7 +57,7 @@ Affects: BR-GS-9, BR-GS-12, § Decomposition (`feat-NNN-search-palette` deps)
 Problem: The user rows and «Все рабочие элементы по запросу» open the organization's «Рабочие элементы» list, whose sight (BR-TD-17) is owed by feat-062. The palette line depended on feat-041 only through the read lines, so it could ship a new road onto a list that does not yet hold the sight rule, against BR-GS-4's promise.
 Required resolution: Make the palette line wait for feat-062, or drop the two links until it merges.
 Status: resolved
-Resolution: `feat-062-sight-in-work-views` added to the palette line's deps with the reason. The human may prefer the other option (ship without the two links); see the questions.
+Resolution: `feat-062-sight-in-work-views` added to the palette line's deps with the reason. Gate-1 (2026-11-13): the human kept the dependency. Since R-5's row now leads to the full search page, only the user rows still open that list.
 
 ### R-5
 Severity: major
@@ -65,7 +65,7 @@ Affects: BR-GS-9, BR-GS-7, US-3 "Show all"
 Problem: The palette matches identifier prefixes and «ключ-номер» (BR-GS-7), while the list's keyword (feat-003 BR-WS-9 as feat-043 reads it) does neither and matches a bare number in every project. «Все рабочие элементы по запросу» could therefore show fewer items than the palette (e.g. «ALP-7» → none) or other ones («42»). Unstated, it reads as a bug at QA.
 Required resolution: State the difference and its acceptance, or carry the palette's meaning to the list (a change to feat-003's line).
 Status: resolved
-Resolution: BR-GS-9 states the list keeps its own keyword meaning and may differ; US-3 gained the scenario "Show all uses the list's own keyword". Listed as a question for the human.
+Resolution: BR-GS-9 states the list keeps its own keyword meaning and may differ; US-3 gained the scenario "Show all uses the list's own keyword". Superseded at gate-1 (2026-11-13): «Все рабочие элементы по запросу» is replaced by the row «Искать везде, включая описания», which opens the new full search page that shares the palette's identifier grammar; the divergence text and that scenario are removed (BR-GS-9, BR-GS-18, US-3, US-7).
 
 ### R-6
 Severity: major
@@ -105,7 +105,7 @@ Affects: BR-GS-12, US-5
 Problem: Choosing a person who is assigned no visible live item opens the list with an «Исполнитель» value that is none of its options; feat-003 BR-WS-10 then shows an empty list and a blank field with "a filter is on". The outcome was unstated and is a weak answer to "what is X working on".
 Required resolution: State the outcome; the human may want something better (a question).
 Status: resolved
-Resolution: BR-GS-12 and US-5 "A user assigned nothing" state BR-WS-10's outcome. Raised as a downside of OQ-6 A.
+Resolution: BR-GS-12 and US-5 "A user assigned nothing" state BR-WS-10's outcome. Raised as a downside of OQ-6 A. Gate-1 (2026-11-13): the human accepted the empty list for a person assigned nothing.
 
 ### R-11
 Severity: minor
