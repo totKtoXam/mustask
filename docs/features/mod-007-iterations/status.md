@@ -1,0 +1,128 @@
+# mod-007-iterations
+
+- type: module
+- size: L
+- branch: mod/007-iterations
+- stage: complete
+- epic: core/iterations-planning
+- deps: feat-040
+- gates: gate-1, gate-2, gate-3
+
+## Gates
+
+gate-1: approved (2026-11-10, human in chat, «Да, approve», after review round 2 approved-by-ai; OQ-1..OQ-6 A, OQ-7 B, OQ-8 A); delta (US-9, US-10, BR-14..BR-16, OQ-9..OQ-15) approved 2026-11-12, human in chat, «Да, approve»
+gate-2: approved (2026-11-10, human in chat, «Да, approve», after D-1..D-7 A, the prototype reworked into the product shell (left navigation) on the human's remark; the sprint board stays in feat-057 by the human's answer); delta (outcome page: level, date range, dynamics, participants) approved 2026-11-12, human in chat, «Да, approve», after D-4 A, D-8 A, D-9 A, D-10 B
+gate-3: approved (2026-11-13, human in chat, «Да, approve», after code review round 2 approved-by-ai; 7 minor debts accepted: review m-1, m-2, m-3, m-5, m-6, QA backend D-1, D-2)
+
+## Plan
+
+Route L, the full pipeline. This run covers only business analysis →
+requirements review → gate-1, then stops. After the human's answers (OQ-2 A,
+OQ-7 B) the only dependency is feat-040, merged, so design is no longer
+blocked; it starts in a later run when the human says so. Economy mode: one
+agent per stage, no fan-out. E2E: no (paused).
+
+## Log
+
+- 2026-11-10 [orchestrator] task started in the app-made worktree
+  .claude/worktrees/peaceful-goodall-4d0952 (handoff.md: task not started
+  yet, the session creates the branch itself); branch mod/007-iterations from
+  origin/main e8ae2340
+- 2026-11-10 [orchestrator] route confirmed by the human in chat: module, L,
+  analysis only up to gate-1 in this run (matches the queue line's size)
+- 2026-11-10 [orchestrator] queue line taken (scripts/queue.sh take mod-007)
+- 2026-11-10 [business-analyst] stage 1 done: spec.md and 8 stories
+  (US-1..US-8), 6 tasks in the decomposition; 6 open questions, among them
+  OQ-1 (doc-016) and OQ-2 (area-overview sprints to feat-042) for the human
+- 2026-11-10 [requirements-reviewer] round 1 in review.md: verdict
+  needs-human-decision. 0 blocker, 7 major (R-1..R-7), 12 minor
+  (R-8..R-19); fixed in place R-1, R-2, R-5..R-14 (mod-019 team role names,
+  the sprint code, a Closed sprint's outcome page, the kept Closed pointer,
+  doc-012 NFRs, US-3 section order, races); open R-3 (decomposition has no L
+  founder, dependents' deps), R-4 (feat-041 per row; feat-040 is merged and
+  belongs on the board row), R-15..R-19 (analyst edits, OQ-1/OQ-2 wording).
+  New questions for gate-1: Q-7 (wait for feat-041 or owe its clauses), Q-8
+  (which stories make up the L line). gate-1 untouched
+
+- 2026-11-10 [business-analyst] round-1 fixes R-15..R-19 applied to spec and
+  stories; OQ-7 and OQ-8 added from the review; the decomposition is not
+  rewritten until the human answers OQ-2, OQ-7, OQ-8
+- 2026-11-10 [business-analyst] the human answered all open questions in
+  chat: OQ-1 A, OQ-2 A (area-overview sprints go to feat-042; US-8 withdrawn),
+  OQ-3 A, OQ-4 A, OQ-5 A, OQ-6 A, OQ-7 B (visibility clauses owed by
+  feat-041; deps feat-040 only), OQ-8 A (mod-007 stays the L with US-1..US-5;
+  US-6 and US-7 spun out). Spec § Decomposition rewritten, queue edits listed
+  there; gates untouched
+- 2026-11-10 [requirements-reviewer] round 2 in review.md: verdict
+  approved-by-ai. R-3, R-4, R-15..R-19 resolved; new R-20 (feat-042 must
+  depend on the board line, which owns the Active-sprint read), R-21 (merge
+  order with feat-041 for owed clauses), R-22 (queue edits 6-7), R-23
+  (BR-10/-11 owners, a US-4 title), all fixed in spec and US-4. § Plan and
+  § Notes here still describe the old scope (orchestrator's). gate-1 untouched
+- 2026-11-10 [requirements-reviewer] round 3 (scope delta US-9, US-10) in
+  review.md, rounds 1-2 condensed: verdict needs-human-decision. 5 major
+  (R-24..R-28 with R-26..R-28 fixed: mod-012 velocity queue edit 7, NFR
+  sized to 5 000 items, a US-9 scenario that could not pass), 6 minor
+  (R-29..R-34; R-34 is D-4 for the designer). New OQ-14 (levels counted),
+  OQ-15 (purged items in a snapshot). Gates untouched
+- 2026-11-10 [ux-designer] design.md (26 KB) and prototype/index.html written
+  for US-1..US-5: team «Спринты» list, form/start/remove/close dialogs, the
+  Closed sprint's outcome page, the card's «Спринт» field, roles and states;
+  7 decisions D-1..D-7 for the human, 16 proposed error codes (§ 10). Stage
+  set to 03-ux-design; gate-2 untouched
+- 2026-11-10 [business-analyst] scope delta from the human after gate-2;
+  gate-1 and gate-2 reopen for the delta: BR-14..16, US-9 (results by
+  participant), US-10 (dynamics), US-5 snapshot; OQ-9..OQ-13 added; design.md
+  needs the outcome page's new sections
+- 2026-11-10 [business-analyst] delta answers applied: OQ-9 the human's date
+  range (?from=&to=, default 90 days before the sprint's start, at most 20
+  sprints read), OQ-10..OQ-15 all A; BR-14 (level, purge), BR-15, BR-16, US-5,
+  US-9, US-10 updated; OQs closed; gates untouched
+- 2026-11-12 [orchestrator] gate-1 for the delta approved by the human in
+  chat («Да, approve»); design delta handed to the ux-designer
+- 2026-11-12 [ux-designer] design delta: the outcome page (§ 6) gains the
+  level selector, the date range with dynamics, results by participant and
+  purged rows; prototype updated; D-4 reopened (R-34), D-8..D-10 added
+- 2026-11-12 [ux-designer] D-4 A, D-8 A, D-9 A, D-10 B (decimal comma) recorded
+  in design.md § 12, the prototype and the US-9/US-10 lines
+- 2026-11-12 [orchestrator] gate-2 for the delta approved by the human in
+  chat («Да, approve»); development waits for the human's word
+- 2026-11-12 [backend-developer] stage 4 backend done for US-1..US-5, US-9, US-10: 11 sprint routes, item sprint, close snapshot, outcome reads, migration AddSprints; all test projects green. Deviations: § Notes, "Backend deviations".
+- 2026-11-12 [qa-engineer] backend QA: 12 tests added, all green; 0 blocker, 0 major, 2 minor (qa.md D-1, D-2); no E2E (standing NO)
+- 2026-11-12 [frontend-developer] stage 5 done: team «Спринты» list and dialogs, outcome page, card «Спринт»; tests green; no contract mismatch; E2E no (standing); frontend QA next
+- 2026-11-13 [frontend-developer] QA cycle 1: fixed D-1 (sprint-name h1, trail, tag), D-2 («Итого» expands), D-3 (purged project kept), D-4, D-5; the three it.fails now pass; frontend QA re-run next
+- 2026-11-13 [code-reviewer] code review round 1 in review.md: changes-requested; 0 blocker, 2 major open (M-1 lock order vs ADR-0028 rule 8, M-2 deviations unrecorded), 5 minor debts
+- 2026-11-12 [qa-engineer] frontend QA: FAIL, 3 majors on the outcome page (h1, «Итого» not expandable, purged project blank), 2 minors; 35 tests added (3 it.fails pin the majors); no E2E (standing NO)
+- 2026-11-13 [qa-engineer] frontend QA re-check of f5a84ab4: D-1..D-5 fixed and verified, 3 tests added for D-4/D-5; 0 blocker, 0 major; PASS, to code review; no E2E (standing NO)
+- 2026-11-13 [backend-developer] code review M-1 fixed: hierarchy, then sprints (close with its destination FOR UPDATE), then items; unlink and team deletion lock open sprints; M-2, m-4 done (deviations in § Notes); a42f3f17 is code and tests together; tests green
+- 2026-11-13 [code-reviewer] code review round 2 (delta 6ee18e5b) in review.md: approved; M-1, M-2, m-4 resolved; 0 blocker, 0 major open; 6 minor debts to gate-3 (m-1..m-3, m-5, m-6, QA D-1, D-2)
+- 2026-11-13 [orchestrator] gate-3 approved by the human in chat; stage
+  complete; PR to main opened by the orchestrator
+
+## Notes
+
+Scope after gate-1 answers: US-1..US-5 (lifecycle, numbering, the team's
+«Спринты», the item's sprint pointer, the close with its outcome and moves).
+The board (US-6) and the project «Спринты» archive (US-7) are spun out into
+their own lines; the area overview's Active sprints go to feat-042 (spec
+§ Decomposition lists the queue edits).
+
+Original summary (from the queue line): MVP. Founds M5 on team sprints: the lifecycle
+(Planned, Active, Closed), numbering, the team's sprint list, the item's
+sprint pointer with the team rule, closing with its outcome record and the
+move of unfinished items, the team sprint board, active sprints on the area
+overview; a deleted team's Closed sprints and their outcomes stay readable on
+the projects' «Спринты». The team's «Спринты» (teams/:t/sprints) and a
+project's «Спринты» (projects/:p/sprints) are sections of their own pages
+(doc-012 BR-MX-13..-15; US-9, US-12, US-10).
+
+### Backend deviations (stage 4, from plan-backend.md and api-contract.md)
+
+- The contract is unchanged; the deviations below are of the plan and the stories' wording only.
+- Participants' «не в организации» mark reads the organization membership (BR-16), not the team's; the plan had a team-membership read.
+- An unknown sprint sent for a deleted item answers `workitems.workitem.deleted` first; the sprint's 404 comes after the item is known live (api-contract § 3). The sprint is still locked before the item.
+- The Kazakh texts of the 17 new error codes are machine drafts: `kkNeedsReview` is true in `contracts/errors/iterations.json`.
+- The outcome-items read inner-joins `work_item_types`, so a snapshot line whose type row is gone would be dropped (types are never deleted today).
+- Commit a42f3f17 carries the code fixes and all the tests in one commit: the commit-msg hook rejected the first, code-only commit (subject over 72), and the staged files went into the next one.
+- Lock order (review M-1): the sprint writers lock the team's linked projects' hierarchy rows (ADR-0028 rule 8 step 5) before the sprint; broader than the sprint's own projects, but fixed before the sprint lock, so no item can join a project outside it.
+- Pre-existing, not ours: `dotnet build Mustask.sln` fails with NU1903 (Aspire.Hosting advisory) in `Mustask.AppHost`.

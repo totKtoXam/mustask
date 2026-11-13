@@ -321,13 +321,26 @@ code "$deploy" | grep -q '^  cancel-in-progress: false$' && code "$deploy" | gre
 unpinned=$(code "$deploy" | grep -E 'uses: ' | grep -Ev 'uses: [^@]+@[0-9a-f]{40}$' || true)
 [ -z "$unpinned" ] && ok "deploy.yml: every action is pinned by commit" || bad "deploy.yml: unpinned: $unpinned"
 
+# Write permissions (tech-069): the notes job alone holds one (the GitHub
+# Release); the workflow default stays contents: read (checked below). The
+# function lists the jobs that declare a "write" permission.
+write_jobs() { code "$1" | awk '/^jobs:/ {on=1; next} on && /^  [A-Za-z_-]+:/ {job=$1} on && /^[[:space:]]+[a-z-]+:[[:space:]]*write$/ {print job}' | sort -u | tr '\n' ' '; }
+got=$(write_jobs "$deploy")
+[ "$got" = "notes: " ] && ok "deploy.yml: only the notes job declares a write permission" || bad "deploy.yml: write permissions in '$got'"
+{ cat "$deploy"; printf '%s\n' '  evil:' '    permissions:' '      contents: write'; } > "$sandbox/evil.yml"
+got=$(write_jobs "$sandbox/evil.yml")
+[ "$got" = "evil: notes: " ] && ok "deploy.yml: a write permission on another job would be seen" || bad "write_jobs missed an added job ('$got')"
+sed 's/^    permissions:$/&\n      contents: write/' "$deploy" > "$sandbox/evil2.yml"
+got=$(write_jobs "$sandbox/evil2.yml")
+[ "$got" = "deploy: notes: " ] && ok "deploy.yml: a write permission on the deploy job would be seen" || bad "write_jobs missed the deploy job ('$got')"
+
 # The rest of the guard: nothing but the deploy job may reach the VM, whatever
 # the label is spelled like, and the deploy job's root commands are exactly the
 # sudoers rule's two.
 runs_on=$(code "$deploy" | grep -E '^[[:space:]]*runs-on:' | sed 's/^[[:space:]]*//' | tr '\n' '|')
-[ "$runs_on" = "runs-on: ubuntu-latest|runs-on: [self-hosted, linux, mustask-prod]|" ] \
-    && ok "deploy.yml: two jobs, ubuntu-latest and the VM, nothing else" || bad "deploy.yml: runs-on lines: $runs_on"
-code "$deploy" | grep -q '^    needs: build$' && ok "deploy.yml: the deploy job needs build" || bad "deploy.yml: the deploy job does not need build"
+[ "$runs_on" = "runs-on: ubuntu-latest|runs-on: ubuntu-latest|runs-on: [self-hosted, linux, mustask-prod]|" ] \
+    && ok "deploy.yml: ubuntu-latest for build and notes, the VM for deploy, nothing else" || bad "deploy.yml: runs-on lines: $runs_on"
+code "$deploy" | grep -qFx '    needs: [build, notes]' && ok "deploy.yml: the deploy job needs build and notes" || bad "deploy.yml: the deploy job does not need build and notes"
 code "$deploy" | grep -q "^    if: github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v')$" \
     && ok "deploy.yml: a run starts only from main or a v* tag" || bad "deploy.yml: the main / v* ref guard is gone"
 code "$deploy" | grep -q '^  group: deploy-production$' \

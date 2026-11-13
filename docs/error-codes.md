@@ -49,6 +49,23 @@ guarantees it exists and differs from the Russian, not its quality
 |http.service_unavailable|503|Сервис временно недоступен, повторите позже.|Қызмет уақытша қолжетімсіз, кейінірек қайталаңыз.|assigned by HTTP status|—|needs review|
 |http.too_many_requests|429|Сервис сейчас занят. Повторите запрос через несколько секунд.|Қызмет қазір бос емес. Сұранысты бірнеше секундтан кейін қайталаңыз.|assigned by HTTP status|—|needs review|
 |http.unauthorized|401|Требуется аутентификация.|Аутентификация қажет.|assigned by HTTP status|—|needs review|
+|iterations.sprint.active_dates_required|409|У активного спринта должны быть обе даты.|Белсенді спринттің екі күні де болуы керек.|iterations|—|needs review|
+|iterations.sprint.active_exists|409|У команды уже есть активный спринт.|Команданың белсенді спринті бұрыннан бар.|iterations|—|needs review|
+|iterations.sprint.close_destination_invalid|409|Незавершённые элементы можно перенести только в запланированный спринт этой команды.|Аяқталмаған элементтерді тек осы команданың жоспарланған спринтіне ауыстыруға болады.|iterations|—|needs review|
+|iterations.sprint.closed_dates_locked|409|Даты завершённого спринта изменить нельзя.|Аяқталған спринттің күндерін өзгертуге болмайды.|iterations|—|needs review|
+|iterations.sprint.closed_target|409|Спринт завершён: в него нельзя добавить элемент.|Спринт аяқталған: оған элемент қосуға болмайды.|iterations|—|needs review|
+|iterations.sprint.dates_reversed|400|Дата окончания не может быть раньше даты начала.|Аяқталу күні басталу күнінен бұрын болмауы керек.|iterations|—|needs review|
+|iterations.sprint.dates_unpaired|400|Укажите обе даты спринта или ни одной.|Спринттің екі күнін де көрсетіңіз немесе ешқайсысын көрсетпеңіз.|iterations|—|needs review|
+|iterations.sprint.name_invalid|400|Название спринта — от 1 до 100 символов.|Спринт атауы — 1-ден 100 символға дейін.|iterations|—|needs review|
+|iterations.sprint.name_taken|409|Спринт с таким названием уже есть в команде.|Командада мұндай атаумен спринт бұрыннан бар.|iterations|—|needs review|
+|iterations.sprint.not_active|409|Завершить можно только активный спринт.|Тек белсенді спринтті аяқтауға болады.|iterations|—|needs review|
+|iterations.sprint.not_found|404|Спринт не найден.|Спринт табылмады.|iterations|—|needs review|
+|iterations.sprint.not_planned|409|Начать можно только запланированный спринт.|Тек жоспарланған спринтті бастауға болады.|iterations|—|needs review|
+|iterations.sprint.not_removable|409|Удалить можно только запланированный спринт без элементов.|Тек элементтері жоқ жоспарланған спринтті жоюға болады.|iterations|—|needs review|
+|iterations.sprint.other_team|409|Спринт принадлежит другой команде.|Спринт басқа командаға тиесілі.|iterations|—|needs review|
+|iterations.sprint.start_dates_required|409|Чтобы начать спринт, укажите обе даты.|Спринтті бастау үшін екі күнді де көрсетіңіз.|iterations|—|needs review|
+|iterations.sprint.team_required|409|Сначала выберите команду: спринт есть только у команды.|Алдымен команданы таңдаңыз: спринт тек командада болады.|iterations|—|needs review|
+|iterations.validation_failed|400|Проверьте правильность запроса.|Сұраудың дұрыстығын тексеріңіз.|iterations|—|needs review|
 |organizations.access.forbidden|403|Недостаточно прав|Құқықтар жеткіліксіз|organizations|—|needs review|
 |organizations.area.depth_exceeded|409|Дерево областей не может быть глубже 10 уровней|Аймақ ағашы 10 деңгейден терең болмауы керек|organizations|—|needs review|
 |organizations.area.is_team_default|409|Область используется как область по умолчанию команды «{team}»|Аймақ «{team}» командасының әдепкі аймағы ретінде пайдаланылады|organizations|yes|needs review|

@@ -19,7 +19,7 @@ namespace Mustask.Infrastructure.Tests.Conventions;
 /// <item><b>ClearedByPurge</b> — the purge statement clears it (today <c>WorkItem.ParentId</c> alone, whose key is
 /// <c>Restrict</c>, so a forgotten clear breaks the delete);</item>
 /// <item><b>CoveredByStep</b> — a purge step declares the entity (rows on survivors, an effect outside the database);</item>
-/// <item><b>Kept</b> — the data stays by design, listed here with its reason (none today).</item>
+/// <item><b>Kept</b> — the data stays by design, listed here with its reason (the sprint close record, mod-007 BR-8).</item>
 /// </list>
 /// It fails on an unlisted reference, on a stale entry, and on a <c>Restrict</c> key that is neither cleared nor covered.
 /// </summary>
@@ -38,8 +38,11 @@ public sealed class WorkItemReferenceInventoryTests
     /// <summary>The references the purge statement clears itself, by <c>Entity.Property</c>. Today: a child's link to its parent.</summary>
     private static readonly HashSet<string> ClearedByPurge = ["WorkItem.ParentId"];
 
-    /// <summary>The references that stay after a purge by design, with the reason. None today.</summary>
-    private static readonly Dictionary<string, string> Kept = [];
+    /// <summary>The references that stay after a purge by design, with the reason. The sprint close record (mod-007 BR-8).</summary>
+    private static readonly Dictionary<string, string> Kept = new()
+    {
+        ["SprintSnapshotItem.WorkItemId"] = "the close record of a sprint keeps its line after a purge (mod-007 BR-8, US-5): a record, not a link",
+    };
 
     // BR-DR-16 · "Data added later cannot be forgotten": every reference of the model is classified, and none is stale.
     [Fact]
@@ -50,13 +53,13 @@ public sealed class WorkItemReferenceInventoryTests
         Assert.True(failures.Count == 0, string.Join(Environment.NewLine, failures));
     }
 
-    // The guard against passing vacuously: today's three references must be found, with the keys they have.
+    // The guard against passing vacuously: today's four references must be found, with the keys they have.
     [Fact]
-    public void TheInventory_FindsTodaysThreeReferences()
+    public void TheInventory_FindsTodaysFourReferences()
     {
         var references = ReferencesOfTheModel();
 
-        Assert.Equal(["BacklogPlace.WorkItemId", "ProjectBacklogPlace.WorkItemId", "WorkItem.ParentId"], references.Select(reference => reference.Name).Order());
+        Assert.Equal(["BacklogPlace.WorkItemId", "ProjectBacklogPlace.WorkItemId", "SprintSnapshotItem.WorkItemId", "WorkItem.ParentId"], references.Select(reference => reference.Name).Order());
         Assert.Equal(DeleteBehavior.Cascade, references.Single(reference => reference.Name == "BacklogPlace.WorkItemId").Behavior);
         Assert.Equal(DeleteBehavior.Cascade, references.Single(reference => reference.Name == "ProjectBacklogPlace.WorkItemId").Behavior);
         Assert.Equal(DeleteBehavior.Restrict, references.Single(reference => reference.Name == "WorkItem.ParentId").Behavior);

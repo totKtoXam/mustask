@@ -599,6 +599,7 @@ sudo bash mustask-v0.2.0/kit/install.sh status      # активный VERSION �
 ```
 git push origin v0.2.0
   └─ build  (ubuntu-latest): build-release.sh v0.2.0 $MUSTASK_SITE_URL → артефакт + sha256
+  └─ notes  (ubuntu-latest): release-notes.sh v0.2.0 → сводка запуска + GitHub Release
   └─ deploy (эта VM, метка mustask-prod, окружение production → одобрение):
         проверка sha256 → sudo -n mustask-cd deploy < mustask-v0.2.0.tar.gz   (install.sh deploy)
                         → sudo -n mustask-cd smoke                             (smoke.sh)
@@ -722,6 +723,15 @@ systemctl cat 'actions.runner.*'      # в конце mustask-job-guard.conf
 ```bash
 git tag v0.2.0 && git push origin v0.2.0
 ```
+
+Запуск называется `Deploy v0.2.0`. Его job `notes` идёт перед job деплоя:
+он пишет влитые pull request'ы с предыдущего тега в сводку запуска и создаёт
+GitHub Release этого тега (повторный деплой переписывает заметки
+существующего релиза и создаёт отсутствующий, не помечая его «Latest», так
+что откат никогда не делает старый тег последним релизом). Прочтите страницу релиза до согласования; она же и есть журнал
+изменений (`docs/conventions/git.md` § «Releases and versions», ADR-0043).
+Посмотреть её до выставления тега можно так: `sh scripts/release-notes.sh
+origin/main`.
 
 Дальше Actions → **Deploy** → запуск → «Review deployments» → `production`
 → Approve. Job деплоя печатает вывод `install.sh deploy` и `smoke.sh`.

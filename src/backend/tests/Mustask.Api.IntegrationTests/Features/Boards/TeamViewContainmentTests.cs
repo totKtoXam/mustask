@@ -228,6 +228,7 @@ public sealed class TeamViewContainmentTests(MustaskApiFactory factory)
             OrganizationAddressedRoutes.All,
             route => route.Template.Contains("/projects/{projectId}/teams/{teamId}/backlogs", StringComparison.Ordinal)
                 || route.Template.Contains("/projects/{projectId}/teams/{teamId}/boards", StringComparison.Ordinal));
-        Assert.Equal(100, OrganizationAddressedRoutes.All.Count);
+        // mod-007 api-contract § 2 adds the team's eleven sprint routes - 111.
+        Assert.Equal(111, OrganizationAddressedRoutes.All.Count);
     }
 }

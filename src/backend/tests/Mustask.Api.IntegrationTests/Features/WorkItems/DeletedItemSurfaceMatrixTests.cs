@@ -327,6 +327,14 @@ public sealed class DeletedItemSurfaceMatrixTests(MustaskApiFactory factory)
         ["GET " + OrgTeam + "/boards/{level}"] = Reads.LiveOnly,
         ["GET " + Project + "/backlogs/{level}"] = Reads.LiveOnly,
         ["GET " + Project + "/boards/{level}"] = Reads.LiveOnly,
+        // mod-007: the team's sprints. The list and the close dialog count the live items of a Planned or Active sprint (items in
+        // «Удалена» are in no figure); the pages of a Closed sprint read its close record and name no state.
+        ["GET " + OrgTeam + "/sprints"] = Reads.LiveOnly,
+        ["GET " + OrgTeam + "/sprints/{sprintId}/close-preview"] = Reads.LiveOnly,
+        ["GET " + OrgTeam + "/sprints/{sprintId}"] = Reads.NoWorkItem,
+        ["GET " + OrgTeam + "/sprints/{sprintId}/dynamics"] = Reads.NoWorkItem,
+        ["GET " + OrgTeam + "/sprints/{sprintId}/participants"] = Reads.NoWorkItem,
+        ["GET " + OrgTeam + "/sprints/{sprintId}/items"] = Reads.NoWorkItem,
         // feat-048: the aggregate views. The grouped counts, group pages and cell pages read live items; the organization-wide list, its groups and rows
         // and its assignee options reach the bin by a chosen state as the project's do (their blocks are in AggregateViewEndpointTests).
         ["GET " + Org + "/backlogs/{level}/groups"] = Reads.LiveOnly,

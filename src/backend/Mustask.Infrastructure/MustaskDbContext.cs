@@ -1,4 +1,5 @@
 using Mustask.Domain.Dictionaries;
+using Mustask.Domain.Iterations;
 using Mustask.Domain.Organizations;
 using Mustask.Domain.Process;
 
@@ -71,6 +72,9 @@ public sealed class MustaskDbContext(DbContextOptions<MustaskDbContext> options)
 
     /// <summary>M3's work items (mod-003); their per-project counter is mapped too, with no DbSet (raw SQL only).</summary>
     public DbSet<WorkItem> WorkItems => Set<WorkItem>();
+
+    /// <summary>M5 (mod-007): a team's sprints. The number counter and the close snapshot are mapped with no DbSet (raw SQL and Set<T>).</summary>
+    public DbSet<Sprint> Sprints => Set<Sprint>();
 
     protected override void ConfigureConventions(ModelConfigurationBuilder configurationBuilder)
     {
