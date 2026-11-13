@@ -319,6 +319,19 @@ code "$deploy" | grep -q '^  cancel-in-progress: false$' && code "$deploy" | gre
 unpinned=$(code "$deploy" | grep -E 'uses: ' | grep -Ev 'uses: [^@]+@[0-9a-f]{40}$' || true)
 [ -z "$unpinned" ] && ok "deploy.yml: every action is pinned by commit" || bad "deploy.yml: unpinned: $unpinned"
 
+# Write permissions (tech-069): the notes job alone holds one (the GitHub
+# Release); the workflow default stays contents: read (checked below). The
+# function lists the jobs that declare a "write" permission.
+write_jobs() { code "$1" | awk '/^jobs:/ {on=1; next} on && /^  [A-Za-z_-]+:/ {job=$1} on && /^[[:space:]]+[a-z-]+:[[:space:]]*write$/ {print job}' | sort -u | tr '\n' ' '; }
+got=$(write_jobs "$deploy")
+[ "$got" = "notes: " ] && ok "deploy.yml: only the notes job declares a write permission" || bad "deploy.yml: write permissions in '$got'"
+{ cat "$deploy"; printf '%s\n' '  evil:' '    permissions:' '      contents: write'; } > "$sandbox/evil.yml"
+got=$(write_jobs "$sandbox/evil.yml")
+[ "$got" = "evil: notes: " ] && ok "deploy.yml: a write permission on another job would be seen" || bad "write_jobs missed an added job ('$got')"
+sed 's/^    permissions:$/&\n      contents: write/' "$deploy" > "$sandbox/evil2.yml"
+got=$(write_jobs "$sandbox/evil2.yml")
+[ "$got" = "deploy: notes: " ] && ok "deploy.yml: a write permission on the deploy job would be seen" || bad "write_jobs missed the deploy job ('$got')"
+
 # The rest of the guard: nothing but the deploy job may reach the VM, whatever
 # the label is spelled like, and the deploy job's root commands are exactly the
 # sudoers rule's two.
