@@ -46,6 +46,7 @@ export { SplitButton, type SplitButtonProps } from './actions/SplitButton';
 export type { DataAttributes, PassThrough } from './passThrough';
 
 // Marks, people and tags (P3)
+export { ColorLabel, type ColorLabelProps } from './marks/ColorLabel';
 export { PersonLabel, type PersonLabelProps } from './marks/PersonLabel';
 export { StateLabel, type StateLabelProps } from './marks/StateLabel';
 export { Tag, type TagProps, type TagTone } from './marks/Tag';

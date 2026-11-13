@@ -137,6 +137,43 @@ export const categoryColours: Record<CategoryCode, string> = {
   Removed: '#A4262C',
 };
 
+/**
+ * doc-016 BR-TD-20: the 12 entries of the stored colour of a department, a team and a project, in
+ * the palette's order. The API returns the key and the panel owns the hex; one hex per key serves
+ * the panel's one (light) theme. A key outside the set is the neutral grey, never a name.
+ */
+export const OBJECT_COLOUR_KEYS = [
+  'blue',
+  'orange',
+  'green',
+  'purple',
+  'red',
+  'teal',
+  'amber',
+  'pink',
+  'indigo',
+  'lime',
+  'magenta',
+  'cyan',
+] as const;
+
+export type ObjectColourKey = (typeof OBJECT_COLOUR_KEYS)[number];
+
+export const objectColours: Record<ObjectColourKey, string> = {
+  blue: '#0078D4',
+  orange: '#D8661B',
+  green: '#2E8B57',
+  purple: '#8E4EC6',
+  red: '#D13438',
+  teal: '#00A3A3',
+  amber: '#B8860B',
+  pink: '#D6458F',
+  indigo: '#4F52B2',
+  lime: '#7A9B1E',
+  magenta: '#B146C2',
+  cyan: '#0A8FBF',
+};
+
 /** `palette.shell` — the shell's own surfaces (design § 2.1). */
 export interface ShellPalette {
   navigation: string;

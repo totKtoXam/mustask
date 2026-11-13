@@ -160,7 +160,7 @@ state it carries, as a `MenuButton` entry's does.
 **Marks and people** (`marks`) — always followed by a name; colour is never the
 only carrier. `TypeLabel` (`eyebrow` for the card's type line), `StateLabel`
 (`clip`), `CategoryMarker` (the state dot; `size`), `UserAvatar`, `PersonLabel`
-(`emptyLabel`), `Tag` and `TagList` (`onRemove`, `onAdd`). *Don't*: show a state
+(`emptyLabel`), `ColorLabel` (a department's, team's or project's stored colour as a dot before its name; `size`), `Tag` and `TagList` (`onRemove`, `onAdd`). *Don't*: show a state
 as a coloured chip.
 
 **Text helpers** (`text`) — `TruncatedText` (the full text in the native hover
