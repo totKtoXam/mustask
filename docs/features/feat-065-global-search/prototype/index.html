@@ -54,7 +54,7 @@ mark{background:var(--mark);color:inherit;font-weight:600;padding:0 1px;border-r
  <button id="rrec">Заполнить недавние</button>
  <span>Попробуйте: Ctrl+K, «оплата», «отчёт» (Показать ещё), «лагистика», «MSK-42», «alp-7», «ол»; на странице «Поиск» — «списание», «payment», «шаблон».</span>
 </div>
-<div id="bar"><b>▣ MUSTASK</b><span class="path">Ромашка › все</span><span class="sp"></span>
+<div id="bar"><b>▣ MUSTASK</b><span class="path" id="hpath">Ромашка › все</span><span class="sp"></span>
  <button class="ib" id="mag" aria-label="Поиск (Ctrl+K)" title="Поиск (Ctrl+K)"><svg class="ty" viewBox="0 0 24 24" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5"/><path d="M15.5 15.5L21 21"/></svg></button>
  <span class="av" aria-hidden="true">МП</span></div>
 <div id="wrap"><nav><a href="#/">Главная</a><a id="navalpha" href="#/">Проект «Альфа»</a><a href="#/search?q=&page=1">Поиск</a></nav><main id="main"></main></div>
@@ -230,11 +230,12 @@ $('#rrec').onclick=function(){seedRecent();toast('Недавние заполн�
 $('#othx').onclick=function(){$('#oth').classList.remove('open')};
 // ---------- fake pages (hash routes) ----------
 function record(e){if(e.t==='user')return;var l=S.recent[e.org]||(S.recent[e.org]=[]);var k=l.indexOf(e.uid);if(k>=0)l.splice(k,1);l.unshift(e.uid);l.length=Math.min(l.length,10)}
+function ctxChain(e){var c=[e.org];if(e.dept)c.push(e.dept);if((e.t==='item'||e.t==='area')&&e.proj)c.push(e.proj);if(e.t!=='item'&&e.t!=='user'&&c.indexOf(e.name)<0)c.push(e.name);var hp=document.getElementById('hpath');if(hp)hp.textContent=c.join(' › ');return c.join(' › ')}
 function route(){var h=location.hash.replace(/^#/,'')||'/',m=$('#main'),u=USERS[S.user];
  var mm=/^\/e\/(\d+)$/.exec(h);
  if(mm){var e=E[+mm[1]];if(!e){m.innerHTML='<h1 tabindex="-1">Не найдено</h1>';return}
   if(e.t==='user'){m.innerHTML='<h1 tabindex="-1">Рабочие элементы</h1><div class="card">Фильтр: «Исполнитель» = <b>'+esc(e.name)+'</b><br><span class="mut">Организация «'+esc(e.org)+'». Если у человека нет видимых элементов, список пуст и показан «Очистить фильтры».</span></div>'}
-  else{record(e);m.innerHTML='<h1 tabindex="-1">'+(e.t==='item'?esc(e.id)+' · '+esc(e.name):esc(TYW[e.t])+' «'+esc(e.name)+'»')+'</h1><div class="card"><div>'+esc(TYW[e.t])+' открыт(а). Контекст выбран: '+esc(e.org)+(e.dept?' › '+esc(e.dept):'')+(e.t==='item'?' › '+esc(e.proj):'')+'.</div><p class="small">Страница записана в «Недавние».</p>'+(e.desc?'<p>'+esc(e.desc)+'</p>':'')+'</div>'}
+  else{record(e);m.innerHTML='<h1 tabindex="-1">'+(e.t==='item'?esc(e.id)+' · '+esc(e.name):esc(TYW[e.t])+' «'+esc(e.name)+'»')+'</h1><div class="card"><div>'+esc(TYW[e.t])+' открыт(а). Контекст выбран: '+esc(ctxChain(e))+'.</div><p class="small">Страница записана в «Недавние».</p>'+(e.desc?'<p>'+esc(e.desc)+'</p>':'')+'</div>'}
   return}
  var sm=/^\/search\?q=([^&]*)&page=(\d+)(?:&org=([^&]*))?/.exec(h);
  if(sm){fullPage(decodeURIComponent(sm[1]),+sm[2],sm[3]?decodeURIComponent(sm[3]):defOrg());return}
