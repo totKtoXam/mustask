@@ -3,7 +3,7 @@
 - type: docs
 - size: L
 - branch: doc/017-import-export-constructor
-- stage: gate-3
+- stage: complete
 - epic: core/work-items
 - deps: -
 - gates: gate-1, gate-3
@@ -11,7 +11,7 @@
 ## Gates
 
 gate-1: approved (by the human in chat, 2026-11-10)
-gate-3: pending
+gate-3: approved (by the human in chat, 2026-11-13)
 
 ## Plan
 
@@ -43,6 +43,7 @@ No backend/frontend plan: a docs task. Input: [input-brief.md](input-brief.md)
 - 2026-11-13 [orchestrator] delivery lines queued by scripts/queue.sh add (#160, #162, #164; #163, #165 conflicted and were folded into #161): feat-066, mod-024, feat-067, feat-068, feat-069, mod-025; NNN in spec, stories and ADR replaced by these ids.
 - 2026-11-13 [orchestrator] sync PR #166: feat-005 reworded (OQ-8 A, deps feat-069); feat-015, feat-016, feat-002, mod-004, feat-047 amended per § Decomposition.
 - 2026-11-13 [orchestrator] origin/main merged in: ADR-0039/-0040 were taken there meanwhile, -0041 by another branch; this ADR is now ADR-0042 (file, index, spec, stories). Next: gate-3.
+- 2026-11-13 [orchestrator] gate-3 approved by the human in chat («Мердж»): PR to main, merged with a merge commit on the human's word.
 
 ## Notes
 
