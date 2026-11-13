@@ -434,9 +434,18 @@ What follows for the work:
 - For a system whose releases are audited, the tag is the point the
   acceptance certificate refers to, so tags must not be rewritten.
 
-> **Status: the policy is fixed, the rollout process is not described**
-> — it will appear together with the environments (stage/prod) and the
-> CD pipeline.
+- Every release has notes. The Deploy workflow generates them from the
+  merged pull requests since the previous tag and publishes them as the
+  GitHub Release of the tag (`scripts/release-notes.sh`, ADR-0043). The
+  release page is the changelog; there is no CHANGELOG.md.
+- A pull request title is a changelog line: it says what changed, in plain
+  words, for a reader who has not seen the task. Fix a vague title before
+  the merge.
+- Before tagging, preview the notes: `sh scripts/release-notes.sh
+  origin/main` (a ref that is not a tag is headed "Unreleased"). The queue's
+  `sync/queue-*` pull requests do not appear in them.
+- The rollout (the Deploy workflow, the approval, the redeploy) is
+  described in [`docs/deploy/vm.md`](../deploy/vm.md), section 11.
 
 ## Hotfix
 
