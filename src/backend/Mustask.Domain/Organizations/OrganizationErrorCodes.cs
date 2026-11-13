@@ -111,9 +111,6 @@ public static class OrganizationErrorCodes
     /// <summary>A sub-area moved under another project's node or sub-area (BR-AW-3, BR-AW-11).</summary>
     public const string AreaOutsideProject = "organizations.area.outside_project";
 
-    /// <summary>A team linked as an area-team link to a node that is not a department (OQ-8 A, OQ-11 A).</summary>
-    public const string AreaLinkTypeNotAllowed = "organizations.area.link_type_not_allowed";
-
     // ----- mod-021 (doc-016): teams stand in departments -----
 
     /// <summary>A department holding an active team is not deleted; decided before <see cref="AreaNotEmpty"/> (BR-TD-5).</summary>

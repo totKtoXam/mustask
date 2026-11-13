@@ -53,7 +53,7 @@ guarantees it exists and differs from the Russian, not its quality
 |organizations.area.depth_exceeded|409|Дерево областей не может быть глубже 10 уровней|Аймақ ағашы 10 деңгейден терең болмауы керек|organizations|—|needs review|
 |organizations.area.has_teams|409|Нельзя удалить департамент, в котором есть команды|Командалары бар департаментті жоюға болмайды|organizations|—|needs review|
 |organizations.area.is_team_default|409|Область используется как область по умолчанию команды «{team}»|Аймақ «{team}» командасының әдепкі аймағы ретінде пайдаланылады|organizations|yes|needs review|
-|organizations.area.link_type_not_allowed|409|Команду можно связать только с департаментом. Команды проекта подключаются на странице проекта.|Команданы тек департаментпен байланыстыруға болады. Жоба командалары жоба бетінде қосылады.|organizations|—|needs review|
+|organizations.area.link_type_not_allowed|409|Команду можно связать только с департаментом. Команды проекта подключаются на странице проекта.|Команданы тек департаментпен байланыстыруға болады. Жоба командалары жоба бетінде қосылады.|organizations|yes|needs review|
 |organizations.area.move_into_own_subtree|409|Нельзя переместить область внутрь неё самой или её вложенной области|Аймақты өзінің ішіне немесе оның ішкі аймағына жылжытуға болмайды|organizations|—|needs review|
 |organizations.area.name_taken|409|Область с таким названием уже есть на этом уровне|Бұл деңгейде мұндай атауы бар аймақ бар|organizations|—|needs review|
 |organizations.area.not_empty|409|Нельзя удалить область, в которой есть проекты, вложенные области или рабочие элементы|Жобалары, ішкі аймақтары немесе жұмыс элементтері бар аймақты жоюға болмайды|organizations|—|needs review|

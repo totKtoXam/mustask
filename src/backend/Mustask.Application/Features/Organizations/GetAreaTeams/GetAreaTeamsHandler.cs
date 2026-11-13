@@ -15,7 +15,7 @@ public sealed record GetAreaTeamsResult(IReadOnlyList<AreaTeamResponse> Items);
 
 /// <summary>
 /// <c>GET /api/organizations/{organizationId}/areas/{areaId}/teams</c> (mod-018 api-contract § 3, US-4): the active teams standing
-/// in this department (the areaâteam links of mod-018 are retired), by name. A deleted team keeps no department.
+/// in this department (the area–team links of mod-018 are retired), by name. A deleted team keeps no department.
 /// </summary>
 public sealed class GetAreaTeamsHandler(IAreaRepository areas, IAreaTreeReadModel readModel)
 {

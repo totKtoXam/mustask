@@ -45,7 +45,6 @@ public sealed class OrganizationErrorCatalogTests
         { OrganizationErrorCodes.AreaRootIsFixed, 409, "", "Корневая область меняется только вместе с проектом" },
         { OrganizationErrorCodes.AreaTypeNotAllowed, 409, "", "Область этого типа нельзя разместить в выбранном месте. Департамент стоит на верхнем уровне, проект — на верхнем уровне или в департаменте, вложенная область — внутри своего проекта." },
         { OrganizationErrorCodes.AreaOutsideProject, 409, "", "Вложенную область нельзя переместить за пределы её проекта" },
-        { OrganizationErrorCodes.AreaLinkTypeNotAllowed, 409, "", "Команду можно связать только с департаментом. Команды проекта подключаются на странице проекта." },
         { OrganizationErrorCodes.GrantSelfGrant, 400, "", "Нельзя выдать доступ самому себе." },
         { OrganizationErrorCodes.GrantRoleInvalid, 400, "", "Выберите роль: читатель, участник или менеджер" },
         { OrganizationErrorCodes.GrantScopeNotAllowed, 409, "", "Эту роль нельзя выдать на этом объекте." },
@@ -102,6 +101,8 @@ public sealed class OrganizationErrorCatalogTests
     [InlineData("organizations.area.is_team_default", "Область используется как область по умолчанию команды «{team}»")]
     // feat-028 BR-OL-10: the last-team guard is retired the same way.
     [InlineData("organizations.team.last_team_cannot_be_deleted", "Нельзя удалить единственную команду проекта.")]
+    // mod-021 (doc-016 BR-TD-1): the department–team links are retired, so the link-type guard is no longer raised.
+    [InlineData("organizations.area.link_type_not_allowed", "Команду можно связать только с департаментом. Команды проекта подключаются на странице проекта.")]
     public void RetiredCode_StaysInTheCatalog_Deprecated_WithNoConstant(string code, string ru)
     {
         var found = CatalogFixture.Catalog.TryGet(code, out var entry);
