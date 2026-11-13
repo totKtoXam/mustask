@@ -161,6 +161,7 @@ public sealed class UnlinkTeamAtomicityTests(OrganizationsDatabaseFixture databa
         services.AddApplication();
         services.AddOrganizationsInfrastructure();
         services.AddWorkItemsInfrastructure();
+        services.AddIterationsInfrastructure();
         services.AddBoardsInfrastructure();
 
         return services.BuildServiceProvider();

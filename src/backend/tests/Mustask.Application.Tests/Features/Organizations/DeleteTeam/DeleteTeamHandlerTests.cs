@@ -1,3 +1,4 @@
+using Mustask.Application.Tests.TestDoubles.Iterations;
 using Mustask.Application.Features.Organizations.DeleteTeam;
 using Mustask.Application.Tests.TestDoubles;
 using Mustask.Application.Tests.TestDoubles.Organizations;
@@ -34,6 +35,7 @@ public sealed class DeleteTeamHandlerTests
                 new FakeTeamMembershipRepository(Store),
                 Grants,
                 Ownership,
+                new FakeSprintRepository(),
                 new FakeTeamBacklogPlaces(Store),
                 Clock,
                 new FakeUnitOfWork());

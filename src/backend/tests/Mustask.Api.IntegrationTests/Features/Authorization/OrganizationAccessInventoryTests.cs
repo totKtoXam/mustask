@@ -371,8 +371,8 @@ public sealed class OrganizationAccessInventoryTests(MustaskApiFactory factory)
         // feat-048 api-contract § 2 adds the aggregate views' eight reads - 82.
         // mod-019 api-contract § 2: fifteen grant routes (five under each of a department, a project and a team) - 97.
         // mod-019 api-contract § 3, § 5: the switch, its impact read and the writable ids - 100.
-        // mod-021: the five department-team link routes out, the team move in - 96.
-        Assert.Equal(96, expected.Count);
+        // mod-021 retires the five department-team link routes and adds the team move (96), mod-007 adds the team's eleven sprint routes - 107.
+        Assert.Equal(107, expected.Count);
     }
 
     // Every organization code of the catalog is declared by at least one route — a code with no route is a decision nobody enforces

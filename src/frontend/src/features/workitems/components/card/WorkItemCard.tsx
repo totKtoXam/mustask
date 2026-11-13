@@ -32,6 +32,7 @@ import {
 import { deletionLine, isDeleted } from '../../lib/deletion';
 import type { DeletionRefusal } from '../../lib/deletionRefusals';
 import { editHandlers } from '../../lib/editHandlers';
+import { sprintCleared } from '../../lib/edits';
 import { createFieldRegistry } from '../../lib/fieldRegistry';
 import { TEXT_FIELDS, layoutOf } from '../../lib/fields';
 import type { WorkItemsNotFoundLevel } from '../../lib/notFoundLevel';
@@ -43,6 +44,7 @@ import { AcceptanceCriteriaSection } from '../AcceptanceCriteriaSection';
 import { AreaField } from './AreaField';
 import { AssigneeField } from './AssigneeField';
 import { CardActions } from './CardActions';
+import { CardSprintField } from './CardSprintField';
 import { DescriptionEditor } from './DescriptionEditor';
 import { CardTeamField } from './CardTeamField';
 import { ProjectField } from './ProjectField';
@@ -539,6 +541,17 @@ export function WorkItemCard({
           error={errors.team}
           onChange={on.team}
           inputRef={fields.ref('team')}
+          {...common}
+        />
+        {/* mod-007 design § 7: row 3 of block B, under «Команда»; the item's own team decides the options. */}
+        <CardSprintField
+          organizationId={organizationId}
+          teamId={draft.team?.id ?? null}
+          value={draft.sprint}
+          cleared={sprintCleared(item, state.edits)}
+          error={errors.sprint}
+          onChange={on.sprint}
+          inputRef={fields.ref('sprint')}
           {...common}
         />
         {slots.iteration}

@@ -6,6 +6,7 @@ import type {
   WorkItemAssignee,
   WorkItemFieldName,
   WorkItemRef,
+  WorkItemSprint,
   WorkItemTeam,
 } from '../api/workItemsApi';
 import { legacyToHtml } from '../../../shared/lib/richText';
@@ -70,6 +71,8 @@ export interface WorkItemDraft {
   area: WorkItemArea;
   /** mod-017: `null` is «Без команды». */
   team: WorkItemTeam | null;
+  /** mod-007: `null` is «Без спринта». */
+  sprint: WorkItemSprint | null;
   /** feat-001 BR-H-6: `null` is «Нет родителя». */
   parent: WorkItemRef | null;
   /** feat-022: all 17, those the type lacks never sent. */
@@ -116,6 +119,7 @@ export function draftOf(item: WorkItem): WorkItemDraft {
     assignee: item.assignee,
     area: item.area,
     team: item.team ?? null,
+    sprint: item.sprint ?? null,
     parent: item.parent,
     fields: {
       ...(baseFields as unknown as Record<string, string>),
@@ -135,6 +139,7 @@ function comparable(
     assignee: draft.assignee?.id ?? null,
     area: draft.area.id,
     team: draft.team?.id ?? null,
+    sprint: draft.sprint?.id ?? null,
     parent: draft.parent?.id ?? null,
   };
 }
@@ -198,6 +203,11 @@ export function changesOf(item: WorkItem, draft: WorkItemDraft): SaveWorkItemBod
   if (teamId !== (item.team?.id ?? null)) {
     // mod-017 api-contract § 0.2: `{ teamId: null }` is «Без команды»; an absent `team` keeps the team.
     body.team = { teamId };
+  }
+  const sprintId = draft.sprint?.id ?? null;
+  if (sprintId !== (item.sprint?.id ?? null)) {
+    // mod-007 api-contract § 3: `{ sprintId: null }` is «Без спринта»; an absent `sprint` keeps it.
+    body.sprint = { sprintId };
   }
   const parentId = draft.parent?.id ?? null;
   const seenParentId = item.parent?.id ?? null;
@@ -308,6 +318,7 @@ export function rebaseDraft(
     assignee: touched('assignee') ? draft.assignee : next.assignee,
     area: touched('area') ? draft.area : next.area,
     team: touched('team') ? draft.team : next.team,
+    sprint: touched('sprint') ? draft.sprint : next.sprint,
     parent: next.parent,
     fields,
   };

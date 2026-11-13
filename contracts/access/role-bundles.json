@@ -22,6 +22,7 @@
     "admin": [
       "boards.backlog.reorder",
       "boards.projectbacklog.reorder",
+      "iterations.sprint.manage",
       "organizations.area.create",
       "organizations.area.grant",
       "organizations.area.link",
@@ -130,10 +131,12 @@
     "team": {
       "reader": [],
       "member": [
-        "boards.backlog.reorder"
+        "boards.backlog.reorder",
+        "iterations.sprint.manage"
       ],
       "manager": [
         "boards.backlog.reorder",
+        "iterations.sprint.manage",
         "organizations.team.grant",
         "organizations.team.link",
         "organizations.team.write"
@@ -160,6 +163,11 @@
       "code": "dictionaries.languages.write",
       "source": "instance",
       "resourceScope": null
+    },
+    {
+      "code": "iterations.sprint.manage",
+      "source": "organization",
+      "resourceScope": "team"
     },
     {
       "code": "organizations.area.create",
