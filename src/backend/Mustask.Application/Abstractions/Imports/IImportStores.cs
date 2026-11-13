@@ -35,6 +35,26 @@ public interface IImportFileRepository
     Task DeleteExpiredAsync(DateTimeOffset now, CancellationToken cancellationToken);
 }
 
+/// <summary>Reads what a template's targets and a file's identifiers are checked against (BR-IE-7, BR-IE-12): reads only.</summary>
+public interface IImportReferenceReader
+{
+    /// <summary>
+    /// The organization's projects, the process's types and states, the members, the teams and their links, and the items named by
+    /// <paramref name="identifiers"/> (in any state; a recycle-bin item is marked deleted).
+    /// </summary>
+    Task<Mustask.Domain.Imports.DryRun.ImportReferences> LoadAsync(
+        Guid organizationId, IReadOnlyCollection<string> identifiers, CancellationToken cancellationToken);
+}
+
+/// <summary>Writes the full dry-run report as a .xlsx file (BR-IE-13, BR-IE-22).</summary>
+public interface IDryRunReportWriter
+{
+    byte[] Write(IReadOnlyList<DryRunReportLine> rows);
+}
+
+/// <summary>One line of the report: row number, result (Russian), title, identifier, project and the rendered reasons.</summary>
+public sealed record DryRunReportLine(int Row, string Result, string? Title, string? Identifier, string? Project, IReadOnlyList<string> Reasons);
+
 /// <summary>The stored dry runs (<c>import_dry_runs</c>).</summary>
 public interface IImportDryRunRepository
 {

@@ -66,6 +66,8 @@ public static class DependencyInjection
         builder.Services.AddScoped<Application.Abstractions.Imports.IImportFileRepository, Imports.ImportFileRepository>();
         builder.Services.AddScoped<Application.Abstractions.Imports.IImportDryRunRepository, Imports.ImportDryRunRepository>();
         builder.Services.AddSingleton<Application.Abstractions.Imports.ISourceFileReader, Imports.Reading.SourceFileReader>();
+        builder.Services.AddScoped<Application.Abstractions.Imports.IImportReferenceReader, Imports.ImportReferenceReader>();
+        builder.Services.AddSingleton<Application.Abstractions.Imports.IDryRunReportWriter, Imports.DryRunReportWriter>();
 
         // Справочники: репозиторий/read-модель/резолвер языка запроса плюс
         // сид справочников.
