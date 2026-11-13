@@ -136,6 +136,19 @@ out=$(notes main)
 has "preview lists what is not tagged yet" "$out" "- After the last tag (#12)"
 lacks "preview leaves tagged PRs out" "$out" "Next feature"
 
+# Edge titles (QA): printf-special characters, an empty body, a CRLF body, a
+# branch without a prefix.
+merge feat/013-pct 13 'Pct 100% %s %n \n \\ done'
+merge bug/014-empty 14 ''
+merge tech/015-crlf 15 "$(printf 'CRLF title\r')"
+merge plainbranch 16 "No prefix title"
+out=$(notes main)
+has "percent and backslashes printed verbatim" "$out" '- Pct 100% %s %n \n \\ done (#13)'
+has "empty body falls back to the number" "$out" "- Pull request #14 (#14)"
+has "CRLF stripped from the title" "$out" "- CRLF title (#15)"
+has "branch without a prefix goes to other" "$out" "- No prefix title (#16)"
+if printf '%s\n' "$out" | grep -q "$(printf '\r')"; then bad "no carriage return in the notes"; else ok "no carriage return in the notes"; fi
+
 if (cd "$repo" && sh "$scripts/release-notes.sh" v9.9.9 >/dev/null 2>&1); then
     bad "unknown ref fails"
 else

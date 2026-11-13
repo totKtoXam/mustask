@@ -3,7 +3,7 @@
 - type: tech
 - size: S
 - branch: tech/069-release-notes
-- stage: 05-backend-qa
+- stage: 06-code-review
 - epic: platform/ci
 - deps: tech-066
 - gates: gate-3
@@ -33,3 +33,4 @@ gate-3: pending
 ## Notes
 
 Summary (from the queue line or an argument): Every release describes its changes: a v* tag makes the Deploy workflow publish a GitHub Release with notes generated from the merged PRs since the previous tag (grouped feat/fix/tech, queue sync PRs left out) and name its run after the tag; an ADR records the decision and docs/conventions/git.md § Releases gets the rule for humans and agents
+- 2026-11-13 [qa] light QA done: 14 checks, no blocker/major, 4 minor (qa.md); added 5 edge cases to release-notes-cases.sh (41 green), cd-runner-cases green; actionlint not installed; E2E no
