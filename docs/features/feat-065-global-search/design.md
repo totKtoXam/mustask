@@ -9,7 +9,7 @@ Stage 3 artifact. Rules (BR-GS-n) and scenarios are in `spec.md` and `stories/`;
 
 | Wanted | Verdict |
 |---|---|
-| Header field | **New kit part `SearchField`** (`shared/ui/fields`): a 32 px field in the header, between the context path and the user menu: leading `ThinSearchIcon`, `InputBase` (`role="combobox"`), a `kbd` hint chip «Ctrl K» / «⌘K» while empty, a clear ✕ (`IconAction`) with text; resting fill `action.hover`, on focus white with the accent frame (the kit's "focus is loud"). The kit's inline fields have no leading icon or hint, so the bare input is kit-internal. Max width 520 px, centred in the free header space |
+| Header field | **New kit part `SearchField`** (`shared/ui/fields`): a 28 px borderless field in the header (D-14), between the context path and the user menu: leading `ThinSearchIcon`, `InputBase` (`role="combobox"`), a `kbd` hint chip «Ctrl K» / «⌘K» while empty, a clear ✕ (`IconAction`) with text; no border: a faint grey fill, a shade darker on hover and focus; on focus a 2 px accent underline and the width grows to 360 px; 13 px text, 16 px icon, the hint is plain grey text. The kit's inline fields have no leading icon or hint, so the bare input is kit-internal. Max width 300 px, centred in the free header space |
 | Header magnifier (narrow) | `IconAction size="header"`, `label` «Поиск (Ctrl+K)» (the tooltip and the name; «Поиск (⌘K)» on macOS), icon: a new thin `ThinSearchIcon` in `shared/ui/icons`; shown only below 700 px, in place of the field |
 | The panel | **New kit part `SearchPanel`** (`shared/ui/dialog`): MUI `Popper` (not `Popover`, not `Dialog`) with the kit's `Surface` look (white, 4 px radius, the soft glow of the context panel, no backdrop), `ClickAwayListener`, anchored to the `SearchField`. Props: `anchorEl`, `open`, `onClose`, `scope` (slot), `fullSearch` (slot), `children` (the listbox), `keys` (footer hints), `busy`, `compact`. **Why `Popper`:** the context panel is a `Popover`, which is a `Modal` and takes the focus; here the user keeps typing in the header field, so the popup must be non-modal and leave focus in the input (the ARIA 1.2 combobox with a listbox popup). The look and the open/close behaviour (Esc or click outside closes, no dimmed page) are the context panel's |
 | Rows | **New kit part `SearchOption`**: `ListItemButton` (`component="a"`, a real link, `role="option"`, `tabIndex=-1`) with icon, one primary and one secondary line, an optional 4 px colour stripe, a `↵` hint on the active row; plain variant (`more`) with no link |
@@ -19,7 +19,7 @@ Stage 3 artifact. Rules (BR-GS-n) and scenarios are in `spec.md` and `stories/`;
 | Messages | `InlineNotice` (error with «Повторить»), `InlineEmpty`, `FieldsSkeleton` rows, `LiveRegion` |
 | Full page | `PageHeader`, `InlineTextField` (frame drawn, label hidden) + `ActionButton primary` «Найти», the scope `MenuButton`, `Surface` with a `List`, `TablePager` (20 a page), `StateFrame`, `ErrorBanner`, `NotFound`, `FieldsSkeleton` |
 
-Theme additions, part of the kit line `feat-NNN-search-dialog-kit`, not of any screen: `layout.searchField.width` (520), `layout.searchPanel.width` (720) and `.maxHeight` (70 vh), `layout.searchOption.height` (48), and `palette` token `search.match` (the tint). Each new part gets its tests, a showcase section on `/ui-kit` and a guide block (the kit rule).
+Theme additions, part of the kit line `feat-NNN-search-dialog-kit`, not of any screen: `layout.searchField.width` (300; 360 focused), `layout.searchPanel.width` (720) and `.maxHeight` (70 vh), `layout.searchOption.height` (48), and `palette` token `search.match` (the tint). Each new part gets its tests, a showcase section on `/ui-kit` and a guide block (the kit rule).
 
 ## 2. Screen map
 
@@ -57,8 +57,8 @@ No organization at all: no field, no magnifier, no shortcut. The panel never cov
 ```
 
 - **Position (D-1 superseded).** The human replaced the centred modal with a field in the header and a dropdown panel at gate-2, 2026-11-13. The panel is a `Popper` (§ 1), anchored under the field (`bottom-start`, 4 px gap, left edge on the field's left edge), width `max(field, min(720 px, 100vw − 32 px))`, kept inside the viewport (`preventOverflow`), no flip; at most 70 vh high: the body scrolls, the scope row and key hints do not. No backdrop; the page stays visible.
-- **Narrow (< 700 px, breakpoint D-2).** The field collapses to the magnifier `IconAction`. Clicking it turns the header into the field: the field takes the header's full width (the product mark, path, user menu are hidden while it is open), with a «Закрыть поиск» ✕ at its right; the panel goes full width right under the header, no radius, height up to the viewport's bottom; the key-hint footer is hidden (no hardware keys assumed). Why: at 640 px the header has no room for a 520 px field; full width gives typing room and readable rows.
-- **Open and close (as the context panel, § 3.0).** Opens on click or focus of the field and on Ctrl/Cmd+K (which focuses it). Closes on Esc (the text stays in the field — D-11, the human at gate-2; ✕ clears it — focus returns to the element that had it before, else leaves the field), on a click outside, on choosing a row, and when focus leaves the field and the panel (Tab out). Result rows are never Tab stops; the panel's own controls are (§ 3.6).
+- **Narrow (< 700 px, breakpoint D-2).** The field collapses to the magnifier `IconAction`. Clicking it turns the header into the field: the field takes the header's full width (the product mark, path, user menu are hidden while it is open), with a «Закрыть поиск» ✕ at its right; the panel goes full width right under the header, no radius, height up to the viewport's bottom; the key-hint footer is hidden (no hardware keys assumed). Why: at 640 px the header has no room for a header field; full width gives typing room and readable rows.
+- **Open and close (as the context panel, § 3.0).** Opens on click or focus of the field and on Ctrl/Cmd+K (which focuses it). Closes on Esc (the text stays in the field — D-13, the human at gate-2; ✕ clears it — focus returns to the element that had it before, else leaves the field), on a click outside, on choosing a row, and when focus leaves the field and the panel (Tab out). Result rows are never Tab stops; the panel's own controls are (§ 3.6).
 - **Row** (BR-GS-11): type icon (the tree's, ADR-0024 tokens), primary line with the match emphasised, grey secondary line, `↵` on the active row. Department, team and project rows carry the colour stripe of doc-016 § 3.0 (4 px, 60 % of the row height, at the left of the icon); other types keep an empty spacer. A long line is cut with an ellipsis (`TruncatedText`) and the row's `title` gives the whole text. In «Все организации» every secondary line ends with « · <organization>» (a department's line is the organization alone).
 
 | Type | Primary | Secondary |
@@ -120,7 +120,7 @@ The focus stays in the header field; options never take DOM focus. The popup is 
 | ↓ / ↑ | next / previous option across groups, skipping headings, the «Похожие» caption and the «Очистить недавние» button; wraps; the active option scrolls into view (`block: nearest`) |
 | Enter | chooses the active option (§ 3.7); inert while a newer read is pending and during IME composition |
 | Ctrl/Cmd+Enter | opens the active row in a new tab (its real address), the panel stays open, the palette records nothing |
-| Esc | closes at any time, the text stays (D-11); with the scope menu open it closes the menu only. Focus returns to the element that had it before opening (the magnifier on a narrow screen), else the field is left |
+| Esc | closes at any time, the text stays (D-13); with the scope menu open it closes the menu only. Focus returns to the element that had it before opening (the magnifier on a narrow screen), else the field is left |
 | Tab / Shift+Tab | field → clear ✕ → scope → «Очистить недавние» (idle) → «Полный поиск» → (narrow: «Закрыть поиск») → leaves the panel, which closes it. Rows are not Tab stops |
 | Home / End | stay in the field (caret) |
 
@@ -209,9 +209,10 @@ Floor 640 CSS px (ADR-0024). Below 700 px the field collapses to the magnifier a
 | D-8 | Kit parts split out | split: `feat-NNN-search-dialog-kit` (S), accepted at gate-2, 2026-11-13; parts now `SearchField`, `SearchPanel`, `SearchOption`, `HighlightedText`, `ThinSearchIcon` |
 | D-9 | `Popper`, non-modal, focus stays in the field (not `Popover`/`Dialog`) | § 1; the context panel's look and close behaviour, not its modal mechanism |
 | D-10 | «Очистить недавние» is a text button at the right end of the «Недавние» heading, not a listbox option | human at gate-2, 2026-11-13 |
-| D-11 | Esc closes the panel and keeps the typed text; ✕ clears it. The panel opens on any focus of the field (click, Tab, Ctrl/Cmd+K) | human at gate-2, 2026-11-13 |
 | D-11 | Permanent «Полный поиск» button in the scope row; no shortcut | § 3.5 |
 | D-12 | «Все организации» scope (BR-GS-19): current organization's recents only when idle; organization name on every row | § 3.5 |
+| D-13 | Esc closes the panel and keeps the typed text; ✕ clears it. The panel opens on any focus of the field (click, Tab, Ctrl/Cmd+K) | human at gate-2, 2026-11-13 |
+| D-14 | Minimal header field: 28 px, max 300 px (360 focused), no border, accent underline on focus | human at gate-2, 2026-11-13 |
 
 Left to the ADR and not this design: the `word_similarity` threshold (the prototype uses 0.5 trigram overlap for its fake «лагистика»), the plain-text derivation, snippet length on the server.
 
