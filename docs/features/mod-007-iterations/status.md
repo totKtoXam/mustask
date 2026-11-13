@@ -95,6 +95,7 @@ agent per stage, no fan-out. E2E: no (paused).
 - 2026-11-12 [qa-engineer] frontend QA: FAIL, 3 majors on the outcome page (h1, «Итого» not expandable, purged project blank), 2 minors; 35 tests added (3 it.fails pin the majors); no E2E (standing NO)
 - 2026-11-13 [qa-engineer] frontend QA re-check of f5a84ab4: D-1..D-5 fixed and verified, 3 tests added for D-4/D-5; 0 blocker, 0 major; PASS, to code review; no E2E (standing NO)
 - 2026-11-13 [backend-developer] code review M-1 fixed: hierarchy, then sprints (close with its destination FOR UPDATE), then items; unlink and team deletion lock open sprints; M-2, m-4 done (deviations in § Notes); a42f3f17 is code and tests together; tests green
+- 2026-11-13 [code-reviewer] code review round 2 (delta 6ee18e5b) in review.md: approved; M-1, M-2, m-4 resolved; 0 blocker, 0 major open; 6 minor debts to gate-3 (m-1..m-3, m-5, m-6, QA D-1, D-2)
 
 ## Notes
 

@@ -231,3 +231,36 @@ the work item read model's helper is not used. Reads alike today; may drift. Fix
 
 ### Verdict
 `changes-requested`: 0 blocker, 2 major (M-1 code, M-2 prose), 5 minor (debts). One delta read after the fix.
+
+## Round 2 — code (delta)
+
+Delta read of `git diff 3657d022..6ee18e5b` (14 files) against the round-1 open findings. Tests not re-run (economy mode: CI);
+the developer reports 2711 API integration and 22 infrastructure tests green.
+
+- **M-1 resolved.** Close: team `FOR SHARE` → `LockHierarchiesAsync` (all the team's linked projects, project-id order) →
+  `LockPairForUpdateAsync` (sprint and destination `FOR UPDATE` in one statement, `ORDER BY id`) → items
+  (`CloseSprintHandler.cs:47-65`). Removal: hierarchies → sprint → items (`RemoveSprintHandler.cs:34-44`). Save: hierarchy (when
+  a parent is sent) → sprint `FOR SHARE` → item (`SaveWorkItemHandler.cs:125-133`). Unlink and deletion: hierarchies →
+  `LockOpenAsync` → owned items (`UnlinkTeamHandler.cs:180-183`, `DeleteTeamHandler.cs:101-104`). Every writer now follows rule 8
+  steps 5 → 6 → 7, and rule 7's open-sprint step exists. Destination answers hold: another organization → 404; another team,
+  Closed, Active or the sprint itself → 409 (facts are read after the lock). The close's statement count is unchanged (17 still
+  holds: the old share lock and project read are replaced by the link read and the facts read); unlink and deletion pins +1,
+  with the reason in the comment.
+- **M-2 resolved.** status.md § Notes "Backend deviations" lists eight items; the Log line and commit a42f3f17 now have a target.
+- **m-4 resolved.** The QA lines are in § Log (out of date order, harmless).
+
+### m-6 — the hierarchy set is "fixed before the sprint is locked" overstates
+Severity: minor
+Where: `ISprintRepository.cs` `LockHierarchiesAsync` summary; status.md § Notes, the lock-order deviation.
+Problem: the link read is not locked. A link creation takes the team `FOR SHARE`, which the close's share does not block, so a
+new project's item can join the Active sprint between the link read and the sprint lock, and the close then locks it with no
+hierarchy lock for its project. No deadlock follows (no writer holds that hierarchy and then waits on items the close holds),
+so the sentence is wrong but nothing an agent does differs.
+Fix: weaken it to "every project linked when the close starts".
+
+### Carried to gate-3 as debts
+m-1 («k из N» over the whole range), m-2 (the close reads every state definition), m-3 (BR-16's helper claim), m-5 (card
+texts outside `sprintTexts.ts`), m-6 (above), QA backend D-1 (names in batches of 500) and D-2 (an unknown user's null name).
+
+### Verdict
+`approved`: 0 blocker, 0 major open; 6 minor debts.
