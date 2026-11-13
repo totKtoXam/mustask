@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link as RouterLink } from 'react-router-dom';
 import Box from '@mui/material/Box';
 import Link from '@mui/material/Link';
@@ -17,6 +17,7 @@ import {
   TypeName,
   teamTexts,
   useSetWorkItemStateIn,
+  type WorkItem,
   workItemPath,
   workItemsPermissions,
 } from '../../workitems';
@@ -41,6 +42,12 @@ type CellRegistry = Map<string, UseGroupRead<AggregateCard>>;
 interface Dragged {
   card: AggregateCard;
   from: AggregateColumn;
+}
+
+/** The item a create just made: its serial tells one creation from the next (feat-060). */
+export interface CreatedItem {
+  serial: number;
+  item: WorkItem;
 }
 
 interface MoveCard {
@@ -212,6 +219,7 @@ function BoardColumns({
   stream,
   canMove,
   announce,
+  created,
 }: {
   v: AggregateViewState;
   header: GroupHeader;
@@ -220,6 +228,7 @@ function BoardColumns({
   stream: boolean;
   canMove: (card: AggregateCard) => boolean;
   announce(text: string): void;
+  created: CreatedItem | undefined;
 }) {
   const { show } = useNotice();
   const setState = useSetWorkItemStateIn(v.organizationId);
@@ -251,6 +260,25 @@ function BoardColumns({
     v.readHeadersAgain();
     announce(`${card.identifier} перемещён в колонку «${to.header}».`);
   };
+
+  // A create reloads one cell: the lane of the item's project (or any open lane of another grouping,
+  // which cannot know the item's department or team) at the column holding the type's initial state.
+  // A lane that is closed or not read yet has no cell to reload; its header count is read again.
+  const handled = useRef(created?.serial ?? 0);
+  useEffect(() => {
+    if (!created || handled.current === created.serial) return;
+    handled.current = created.serial;
+    const { item } = created;
+    if (!enabled) return;
+    if (
+      v.grouping === 'project' &&
+      groupIdOf(header).toLowerCase() !== item.projectId.toLowerCase()
+    ) {
+      return;
+    }
+    const target = columns.find((column) => column.stateOfType.get(item.type.id) === item.state.id);
+    if (target) registry.get(target.key)?.reload();
+  });
 
   const counts = useMemo(
     () => new Map((header.columns ?? []).map((c) => [c.key, c.count])),
@@ -286,7 +314,13 @@ function laneName(header: GroupHeader, grouping: AggregateViewState['grouping'])
 }
 
 /** «Канбан» at the organization, department and team level (BR-AV-7, design § 3, § 5). */
-export function AggregateBoardView({ v }: { v: AggregateViewState }) {
+export function AggregateBoardView({
+  v,
+  created,
+}: {
+  v: AggregateViewState;
+  created?: CreatedItem;
+}) {
   // A card is moved by its own project's codes (plan F-6, D-4): the board of several projects serves them
   // once per project, on the project rows, and never per card.
   const { codes: projectCodes } = useProjectCodes(v.organizationId);
@@ -337,6 +371,7 @@ export function AggregateBoardView({ v }: { v: AggregateViewState }) {
           stream
           canMove={canMove}
           announce={announce}
+          created={created}
         />
       </>
     );
@@ -363,6 +398,7 @@ export function AggregateBoardView({ v }: { v: AggregateViewState }) {
                 stream={false}
                 canMove={canMove}
                 announce={announce}
+                created={created}
               />
             </ViewGroup>
           );
