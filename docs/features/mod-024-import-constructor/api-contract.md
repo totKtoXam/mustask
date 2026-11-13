@@ -66,9 +66,12 @@ TemplateSettings {
       "fieldAbsent": "error|drop" } ],
   "recoding": [ { "mappingId": "guid", "policy": "error|default|empty", "defaultValue": "target id or null",
                   "entries": [ { "fileValue": "Баг", "typeId": "guid|null", "target": "guid or priority number as text", "onExport": false } ] } ],
-  "identifier": { "emptyIdentifier": "create|skip" }
+  "identifier": { "emptyIdentifier": "create|skip" },
+  "ignoredColumns": [ "Идентификатор" ]
 }
 ```
+
+`ignoredColumns` (added at stage 4, see status.md Log): header texts the template leaves on «Не переносить» on purpose, so BR-IE-10 does not take such a column for the export's «Идентификатор»; default `[]`.
 
 `source.headers` are the header texts of the sample file (header-based matching, BR-IE-4); a `constant`'s `value` for a reference field is the target id (project, type, state, user, team id; priority 1..4), for others the typed text. `lookup` params: `{entries:[{from,to}], policy, defaultValue}`; `dateFormat`: `{format: "dmy_dot|ymd_dash|dmy_slash|mdy_slash"}`; `excelDate`: `{system:"1900|1904"}`; `split`: `{delimiter}`; `extract`: `{pattern}`; `truncate`: `{length}`; `trim`: `{collapse}`. The identifier column is the mapping with `field = "identifier"`.
 

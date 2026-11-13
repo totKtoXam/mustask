@@ -48,7 +48,10 @@ public sealed record ConverterStep(
     string? Pattern = null,
     int? Group = null,
     string? From = null,
-    string? To = null);
+    string? To = null,
+    IReadOnlyList<KeyValuePair<string, string>>? Entries = null,
+    string? Policy = null,
+    string? Default = null);
 
 /// <summary>A converter failure: the converter that failed, and whether it was the regex time limit.</summary>
 public sealed record ConversionFailure(string Converter, bool Timeout);
@@ -65,7 +68,8 @@ public static class ConverterEngine
     private static readonly DateOnly Min = new(2000, 1, 1);
     private static readonly DateOnly Max = new(2099, 12, 31);
 
-    public static ConversionResult RunChain(ConversionValue start, IReadOnlyList<ConverterStep> chain)
+    /// <param name="hyperlink">The target of the cell's hyperlink, for «URL из гиперссылки» (BR-IE-3); <c>null</c> when the cell has none.</param>
+    public static ConversionResult RunChain(ConversionValue start, IReadOnlyList<ConverterStep> chain, string? hyperlink = null)
     {
         var value = start;
         var steps = new List<ConversionValue>();
@@ -76,7 +80,7 @@ public static class ConverterEngine
 
             try
             {
-                next = Apply(value, step);
+                next = Apply(value, step, hyperlink);
             }
             catch (RegexMatchTimeoutException)
             {
@@ -124,8 +128,13 @@ public static class ConverterEngine
         value.Kind == ConversionKind.Date ? value.Date.ToString("dd.MM.yyyy", Invariant) : value.Display();
 
     /// <summary>A value after a step, or <c>null</c> when the step cannot convert it. An empty value passes every step unchanged.</summary>
-    private static ConversionValue? Apply(ConversionValue value, ConverterStep step)
+    private static ConversionValue? Apply(ConversionValue value, ConverterStep step, string? hyperlink)
     {
+        if (step.Converter == ConverterIds.Hyperlink)
+        {
+            return Hyperlink(value, hyperlink);
+        }
+
         if (value.IsEmpty)
         {
             return value;
@@ -140,7 +149,7 @@ public static class ConverterEngine
             ConverterIds.DateFormat => ParseDate(value, step.Format),
             ConverterIds.IsoDate => ParseDate(value, DateFormatIds.YmdDash),
             ConverterIds.Split => Split(value, step),
-            ConverterIds.Hyperlink => value, // the reader already put the link target into the cell text where there is one
+            ConverterIds.Hyperlink => Hyperlink(value, hyperlink),
             ConverterIds.Lookup => Lookup(value, step),
             ConverterIds.Extract => Extract(value, step),
             _ => null,
@@ -247,8 +256,28 @@ public static class ConverterEngine
         return ConversionValue.OfList(items);
     }
 
+    // BR-IE-3: the cell's link target, else the text when it is an http(s) address, else empty.
+    private static ConversionValue Hyperlink(ConversionValue value, string? hyperlink)
+    {
+        if (!string.IsNullOrWhiteSpace(hyperlink))
+        {
+            return ConversionValue.OfText(hyperlink.Trim());
+        }
+
+        var text = value.Kind == ConversionKind.Text ? value.Text.Trim() : string.Empty;
+
+        return text.StartsWith("http://", StringComparison.OrdinalIgnoreCase) || text.StartsWith("https://", StringComparison.OrdinalIgnoreCase)
+            ? ConversionValue.OfText(text)
+            : ConversionValue.Empty;
+    }
+
     private static ConversionValue? Lookup(ConversionValue value, ConverterStep step)
     {
+        if (step.Entries is not null)
+        {
+            return LookupTable(value, step);
+        }
+
         // A one-pair replacement: a value equal (ignoring case and edge spaces) to From becomes To; any other value stays.
         if (step.From is null)
         {
@@ -258,6 +287,27 @@ public static class ConverterEngine
         return string.Equals(value.Display().Trim(), step.From.Trim(), StringComparison.OrdinalIgnoreCase)
             ? ConversionValue.OfText(step.To ?? string.Empty)
             : value;
+    }
+
+    // «По таблице» (BR-IE-7's policy for a value that is not in the table): text to text by the table; a miss takes the policy.
+    private static ConversionValue? LookupTable(ConversionValue value, ConverterStep step)
+    {
+        var key = value.Display().Trim();
+
+        foreach (var (from, to) in step.Entries!)
+        {
+            if (string.Equals(from.Trim(), key, StringComparison.OrdinalIgnoreCase))
+            {
+                return ConversionValue.OfText(to);
+            }
+        }
+
+        return step.Policy switch
+        {
+            "default" => ConversionValue.OfText(step.Default ?? string.Empty),
+            "empty" => ConversionValue.Empty,
+            _ => null,
+        };
     }
 
     private static ConversionValue? Extract(ConversionValue value, ConverterStep step)
