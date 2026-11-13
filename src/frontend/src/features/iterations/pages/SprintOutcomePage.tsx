@@ -12,7 +12,6 @@ import {
   InlineNotice,
   InlineSelectField,
   PageHeader,
-  Section,
   StateFrame,
   type Command,
 } from '../../../shared/ui';
@@ -20,6 +19,7 @@ import { NotFound } from '../../../shared/ui/StateFrame';
 import { formatDate } from '../../../shared/lib/format';
 import { notFoundLevel } from '../../organizations';
 import type { ClosedSprint, OutcomeLevel, SprintRow } from '../api/iterationsApi';
+import { SprintStateTag } from '../components/SprintStateTag';
 import { DynamicsBlock } from '../components/DynamicsBlock';
 import { ParticipantsBlock } from '../components/ParticipantsBlock';
 import { ResultBlock } from '../components/ResultBlock';
@@ -124,7 +124,11 @@ export function SprintOutcomePage() {
     <>
       <PageHeader
         variant="team"
-        title={teamName}
+        title={data ? data.sprint.name : teamName}
+        ancestors={[
+          { label: sprintTexts.sectionLabel, to: teamSprintsPath(organizationId, teamId) },
+        ]}
+        titleControl={data ? <SprintStateTag state={data.sprint.state} /> : undefined}
         documentTitle={data ? data.sprint.name : sprintTexts.sectionLabel}
         titleIcon={<EventNoteOutlinedIcon aria-hidden="true" sx={{ fontSize: 24 }} />}
         commands={commands}
@@ -136,7 +140,7 @@ export function SprintOutcomePage() {
         )}
         {data && (
           <>
-            <Section title={data.sprint.name}>
+            <Box>
               <Box component="dl" sx={{ display: 'flex', gap: 4, m: 0, flexWrap: 'wrap' }}>
                 <Box>
                   <Box component="dt" sx={{ color: 'text.secondary', typography: 'caption' }}>
@@ -155,7 +159,7 @@ export function SprintOutcomePage() {
                   </Box>
                 </Box>
               </Box>
-            </Section>
+            </Box>
             <Box sx={{ display: 'flex', gap: 2, alignItems: 'flex-start', flexWrap: 'wrap' }}>
               <Box sx={{ minWidth: 180 }}>
                 <InlineSelectField<OutcomeLevel>

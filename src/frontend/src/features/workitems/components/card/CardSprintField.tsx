@@ -1,6 +1,6 @@
 import { memo, useId, useState, type Ref } from 'react';
 import Box from '@mui/material/Box';
-import { InlinePickerField } from '../../../../shared/ui';
+import { ActionButton, InlinePickerField } from '../../../../shared/ui';
 import { useOpenSprints, type SprintState } from '../../../iterations';
 import type { WorkItemSprint } from '../../api/workItemsApi';
 
@@ -15,6 +15,7 @@ const sprintFieldTexts = {
   cleared: 'Спринт будет очищен: он принадлежит прежней команде.',
   active: (name: string) => `${name} · активен`,
   closed: (name: string) => `${name} · завершён`,
+  retry: 'Повторить',
 } as const;
 
 /** One choice of the picker: a sprint of the team, or none (`id: null`). */
@@ -114,6 +115,7 @@ function CardSprintFieldView({
           }
         }}
         onOpen={() => {
+          if (readOnly || teamId === null) return;
           setOpened(true);
           if (sprints.isError || (sprints.isSuccess && error !== undefined)) {
             void sprints.refetch();
@@ -131,6 +133,15 @@ function CardSprintFieldView({
         inputProps={cleared ? { 'aria-describedby': captionId } : undefined}
         ref={inputRef}
       />
+      {failed && !readOnly && teamId !== null && (
+        <Box sx={{ pl: 2 }}>
+          <ActionButton
+            label={sprintFieldTexts.retry}
+            size="compact"
+            onClick={() => void sprints.refetch()}
+          />
+        </Box>
+      )}
       {cleared && (
         <Box id={captionId} sx={{ color: 'text.secondary', typography: 'caption', pl: 2 }}>
           {sprintFieldTexts.cleared}

@@ -224,7 +224,7 @@ describe('mod-007 design § 6.4, § 6.5 QA: the rows that differ', () => {
   });
 
   // QA D-2: design § 6.4 and US-9 say «Итого» expands like every row; it has no control.
-  it.fails('expands «Итого» to its own min, average and max', async () => {
+  it('expands «Итого» to its own min, average and max', async () => {
     serve();
     renderPage(PATH);
     const table = await screen.findByRole('table', { name: 'Итоги по участникам' }, SLOW);
@@ -232,7 +232,7 @@ describe('mod-007 design § 6.4, § 6.5 QA: the rows that differ', () => {
   });
 
   // QA D-3: D-9 A keeps the project of a purged row as recorded; the project cell is blank.
-  it.fails('keeps the recorded project of a purged row', async () => {
+  it('keeps the recorded project of a purged row', async () => {
     serve();
     renderPage(PATH);
     const table = await screen.findByRole('table', { name: 'Итог спринта' }, SLOW);
@@ -277,7 +277,7 @@ describe('mod-007 design § 6.1 QA: the head', () => {
   });
 
   // QA D-1: design § 6.1 makes the sprint's name the h1; the page's h1 is the team name.
-  it.fails('makes the sprint name the h1', async () => {
+  it('makes the sprint name the h1', async () => {
     serve();
     renderPage(PATH);
     await screen.findByRole('table', { name: 'Динамика спринта' }, SLOW);

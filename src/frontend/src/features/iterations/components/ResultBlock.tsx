@@ -67,7 +67,7 @@ export function ResultBlock({
     {
       key: 'project',
       header: t.columns.project,
-      render: (row) => (row.purged ? '' : <TruncatedText>{row.project.name}</TruncatedText>),
+      render: (row) => <TruncatedText>{row.project.name}</TruncatedText>,
     },
     {
       key: 'points',

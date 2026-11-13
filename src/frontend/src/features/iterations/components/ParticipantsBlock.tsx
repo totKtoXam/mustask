@@ -159,10 +159,16 @@ export function ParticipantsBlock({ read }: { read: ParticipantsRead }) {
             </>
           }
         >
-          {rows.map((row) => {
-            const key = rowKeyOf(row);
+          {[
+            ...rows.map((row) => ({ row, key: rowKeyOf(row), isTotal: false })),
+            ...(total ? [{ row: total, key: 'total', isTotal: true }] : []),
+          ].map(({ row, key, isTotal }) => {
             const expanded = open.has(key);
-            const name = row.displayName ?? (row.userId === null ? t.noAssignee : t.unknownUser);
+            const name = isTotal
+              ? t.total
+              : row.userId === null
+                ? t.noAssignee
+                : ((row as Participant).displayName ?? t.unknownUser);
             return (
               <Fragment key={key}>
                 <BodyRow>
@@ -174,7 +180,15 @@ export function ParticipantsBlock({ read }: { read: ParticipantsRead }) {
                       onClick={() => toggle(key)}
                     />
                   </Cell>
-                  <Cell>{nameOf(row)}</Cell>
+                  <Cell>
+                    {isTotal ? (
+                      <Box component="span" sx={{ fontWeight: 600 }}>
+                        {t.total}
+                      </Box>
+                    ) : (
+                      nameOf(row)
+                    )}
+                  </Cell>
                   <Cell align="right">{row.items}</Cell>
                   <Cell align="right">{row.storyPoints}</Cell>
                   <Cell align="right">{row.closedStoryPoints}</Cell>
@@ -187,23 +201,6 @@ export function ParticipantsBlock({ read }: { read: ParticipantsRead }) {
               </Fragment>
             );
           })}
-          {total && (
-            <BodyRow>
-              <Cell />
-              <Cell>
-                <Box component="span" sx={{ fontWeight: 600 }}>
-                  {t.total}
-                </Box>
-              </Cell>
-              <Cell align="right">{total.items}</Cell>
-              <Cell align="right">{total.storyPoints}</Cell>
-              <Cell align="right">{total.closedStoryPoints}</Cell>
-              <Cell align="right">{percentText(total.closedStoryPointsPercent)}</Cell>
-              <Cell align="right">{total.closedItems}</Cell>
-              <Cell align="right">{percentText(total.closedItemsPercent)}</Cell>
-              <Cell />
-            </BodyRow>
-          )}
         </TableCard>
         {read.isFetchNextPageError && (
           <InlineNotice
