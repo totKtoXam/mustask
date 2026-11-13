@@ -3,14 +3,14 @@
 - type: module
 - size: L
 - branch: mod/024-import-constructor
-- stage: 03-design
+- stage: 04-backend
 - epic: core/work-items
 - deps: mod-019,doc-017
 - gates: gate-2, gate-3
 
 ## Gates
 
-gate-2: pending
+gate-2: approved (by the human in chat, 2026-11-13: «сразу переходи к реализации, в процессе разработки пересмотрим, что да как»)
 gate-3: pending
 
 ## Plan
@@ -50,6 +50,9 @@ fixtures use made-up data only.
 - 2026-11-13 [orchestrator] route confirmed by the human in chat: L from stage 3 (L thresholds: a new module; new permission codes with managers' scope); spec and stories inherited from doc-017 (gate-1 approved 2026-11-10), gate-1 not repeated; gates gate-2 and gate-3. Question 3.2 not applicable: only the module's own new tables.
 
 - 2026-11-13 [ux-designer] stage 3 done: design.md (S1 list, S2 editor with 4 tabs and chain dialog, S3 dry run; all states, RU copy) and prototype/index.html (opened in headless Chrome, scripted walk-through without runtime errors; the human still looks at it in a browser). gate-2 stays pending.
+- 2026-11-13 [orchestrator] prototype clicked through in the built-in browser (list, editor's four tabs, chain dialog, recoding, dry run): no runtime errors. Found: the dry-run report shows «Будет обновлён 30» while the template has no identifier column.
+- 2026-11-13 [orchestrator] gate-2 asked; the human did not approve or reject: «тут сложно сказать, пока не прогонишь реальный парсер». Decided at the same time: «Импорт» in settings is shown to every member (imports.template.read); the 50-row preview is the first 50 rows of the selected result. gate-2 stays pending.
+- 2026-11-13 [orchestrator] gate-2 approved by the human with a caveat: go straight to implementation and revisit the design during development, once the real parser runs (quote in Gates). Stage 4 started.
 
 ## Notes
 
