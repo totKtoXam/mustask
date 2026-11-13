@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { NotFound } from '../../../shared/ui/StateFrame';
 import { AggregateBacklogView } from '../components/AggregateBacklogView';
-import { AggregateBoardView } from '../components/AggregateBoardView';
+import { AggregateBoardView, type CreatedItem } from '../components/AggregateBoardView';
 import { AggregateHeader } from '../components/AggregateHeader';
 import {
   useAddressSelectors,
@@ -34,18 +34,18 @@ export function AggregatePage({
   const v = useAggregateView({ organizationId, view, level, selectors, choice });
   const narrowed = useNarrowedTag(organizationId, selectors);
   // feat-060 D-1: the board creates; the aggregate backlog and «Рабочие элементы» keep feat-048's rule.
-  const [createdSerial, setCreatedSerial] = useState(0);
+  const [created, setCreated] = useState<CreatedItem | undefined>(undefined);
   const newItem = useAggregateNewWorkItem({
     organizationId,
     selectors,
     groups: v.groups,
     enabled: view === 'boards',
     onContextGone: v.readHeadersAgain,
-    onCreated: () => {
-      // Accepted debt (feat-060 review m3): a create remounts the whole board, which drops the pages
-      // «Показать ещё» loaded and reads every open cell again — one narrow reload would do.
+    onCreated: (item) => {
+      // The header counts are read again, and the board reloads only the cell the item lands in
+      // (its lane's column of the type's initial state); other cells keep their loaded pages.
       v.readHeadersAgain();
-      setCreatedSerial((n) => n + 1);
+      setCreated((last) => ({ serial: (last?.serial ?? 0) + 1, item }));
     },
   });
   const grouped = v.grouping !== 'none' && (v.groups?.length ?? 0) > 0;
@@ -64,7 +64,7 @@ export function AggregatePage({
       {view === 'backlogs' ? (
         <AggregateBacklogView v={v} />
       ) : (
-        <AggregateBoardView key={createdSerial} v={v} />
+        <AggregateBoardView v={v} created={created} />
       )}
       {newItem.elements}
     </>

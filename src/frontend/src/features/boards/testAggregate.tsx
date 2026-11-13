@@ -187,7 +187,8 @@ export function serveAggregate(options: {
       answer('cells', request.url, (p) => {
         const offset = Number(p.get('cursor') ?? 0);
         const cards = options.cardsOf?.(p.get('group'), p.get('column') ?? '', offset) ?? [];
-        return { cards, nextCursor: null };
+        // A full page of two has a next one, as the rows read serves it.
+        return { cards, nextCursor: cards.length === 2 ? String(offset + 2) : null };
       }),
     ),
     http.get(`${ORG_API}/workitems/assignee-options`, () => HttpResponse.json([])),
