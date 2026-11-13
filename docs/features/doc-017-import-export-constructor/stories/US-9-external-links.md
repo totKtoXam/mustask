@@ -2,7 +2,7 @@
 
 - story: US-9
 - depends-on: -
-- shippable: no — an analysis story; delivered by `feat-NNN-work-item-external-links`
+- shippable: no — an analysis story; delivered by `feat-066-work-item-external-links`
 - status: pending
 
 As a **member**, I want **to keep an item's outside links on it**, so that **I open its documents, and the place it came from, from the card**.

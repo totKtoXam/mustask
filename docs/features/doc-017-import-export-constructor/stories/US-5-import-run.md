@@ -2,7 +2,7 @@
 
 - story: US-5
 - depends-on: US-4
-- shippable: no — an analysis story; delivered by `feat-NNN-import-run-and-undo`
+- shippable: no — an analysis story; delivered by `feat-067-import-run-and-undo`
 - status: pending
 
 As an **importer**, I want **to run the checked import and get one batch with a report**, so that **the whole register lands at once and I can see, and later undo, what happened**.

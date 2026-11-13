@@ -2,7 +2,7 @@
 
 - story: US-2
 - depends-on: US-1
-- shippable: no — an analysis story; delivered by `mod-NNN-import-constructor`
+- shippable: no — an analysis story; delivered by `mod-024-import-constructor`
 - status: pending
 
 As an **organization administrator**, I want **a table that turns each value of a dictionary column into a MUSTASK value**, so that **a source's own names for types, states, priorities, projects and people land on the right objects**.
@@ -87,7 +87,7 @@ Scenario: A list column is recoded part by part
   Given a column «Соисполнители» split by «,» and mapped to «Участники»
   When a row holds «Пользователь А, Пользователь Б»
   Then each part is recoded on its own, and an unknown part follows the policy (BR-IE-9)
-  # the «Участники» target is owed by feat-NNN-work-item-participants
+  # the «Участники» target is owed by feat-068-work-item-participants
 
 Scenario: The owning team must be linked to the row's project
   Given an entry mapping a file value to the team «Команда 1»

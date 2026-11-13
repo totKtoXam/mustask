@@ -2,7 +2,7 @@
 
 - story: US-7
 - depends-on: US-1
-- shippable: no — an analysis story; delivered by `mod-NNN-import-constructor`
+- shippable: no — an analysis story; delivered by `mod-024-import-constructor`
 - status: pending
 
 As an **organization administrator**, I want **to keep a template by name and apply it again**, so that **next week's file goes in with the same settings, and another source gets its own**.

@@ -2,7 +2,7 @@
 
 - story: US-1
 - depends-on: -
-- shippable: no — an analysis story; delivered by `mod-NNN-import-constructor`
+- shippable: no — an analysis story; delivered by `mod-024-import-constructor`
 - status: pending
 
 As an **organization administrator**, I want **to point a template at a sheet of my file and say which column feeds which work item field**, so that **a team's register lands in MUSTASK without retyping it**.

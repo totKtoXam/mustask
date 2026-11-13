@@ -2,7 +2,7 @@
 
 - story: US-6
 - depends-on: US-5
-- shippable: no — an analysis story; delivered by `feat-NNN-import-run-and-undo`
+- shippable: no — an analysis story; delivered by `feat-067-import-run-and-undo`
 - status: pending
 
 As an **importer**, I want **to undo an import that went wrong**, so that **a bad template costs one click, not a week of cleanup, and never someone else's work**.

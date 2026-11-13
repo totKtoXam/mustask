@@ -2,7 +2,7 @@
 
 - story: US-4
 - depends-on: US-1, US-2, US-3
-- shippable: no — an analysis story; delivered by `mod-NNN-import-constructor`
+- shippable: no — an analysis story; delivered by `mod-024-import-constructor`
 - status: pending
 
 As an **importer**, I want **to see what every row would do before anything is written**, so that **I fix the template, not hundreds of items**.

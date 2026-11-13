@@ -2,7 +2,7 @@
 
 - story: US-10
 - depends-on: -
-- shippable: no — an analysis story; delivered by `feat-NNN-work-item-participants`
+- shippable: no — an analysis story; delivered by `feat-068-work-item-participants`
 - status: pending
 
 As a **member**, I want **to name the other people who work on an item, besides its one assignee**, so that **a task done by several people says so, as a source's list of co-workers does**.

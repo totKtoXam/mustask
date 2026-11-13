@@ -2,7 +2,7 @@
 
 - story: US-8
 - depends-on: US-7
-- shippable: no — an analysis story; delivered by `feat-NNN-import-export-by-template`
+- shippable: no — an analysis story; delivered by `feat-069-import-export-by-template`
 - status: pending
 
 As an **organization member**, I want **to export the items I see into a source's own columns and values**, so that **a report and anyone still on the spreadsheet get a file they can read, and it comes back in by the same template**.

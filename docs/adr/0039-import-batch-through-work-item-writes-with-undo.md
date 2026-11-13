@@ -2,7 +2,7 @@
 
 - Status: accepted (by the human in chat, at doc-017 gate-1, 2026-11-10)
 - Date: 2026-11-10
-- Context: `doc-017-import-export-constructor`, stage 1: [spec](../features/doc-017-import-export-constructor/spec.md) § Roles, BR-IE-12..-17, BR-IE-23, US-5, US-6, OQ-1, OQ-3. It supersedes doc-005 BR-M6-8's write rules for import and builds on ADR-0011 (locks), ADR-0013 (intent statuses and the outbox), ADR-0027 and ADR-0029 (codes), ADR-0030 (the purge) and ADR-0038 (the scoped «Менеджер»). It goes to the human at doc-017's gate-1; only the human sets `accepted`. It is implemented by `mod-NNN-import-constructor` (the codes, the dry run) and `feat-NNN-import-run-and-undo` (the batch and the undo).
+- Context: `doc-017-import-export-constructor`, stage 1: [spec](../features/doc-017-import-export-constructor/spec.md) § Roles, BR-IE-12..-17, BR-IE-23, US-5, US-6, OQ-1, OQ-3. It supersedes doc-005 BR-M6-8's write rules for import and builds on ADR-0011 (locks), ADR-0013 (intent statuses and the outbox), ADR-0027 and ADR-0029 (codes), ADR-0030 (the purge) and ADR-0038 (the scoped «Менеджер»). It goes to the human at doc-017's gate-1; only the human sets `accepted`. It is implemented by `mod-024-import-constructor` (the codes, the dry run) and `feat-067-import-run-and-undo` (the batch and the undo).
 
 ## Problem
 

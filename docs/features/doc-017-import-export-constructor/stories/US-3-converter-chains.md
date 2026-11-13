@@ -2,7 +2,7 @@
 
 - story: US-3
 - depends-on: US-1
-- shippable: no — an analysis story; delivered by `mod-NNN-import-constructor`
+- shippable: no — an analysis story; delivered by `mod-024-import-constructor`
 - status: pending
 
 As an **organization administrator**, I want **to chain converters on a column**, so that **a value written the source's way becomes a value the field accepts**.
