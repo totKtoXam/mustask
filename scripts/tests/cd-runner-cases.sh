@@ -289,6 +289,8 @@ triggers=$(children "$deploy" on | tr '\n' ' ')
 push=$(code "$deploy" | awk '/^on:/ {on=1; next} /^[^ ]/ {on=0} on && /^  push:/ {p=1; next} on && /^  [^ ]/ {p=0} p && /^    [A-Za-z_-]+:/ {sub(/^    /, ""); sub(/:.*/, ""); print}' | tr '\n' ' ')
 [ "$push" = "tags " ] && ok "deploy.yml: push is tags only" || bad "deploy.yml: push has '$push'"
 code "$deploy" | grep -q "^    tags: \['v\*'\]$" && ok "deploy.yml: the tags are v*" || bad "deploy.yml: the push tags are not ['v*']"
+code "$deploy" | grep -qxF 'run-name: Deploy ${{ inputs.tag || github.ref_name }}' \
+    && ok "deploy.yml: the run title names the tag" || bad "deploy.yml: the run title does not name the tag"
 code "$deploy" | grep -Eq 'pull_request|workflow_run|issue_comment' \
     && bad "deploy.yml: names a PR-driven event" || ok "deploy.yml: no PR-driven event"
 
@@ -351,9 +353,12 @@ sudo_lines=$(code "$deploy" | grep -E '(^|[[:space:];&|])sudo[[:space:]]' | sed 
 # shellcheck disable=SC2016 # literal workflow text
 want='sudo -n /usr/local/sbin/mustask-cd deploy < "$RUNNER_TEMP/release/mustask-$TAG.tar.gz"|sudo -n /usr/local/sbin/mustask-cd smoke|'
 [ "$sudo_lines" = "$want" ] && ok "deploy.yml: sudo runs only mustask-cd deploy and smoke" || bad "deploy.yml: sudo lines: $sudo_lines"
-# The dispatch input reaches the shell through an env var, never inline.
+# The dispatch input reaches the shell through an env var, never inline. The
+# one exception is the top-level run-name (tech-070): a title GitHub renders,
+# not a command anything runs; only that exact line is let through.
 # shellcheck disable=SC2016 # literal workflow text
-inline=$(code "$deploy" | grep -F '${{ inputs.' | grep -v '^ *INPUT_TAG: ' | grep -v '^run-name: ' || true)
+inline=$(code "$deploy" | grep -F '${{ inputs.' | grep -v '^ *INPUT_TAG: ' \
+    | grep -vxF 'run-name: Deploy ${{ inputs.tag || github.ref_name }}' || true)
 [ -z "$inline" ] && ok "deploy.yml: inputs.tag only goes through env" || bad "deploy.yml: inputs used inline: $inline"
 
 printf '\n'
