@@ -90,6 +90,10 @@ const SURFACES: Readonly<Record<string, SurfaceEntry>> = {
     why: 'a team board card is moved by its own project codes',
     via: self(`${b}components/BoardColumns.tsx`, 'useProjectCodes'),
   },
+  [`${b}hooks/useAggregateNewWorkItem.tsx`]: {
+    why: 'the aggregate board create offers the projects whose own codes hold the write (feat-060)',
+    via: self(`${b}hooks/useAggregateNewWorkItem.tsx`, 'useProjectCodes'),
+  },
   [`${b}hooks/useBoardAccess.ts`]: {
     why: 'the checks of a backlog: project rows codes and the team own read',
     via: self(`${b}hooks/useBoardAccess.ts`, 'useProjectCodes'),
