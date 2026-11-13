@@ -173,6 +173,7 @@ public static class OrganizationsTestData
             .AsNoTracking()
             .Where(area => area.OrganizationId == organizationId && area.Type == AreaType.Department)
             .OrderBy(area => area.CreatedAt)
+            .ThenBy(area => area.Name)
             .Select(area => (Guid?)area.Id)
             .FirstOrDefaultAsync(cancellationToken);
 
