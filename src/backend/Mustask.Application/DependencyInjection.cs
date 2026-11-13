@@ -234,6 +234,19 @@ public static class DependencyInjection
         services.AddScoped<Mustask.Application.Features.WorkItems.GetOrganizationWorkItems.GetOrganizationWorkItemsHandler>();
         services.AddScoped<Mustask.Application.Features.WorkItems.GetOrganizationAssigneeOptions.GetOrganizationAssigneeOptionsHandler>();
 
+        // Iterations (mod-007): one handler per route of IterationsEndpoints.cs.
+        services.AddScoped<Mustask.Application.Features.Iterations.CreateSprint.CreateSprintHandler>();
+        services.AddScoped<Mustask.Application.Features.Iterations.UpdateSprint.UpdateSprintHandler>();
+        services.AddScoped<Mustask.Application.Features.Iterations.StartSprint.StartSprintHandler>();
+        services.AddScoped<Mustask.Application.Features.Iterations.RemoveSprint.RemoveSprintHandler>();
+        services.AddScoped<Mustask.Application.Features.Iterations.CloseSprint.CloseSprintHandler>();
+        services.AddScoped<Mustask.Application.Features.Iterations.GetSprints.GetSprintsHandler>();
+        services.AddScoped<Mustask.Application.Features.Iterations.GetCloseSprintPreview.GetCloseSprintPreviewHandler>();
+        services.AddScoped<Mustask.Application.Features.Iterations.GetSprint.GetSprintHandler>();
+        services.AddScoped<Mustask.Application.Features.Iterations.GetSprintDynamics.GetSprintDynamicsHandler>();
+        services.AddScoped<Mustask.Application.Features.Iterations.GetSprintParticipants.GetSprintParticipantsHandler>();
+        services.AddScoped<Mustask.Application.Features.Iterations.GetSprintOutcomeItems.GetSprintOutcomeItemsHandler>();
+
         return services;
     }
 }

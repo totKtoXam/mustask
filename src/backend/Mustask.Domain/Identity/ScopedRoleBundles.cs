@@ -60,10 +60,13 @@ public static class ScopedRoleBundles
 
     private static readonly IReadOnlySet<string> None = Set();
 
-    private static readonly IReadOnlySet<string> TeamMember = Set(PermissionCatalog.BoardsBacklogReorder);
+    private static readonly IReadOnlySet<string> TeamMember = Set(
+        PermissionCatalog.BoardsBacklogReorder,
+        PermissionCatalog.IterationsSprintManage);
 
     private static readonly IReadOnlySet<string> TeamManager = Set(
         PermissionCatalog.BoardsBacklogReorder,
+        PermissionCatalog.IterationsSprintManage,
         PermissionCatalog.OrganizationsTeamWrite,
         PermissionCatalog.OrganizationsTeamLink,
         PermissionCatalog.OrganizationsTeamGrant);

@@ -29,13 +29,14 @@ public sealed class OrganizationsOpenApiTests(MustaskApiFactory factory)
         "GET /api/organizations/rescue/{organizationId}/appointments",
         "POST /api/organizations/rescue/{organizationId}/appointments",
         // The addressed routes of other modules — mod-001's process read, mod-003's work items, mod-006's backlogs and
-        // boards — are not this module's. The rest of the list is mod-002's and, last, mod-016's access and memberships
+        // boards, mod-007's sprints — are not this module's. The rest of the list is mod-002's and, last, mod-016's access and memberships
         // (api-contract § 1–§ 2).
         .. OrganizationAddressedRoutes.All
             .Where(route => !route.Template.EndsWith("/process", StringComparison.Ordinal)
                 && !route.Template.Contains("/workitems", StringComparison.Ordinal)
                 && !route.Template.Contains("/backlogs/", StringComparison.Ordinal)
-                && !route.Template.Contains("/boards/", StringComparison.Ordinal))
+                && !route.Template.Contains("/boards/", StringComparison.Ordinal)
+                && !route.Template.Contains("/sprints", StringComparison.Ordinal))
             .Select(route => route.Key),
     ];
 

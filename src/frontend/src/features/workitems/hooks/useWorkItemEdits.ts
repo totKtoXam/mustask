@@ -19,7 +19,7 @@ import {
 } from '../lib/edits';
 import { fieldsOf } from '../lib/fields';
 import { notFoundLevel, type WorkItemsNotFoundLevel } from '../lib/notFoundLevel';
-import { isParentChanged, placeRefusal, type RefusalField } from '../lib/refusals';
+import { isParentChanged, isSprintGone, placeRefusal, type RefusalField } from '../lib/refusals';
 import { useSaveWorkItem } from './mutations';
 import { useRefreshWorkItem } from './queries';
 
@@ -31,6 +31,7 @@ const CARD_FIELDS: readonly RefusalField[] = [
   'assignee',
   'area',
   'team',
+  'sprint',
   'parent',
 ];
 
@@ -222,6 +223,14 @@ export function useWorkItemEdits({
           setAlert(text);
         }
         return 'refused';
+      }
+      if (isSprintGone(error)) {
+        // mod-007 US-4: the sprint was removed meanwhile; its pick is dropped, the others stay.
+        setEdits((current) => {
+          const rest = { ...current };
+          delete rest.sprint;
+          return rest;
+        });
       }
       if (isParentChanged(error)) {
         // feat-001 BR-H-4: read the item again first, so «Родитель» shows the

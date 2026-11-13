@@ -47,7 +47,7 @@ public sealed class OwningTeamStatementCountTests(OrganizationsDatabaseFixture d
     private const int ListStatements = 7;
     private const int TeamsListStatements = 2;
     private const int OwnedCountStatements = 3;
-    private const int DeletionStatements = 15;   // 11 + the hierarchy lock's two statements (mod-005 QD-1) + the area links ended (mod-018 BR-AW-10) + the team grants ended (mod-019 BR-SA-3)
+    private const int DeletionStatements = 16;   // 11 + the open-sprint lock (mod-007) + the hierarchy lock's two statements (mod-005 QD-1) + the area links ended (mod-018 BR-AW-10) + the team grants ended (mod-019 BR-SA-3)
     private const int ItemGetStatements = 7;
     private const int TeamGetStatements = 1;
     private const int TeamChangeSaveStatements = 16;
@@ -261,6 +261,7 @@ public sealed class OwningTeamStatementCountTests(OrganizationsDatabaseFixture d
         services.AddApplication();
         services.AddOrganizationsInfrastructure();
         services.AddWorkItemsInfrastructure();
+        services.AddIterationsInfrastructure();
         services.AddBoardsInfrastructure();
 
         return services.BuildServiceProvider();

@@ -49,8 +49,8 @@ public sealed class TeamStatementCountTests(OrganizationsDatabaseFixture databas
     private const int AddTeamStatements = 5;
     private const int NewTeamMemberCandidatesStatements = 2;
     private const int CreateProjectStatements = 9;    // 6 + the area tree lock (2) and the project node insert + the department parent read (mod-018, ADR-0031)
-    private const int UnlinkStatements = 13;     // 11 + the hierarchy lock's two (mod-005 QD-1)
-    private const int DeletionStatements = 15;   // 11 + the same two, for every linked project at once, + the area links ended (mod-018 BR-AW-10) + the team grants ended (mod-019 BR-SA-3)
+    private const int UnlinkStatements = 14;     // 11 + the hierarchy lock's two (mod-005 QD-1) + the open-sprint lock (mod-007, ADR-0028 rule 7)
+    private const int DeletionStatements = 16;   // 11 + the same two, + the open-sprint lock (mod-007), for every linked project at once, + the area links ended (mod-018 BR-AW-10) + the team grants ended (mod-019 BR-SA-3)
 
     /// <summary>An organization of <c>Projects</c> projects, <c>Teams</c> teams each linked to two of them, and the first project's ids.</summary>
     private sealed record Seeded(Guid OrganizationId, IReadOnlyList<Guid> ProjectIds, IReadOnlyList<Guid> TeamIds, Guid RootAreaId)
@@ -341,6 +341,7 @@ public sealed class TeamStatementCountTests(OrganizationsDatabaseFixture databas
         services.AddApplication();
         services.AddOrganizationsInfrastructure();
         services.AddWorkItemsInfrastructure();
+        services.AddIterationsInfrastructure();
         services.AddBoardsInfrastructure();
 
         return services.BuildServiceProvider();

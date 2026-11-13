@@ -1,4 +1,5 @@
 using Mustask.Application.Abstractions;
+using Mustask.Application.Abstractions.Iterations;
 using Mustask.Application.Abstractions.Organizations;
 using Mustask.Application.Features.Boards;
 using Mustask.Application.Features.WorkItems;
@@ -51,6 +52,7 @@ public sealed class DeleteTeamHandler(
     ITeamMembershipRepository teamMemberships,
     IGrantRepository grants,
     IWorkItemTeamOwnership ownership,
+    ISprintRepository sprints,
     ITeamBacklogPlaces places,
     IClock clock,
     IUnitOfWork unitOfWork)
@@ -97,6 +99,8 @@ public sealed class DeleteTeamHandler(
                 // this team owns would be held crosswise by the two — 40P01. In project-id order, in two statements for any number.
                 await projects.ClearDefaultTeamAsync(organizationId, team.Id, ct);
                 await ownership.LockHierarchiesAsync(linkedProjectIds, ct);
+                // mod-007 (ADR-0028 rule 7): the open-sprint step, between the hierarchy locks (step 5) and the items (step 7).
+                await sprints.LockOpenAsync(team.Id, ct);
                 await ownership.LockOwnedAsync(linkedProjectIds, team.Id, ct);
                 await places.DropForTeamAsync(team.Id, ct);
                 await ownership.ReassignOwnedAsync(linkedProjectIds, team.Id, destinationTeamId: null, clock.UtcNow, ct);

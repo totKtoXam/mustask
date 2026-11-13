@@ -41,6 +41,7 @@ public sealed class OrganizationRoleBundlesTests
         (PermissionCatalog.WorkItemsWorkItemPurge, true, false, false),
         (PermissionCatalog.BoardsBacklogReorder, true, true, false),
         (PermissionCatalog.BoardsProjectBacklogReorder, true, true, false),
+        (PermissionCatalog.IterationsSprintManage, true, false, false),
     ];
 
     public static TheoryData<string, OrganizationRole, bool> Cells()
