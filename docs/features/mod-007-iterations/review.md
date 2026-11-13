@@ -153,3 +153,81 @@ queue edit 7 is applied: this line reads snapshots, mod-012 reads history,
 and a Closed sprint's velocity has one source. Questions for gate-1: OQ-9,
 OQ-10, OQ-11 (US-10's exact-value example assumes A), OQ-12, OQ-13, OQ-14,
 OQ-15.
+
+## Round 1 — code
+
+Stage 8 over `git diff origin/main...HEAD` at 0ed44f31 (161 files), against spec BR-1..BR-16, US-1..US-5, US-9, US-10,
+design D-1..D-10, api-contract, qa.md, ADR-0028 rules 7-8, ADR-0029, backend.md and frontend.md. Tests not re-run (economy
+mode: CI). Visibility clauses are feat-041's and not judged.
+
+### M-1 — the sprint writers lock the sprint before the hierarchy, against ADR-0028 rule 8's one order
+Severity: major
+Where: `CloseSprintHandler.cs:45,63`, `RemoveSprintHandler.cs:33,41`, `SaveWorkItemHandler.cs:125,129`;
+`SprintRepository.cs:77` (the comment cites "rule 8 step 5"); `WorkItemTeamOwnership.cs:74`.
+Problem: rule 8 fixes one order: (5) hierarchy lock rows, (6) sprints, (7) items. Close and removal take the sprint
+`FOR UPDATE` (6), then `LockItemsAsync` takes the hierarchy locks (5); a save with a parent takes the sprint `FOR SHARE` before
+`LockHierarchyAsync`. No deadlock today only because no writer takes 5 then 6: the unlink and the team deletion skip the
+"open-sprint step" rule 7 says mod-007 adds, and clear `sprint_id` without locking a sprint. The first line that follows the
+ADR (an unlink with its sprint step, feat-009's drag, the board) deadlocks against a close. The close also takes its
+destination `FOR SHARE` (`CloseSprintHandler.cs:54`), where the ADR's sprint races say both sprints `FOR UPDATE` together.
+The outcomes of BR-12 hold (race tests green); the mechanism is an unrecorded departure from an accepted ADR.
+Fix: take the hierarchy locks before the sprint lock (close and removal: read the sprint's projects, lock their hierarchies,
+then the sprint, then re-read the items; the save: sprint after `LockHierarchyAsync`), and fix the comment. If the developer
+holds that sprint-before-hierarchy is right, that is an ADR amendment for the human: stop as `blocked-on-decision` instead.
+
+### M-2 — the backend deviations are pointed at but recorded nowhere
+Severity: major (prose)
+Where: commit a42f3f17 body "Deviations: see status.md"; `status.md:90` "Deviations and the NU1903 note: commit bodies and
+the hand-back".
+Problem: each points at the other; neither lists a deviation, and the hand-back was chat, not a file. The human at gate-3
+reads status.md for what departs from plan and contract, finds nothing, and approves as if nothing did (M-1 may be one).
+Fix: list the backend deviations from plan-backend.md and api-contract.md in status.md (one line each), or write "none".
+Prose only: a delta read, no QA.
+
+### m-1 — «k из N» counts N over the whole range while only 20 sprints are read
+`GetSprintParticipantsHandler.cs:89`. With 30 sprints in range a person present in all 20 read reads «20 из 30». Fix: N =
+the sprints read (`shownSprints`), or say in US-9 that N is the range count.
+
+### m-2 — the close reads every state definition of the database
+`SprintRepository.cs:103`, `SprintItemPointers.cs:27`. Statement count is fixed, but the payload grows with organizations.
+Fix: filter by the organization's process (or the sprint's item types).
+
+### m-3 — BR-16's "mark and name come from mod-005's one assignee helper" is not anchored
+`GetSprintParticipantsHandler.cs:39,42` builds name and «не в организации» from `IUserDirectory` and its own membership read;
+the work item read model's helper is not used. Reads alike today; may drift. Fix: reuse the helper or weaken BR-16.
+
+### m-4 — QA log lines sit under `## Notes`
+`status.md:111-113`. Fix: move them into `## Log`.
+
+### m-5 — the card field's texts live outside `sprintTexts.ts`
+`CardSprintField.tsx:8-19`, against design § 11 ("every text … in one `sprintTexts.ts`"). Fix: move them, or amend § 11.
+
+### Known items judged
+- QA backend D-1 (names in batches of 500): acceptable debt, the NFR is sized to 300 assignees and a 300 test is green.
+- QA backend D-2 (null name sorts last): acceptable debt, unreachable through the API today.
+- InlinePickerField on the card, sibling expansion rows, no preselection without a Planned sprint: acceptable; preselection of
+  the lowest Planned sprint is in place (`CloseSprintDialog.tsx:56`), as OQ-4 says.
+
+### Claims checked
+- BR-2 team change clears: `WorkItem.cs` Save (`ownerChanged` → `edit.Sprint?.SprintId`); DB backstop composite FK + check.
+- BR-2 unlink/deletion clear, Closed included: `WorkItemTeamOwnership.cs:74`.
+- BR-3 one Active: `ix_sprints_team_id_active` + `SprintRepository.SaveAsync` maps to `active_exists`.
+- BR-5 check only on change, deleted item first: `SaveWorkItemHandler` `DecideSprint` early return; `EnsureLive` before 404.
+- BR-6/BR-14 one transaction, snapshot then move, «Изменён»: `CloseSprintHandler.cs:63-66`, `SprintItemPointers.cs:43`.
+- BR-7 numbers never reused, refusal rolls back: `TakeNextNumberAsync` in the create transaction.
+- BR-8 removal counts deactivated projects: `LockItemsAsync` counts `Live` with no project filter.
+- BR-12 snapshot = values committed before the lock: items locked `FOR UPDATE` before the INSERT…SELECT. Mechanism: M-1.
+- BR-13 code in admin, team member, manager only: `ScopedRoleBundles.cs`, `role-bundles.json`; routes `IterationsEndpoints.cs:44-86`.
+- BR-14 purge keeps figures: no FK from `sprint_snapshot_items` to `work_items` (migration).
+- BR-15 rounding half up on exact values, held-0 out of percents: `SprintFigures.cs`; default range `SprintRange.cs`.
+- BR-16 rows by assignee at close, «Итого» = sums: `GetSprintParticipantsHandler.cs`; helper claim: m-3.
+- NFR statement counts: pinned in `SprintStatementCountTests.cs` (list, dynamics, participants, items, close; preview equal).
+- Tenant isolation: every lock filters by organization (`SprintRepository.cs`); sprints FK `(organization_id, team_id)`.
+- Commit a42f3f17 "Deviations: see status.md": M-2. NU1903 note: not re-run (CI only).
+- Reference tracker not named: grep of the added lines, none.
+- Direction 2: pointer clearing on unlink grepped (`sprint pointer`): feat-028 api-contract.md:390 still says "owed by
+  mod-007" (merged artifact, keeps wording; now met). Card label «Итерация» grepped: feat-029 design.md:297,315 keep
+  «Итерация» (merged; mod-007 design § 7 supersedes). Not swept: the prototype HTML.
+
+### Verdict
+`changes-requested`: 0 blocker, 2 major (M-1 code, M-2 prose), 5 minor (debts). One delta read after the fix.

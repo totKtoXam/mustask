@@ -91,6 +91,7 @@ agent per stage, no fan-out. E2E: no (paused).
 - 2026-11-12 [qa-engineer] backend QA: 12 tests added, all green; 0 blocker, 0 major, 2 minor (qa.md D-1, D-2); no E2E (standing NO)
 - 2026-11-12 [frontend-developer] stage 5 done: team «Спринты» list and dialogs, outcome page, card «Спринт»; tests green; no contract mismatch; E2E no (standing); frontend QA next
 - 2026-11-13 [frontend-developer] QA cycle 1: fixed D-1 (sprint-name h1, trail, tag), D-2 («Итого» expands), D-3 (purged project kept), D-4, D-5; the three it.fails now pass; frontend QA re-run next
+- 2026-11-13 [code-reviewer] code review round 1 in review.md: changes-requested; 0 blocker, 2 major open (M-1 lock order vs ADR-0028 rule 8, M-2 deviations unrecorded), 5 minor debts
 
 ## Notes
 
