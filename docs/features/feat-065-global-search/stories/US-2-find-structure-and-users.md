@@ -80,11 +80,11 @@ Scenario: Deactivated and deleted objects
 
 Scenario: Too short
   When Ann types one character
-  Then the dialog says «Введите не менее 2 символов» and no read is sent
+  Then the panel says «Введите не менее 2 символов» and no read is sent
 
 Scenario: No match
   When Ann types «яблоко» which matches nothing she may see
-  Then the dialog says «Ничего не найдено»
+  Then the panel says «Ничего не найдено»
   And it still offers the row «Искать везде, включая описания» (US-7)
 
 Scenario: Typo tolerance as the last tier
@@ -118,10 +118,10 @@ Scenario: Debounce
 
 Scenario: Failure
   Given the read fails
-  Then the dialog says «Не удалось выполнить поиск. Попробуйте ещё раз.» with «Повторить»
+  Then the panel says «Не удалось выполнить поиск. Попробуйте ещё раз.» with «Повторить»
   And the field keeps its text and the palette stays open
 
 Scenario: Rate limit
   Given the read answers 429 with Retry-After: 2
-  Then the dialog retries after 2 s, at most 3 times, then shows the failure message with «Повторить»
+  Then the panel retries after 2 s, at most 3 times, then shows the failure message with «Повторить»
 ```

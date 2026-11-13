@@ -59,8 +59,9 @@ Scenario: Nothing yet
   Then the palette says «Здесь появятся недавно открытые объекты»
 
 Scenario: Clear
-  When Max chooses «Очистить недавние» by Enter or a click
-  Then the list for this organization is emptied at once, with no confirmation step, and the stored value is removed
+  When Max clicks «Очистить недавние», the small text button at the right end of the «Недавние» heading row, or reaches it by Tab and presses Enter
+  Then arrow keys never land on it (it is not a list row)
+  And the list for this organization is emptied at once, with no confirmation step, and the stored value is removed
 
 Scenario: Unreadable storage
   Given the stored value is malformed or localStorage is unavailable

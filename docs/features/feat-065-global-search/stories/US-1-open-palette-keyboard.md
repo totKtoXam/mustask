@@ -5,7 +5,7 @@
 - shippable: no — an empty palette finds nothing; it ships with US-2/US-3 in `feat-NNN-search-palette`
 - status: pending
 
-As a **member of an organization**, I want **to open a search dialog with Ctrl+K (Cmd+K on macOS) or the magnifier in the header and drive it entirely from the keyboard**, so that **I can jump anywhere without reaching for the mouse or the menus**.
+As a **member of an organization**, I want **to open search with Ctrl+K (Cmd+K on macOS) or the search field in the header and drive it entirely from the keyboard**, so that **I can jump anywhere without reaching for the mouse or the menus**.
 
 ## Acceptance criteria
 
@@ -13,15 +13,20 @@ As a **member of an organization**, I want **to open a search dialog with Ctrl+K
 Scenario: Open with the shortcut
   Given Olga is signed in and on any page of organization «Ромашка»
   When she presses Ctrl+K (Cmd+K on macOS)
-  Then a centred modal dialog labelled «Поиск» opens
-  And the focus is in its field
+  Then the header search field, labelled «Поиск», takes the focus and a dropdown panel opens under it, with no dimmed page
   And the browser's own Ctrl+K binding does not fire
 
-Scenario: Open with the header button
+Scenario: Open with the header field
   Given Olga is on any page of the shell
-  When she clicks the magnifier at the right end of the header
-  Then the same dialog opens
-  And the button's tooltip and aria-label read «Поиск (Ctrl+K)», «Поиск (⌘K)» on macOS
+  When she clicks the search field in the middle of the header
+  Then the same panel opens
+  And the field shows the hint «Ctrl K» («⌘K» on macOS)
+
+Scenario: Narrow screen opens from the magnifier
+  Given the viewport is narrower than the design's breakpoint
+  Then the header shows a magnifier button, tooltip and aria-label «Поиск (Ctrl+K)» («Поиск (⌘K)» on macOS), instead of the field
+  When Olga clicks it
+  Then the field takes the header's width and the panel opens full width under it
 
 Scenario: The shortcut toggles
   Given the palette is open
@@ -29,10 +34,10 @@ Scenario: The shortcut toggles
   Then the palette closes
 
 Scenario: Closing returns focus
-  Given Olga opened the palette with the magnifier
+  Given Olga opened the palette from the element that had the focus
   When she presses Esc
-  Then the palette closes, whatever the field holds
-  And the focus is back on the magnifier
+  Then the palette closes, whatever the field holds, and the field is emptied
+  And the focus is back on that element (the magnifier, on a narrow screen)
 
 Scenario: Arrow keys cross groups
   Given the palette shows results in several groups
@@ -47,10 +52,12 @@ Scenario: Enter chooses the active row
   Then the row is chosen as in US-5
   And with Ctrl or Cmd held it opens in a new tab and the palette stays open
 
-Scenario: Focus stays in the dialog
+Scenario: Tab inside the panel
   Given the palette is open
-  When Olga presses Tab repeatedly
-  Then the focus cycles inside the dialog and never reaches the page behind it
+  When Olga presses Tab
+  Then the focus moves through the controls of the panel (the scope, «Очистить недавние», «Полный поиск») and result rows are not Tab stops
+  When the focus leaves the field and the panel
+  Then the panel closes
 
 Scenario: Screen reader
   Given the palette is open and shows 7 rows
@@ -72,7 +79,7 @@ Scenario: The rich-text editor keeps its own Ctrl+K
   Given Olga is typing in a work item's «Описание» editor
   When she presses Ctrl+K
   Then the editor's link command runs as today and the palette does not open
-  And the magnifier in the header still opens the palette
+  And clicking the header search field (the magnifier on a narrow screen) still opens the palette
 
 Scenario: Another dialog is open
   Given a modal dialog of the page is open (a «Новый рабочий элемент» form)
@@ -86,7 +93,7 @@ Scenario: IME composition
 
 Scenario: No organization
   Given a signed-in user who belongs to no organization
-  Then the header has no magnifier
+  Then the header has neither the search field nor the magnifier
   And Ctrl+K does nothing
 
 Scenario: Scope organization
