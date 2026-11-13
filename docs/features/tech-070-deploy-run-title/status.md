@@ -3,14 +3,14 @@
 - type: tech
 - size: S
 - branch: tech/070-deploy-run-title
-- stage: 04-backend
+- stage: complete
 - epic: platform/ci
 - deps: tech-066
 - gates: gate-3
 
 ## Gates
 
-gate-3: pending
+gate-3: approved · PR #175 https://github.com/totKtoXam/mustask/pull/175
 
 ## Plan
 
@@ -23,6 +23,7 @@ gate-3: pending
 - 2026-11-13 [new-task] task started, worktree C:/Users/khamb/Workspace/devex/internal_products/mustask/.claude/worktrees/tech-070-deploy-run-title
 - 2026-11-13 [orchestrator] route confirmed by the human: tech, S, light cycle (no QA and review sessions; the human reviews the diff in the PR). `.github/` is outside the light-cycle list — an exception the human chose for a one-line title change
 - 2026-11-13 [orchestrator] `sh scripts/tests/cd-runner-cases.sh` → exit 0 (all passed); verify.sh left to CI (economy mode)
+- 2026-11-13 [orchestrator] PR #175 opened, CI green (verify.sh); the human reviewed the diff and approved — gate-3: approved, stage complete
 
 ## Notes
 
