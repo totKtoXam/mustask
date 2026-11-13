@@ -323,9 +323,9 @@ unpinned=$(code "$deploy" | grep -E 'uses: ' | grep -Ev 'uses: [^@]+@[0-9a-f]{40
 # the label is spelled like, and the deploy job's root commands are exactly the
 # sudoers rule's two.
 runs_on=$(code "$deploy" | grep -E '^[[:space:]]*runs-on:' | sed 's/^[[:space:]]*//' | tr '\n' '|')
-[ "$runs_on" = "runs-on: ubuntu-latest|runs-on: [self-hosted, linux, mustask-prod]|" ] \
-    && ok "deploy.yml: two jobs, ubuntu-latest and the VM, nothing else" || bad "deploy.yml: runs-on lines: $runs_on"
-code "$deploy" | grep -q '^    needs: build$' && ok "deploy.yml: the deploy job needs build" || bad "deploy.yml: the deploy job does not need build"
+[ "$runs_on" = "runs-on: ubuntu-latest|runs-on: ubuntu-latest|runs-on: [self-hosted, linux, mustask-prod]|" ] \
+    && ok "deploy.yml: ubuntu-latest for build and notes, the VM for deploy, nothing else" || bad "deploy.yml: runs-on lines: $runs_on"
+code "$deploy" | grep -qFx '    needs: [build, notes]' && ok "deploy.yml: the deploy job needs build and notes" || bad "deploy.yml: the deploy job does not need build and notes"
 code "$deploy" | grep -q "^    if: github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v')$" \
     && ok "deploy.yml: a run starts only from main or a v* tag" || bad "deploy.yml: the main / v* ref guard is gone"
 code "$deploy" | grep -q '^  group: deploy-production$' \
@@ -340,7 +340,7 @@ want='sudo -n /usr/local/sbin/mustask-cd deploy < "$RUNNER_TEMP/release/mustask-
 [ "$sudo_lines" = "$want" ] && ok "deploy.yml: sudo runs only mustask-cd deploy and smoke" || bad "deploy.yml: sudo lines: $sudo_lines"
 # The dispatch input reaches the shell through an env var, never inline.
 # shellcheck disable=SC2016 # literal workflow text
-inline=$(code "$deploy" | grep -F '${{ inputs.' | grep -v '^ *INPUT_TAG: ' || true)
+inline=$(code "$deploy" | grep -F '${{ inputs.' | grep -v '^ *INPUT_TAG: ' | grep -v '^run-name: ' || true)
 [ -z "$inline" ] && ok "deploy.yml: inputs.tag only goes through env" || bad "deploy.yml: inputs used inline: $inline"
 
 printf '\n'

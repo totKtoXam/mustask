@@ -1,4 +1,5 @@
 name: Deploy
+run-name: Deploy ${{ inputs.tag || github.ref_name }}
 
 # CD for the one production VM (tech-066, docs/deploy/vm.md section 11).
 #
@@ -13,6 +14,12 @@ name: Deploy
 # tarball deploy/vm/build-release.sh makes, and runs exactly two commands as
 # root through sudoers: `mustask-cd deploy` (the tarball on stdin) and
 # `mustask-cd smoke` (deploy/vm/mustask-cd.sh, installed by runner-setup.sh).
+#
+# The notes job (ubuntu-latest) writes what the release carries -- the merged
+# PR titles since the previous tag, scripts/release-notes.sh -- into the run
+# summary and the GitHub Release page of the tag (tech-069, ADR-0043). It runs
+# before deploy on purpose: the approver reads the notes before approving.
+# Its token may write contents; no other job's may.
 #
 # The deploy job waits for the `production` environment's required reviewer.
 # The public address the release is built for is the repository variable
@@ -121,9 +128,46 @@ jobs:
           if-no-files-found: error
           retention-days: 7
 
+  notes:
+    name: Release notes
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: write # the GitHub Release of the tag
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0 # release-notes.sh reads the merge commits and the tags
+          persist-credentials: false
+
+      - name: Notes
+        env:
+          TAG: ${{ needs.build.outputs.tag }}
+        run: sh scripts/release-notes.sh "$TAG" > "$RUNNER_TEMP/notes.md"
+
+      - name: Run summary
+        run: cat "$RUNNER_TEMP/notes.md" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: GitHub Release
+        env:
+          TAG: ${{ needs.build.outputs.tag }}
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        # A redeploy (workflow_dispatch) finds the release already there:
+        # only its notes are rewritten.
+        run: |
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release edit "$TAG" --notes-file "$RUNNER_TEMP/notes.md"
+          else
+            gh release create "$TAG" --verify-tag --title "$TAG" --notes-file "$RUNNER_TEMP/notes.md"
+          fi
+
   deploy:
     name: Deploy to production
-    needs: build
+    needs: [build, notes]
     # The production VM. Only this job of only this workflow may target it.
     runs-on: [self-hosted, linux, mustask-prod]
     environment:
