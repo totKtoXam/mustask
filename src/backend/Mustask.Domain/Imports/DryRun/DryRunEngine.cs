@@ -90,7 +90,8 @@ public static class DryRunEngine
     };
 
     /// <summary>One mapping evaluated on a row: the chain's result, a failure, and the cell it came from.</summary>
-    public sealed record Evaluation(FieldMapping Mapping, ConversionValue Value, ConversionFailure? Failure, string? Column, string? Cell, string Original);
+    public sealed record Evaluation(
+        FieldMapping Mapping, ConversionValue Value, ConversionFailure? Failure, string? Column, string? Cell, string Original, IReadOnlyList<ConversionValue>? Steps = null);
 
     /// <summary>Evaluates a mapping's source and chain on a row.</summary>
     public static Evaluation Evaluate(FieldMapping mapping, SourceRow row, IReadOnlyDictionary<string, int> headers, int? dateSystem)
@@ -119,7 +120,7 @@ public static class DryRunEngine
             .ToList();
         var result = ConverterEngine.RunChain(start, steps, cell?.Hyperlink);
 
-        return new(mapping, result.Value, result.Failure, mapping.Source.Column?.Trim(), cell?.Address, original);
+        return new(mapping, result.Value, result.Failure, mapping.Source.Column?.Trim(), cell?.Address, original, result.Steps);
     }
 
     private static SourceCell? CellOf(SourceRow row, IReadOnlyDictionary<string, int> headers, string column) =>

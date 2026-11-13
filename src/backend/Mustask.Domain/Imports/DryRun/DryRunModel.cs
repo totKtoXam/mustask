@@ -13,6 +13,16 @@ public static class RowResults
     public const string All = "all";
 
     public static readonly IReadOnlyList<string> Filters = [All, Created, Updated, Unchanged, Skipped, Error];
+
+    /// <summary>The Russian label of a result (BR-IE-13).</summary>
+    public static string LabelOf(string result) => result switch
+    {
+        Created => "Будет создан",
+        Updated => "Будет обновлён",
+        Unchanged => "Без изменений",
+        Skipped => "Пропущен",
+        _ => "Ошибка",
+    };
 }
 
 /// <summary>One reason or warning on a row; <see cref="Params"/> are the catalog parameters of <see cref="Code"/>.</summary>
