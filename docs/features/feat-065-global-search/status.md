@@ -3,7 +3,7 @@
 - type: feature
 - size: L
 - branch: feat/065-global-search
-- stage: 01-business-analysis
+- stage: 02-requirements-review
 - epic: platform/ui
 - deps: feat-041
 - gates: gate-1, gate-2, gate-3
