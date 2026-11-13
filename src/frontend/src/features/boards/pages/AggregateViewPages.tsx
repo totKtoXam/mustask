@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { NotFound } from '../../../shared/ui/StateFrame';
 import { AggregateBacklogView } from '../components/AggregateBacklogView';
@@ -9,6 +10,7 @@ import {
   useNarrowedTag,
   type GroupingChoice,
 } from '../hooks/useAggregateView';
+import { useAggregateNewWorkItem } from '../hooks/useAggregateNewWorkItem';
 import { isBoardLevel, type BoardLevelCode } from '../lib/levels';
 
 /**
@@ -31,6 +33,21 @@ export function AggregatePage({
   const selectors = useAddressSelectors();
   const v = useAggregateView({ organizationId, view, level, selectors, choice });
   const narrowed = useNarrowedTag(organizationId, selectors);
+  // feat-060 D-1: the board creates; the aggregate backlog and «Рабочие элементы» keep feat-048's rule.
+  const [createdSerial, setCreatedSerial] = useState(0);
+  const newItem = useAggregateNewWorkItem({
+    organizationId,
+    selectors,
+    groups: v.groups,
+    enabled: view === 'boards',
+    onContextGone: v.readHeadersAgain,
+    onCreated: () => {
+      // Accepted debt (feat-060 review m3): a create remounts the whole board, which drops the pages
+      // «Показать ещё» loaded and reads every open cell again — one narrow reload would do.
+      v.readHeadersAgain();
+      setCreatedSerial((n) => n + 1);
+    },
+  });
   const grouped = v.grouping !== 'none' && (v.groups?.length ?? 0) > 0;
   return (
     <>
@@ -42,8 +59,14 @@ export function AggregatePage({
         grouping={v.grouping}
         onGrouping={v.changeGrouping}
         onCollapseAll={grouped ? v.collapseAll : undefined}
+        primaryAction={newItem.command}
       />
-      {view === 'backlogs' ? <AggregateBacklogView v={v} /> : <AggregateBoardView v={v} />}
+      {view === 'backlogs' ? (
+        <AggregateBacklogView v={v} />
+      ) : (
+        <AggregateBoardView key={createdSerial} v={v} />
+      )}
+      {newItem.elements}
     </>
   );
 }
