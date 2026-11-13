@@ -1,0 +1,41 @@
+# mod-021-teams-in-departments
+
+- type: module
+- size: L
+- branch: mod/021-teams-in-departments
+- stage: backend
+- epic: core/org-access
+- deps: mod-019,doc-016
+- gates: gate-3
+
+## Gates
+
+gate-3: pending
+
+## Plan
+
+Route L from stage 4. The requirements and the design are doc-016's,
+approved at gate-1 and gate-2 on 2026-11-12:
+`docs/features/doc-016-teams-under-departments/` (`spec.md` BR-TD-1, -4,
+-5, -19 step 1, -20; stories US-1 and US-2; `design.md`;
+`docs/adr/0040-*.md`). Their gates are not repeated here.
+
+Stages: backend (plan in `plan-backend.md`, code, tests, `api-contract.md`)
+→ backend QA → frontend (the team form's and page's «Департамент», a
+department's «Команды», the feat-049 diagram's team placement, the selectors'
+fit without department–team links, the colour marks) → frontend QA → code
+review (one Opus pass with the security pass) → gate-3, where ADR-0040 is
+accepted → PR on GitHub, merged by the human with a merge commit, branch kept.
+
+Out of scope: projects in departments (mod-022), department managers running
+teams (mod-023), every sight and selector line (feat-061..065,
+feat-041/052/054).
+
+Economy mode: one agent per stage, one Opus review. E2E: no (paused).
+Verification: affected tests locally, the full verify.sh in CI.
+
+## Log
+
+- 2026-11-13 [orchestrator] task started on branch mod/021-teams-in-departments in worktree .claude/worktrees/dreamy-einstein-34d195 (host DESKTOP-2S17CA7, git rev-parse --show-toplevel and git branch --show-current confirmed), cut from origin/main 873935f7.
+- 2026-11-13 [orchestrator] queue line taken by scripts/queue.sh take mod-021, PR #158 with squash auto-merge.
+- 2026-11-13 [orchestrator] route confirmed by the human in chat: L from stage 4 (the queue line said M; L thresholds fired: ADR-0040 accepted at this gate, department–team links retired as a breaking model change, a data migration that drops links); spec and design inherited from doc-016 (gate-1, gate-2 approved 2026-11-12); gate-3 only. Question 3.2: the tables hold important data (stand/prod), so the migration is treated as irreversible and logs every placement. Usage at start: weekly 4%.
