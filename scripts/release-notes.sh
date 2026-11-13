@@ -58,12 +58,16 @@ fi
 
 printf '## %s\n\n' "$heading"
 if [ -n "$prev" ]; then
-    printf 'Changes since %s\n' "$prev"
+    # An explicit previous tag that is the end point itself: nothing lies in
+    # between, and "since" would mislead.
+    if [ -z "${2:-}" ] || [ "$(git rev-parse "$prev^{commit}")" != "$(git rev-parse "$ref^{commit}")" ]; then
+        printf 'Changes since %s\n' "$prev"
+    fi
 else
     printf 'First release: the whole history.\n'
 fi
 
-git log --first-parent --merges --format='@@@%s%n%b' "$range" | awk '
+git log --first-parent --merges --format='%x1e%s%n%b' "$range" | awk '
 function flush() {
     if (subj == "") return
     if (!match(subj, /^Merge pull request #[0-9]+ from [^\/ ]+\/[^ ]+$/)) { subj = ""; return }
@@ -71,7 +75,7 @@ function flush() {
     b = subj; sub(/^Merge pull request #[0-9]+ from [^\/]+\//, "", b)
     p = b; sub(/\/.*$/, "", p)
     if (p == "sync") { subj = ""; return }
-    if (title == "") title = "Pull request #" n
+    if (title == "") title = b
     g = "Other"
     if (p == "feat") g = "Features"
     else if (p == "bug" || p == "fix" || p == "hot") g = "Fixes"
@@ -82,7 +86,9 @@ function flush() {
     count++
     subj = ""
 }
-/^@@@/ { flush(); subj = substr($0, 4); title = ""; next }
+BEGIN { mark = sprintf("%c", 30) }
+{ sub(/\r$/, "") }
+index($0, mark) == 1 { flush(); subj = substr($0, 2); title = ""; next }
 {
     if (title == "" && $0 !~ /^[ \t]*$/) { title = $0; sub(/^[ \t]+/, "", title); sub(/[ \t]+$/, "", title) }
 }

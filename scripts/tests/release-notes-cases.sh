@@ -56,6 +56,22 @@ merge() {
     g merge -q --no-ff -m "Merge pull request #$2 from owner/$1" -m "$3" "$1"
 }
 
+# merge_raw <branch> <number> <title> <into>: like merge, but the message is
+# written with commit-tree -F, so git does not clean it up (a trailing CR
+# survives), and both parents are explicit. <into> is the branch the PR lands
+# on; a CR is put after the title.
+merge_raw() {
+    n=$((n + 1))
+    g checkout -q -b "$1" "$4"
+    printf '%s\n' "$n" > "$repo/f$n"
+    g add "f$n"
+    g commit -q -m "work on $1"
+    g checkout -q "$4"
+    printf 'Merge pull request #%s from owner/%s\r\n\r\n%s\r\n' "$2" "$1" "$3" > "$sandbox/msg"
+    sha=$(g commit-tree -p "$(g rev-parse "$4")" -p "$(g rev-parse "$1")" -F "$sandbox/msg" "$(g rev-parse "$1^{tree}")")
+    g reset -q --hard "$sha"
+}
+
 g init -q
 printf 'seed\n' > "$repo/seed"
 g add seed
@@ -140,14 +156,45 @@ lacks "preview leaves tagged PRs out" "$out" "Next feature"
 # branch without a prefix.
 merge feat/013-pct 13 'Pct 100% %s %n \n \\ done'
 merge bug/014-empty 14 ''
-merge tech/015-crlf 15 "$(printf 'CRLF title\r')"
+merge_raw tech/015-crlf 15 "CRLF title" main
 merge plainbranch 16 "No prefix title"
 out=$(notes main)
 has "percent and backslashes printed verbatim" "$out" '- Pct 100% %s %n \n \\ done (#13)'
-has "empty body falls back to the number" "$out" "- Pull request #14 (#14)"
+has "empty body falls back to the branch name" "$out" "- bug/014-empty (#14)"
 has "CRLF stripped from the title" "$out" "- CRLF title (#15)"
 has "branch without a prefix goes to other" "$out" "- No prefix title (#16)"
 if printf '%s\n' "$out" | grep -q "$(printf '\r')"; then bad "no carriage return in the notes"; else ok "no carriage return in the notes"; fi
+
+# A PR merged into a side branch, which is then merged to main: only the
+# merge to main belongs to the release (--first-parent).
+g checkout -q -b feat/020-base main
+printf 'base\n' > "$repo/base"
+g add base
+g commit -q -m "work on feat/020-base"
+merge_raw feat/021-stacked 21 "Stacked PR into the side branch" feat/020-base
+g checkout -q main
+g merge -q --no-ff -m "Merge pull request #20 from owner/feat/020-base" -m "Base PR with a stack" feat/020-base
+
+# Annotated tags: as the end point and as the previous tag.
+g tag -a v0.3.0 -m "release 0.3.0"
+merge feat/022-after-annotated 22 "After the annotated tag"
+g tag -a v0.4.0 -m "release 0.4.0"
+
+out=$(notes v0.3.0)
+has "annotated tag as the end point: heading" "$out" "## v0.3.0"
+has "annotated end point: previous found" "$out" "Changes since v0.2.1"
+has "side-branch merge to main is listed" "$out" "- Base PR with a stack (#20)"
+lacks "PR merged into a side branch is left out" "$out" "Stacked PR"
+out=$(notes v0.4.0)
+has "annotated tag as the previous tag (found by itself)" "$out" "Changes since v0.3.0"
+has "annotated previous tag keeps the newer PR" "$out" "- After the annotated tag (#22)"
+lacks "annotated previous tag leaves the older PRs" "$out" "Base PR"
+out=$(notes v0.4.0 v0.3.0)
+has "annotated previous tag given explicitly" "$out" "Changes since v0.3.0"
+out=$(notes v0.4.0 v0.4.0)
+has "previous tag equal to the end keeps the heading" "$out" "## v0.4.0"
+has "previous tag equal to the end: no PRs" "$out" "No pull requests in this range."
+lacks "previous tag equal to the end: no 'since'" "$out" "Changes since"
 
 if (cd "$repo" && sh "$scripts/release-notes.sh" v9.9.9 >/dev/null 2>&1); then
     bad "unknown ref fails"
