@@ -1,6 +1,6 @@
 # ADR-0040: Place every team and project in one department, cascade the context selectors, and let a user see only what they take part in
 
-- Status: proposed
+- Status: accepted (2026-11-13, by the human in chat at mod-021 gate-3)
 - Date: 2026-11-10, revised 2026-11-12 after the human's gate-1 answers
 - Context: `doc-016-teams-under-departments`, stage 1 (business analysis): [spec](../features/doc-016-teams-under-departments/spec.md) BR-TD-1..-19, OQ-1..OQ-9; the human's stand feedback on mod-019, 2026-11-10, and answers at gate-1, 2026-11-12. **Supersedes in part** [ADR-0028](0028-matrix-organization-model.md) rule 1 (`ORGANIZATION ||--o{ TEAM`, `AREA_TEAM`, and project–team links across the organization), [ADR-0031](0031-typed-area-tree.md) rule 2 (a project node "or at the top level") and rule 4 (area–team links), [ADR-0032](0032-object-pages-and-navigation-context.md) § 5 (the selectors' offers and «Остальные»), [ADR-0038](0038-scoped-grants-project-managers-and-place-decides-creation.md) § 3 (top-level project creation by `organizations.area.create`); **amends** [ADR-0029](0029-scoped-effective-permissions.md) § 6 steps 3-4, § 8 item 4 and ADR-0038 § 1 (team creation). Nothing else in them changes. Only the human sets `accepted`, at the gate of the line that implements it (`mod-NNN-teams-in-departments`).
 
