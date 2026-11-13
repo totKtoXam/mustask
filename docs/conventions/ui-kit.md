@@ -72,6 +72,7 @@ migration is tracked in § 10.
 | tabs for a card's sections | `BoxedTabs` + `BoxedTabPanel` | MUI `Tabs`/`Tab` |
 | a text button | `ActionButton` (`primary` once; `neutral`, `subtle`, `danger`) | MUI `Button` |
 | a main action with variants | `SplitButton` | `ButtonGroup` |
+| a button that picks a file | `FilePickerButton` (`label`, `accept`, `onPick(file)`) | an `<input type="file">` of your own |
 | an icon-only button | `IconAction` (`row`, `chevron`, `header`, `bar`) | `IconButton`, a glyph size in `sx` |
 | a one-of-N switch of icon buttons (a layout, a display mode) | `IconToggleGroup` (`label`, `items`, `value`, `onChange`) | `ToggleButtonGroup`, a dropdown for two or three values |
 | a hairline glyph | the thin icons in `shared/ui/icons` — chevrons, add, remove, close, expand, more-vertical, refresh, undo, save, person | `createSvgIcon` in a slice |
@@ -108,6 +109,10 @@ ones that matter; the type is in the file.
   the icon, the button is `aria-disabled` and **stays focusable**. *Names*: the
   label. *Don't*: two `primary` in one header or dialog; a hand-made spinner; an
   accent icon on a neutral button.
+- `FilePickerButton` (mod-024) — `label`, `accept`, `onPick(file)`, `tone`, `icon`, `busy`,
+  `disabled`. An `ActionButton` that opens the system's file dialog through a visually hidden
+  file input named like the button; one file per pick, the input is cleared so the same file can be
+  picked again. *Don't*: draw a drop area that implies drag-and-drop it does not do.
 - `SplitButton` — `label`, `groupLabel`, `menuLabel`, `items`, `busy`, `disabled`.
   The arrow's name must not contain the main label's word; its glyph is the thin
   chevron (never Material's filled drop-down triangle). *Disabled* wears the

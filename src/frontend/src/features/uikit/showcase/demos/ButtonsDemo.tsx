@@ -1,6 +1,7 @@
 import Box from '@mui/material/Box';
 import {
   ActionButton,
+  FilePickerButton,
   SplitButton,
   ThinSaveIcon,
   type ActionButtonProps,
@@ -71,6 +72,14 @@ export function ButtonsDemo() {
             />
           </DemoGroup>
         ))}
+      </DemoGrid>
+      <DemoGrid>
+        <DemoGroup caption="Выбор файла: кнопка открывает окно выбора">
+          <FilePickerButton label="Выбрать файл" accept=".xlsx,.csv" onPick={noop} />
+        </DemoGroup>
+        <DemoGroup caption="Выбор файла: занято">
+          <FilePickerButton label="Загрузка файла" busy onPick={noop} />
+        </DemoGroup>
       </DemoGrid>
       <ToggleGroupDemo />
     </Box>

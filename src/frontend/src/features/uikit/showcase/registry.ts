@@ -87,7 +87,7 @@ export const showcaseRegistry: readonly ShowcaseSection[] = [
     id: 'buttons',
     title: 'Кнопки',
     usage: 'На странице и в окне одна синяя кнопка; остальные серые или без заливки.',
-    covers: ['ActionButton', 'SplitButton', 'IconToggleGroup'],
+    covers: ['ActionButton', 'SplitButton', 'IconToggleGroup', 'FilePickerButton'],
     Demo: ButtonsDemo,
   },
   {

@@ -235,3 +235,24 @@ export const boardErrorCodes = {
 } as const;
 
 export type BoardErrorCode = (typeof boardErrorCodes)[keyof typeof boardErrorCodes];
+
+/**
+ * `imports.*` — `contracts/errors/imports.json`, which mod-024 owns (its api-contract § 6). The panel
+ * branches on these; every other text comes from the answer's `detail` or from the catalogue itself.
+ */
+export const importErrorCodes = {
+  accessForbidden: 'imports.access_forbidden',
+  validationFailed: 'imports.validation_failed',
+  templateNotFound: 'imports.template.not_found',
+  templateNameTaken: 'imports.template.name_taken',
+  templateLimitReached: 'imports.template.limit_reached',
+  fileRefused: 'imports.file.refused',
+  fileNotFound: 'imports.file.not_found',
+  dryRunNotFound: 'imports.dry_run.not_found',
+  /** A note of a dry run (a code in `notes`, not an HTTP answer). */
+  noIdentifierColumn: 'imports.dry_run.no_identifier_column',
+  /** A note of a dry run: the file has no data rows. */
+  emptyFile: 'imports.dry_run.empty_file',
+} as const;
+
+export type ImportErrorCode = (typeof importErrorCodes)[keyof typeof importErrorCodes];

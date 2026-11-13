@@ -22,7 +22,8 @@ export {
 
 // Buttons and menus (P2)
 export { ActionButton, type ActionButtonProps, type ActionTone } from './actions/ActionButton';
-export { IconAction, type IconActionProps, type IconActionSize } from './actions/IconAction';
+export { FilePickerButton, type FilePickerButtonProps } from './actions/FilePickerButton';
+export { IconAction,type IconActionProps, type IconActionSize } from './actions/IconAction';
 export {
   IconToggleGroup,
   type IconToggleGroupProps,
