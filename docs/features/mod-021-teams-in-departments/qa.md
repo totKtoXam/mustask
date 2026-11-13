@@ -149,6 +149,7 @@ departments (mod-022), department managers (mod-023).
 | 2026-11-13 | ESLint and Prettier on the new file | clean |
 
 ### Defects
+#### D-3: cold first-test timeouts in two work item form tests (not this task)- Severity: minor (environment). The branch does not touch the slice; CI decides. Not a debt of this task.
 
 #### F-1: a team linked only to a deactivated project cannot be moved and the dialog offers nothing to do
 
