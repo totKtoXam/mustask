@@ -50,7 +50,7 @@ export const teamsList = {
   create: 'Создать команду',
   search: 'Найти команду',
   tableLabel: 'Команды',
-  columns: { name: 'Название', description: 'Описание' },
+  columns: { name: 'Название', department: 'Департамент', description: 'Описание' },
   mine: 'Моя команда',
   rowMenu: (name: string) => `Ещё действия: ${name}`,
   empty: {

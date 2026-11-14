@@ -5,7 +5,8 @@
  *
  * Fit is judged pair by pair, never against the selection as a whole:
  * - a project fits a department when it stands in it, a team when the team is linked to it;
- * - a team fits a department when linked to it directly or through a project placed in it;
+ * - a team fits a department when it stands in it (its place, mod-021 BR-TD-1; the department–team
+ *   links are retired);
  * - a department fits whatever those two say of it.
  * A selector hides nothing: `offerFor` returns the fitting objects and the rest. A fitting
  * choice resets nothing; a choice from the rest resets each chosen value it no longer fits.
@@ -40,7 +41,7 @@ export interface FitData {
     id: string;
     name: string;
     isMember: boolean;
-    departmentIds: readonly string[];
+    departmentId: string;
   }[];
 }
 
@@ -89,15 +90,8 @@ function teamOrder(a: SelectorOption, b: SelectorOption): number {
   return byName(a, b);
 }
 
-function teamLinkedToDepartment(data: FitData, teamId: string, departmentId: string): boolean {
-  const team = data.teams.find((candidate) => candidate.id === teamId);
-  if (!team) return false;
-  return (
-    team.departmentIds.includes(departmentId) ||
-    data.projects.some(
-      (project) => project.departmentId === departmentId && project.teamIds.includes(teamId),
-    )
-  );
+function teamStandsInDepartment(data: FitData, teamId: string, departmentId: string): boolean {
+  return data.teams.some((team) => team.id === teamId && team.departmentId === departmentId);
 }
 
 /** Whether the object `idA` of kind `a` fits the object `idB` of kind `b`; symmetric. */
@@ -114,7 +108,7 @@ export function pairFits(
   if (a === 'department' && b === 'project') {
     return data.projects.some((project) => project.id === idB && project.departmentId === idA);
   }
-  if (a === 'department' && b === 'team') return teamLinkedToDepartment(data, idB, idA);
+  if (a === 'department' && b === 'team') return teamStandsInDepartment(data, idB, idA);
   // a === 'project', b === 'team'
   return data.projects.some((project) => project.id === idA && project.teamIds.includes(idB));
 }

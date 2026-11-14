@@ -37,7 +37,7 @@ public sealed class SetTeamDescriptionEndpointTests(MustaskApiFactory factory)
         var read = await GetAsync(factory, Team(structure.OrganizationId, structure.Platform.Id));
 
         Assert.Equal(HttpStatusCode.OK, answer.Status);
-        Assert.Equal(["description", "id", "name"], PropertyNames(answer.Body));
+        Assert.Equal(["color", "departmentId", "description", "id", "name"], PropertyNames(answer.Body));
         Assert.Equal(structure.Platform.Id, answer.Body.GetProperty("id").GetGuid());
         Assert.Equal("Платформа", answer.Body.GetProperty("name").GetString());
         Assert.Equal(typed, answer.Body.GetProperty("description").GetString());

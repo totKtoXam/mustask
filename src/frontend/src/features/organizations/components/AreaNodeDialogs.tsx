@@ -56,7 +56,6 @@ export function AreaNodeDialogs({
   organizationId,
   dialog,
   canCreate,
-  canLinkTeams,
   onDone,
   onClose,
 }: {
@@ -64,8 +63,6 @@ export function AreaNodeDialogs({
   dialog: NodeDialog;
   /** The user holds `area.create`. */
   canCreate: boolean;
-  /** The user holds `area.link` and `team.link`. */
-  canLinkTeams: boolean;
   onDone(result: NodeDialogResult): void;
   onClose(contextGone: boolean): void;
 }) {
@@ -90,8 +87,6 @@ export function AreaNodeDialogs({
     >
       {dialog.kind === 'createDepartment' && (
         <CreateDepartmentDialog
-          organizationId={organizationId}
-          canLinkTeams={canLinkTeams}
           submit={(body) => createArea.mutateAsync(body)}
           onSucceeded={(area) => {
             notify(createDepartmentDialog.created(area.name));

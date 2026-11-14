@@ -10,7 +10,7 @@ namespace Mustask.Application.Features.Organizations.SetAreaDescription;
 public sealed record SetAreaDescriptionCommand(string? OrganizationId, string? AreaId, string? Description);
 
 /// <summary>The area as every area write returns it (mod-018 api-contract § 1, <c>Area</c>).</summary>
-public sealed record AreaResponse(Guid Id, Guid? ParentId, string Type, Guid? ProjectId, string Name, string? Description, string Path);
+public sealed record AreaResponse(Guid Id, Guid? ParentId, string Type, Guid? ProjectId, string Name, string? Description, string Path, string? Color = null);
 
 /// <summary>The handler's outcome: the body of the answer.</summary>
 public sealed record SetAreaDescriptionResult(AreaResponse Response);
@@ -61,7 +61,7 @@ public sealed class SetAreaDescriptionHandler(
                 var tree = new AreaTree(await areas.GetNodesAsync(organizationId, ct));
 
                 return new SetAreaDescriptionResult(
-                    new AreaResponse(area.Id, area.ParentId, AreaRequests.TypeName(area.Type), area.ProjectId, area.Name, area.Description, tree.PathOf(area.Id)));
+                    new AreaResponse(area.Id, area.ParentId, AreaRequests.TypeName(area.Type), area.ProjectId, area.Name, area.Description, tree.PathOf(area.Id), area.Color));
             },
             cancellationToken);
 }

@@ -110,6 +110,9 @@ internal sealed class ProjectTeamRepository(MustaskDbContext context) : IProject
             $"DELETE FROM project_teams WHERE organization_id = {organizationId} AND project_id = {projectId} AND team_id = {teamId}",
             cancellationToken);
 
+    public Task<bool> HasLinksAsync(Guid organizationId, Guid teamId, CancellationToken cancellationToken) =>
+        context.ProjectTeams.AnyAsync(link => link.OrganizationId == organizationId && link.TeamId == teamId, cancellationToken);
+
     public Task RemoveTeamLinksAsync(Guid organizationId, Guid teamId, CancellationToken cancellationToken) =>
         context.Database.ExecuteSqlInterpolatedAsync(
             $"DELETE FROM project_teams WHERE organization_id = {organizationId} AND team_id = {teamId}",

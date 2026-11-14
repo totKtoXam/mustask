@@ -45,13 +45,21 @@ public interface ITeamReadModel
 }
 
 /// <summary>One active team (feat-028 api-contract § 1.1): a name and a description, no project.</summary>
-public sealed record TeamRow(Guid Id, string Name, string? Description);
+public sealed record TeamRow(Guid Id, string Name, string? Description, Guid DepartmentId, string DepartmentName, string Color);
 
 /// <summary>
 /// One team of the organization's list with its active projects (api-contract § 1.2); <paramref name="IsMember"/> is the
 /// acting user's membership of the team (feat-040 api-contract § 4.1).
 /// </summary>
-public sealed record OrganizationTeamRow(Guid Id, string Name, string? Description, IReadOnlyList<ProjectRef> Projects, bool IsMember = false);
+public sealed record OrganizationTeamRow(
+    Guid Id,
+    string Name,
+    string? Description,
+    IReadOnlyList<ProjectRef> Projects,
+    Guid DepartmentId,
+    string DepartmentName,
+    string Color,
+    bool IsMember = false);
 
 /// <summary>A project named in a team's row: its id and name.</summary>
 public sealed record ProjectRef(Guid Id, string Name);
@@ -64,7 +72,7 @@ public sealed record TeamProjectRow(Guid Id, string Name, string Key);
 /// computed with <c>ProjectDefaultTeam.MarkOf</c> in the statement. <paramref name="IsMember"/> is the acting user's membership
 /// of the team, set only by the list (mod-016).
 /// </summary>
-public sealed record LinkedTeamRow(Guid Id, string Name, DefaultTeamMark Mark, bool IsMember = false);
+public sealed record LinkedTeamRow(Guid Id, string Name, DefaultTeamMark Mark, bool IsMember = false, string? Color = null);
 
 /// <summary>A project a team is linked to, with its status folded to <paramref name="IsActive"/> (api-contract § 1.5).</summary>
 public sealed record TeamLinkRow(Guid ProjectId, string Name, bool IsActive);

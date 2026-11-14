@@ -37,6 +37,7 @@ See [plan-frontend.md](plan-frontend.md).
 - 2026-11-04 [orchestrator] review round 2 (b634f46d): approved; debts CR-4 (vertical chips vanish with folded sections) and CR-10 (search in «Только связанные» no longer unfolds a section). At gate-3.
 - 2026-11-04 [orchestrator] gate-3: the human chose to fix CR-10 first, fixed in 44ab59d8 (frontend-developer); CR-4 a debt. Usage: weekly 31% (start 19%), 5-hour 20%.
 - 2026-11-05 [orchestrator] origin/main merged (b357447d, testRender.tsx conflict), pushed with VERIFY_TESTS=0 (the human said yes in chat; old hook via hooksPath). stage: complete; PR next.
+- 2026-11-13 [orchestrator] mod-021 changed this line (doc-016 BR-TD-1, ADR-0040): a team stands in one department, so the structure view draws a team once, under its department (BR-SD-3, BR-SD-16 and design.md read "a child of every department it is linked to"); see mod-021 api-contract.md § 1/§ 3.
 
 ## Notes
 Summary (from the queue line): «Структура» gets a tree and diagram switch. The diagram shows the hierarchy of departments, projects and sub-areas, and which teams work on which projects and which projects each team works on; built on the selector-offers read and the area tree, no new read expected. Asked by the human at feat-043 gate-3, 2026-11-02.

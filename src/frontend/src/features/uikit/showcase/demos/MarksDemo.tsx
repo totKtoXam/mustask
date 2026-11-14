@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react';
 import Box from '@mui/material/Box';
-import { PersonLabel, StateLabel, TypeLabel, UserAvatar } from '../../../../shared/ui';
+import { ColorLabel, PersonLabel, StateLabel, TypeLabel, UserAvatar } from '../../../../shared/ui';
 import { DEMO_PEOPLE, DEMO_STATES, DEMO_TYPES } from '../data';
 import { DemoGrid, DemoGroup } from '../parts';
 
@@ -56,6 +56,13 @@ export function MarksDemo() {
         <Box sx={(theme) => ({ width: theme.spacing(15) })}>
           <StateLabel categoryCode="InProgress" name="На согласовании у владельца продукта" clip />
         </Box>
+      </DemoGroup>
+      <DemoGroup caption="Цвет департамента, команды и проекта">
+        <Column>
+          <ColorLabel colour="blue" name="Логистика" size="department" />
+          <ColorLabel colour="orange" name="MARS" />
+          <ColorLabel colour="magenta" name="VENUS" />
+        </Column>
       </DemoGroup>
       <DemoGroup caption="Аватары, 32 и 24 пикселя">
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>

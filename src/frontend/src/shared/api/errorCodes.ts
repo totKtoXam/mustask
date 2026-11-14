@@ -40,6 +40,12 @@ export const organizationErrorCodes = {
   teamFirstTeamDefaultFixed: 'organizations.team.first_team_default_fixed',
   teamFirstTeamCannotBeDeleted: 'organizations.team.first_team_cannot_be_deleted',
   areaIsTeamDefault: 'organizations.area.is_team_default',
+  /** mod-021 api-contract § 2: 409 on the team's move while it is linked to a project (BR-TD-4). */
+  teamHasLinks: 'organizations.team.has_links',
+  /** mod-021 api-contract § 3: 409 on a department's deletion while an active team stands in it (BR-TD-5). */
+  areaHasTeams: 'organizations.area.has_teams',
+  /** mod-021 api-contract § 3: a field reason of `validationFailed` under `departmentId` (BR-TD-1). */
+  teamDepartmentRequired: 'organizations.team.department_required',
   /**
    * 409 (feat-028 api-contract § 0.3): an active team of the organization that is not linked to the project,
    * named as an owner, a default or an unlink destination.

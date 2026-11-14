@@ -22,7 +22,12 @@ public sealed class AddSprintsMigrationTests(OrganizationsDatabaseFixture databa
     [Fact]
     public async Task Migrator_AddSprints_IsAdditive_RollsBackToItsTablesAndColumn_AndAppliesAgain()
     {
-        await MigrateToAsync(MigrationName);
+        // The world is seeded at the head of the migrations, with the current model (mod-021 put a required colour and a department on the
+        // rows the fixtures write); the rollback below then walks back through every later migration down to the one before AddSprints.
+        await using (var head = database.NewContext())
+        {
+            await head.Database.MigrateAsync();
+        }
         var world = await SeedStoryAsync();
 
         await RollBackOneStepAsync();

@@ -159,14 +159,16 @@ public sealed class OrganizationLevelTeamsMigrationTests(OrganizationsDatabaseFi
         await ExecuteAsync(
             legacy.ConnectionString,
             """
-            INSERT INTO teams (id, organization_id, name, normalized_name, status) VALUES (@team, @organization, 'Platform', 'PLATFORM', 'Active');
+            INSERT INTO areas (id, organization_id, type, name, normalized_name, created_by, created_at, color) VALUES (@dept, @organization, 1, 'Отдел', 'ОТДЕЛ', 'test', now(), 'blue');
+            INSERT INTO teams (id, organization_id, name, normalized_name, status, color, department_id) VALUES (@team, @organization, 'Platform', 'PLATFORM', 'Active', 'blue', @dept);
             INSERT INTO project_teams (project_id, team_id, organization_id, linked_by, linked_at) VALUES (@project, @team, @organization, 'test', now());
             UPDATE work_items SET owning_team_id = @team WHERE project_id = @project AND number = 1;
             UPDATE projects SET default_team_id = @team WHERE id = @project
             """,
             ("team", team),
             ("organization", legacy.OrganizationA),
-            ("project", legacy.Main));
+            ("project", legacy.Main),
+            ("dept", Guid.CreateVersion7()));
 
         Assert.Equal(["1"], await QueryAsync(legacy.ConnectionString, "SELECT count(*) FROM work_items WHERE owning_team_id = @team", ("team", team)));
     }
@@ -299,7 +301,8 @@ public sealed class OrganizationLevelTeamsMigrationTests(OrganizationsDatabaseFi
         await ExecuteAsync(
             legacy.ConnectionString,
             """
-            INSERT INTO teams (id, organization_id, name, normalized_name, status) VALUES (@team, @organization, 'Новая', 'НОВАЯ', 'Active');
+            INSERT INTO areas (id, organization_id, type, name, normalized_name, created_by, created_at, color) VALUES (@dept, @organization, 1, 'Отдел', 'ОТДЕЛ', 'test', now(), 'blue');
+            INSERT INTO teams (id, organization_id, name, normalized_name, status, color, department_id) VALUES (@team, @organization, 'Новая', 'НОВАЯ', 'Active', 'blue', @dept);
             INSERT INTO project_teams (project_id, team_id, organization_id, linked_by, linked_at) VALUES (@project, @team, @organization, 'test', now());
             INSERT INTO team_memberships (team_id, user_id, organization_id) VALUES (@team, 'legacy-1', @organization);
             UPDATE work_items SET owning_team_id = @team WHERE project_id = @project AND number IN (1, 2);
@@ -311,7 +314,8 @@ public sealed class OrganizationLevelTeamsMigrationTests(OrganizationsDatabaseFi
             ("team", team),
             ("organization", legacy.OrganizationA),
             ("project", legacy.Main),
-            ("level", type.LevelId));
+            ("level", type.LevelId),
+            ("dept", Guid.CreateVersion7()));
     }
 
     private sealed record StoryType(Guid TypeId, Guid StateId, Guid LevelId);

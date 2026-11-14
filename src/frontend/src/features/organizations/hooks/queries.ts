@@ -5,7 +5,6 @@ import {
   getAreaTeams,
   getAreaTree,
   getProjectAreaTree,
-  getTeamAreas,
   getDeletionCounts,
   getOrganization,
   getOrganizationTeams,
@@ -172,8 +171,13 @@ export function useTeamProjects(
  * confirmation opens and kept for no longer (`gcTime: 0`): the next opening counts afresh.
  * Never retried: a failure is the dialog's «Повторить».
  */
-export function useDeletionCounts(organizationId: string, teamId: string) {
+export function useDeletionCounts(
+  organizationId: string,
+  teamId: string,
+  options: { enabled?: boolean } = {},
+) {
   return useQuery({
+    enabled: options.enabled ?? true,
     queryKey: organizationsKeys.deletionCounts(organizationId, teamId),
     queryFn: () => getDeletionCounts(organizationId, teamId),
     gcTime: 0,
@@ -237,7 +241,7 @@ export function useArea(
   });
 }
 
-/** A department's teams, its own links only (§ 3). */
+/** The active teams standing in a department (mod-021 § 3). */
 export function useAreaTeams(organizationId: string, areaId: string, enabled = true) {
   return useQuery({
     enabled,
@@ -262,15 +266,6 @@ export function useAreaDeletion(
     enabled: options.enabled ?? true,
     gcTime: 0,
     retry: false,
-  });
-}
-
-/** A team's linked departments, by path (§ 5). */
-export function useTeamAreas(organizationId: string, teamId: string, enabled = true) {
-  return useQuery({
-    enabled,
-    queryKey: organizationsKeys.teamAreas(organizationId, teamId),
-    queryFn: () => getTeamAreas(organizationId, teamId),
   });
 }
 

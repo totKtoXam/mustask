@@ -37,9 +37,6 @@ public sealed class InMemoryOrganizations
 
     public List<Area> Areas { get; } = [];
 
-    /// <summary>The area–team links (mod-018 BR-AW-6).</summary>
-    public List<AreaTeam> AreaTeams { get; } = [];
-
     public List<OrganizationMembership> Memberships { get; } = [];
 
     public List<TeamMembership> TeamMemberships { get; } = [];
@@ -104,9 +101,9 @@ public sealed class InMemoryOrganizations
     }
 
     /// <summary>A project with its node (mod-018 OQ-5 A): at the top of the tree, or under <paramref name="department"/>.</summary>
-    public NewProject AddProject(Organization organization, string name = "Пример проекта", string key = "PRM", Area? department = null)
+    public NewProject AddProject(Organization organization, string name = "Пример проекта", string key = "PRM", Area? department = null, string color = "blue")
     {
-        var created = Project.Create(organization.Id, Name(name), key, Now, Creator, parentAreaId: department?.Id);
+        var created = Project.Create(organization.Id, Name(name), key, Now, Creator, color, parentAreaId: department?.Id);
         Store(created);
 
         return created;
@@ -122,9 +119,9 @@ public sealed class InMemoryOrganizations
     public Area RootOf(Project project) => Areas.Single(area => area.ProjectId == project.Id && area.Type == AreaType.Project);
 
     /// <summary>A team of the organization (feat-028 BR-OL-1): linked to no project until <see cref="Link"/> says so.</summary>
-    public Team AddTeam(Organization organization, string name = "Платформа")
+    public Team AddTeam(Organization organization, string name = "Платформа", Area? department = null, string color = "blue")
     {
-        var team = Team.Create(organization.Id, Name(name));
+        var team = Team.Create(organization.Id, department?.Id ?? Guid.CreateVersion7(), color, Name(name));
         Teams.Add(team);
 
         return team;
@@ -167,9 +164,9 @@ public sealed class InMemoryOrganizations
     public bool IsLinked(Guid projectId, Guid teamId) => Links.Any(link => link.ProjectId == projectId && link.TeamId == teamId);
 
     /// <summary>A department at the top of the organization's tree (mod-018 BR-AW-3).</summary>
-    public Area AddDepartment(Organization organization, string name)
+    public Area AddDepartment(Organization organization, string name, string color = "blue")
     {
-        var area = Area.CreateDepartment(organization.Id, Name(name), null, Creator, Now);
+        var area = Area.CreateDepartment(organization.Id, color, Name(name), null, Creator, Now);
         Areas.Add(area);
 
         return area;
@@ -182,14 +179,6 @@ public sealed class InMemoryOrganizations
         Areas.Add(area);
 
         return area;
-    }
-
-    public AreaTeam LinkArea(Area area, Team team)
-    {
-        var link = AreaTeam.Link(area.OrganizationId, area.Id, team.Id, Creator, Now);
-        AreaTeams.Add(link);
-
-        return link;
     }
 
     public Organization? FindOrganization(Guid id) => Organizations.SingleOrDefault(organization => organization.Id == id);
@@ -217,7 +206,6 @@ public sealed class InMemoryOrganizations
     internal void Unstore(Area area)
     {
         Areas.Remove(area);
-        AreaTeams.RemoveAll(link => link.AreaId == area.Id);
     }
 
     /// <summary>
@@ -274,9 +262,6 @@ public sealed class InMemoryOrganizations
                     break;
                 case Area area:
                     Areas.Add(area);
-                    break;
-                case AreaTeam link:
-                    AreaTeams.Add(link);
                     break;
                 case OrganizationMembership membership:
                     Memberships.Add(membership);

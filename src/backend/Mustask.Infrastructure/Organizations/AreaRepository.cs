@@ -114,6 +114,13 @@ internal sealed class AreaRepository(MustaskDbContext context) : IAreaRepository
     public Task<bool> HasChildrenAsync(Guid organizationId, Guid areaId, CancellationToken cancellationToken) =>
         context.Areas.AnyAsync(area => area.OrganizationId == organizationId && area.ParentId == areaId, cancellationToken);
 
+    public async Task<IReadOnlyList<string>> ListDepartmentColorsAsync(Guid organizationId, CancellationToken cancellationToken) =>
+        await context.Areas
+            .AsNoTracking()
+            .Where(area => area.OrganizationId == organizationId && area.Type == AreaType.Department)
+            .Select(area => area.Color!)
+            .ToListAsync(cancellationToken);
+
     public Task<bool> IsSiblingNameTakenAsync(
         Guid organizationId, Guid? parentId, string normalizedName, Guid? exceptId, CancellationToken cancellationToken) =>
         context.Areas.AnyAsync(

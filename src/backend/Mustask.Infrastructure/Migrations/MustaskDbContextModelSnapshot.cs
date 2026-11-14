@@ -17,7 +17,7 @@ namespace Mustask.Infrastructure.Migrations
         {
 #pragma warning disable 612, 618
             modelBuilder
-                .HasAnnotation("ProductVersion", "10.0.11")
+                .HasAnnotation("ProductVersion", "10.0.14")
                 .HasAnnotation("Relational:MaxIdentifierLength", 63);
 
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
@@ -253,6 +253,10 @@ namespace Mustask.Infrastructure.Migrations
                     b.Property<Guid>("Id")
                         .HasColumnType("uuid");
 
+                    b.Property<string>("Color")
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)");
+
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("timestamp with time zone");
 
@@ -323,6 +327,8 @@ namespace Mustask.Infrastructure.Migrations
 
                     b.ToTable("areas", t =>
                         {
+                            t.HasCheckConstraint("ck_areas_color", "(type = 1 AND color IS NOT NULL AND color IN ('blue', 'orange', 'green', 'purple', 'red', 'teal', 'amber', 'pink', 'indigo', 'lime', 'magenta', 'cyan')) OR (type <> 1 AND color IS NULL)");
+
                             t.HasCheckConstraint("ck_areas_description_length", "description IS NULL OR char_length(description) BETWEEN 1 AND 2000");
 
                             t.HasCheckConstraint("ck_areas_name_length", "char_length(name) BETWEEN 1 AND 100");
@@ -331,6 +337,9 @@ namespace Mustask.Infrastructure.Migrations
 
                             t.Property("Id")
                                 .HasColumnName("id");
+
+                            t.Property("Color")
+                                .HasColumnName("color");
 
                             t.Property("CreatedAt")
                                 .HasColumnName("created_at");
@@ -427,65 +436,6 @@ namespace Mustask.Infrastructure.Migrations
 
                             t.Property("Role")
                                 .HasColumnName("role");
-
-                            t.Property("xmin")
-                                .HasColumnName("xmin");
-                        });
-                });
-
-            modelBuilder.Entity("Mustask.Domain.Organizations.AreaTeam", b =>
-                {
-                    b.Property<Guid>("AreaId")
-                        .HasColumnType("uuid");
-
-                    b.Property<Guid>("TeamId")
-                        .HasColumnType("uuid");
-
-                    b.Property<DateTimeOffset>("LinkedAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<string>("LinkedBy")
-                        .IsRequired()
-                        .HasMaxLength(255)
-                        .HasColumnType("character varying(255)");
-
-                    b.Property<Guid>("OrganizationId")
-                        .HasColumnType("uuid");
-
-                    b.Property<uint>("xmin")
-                        .IsConcurrencyToken()
-                        .ValueGeneratedOnAddOrUpdate()
-                        .HasColumnType("xid")
-                        .HasColumnName("xmin");
-
-                    b.HasKey("AreaId", "TeamId")
-                        .HasName("pk_area_teams");
-
-                    b.HasIndex("OrganizationId", "AreaId")
-                        .HasDatabaseName("ix_area_teams_organization_id_area_id");
-
-                    b.HasIndex("OrganizationId", "TeamId")
-                        .HasDatabaseName("ix_area_teams_organization_id_team_id");
-
-                    b.HasIndex(new[] { "TeamId", "AreaId" }, "ix_area_teams_team_id_area_id")
-                        .HasDatabaseName("ix_area_teams_team_id_area_id");
-
-                    b.ToTable("area_teams", null, t =>
-                        {
-                            t.Property("AreaId")
-                                .HasColumnName("area_id");
-
-                            t.Property("TeamId")
-                                .HasColumnName("team_id");
-
-                            t.Property("LinkedAt")
-                                .HasColumnName("linked_at");
-
-                            t.Property("LinkedBy")
-                                .HasColumnName("linked_by");
-
-                            t.Property("OrganizationId")
-                                .HasColumnName("organization_id");
 
                             t.Property("xmin")
                                 .HasColumnName("xmin");
@@ -716,6 +666,11 @@ namespace Mustask.Infrastructure.Migrations
                     b.Property<Guid>("Id")
                         .HasColumnType("uuid");
 
+                    b.Property<string>("Color")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)");
+
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("timestamp with time zone");
 
@@ -778,6 +733,8 @@ namespace Mustask.Infrastructure.Migrations
 
                     b.ToTable("projects", t =>
                         {
+                            t.HasCheckConstraint("ck_projects_color", "color IN ('blue', 'orange', 'green', 'purple', 'red', 'teal', 'amber', 'pink', 'indigo', 'lime', 'magenta', 'cyan')");
+
                             t.HasCheckConstraint("ck_projects_description_length", "description IS NULL OR char_length(description) BETWEEN 1 AND 2000");
 
                             t.HasCheckConstraint("ck_projects_key_format", "key ~ '^[A-Z][A-Z0-9]{1,9}$'");
@@ -788,6 +745,9 @@ namespace Mustask.Infrastructure.Migrations
 
                             t.Property("Id")
                                 .HasColumnName("id");
+
+                            t.Property("Color")
+                                .HasColumnName("color");
 
                             t.Property("CreatedAt")
                                 .HasColumnName("created_at");
@@ -951,6 +911,14 @@ namespace Mustask.Infrastructure.Migrations
                     b.Property<Guid>("Id")
                         .HasColumnType("uuid");
 
+                    b.Property<string>("Color")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)");
+
+                    b.Property<Guid?>("DepartmentId")
+                        .HasColumnType("uuid");
+
                     b.Property<string>("Description")
                         .HasColumnType("text");
 
@@ -984,6 +952,9 @@ namespace Mustask.Infrastructure.Migrations
                     b.HasAlternateKey("OrganizationId", "Id")
                         .HasName("ak_teams_organization_id_id");
 
+                    b.HasIndex(new[] { "OrganizationId", "DepartmentId" }, "ix_teams_organization_id_department_id")
+                        .HasDatabaseName("ix_teams_organization_id_department_id");
+
                     b.HasIndex(new[] { "OrganizationId", "NormalizedName" }, "ix_teams_organization_id_normalized_name")
                         .IsUnique()
                         .HasDatabaseName("ix_teams_organization_id_normalized_name")
@@ -991,6 +962,10 @@ namespace Mustask.Infrastructure.Migrations
 
                     b.ToTable("teams", t =>
                         {
+                            t.HasCheckConstraint("ck_teams_color", "color IN ('blue', 'orange', 'green', 'purple', 'red', 'teal', 'amber', 'pink', 'indigo', 'lime', 'magenta', 'cyan')");
+
+                            t.HasCheckConstraint("ck_teams_department_place", "(status <> 'Deleted' AND department_id IS NOT NULL) OR (status = 'Deleted' AND department_id IS NULL)");
+
                             t.HasCheckConstraint("ck_teams_description_length", "description IS NULL OR char_length(description) BETWEEN 1 AND 2000");
 
                             t.HasCheckConstraint("ck_teams_name_length", "char_length(name) BETWEEN 1 AND 100");
@@ -999,6 +974,12 @@ namespace Mustask.Infrastructure.Migrations
 
                             t.Property("Id")
                                 .HasColumnName("id");
+
+                            t.Property("Color")
+                                .HasColumnName("color");
+
+                            t.Property("DepartmentId")
+                                .HasColumnName("department_id");
 
                             t.Property("Description")
                                 .HasColumnName("description");
@@ -2461,25 +2442,6 @@ namespace Mustask.Infrastructure.Migrations
                         .HasConstraintName("fk_area_grants_organization_memberships");
                 });
 
-            modelBuilder.Entity("Mustask.Domain.Organizations.AreaTeam", b =>
-                {
-                    b.HasOne("Mustask.Domain.Organizations.Area", null)
-                        .WithMany()
-                        .HasForeignKey("OrganizationId", "AreaId")
-                        .HasPrincipalKey("OrganizationId", "Id")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired()
-                        .HasConstraintName("fk_area_teams_areas_organization_id_area_id");
-
-                    b.HasOne("Mustask.Domain.Organizations.Team", null)
-                        .WithMany()
-                        .HasForeignKey("OrganizationId", "TeamId")
-                        .HasPrincipalKey("OrganizationId", "Id")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired()
-                        .HasConstraintName("fk_area_teams_teams_organization_id_team_id");
-                });
-
             modelBuilder.Entity("Mustask.Domain.Organizations.Organization", b =>
                 {
                     b.HasOne("Mustask.Domain.Process.ProcessDefinition", null)
@@ -2571,6 +2533,13 @@ namespace Mustask.Infrastructure.Migrations
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired()
                         .HasConstraintName("fk_teams_organizations_organization_id");
+
+                    b.HasOne("Mustask.Domain.Organizations.Area", null)
+                        .WithMany()
+                        .HasForeignKey("OrganizationId", "DepartmentId")
+                        .HasPrincipalKey("OrganizationId", "Id")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .HasConstraintName("fk_teams_areas_organization_id_department_id");
                 });
 
             modelBuilder.Entity("Mustask.Domain.Organizations.TeamGrant", b =>

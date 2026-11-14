@@ -113,10 +113,6 @@ const SURFACES: Readonly<Record<string, SurfaceEntry>> = {
       { file: `${o}pages/AreasPage.tsx`, marker: 'ObjectAccess' },
     ],
   },
-  [`${o}components/TeamDepartmentsSection.tsx`]: {
-    why: 'a section of the team page',
-    via: self(`${o}pages/TeamPage.tsx`, 'ObjectAccess'),
-  },
   [`${o}components/TeamMembersSection.tsx`]: {
     why: 'a section of the team page',
     via: self(`${o}pages/TeamPage.tsx`, 'ObjectAccess'),
@@ -130,11 +126,8 @@ const SURFACES: Readonly<Record<string, SurfaceEntry>> = {
     via: self(`${o}pages/AreaPage.tsx`, 'useObjectAccess'),
   },
   [`${o}pages/AreasPage.tsx`]: {
-    why: 'the tree writable ids, once; the role floor for the link of teams',
-    via: [
-      { file: `${o}pages/AreasPage.tsx`, marker: 'useWritableAreaIds' },
-      { file: `${o}pages/AreasPage.tsx`, marker: 'useRoleFloor' },
-    ],
+    why: 'the tree writable ids, once',
+    via: self(`${o}pages/AreasPage.tsx`, 'useWritableAreaIds'),
   },
   [`${o}pages/OrganizationTeamsPage.tsx`]: {
     why: 'team rows carry no codes: the role floor',

@@ -1,6 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import { ApiError } from '../../shared/api/httpClient';
 import {
+  createArea,
+  deleteArea,
+  getAreaTeams,
+  moveTeam,
   createProject,
   createTeam,
   deleteTeam,
@@ -85,37 +89,46 @@ describe('the slice’s test API answers per api-contract (a check of the test d
     const project = await createProject(ids.beta, { name: 'Ядро', key: 'CORE', description: 'Д' });
     expect(project.description).toBe('Д');
     expect(await getTeams(ids.beta, project.id)).toEqual([]);
+    const department = await createArea(ids.beta, { name: 'Отдел' });
     const treeBefore = await getAreaTree(ids.beta);
 
     const team = await createTeam(ids.beta, {
       name: 'Сервис',
       description: ' Первая\nВторая',
+      departmentId: department.id,
       projectIds: [project.id],
     });
     expect(team).toEqual({
       id: team.id,
       name: 'Сервис',
       description: ' Первая\nВторая',
-      codes: expect.any(Array),
+      departmentId: department.id,
+      departmentName: 'Отдел',
+      color: 'blue',
     });
     expect(await getAreaTree(ids.beta)).toEqual(treeBefore);
     // One linked team and no setting: it is the project's default as the only one.
     expect((await getTeams(ids.beta, project.id)).map((t) => [t.name, t.defaultMark])).toEqual([
       ['Сервис', 'onlyTeam'],
     ]);
-    expect(api.writes()).toHaveLength(2);
+    expect(api.writes()).toHaveLength(3);
   });
 
   it('refuses a name held by an active team of the organization, in any case, and frees a deleted team’s', async () => {
     serveOrganizations();
+    const otherDepartment = await createArea(ids.beta, { name: 'Отдел' });
 
-    expect(await codeOf(createTeam(ids.alfa, { name: ' платформа ' }))).toBe(
-      'organizations.team.name_taken',
-    );
+    expect(
+      await codeOf(createTeam(ids.alfa, { name: ' платформа ', departmentId: ids.platformArea })),
+    ).toBe('organizations.team.name_taken');
     // Another organization may share it.
-    expect((await createTeam(ids.beta, { name: 'Платформа' })).name).toBe('Платформа');
+    expect(
+      (await createTeam(ids.beta, { name: 'Платформа', departmentId: otherDepartment.id })).name,
+    ).toBe('Платформа');
     await deleteTeam(ids.alfa, ids.platformTeam);
-    expect((await createTeam(ids.alfa, { name: 'Платформа' })).name).toBe('Платформа');
+    expect(
+      (await createTeam(ids.alfa, { name: 'Платформа', departmentId: ids.platformArea })).name,
+    ).toBe('Платформа');
     expect(await codeOf(renameTeam(ids.alfa, ids.anlTeam, 'пример проекта'))).toBe(
       'organizations.team.name_taken',
     );
@@ -124,9 +137,11 @@ describe('the slice’s test API answers per api-contract (a check of the test d
   it('answers a project of another organization, in a team’s creation, as a project that names nothing', async () => {
     serveOrganizations();
 
-    expect(await codeOf(createTeam(ids.alfa, { name: 'Х', projectIds: [ids.rep] }))).toBe(
-      'organizations.project.not_found',
-    );
+    expect(
+      await codeOf(
+        createTeam(ids.alfa, { name: 'Х', departmentId: ids.platformArea, projectIds: [ids.rep] }),
+      ),
+    ).toBe('organizations.project.not_found');
     expect((await getOrganizationTeams(ids.alfa)).map((t) => t.name)).not.toContain('Х');
   });
 
@@ -235,5 +250,61 @@ describe('the slice’s test API answers per api-contract (a check of the test d
     expect(await codeOf(getTeam(ids.alfa, ids.anlTeam))).toBe('organizations.team.not_found');
     // BR-OL-10: the project is left with no team, and the guard code is not answered.
     expect(await getTeams(ids.alfa, ids.anl)).toEqual([]);
+  });
+
+  it('mod-021 api-contract §§ 2, 3: a team stands in one department; it moves, is listed there and blocks the department’s deletion', async () => {
+    const data = exampleDataset();
+    data.links = data.links.filter((link) => link.teamId !== ids.oldTeam);
+    serveOrganizations(data);
+
+    expect((await getAreaTeams(ids.alfa, ids.platformArea)).map((t) => t.name)).toEqual([
+      'Аналитика',
+      'Платформа',
+      'Пример проекта',
+      'Старый проект',
+    ]);
+    expect(await getAreaTeams(ids.alfa, ids.reportsArea)).toEqual([]);
+    expect(await codeOf(deleteArea(ids.alfa, ids.platformArea))).toBe(
+      'organizations.area.has_teams',
+    );
+
+    // «Аналитика» works on a project: the move is refused, nothing changes.
+    expect(await codeOf(moveTeam(ids.alfa, ids.anlTeam, ids.reportsArea))).toBe(
+      'organizations.team.has_links',
+    );
+    // «Старый проект» has no project (any status): it moves, and the answer is its place.
+    const place = await moveTeam(ids.alfa, ids.oldTeam, ids.reportsArea);
+    expect(place).toMatchObject({
+      id: ids.oldTeam,
+      departmentId: ids.reportsArea,
+      departmentName: 'Отчёты',
+      color: 'blue',
+    });
+    expect((await getAreaTeams(ids.alfa, ids.reportsArea)).map((t) => t.name)).toEqual([
+      'Старый проект',
+    ]);
+    // The same place again is a no-op that answers 200, even with links.
+    expect((await moveTeam(ids.alfa, ids.anlTeam, ids.platformArea)).departmentId).toBe(
+      ids.platformArea,
+    );
+  });
+
+  it('mod-021 api-contract § 2: the department checks of a team’s creation and move', async () => {
+    serveOrganizations();
+
+    expect(await codeOf(createTeam(ids.alfa, { name: 'Х' } as never))).toBe(
+      'organizations.validation_failed',
+    );
+    expect(await codeOf(createTeam(ids.alfa, { name: 'Х', departmentId: ids.prmRoot }))).toBe(
+      'organizations.area.type_not_allowed',
+    );
+    expect(
+      await codeOf(
+        createTeam(ids.alfa, { name: 'Х', departmentId: 'd0000000-0000-4000-8000-0000000000ff' }),
+      ),
+    ).toBe('organizations.area.not_found');
+    expect(await codeOf(moveTeam(ids.alfa, ids.oldTeam, ids.prmRoot))).toBe(
+      'organizations.area.type_not_allowed',
+    );
   });
 });
