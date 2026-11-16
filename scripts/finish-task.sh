@@ -15,8 +15,8 @@
 # repeated by hand 42 times: write the message, commit the branch, squash,
 # commit in the main worktree, check the branch actually landed, report.
 #
-# WHEN A MERGE IS ALLOWED. Only a human accepts work (AGENTS.md, "Only a
-# human presses Merge"). This script does not decide that — it refuses unless
+# WHEN A MERGE IS ALLOWED. Only a human accepts work (AGENTS.md, "Task PRs
+# auto-merge; the agent never merges by hand"). This script does not decide that — it refuses unless
 # the decision is already recorded in the task's own status.md:
 #
 #   * `gate-3: approved`, or
@@ -145,8 +145,8 @@ elif printf '%s\n' "$card" | grep -qi 'standing approval'; then
 fi
 [ -n "$approval" ] || die "Nobody has accepted this work.
 docs/features/$id/status.md has neither \`gate-3: approved\` nor a standing
-approval in \`## Log\`. Only a human accepts work (AGENTS.md, \"Only a human
-presses Merge\"); this script will not do it for them."
+approval in \`## Log\`. Only a human accepts work (AGENTS.md, \"Task PRs
+auto-merge; the agent never merges by hand\"); this script will not do it for them."
 
 if printf '%s\n' "$card" | grep -qE '^gate-3: rejected'; then
     die "gate-3 is rejected — the work is not finished."

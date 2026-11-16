@@ -189,8 +189,9 @@ After the checks are green and code review is done, stop at `gate-3`. After
 `gate-3: approved` set `stage: complete` in the branch, push it, open the MR
 via `glab`, write the MR link into the `gate-3:` line and send a short
 notification with the link — the sections "Opening the MR" and "The gate-3
-verdict and the MR link" in `stages/07-mr-complete.md`. Then stop: the
-Merge button is pressed by the human. The branch on the server is not deleted,
+verdict and the MR link" in `stages/07-mr-complete.md`. Turn on auto-merge
+(`gh pr merge <N> --auto --merge`) and stop: the PR merges itself when CI is
+green; the agent never merges by hand. The branch on the server is not deleted,
 neither before nor after the merge.
 
 With no remote the ending is a local squash — `scripts/finish-task.sh`, which
