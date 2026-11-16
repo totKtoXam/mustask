@@ -64,6 +64,7 @@ fixtures use made-up data only.
 - 2026-11-16 [frontend-dev] fixed QA-FD-1 (kit InputField now passes onBlur to the InputBase, kit test added), -2 (heldSample keeps the sample across the remount), -3 («По таблице» sends `empty`, text «Оставить пустым»), -4, -5, -6 (state options carry the type), -7; left QA-FD-8 (greying a stale report, «Уже сопоставлено»). The 4 skipped QA tests un-skipped and green. Runs: features/imports + shared/ui/fields + kitGuard 22 files / 946 passed / 6 skipped (pre-existing skipIf in FieldFrame.shared); tsc -b and eslint clean (0 warnings).
 
 - 2026-11-16 [qa-engineer] frontend QA re-check 1: QA-FD-1..7 verified fixed (kit onBlur does not double-call inputProps.onBlur; `empty` matches the contract enum); new minor QA-FD-9 (heldSample leaks the abandoned `new` sample into the next new template, test skipped); QA-FD-8 stays open (minor, gate-3). 957 passed, 7 skipped in the affected sets, tsc and ESLint clean; result: passed with minors, see qa.md.
+- 2026-11-16 [orchestrator] fixed QA-FD-9 (minor): a new template's editor drops the held `new` sample on mount, so an abandoned draft's file never reaches the next new template; the skipped QA test runs green (features/imports 92 passed), tsc, ESLint and Prettier clean. QA-FD-8 stays a minor for gate-3.
 
 ## Notes
 

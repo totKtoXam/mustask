@@ -158,7 +158,12 @@ function TemplateEditor({
   );
   const [draft, setDraft] = useState<Draft>(initial);
   const sampleKey = heldSample.keyOf(template?.id);
-  const [sample, setSampleState] = useState<SampleFile | null>(() => heldSample.get(sampleKey));
+  // A new template's editor always opens empty: a `new` sample left by an abandoned draft is dropped
+  // (only a saved template's remount takes its sample back, QA-FD-9).
+  const [sample, setSampleState] = useState<SampleFile | null>(() => {
+    if (template === undefined) heldSample.set(sampleKey, null);
+    return heldSample.get(sampleKey);
+  });
   const setSample = (next: SampleFile | null) => {
     heldSample.set(sampleKey, next);
     setSampleState(next);

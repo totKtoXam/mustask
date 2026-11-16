@@ -134,9 +134,9 @@ describe('the editor: the sample file across a save', () => {
 });
 
 describe('the editor: the held sample does not leak (QA re-check 1)', () => {
-  // heldSample is module state and its `new` key is cleared only by a first save: an abandoned new
-  // template leaves its sample for the next, unrelated new template (QA-FD-9).
-  it.skip('does not offer the sample of an abandoned new template to the next new one (QA-FD-9)', async () => {
+  // heldSample is module state: an abandoned new template must not leave its sample for the next
+  // unrelated new template (QA-FD-9, fixed: a new editor drops the `new` key on mount).
+  it('does not offer the sample of an abandoned new template to the next new one (QA-FD-9)', async () => {
     serveImports();
     serveFile();
     const first = renderPage(`${BASE}/templates/new`);
