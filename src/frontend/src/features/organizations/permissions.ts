@@ -39,6 +39,8 @@ export const organizationsPermissions = {
   areaGrant: 'organizations.area.grant',
   projectGrant: 'organizations.project.grant',
   teamGrant: 'organizations.team.grant',
+  /** feat-041: set the project's «Видим всей организации» (an object-scope code: read from the project's `codes`). */
+  visibilityWrite: 'organizations.visibility.write',
   /** Instance code, in the token. */
   organizationCreate: 'organizations.organization.create',
   /** Instance code, in the token (feat-033, ADR-0035): «Все организации» and the appointment. */

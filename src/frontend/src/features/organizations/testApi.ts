@@ -412,6 +412,7 @@ export class OrganizationsTestApi {
       description: project.description ?? null,
       codes: this.objectCodes(project.organizationId),
       color: project.color ?? DEFAULT_COLOUR,
+      visibleToOrganization: project.visibleToOrganization ?? false,
     };
   }
 
@@ -1298,6 +1299,18 @@ export class OrganizationsTestApi {
       http.put(
         `${PROJECT_URL}/description`,
         answer(200, (p, b) => this.describeProject(pr(p), b)),
+      ),
+      http.put(
+        `${PROJECT_URL}/visibility`,
+        answer(200, (p, b) => {
+          const project = pr(p);
+          project.visibleToOrganization = b.visibleToOrganization === true;
+          return {
+            id: project.id,
+            organizationId: project.organizationId,
+            visibleToOrganization: project.visibleToOrganization,
+          };
+        }),
       ),
       http.post(
         `${PROJECT_URL}/deactivate`,

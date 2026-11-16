@@ -32,6 +32,7 @@ import {
   restoreOrganization,
   restoreProject,
   setDefaultTeam,
+  setProjectVisibility,
   unlinkTeam,
   type CreateAreaBody,
   type CreateProjectBody,
@@ -119,6 +120,21 @@ export function useDescribeProject(organizationId: string, projectId: string) {
     mutationFn: (description: string | null) =>
       describeProject(organizationId, projectId, description),
     onSuccess: () => invalidate(client, keys.project(organizationId, projectId)),
+  });
+}
+
+/** feat-041 api-contract § 2.1: «Видим всей организации». Sight changes what the lists offer, so they are read again. */
+export function useSetProjectVisibility(organizationId: string, projectId: string) {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: (visibleToOrganization: boolean) =>
+      setProjectVisibility(organizationId, projectId, visibleToOrganization),
+    onSuccess: () =>
+      invalidate(
+        client,
+        keys.project(organizationId, projectId),
+        keys.projects(organizationId, 'active'),
+      ),
   });
 }
 
