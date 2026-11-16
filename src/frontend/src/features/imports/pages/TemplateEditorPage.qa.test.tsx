@@ -133,6 +133,21 @@ describe('the editor: the sample file across a save', () => {
   });
 });
 
+describe('the editor: the held sample does not leak (QA re-check 1)', () => {
+  // heldSample is module state and its `new` key is cleared only by a first save: an abandoned new
+  // template leaves its sample for the next, unrelated new template (QA-FD-9).
+  it.skip('does not offer the sample of an abandoned new template to the next new one (QA-FD-9)', async () => {
+    serveImports();
+    serveFile();
+    const first = renderPage(`${BASE}/templates/new`);
+    await pickSample();
+    first.unmount();
+    renderPage(`${BASE}/templates/new`);
+    await waitFor(() => expect(document.querySelector('input[type="file"]')).not.toBeNull());
+    expect(screen.queryByText(/tasks\.xlsx · /)).toBeNull();
+  });
+});
+
 describe('the chain dialog', () => {
   const withLookup = {
     ...catalogue,

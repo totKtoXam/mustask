@@ -241,6 +241,7 @@ E2E: skipped by the human's standing answer (NO until revoked); the question was
 - `src/frontend/src/features/imports/components/SourceTab.test.tsx`: 18 (1 skipped: QA-FD-1).
 - `src/frontend/src/features/imports/components/ValuesTab.test.tsx`: 14.
 - `src/frontend/src/features/imports/pages/TemplateEditorPage.qa.test.tsx`: 12 (2 skipped: QA-FD-2, -3).
+- re-check 1: `TemplateEditorPage.qa.test.tsx` +1 (skipped: QA-FD-9); `shared/ui/fields/InputField.test.tsx` +1 (inputProps.onBlur once). The four QA-FD-1..4 tests un-skipped by the developer pass.
 - `src/frontend/src/features/imports/pages/CheckFilePage.qa.test.tsx`: 12 (1 skipped: QA-FD-4).
 - `src/frontend/src/features/imports/testFixtures.ts`: `fileRead`, `uploaded`, `serveFile`.
 
@@ -258,3 +259,44 @@ Not run: the whole frontend suite and `verify.sh` (CI, economy mode); E2E (stand
 ### Verdict
 
 blockers: 0 · majors open: 2 (QA-FD-1, QA-FD-3, back to the frontend developer) · minors: 6 (QA-FD-2, -4, -5, -6, -7, -8; carried to gate-3 unless taken with the majors) · result: not passed yet; the re-check covers QA-FD-1, -3 and un-skips the four tests as each is fixed.
+
+### Re-check 1 (fixes in 2be3e682)
+
+Checked against the defect text and `api-contract.md`, not against the developer's claims.
+
+| Defect | Fixed? | Verdict | Evidence |
+|---|---|---|---|
+| QA-FD-1 header-row / first-data-row blur | yes | pass | The kit `InputField` now has `onBlur` on the `InputBase`, chained to `inputProps.onBlur`; `InlineNumberField` exposes it; `SourceTab` uses it. The un-skipped `SourceTab` test passes. Other kit users: `ChecklistAddField` passes `inputProps.onBlur`, `KeywordFilter` blurs by bubbling, `AddChildRow` / `CardChecklists` use their own handlers; none passes the new prop. Added `InputField.test.tsx` «calls the host's inputProps.onBlur once per blur…»: passes, so `inputProps.onBlur` is not called twice and `onBlur` fires once. Their test sets are green. |
+| QA-FD-3 third «По таблице» policy | yes | pass | The option now sends `empty`, text «Оставить пустым»; `api-contract.md` § 2.1 / recoding enum is `error\|default\|empty`. The un-skipped test passes. |
+| QA-FD-2 sample lost after save | yes | pass for the case reported | The un-skipped test passes (save of an existing template, create moving to the saved id). But see QA-FD-9. |
+| QA-FD-4 stale report says «nothing to import» | yes | pass | `!report.stale` added; un-skipped test passes. |
+| QA-FD-5 `stepError` lookup | yes | pass | An empty table and the default policy with an empty default now give «fillValue», as `TemplateValidator.cs` refuses them. |
+| QA-FD-6 states of every type in one select | yes | pass | A type-less entry labels the state «Тип · Состояние»; the `ValuesTab` test adjusted. |
+| QA-FD-7 react-refresh warnings | yes | pass | `stepError` and `sampleOf` no longer exported; ESLint on `features/imports` and `shared/ui/fields`: clean. |
+| QA-FD-8 stale report not greyed; taken field not marked | no (left open by design) | minor, carried to gate-3 | Unchanged. |
+
+New defect found while verifying QA-FD-2:
+
+#### QA-FD-9 (minor): the held sample leaks between templates
+
+- `lib/heldSample.ts` is module state; the `new` key is cleared only by `promote` after a first save, and no key is cleared on leaving the editor, on deleting a template or on switching the organization.
+- Steps: open «Новый шаблон» in any organization, upload a sample, leave without saving, open «Новый шаблон» again (or the same in another organization). The old sample (`tasks.xlsx · 20 КБ`) is shown in the new, unrelated draft. It is the user's own file in memory only, so no cross-user exposure, but the new draft is told it has a sample whose columns it never chose; the same key `new` is shared by all organizations.
+- Fix: clear `new` (and the template's key) when the editor unmounts for a reason other than a save/refresh remount, or key the map by organization and clear on leave / on delete.
+- Test: `TemplateEditorPage.qa.test.tsx` «does not offer the sample of an abandoned new template…» (QA-FD-9), skipped; fails as described when un-skipped.
+
+### Runs (re-check 1)
+
+| What was run | Result |
+|---|---|
+| `vitest run src/features/imports src/shared/ui/fields src/test/kitGuard.test.ts` + the `ChecklistAddField`, `KeywordFilter` tests | 23 files, 957 passed, 7 skipped (6 `skipIf` cases of the kit field frame, QA-FD-9), 0 failed |
+| `vitest run src/shared/ui/fields/InputField.test.tsx` after the new test | 11 passed |
+| QA-FD-9 test with `skip` removed | fails as described |
+| `tsc -b`; `eslint` and `prettier --check` on `features/imports`, `shared/ui/fields` | clean |
+
+Not run: `verify.sh` (CI); E2E (standing answer: no).
+
+### Verdict (re-check 1)
+
+blockers: 0 · majors open: 0 (QA-FD-1, -3 fixed) · minors open: 2 (QA-FD-8, QA-FD-9), carried to gate-3 unless taken · result: passed with minors.
+
+Wider run of the other screens that use the kit fields (`features/boards`, `features/workitems`, `features/uikit`): under parallel load 6-7 `WorkItemFormPage*` / `CreateWorkItemDialog` tests failed with a different set each run (`Unable to find role="textbox" and name "Описание"`, the rich-text description, not `InputField`); `WorkItemFormPage.test.tsx` and `.readOnly.test.tsx` re-run alone: 38 passed. Treated as load-dependent timing, not caused by the kit change (boards and uikit fully green); CI's full run decides.
