@@ -21,6 +21,7 @@ gate-3: pending
 ## Log
 
 - 2026-11-16 [new-task] task started, worktree C:/Users/khamb/Workspace/devex/internal_products/mustask/.claude/worktrees/feat-078-description-images
+- 2026-11-16 [route] the human confirmed: feature, L (L thresholds: an ADR on image byte storage, a new storage slice, new access rules for non-member uploads), full route, gates gate-1/gate-2/gate-3; economy mode; E2E answer NO
 
 ## Notes
 
@@ -45,3 +46,5 @@ Inputs for the analysis (the orchestrator, 2026-11-16; sources are files, read t
   E2E answer is NO; own test DB only (never `mustask` on 5432, never the stand on
   3100/5100/5010); click the prototype through in a browser before gate-2; the PR goes
   through `gh` with a merge commit and Auto-fix on.
+- feat-059 takes no ADR number beyond 0041 (feat-059 session note, 2026-11-16): any ADR
+  this task needs takes its own number, and feat-059 builds on it without a new one.
