@@ -62,3 +62,50 @@ The developer's full-run results are in status.md and were not repeated. E2E: st
 ### Verdict
 
 blockers: 0 · majors: 0 · result: pass (re-check 1: D-1, D-2 fixed)
+
+## Frontend
+
+Plan written from doc-016 design § 6 / 6.1, spec BR-TD-12..-16 and US-6 («Видим всей организации», «A hidden object does not exist») before the implementation was read. Out of scope: list/selector/search narrowing (feat-061/062). E2E: not asked, skipped by the human's standing answer (NO).
+
+### Coverage matrix
+
+| Criterion / screen | Check | Test | Status |
+|---|---|---|---|
+| Control placement (design § 6.1: project «Параметры», `Section` «Видимость») | switch is in the settings section (`…/settings`), not elsewhere | `ProjectVisibility.test.tsx` 1 | covered; the task text says «Настройки», the panel and design say «Параметры» — consistent with design |
+| Off by default, helper copy | switch off, «Проект и его команды увидят все участники организации.» | same | covered |
+| Turn on asks | `ConfirmDialog` title/text/button «Сделать видимым» exactly as design; nothing sent before confirm; PUT `{visibleToOrganization:true}`; notice «Проект «D» виден всей организации.»; switch becomes on | same | covered |
+| Turn off no confirmation | no dialog, PUT false, notice «Проект «D» виден только участвующим.» | `ProjectVisibility.test.tsx` 2 | covered |
+| Refusal when turning on | server text in the dialog, switch stays off | `ProjectVisibility.test.tsx` 3 | covered |
+| Refusal when turning off | error notice, no dialog, switch stays on, no success notice | `ProjectVisibility.qa.test.tsx` 3 | added |
+| Permission gating: only a holder of `organizations.visibility.write` | section and switch absent when the code is missing (role otherwise full) | `ProjectVisibility.test.tsx` 4 | covered. Code read from the project's `codes` (`useObjectAccess`); settings route itself still gated by `project.write` (project/department «Менеджер» and administrator hold both) |
+| Hidden project = missing project | `organizations.project.not_found` shows frame «Проект не найден», no «Недостаточно прав» | `ProjectVisibility.test.tsx` 5 | covered |
+| Hidden team | `team.not_found` on the team page shows «Команда не найдена» frame | `ProjectVisibility.qa.test.tsx` 1 | added |
+| Hidden department/area | `area.not_found` shows «Область не найдена» frame | `ProjectVisibility.qa.test.tsx` 2 | added |
+| Assignee 409 (`assignee_unavailable`) | text under «Исполнитель», pick kept, nothing patched | `WorkItemFormPage.assignee.test.tsx` | covered |
+| Assignee picker sends `projectId` | existing (mod-019 OQ-11) | existing assignee tests | covered |
+| Error-code catalog | new code pinned | `paths.test.ts` | covered |
+
+### Copy against design
+
+Every string of § 6.1 matches character for character (section, label, helper, confirm title and text, button, both notices). Refusal texts are the server's or the existing «Недостаточно прав».
+
+Not-found headings: design § 6 writes «Проект не найден.» with a period. The shared `NotFound` frame (`shared/ui/StateFrame.tsx`) renders its heading for all three kinds without a period, and every existing test and screen follows that; the period in design/story is the sentence form of the API's `title` («Проект не найден.»). Judged as convention, not a defect; no change.
+
+### Runs
+
+| Date | What was run | Result |
+|---|---|---|
+| 2026-11-16 | `npm ci`; `tsc -b` | clean (the developer's `@tiptap/*` errors were a missing install, confirmed) |
+| 2026-11-16 | Vitest `src/features/organizations` + `WorkItemFormPage.assignee.test.tsx` | 68 files, 946 tests pass |
+| 2026-11-16 | Vitest `ProjectVisibility*.test.tsx` incl. 3 added tests | 8 pass |
+| 2026-11-16 | ESLint on touched files; Prettier `--check` | clean; clean |
+
+The full Vitest suite was not run (CI runs it; the change touches only organizations and one workitems test).
+
+### Defects
+
+None open. Observations, not defects: (1) the visibility control lives on the settings route, which is gated by `organizations.project.write`; a hypothetical holder of `visibility.write` without `project.write` would see «Недостаточно прав» for the page (no such built-in role exists, the bundles hold both); (2) the 403 text in the control is a literal «Недостаточно прав», the same as the other organizations texts, not a shared constant.
+
+### Verdict
+
+blockers: 0 · majors: 0 · result: pass
