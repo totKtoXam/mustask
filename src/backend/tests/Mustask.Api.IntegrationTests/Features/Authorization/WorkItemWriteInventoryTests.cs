@@ -92,6 +92,7 @@ public sealed class WorkItemWriteInventoryTests(MustaskApiFactory factory)
         // feat-028: the organization's teams and their links to projects name no work item (a link moves none; only an unlink or a
         // deletion does, above).
         ["PUT " + Project + "/description"] = new(Kind.NamesNoWorkItem, ReasonContainer),
+        ["PUT " + Project + "/visibility"] = new(Kind.NamesNoWorkItem, ReasonContainer),
         ["POST " + Project + "/teams"] = new(Kind.NamesNoWorkItem, "links teams to the project and moves no item (feat-028 BR-OL-4)"),
         ["POST " + Org + "/teams"] = new(Kind.NamesNoWorkItem, ReasonStructure),
         ["PUT " + OrgTeam + "/name"] = new(Kind.NamesNoWorkItem, ReasonStructure),

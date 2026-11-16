@@ -8,6 +8,7 @@ using Mustask.Application.Features.Organizations.DeactivateProject;
 using Mustask.Application.Features.Organizations.DeleteArea;
 using Mustask.Application.Features.Organizations.DeleteTeam;
 using Mustask.Application.Features.Organizations.SetInheritsAccess;
+using Mustask.Application.Features.Organizations.SetProjectVisibility;
 using Mustask.Application.Features.Organizations.GetSwitchImpact;
 using Mustask.Application.Features.Organizations.GetArea;
 using Mustask.Application.Features.Organizations.GetAreaDeletion;
@@ -217,6 +218,15 @@ public static class OrganizationEndpoints
         projects.MapPut("/{projectId}/description", SetProjectDescriptionAsync)
             .RequiresOrganizationPermission(PermissionCatalog.OrganizationsProjectWrite, ResourceScope.Project)
             .Produces<Application.Features.Organizations.SetProjectDescription.ProjectResponse>()
+            .ProducesProblem(StatusCodes.Status400BadRequest)
+            .ProducesProblem(StatusCodes.Status401Unauthorized)
+            .ProducesProblem(StatusCodes.Status403Forbidden)
+            .ProducesProblem(StatusCodes.Status404NotFound);
+
+        // feat-041 api-contract § 2.1. The project's «Видим всей организации»; sight only, no code (doc-016 BR-TD-12 (c), BR-TD-16).
+        projects.MapPut("/{projectId}/visibility", SetProjectVisibilityAsync)
+            .RequiresOrganizationPermission(PermissionCatalog.OrganizationsVisibilityWrite, ResourceScope.Project)
+            .Produces<SetProjectVisibilityResponse>()
             .ProducesProblem(StatusCodes.Status400BadRequest)
             .ProducesProblem(StatusCodes.Status401Unauthorized)
             .ProducesProblem(StatusCodes.Status403Forbidden)
@@ -478,6 +488,13 @@ public static class OrganizationEndpoints
     private static async Task<IResult> SetProjectDescriptionAsync(
         string organizationId, string projectId, DescriptionRequest? request, SetProjectDescriptionHandler handler, CancellationToken cancellationToken) =>
         Results.Ok((await handler.Handle(new SetProjectDescriptionCommand(organizationId, projectId, request?.Description), cancellationToken)).Response);
+
+    private static async Task<IResult> SetProjectVisibilityAsync(
+        string organizationId, string projectId, VisibilityRequest? request, SetProjectVisibilityHandler handler, CancellationToken cancellationToken) =>
+        Results.Ok(await handler.Handle(new SetProjectVisibilityCommand(organizationId, projectId, request?.VisibleToOrganization), cancellationToken));
+
+    /// <summary>feat-041 api-contract § 2.1: the body of the visibility write.</summary>
+    private sealed record VisibilityRequest(bool? VisibleToOrganization);
 
     private static async Task<IResult> GetProjectAsync(string organizationId, string projectId, GetProjectHandler handler, CancellationToken cancellationToken) =>
         Results.Ok((await handler.Handle(new GetProjectQuery(organizationId, projectId), cancellationToken)).Response);

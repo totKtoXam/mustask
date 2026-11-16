@@ -44,6 +44,7 @@
       "organizations.team.link",
       "organizations.team.read",
       "organizations.team.write",
+      "organizations.visibility.write",
       "process.definition.read",
       "workitems.link.write",
       "workitems.workitem.delete",
@@ -96,6 +97,7 @@
         "organizations.project.link",
         "organizations.project.read",
         "organizations.project.write",
+        "organizations.visibility.write",
         "workitems.link.write",
         "workitems.workitem.delete",
         "workitems.workitem.read",
@@ -122,6 +124,7 @@
         "organizations.project.link",
         "organizations.project.read",
         "organizations.project.write",
+        "organizations.visibility.write",
         "workitems.link.write",
         "workitems.workitem.delete",
         "workitems.workitem.read",
@@ -283,6 +286,11 @@
       "code": "organizations.team.write",
       "source": "organization",
       "resourceScope": "team"
+    },
+    {
+      "code": "organizations.visibility.write",
+      "source": "organization",
+      "resourceScope": "project"
     },
     {
       "code": "process.definition.read",

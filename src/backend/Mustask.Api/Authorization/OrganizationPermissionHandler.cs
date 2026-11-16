@@ -62,6 +62,76 @@ public sealed class OrganizationPermissionHandler(
         return EffectivePermissions.Holds(role, requirement.Scope, reaching, requirement.Code);
     }
 
+    /// <summary>
+    /// The sight gate (doc-016 BR-TD-12..-14, feat-041; ADR-0029 § 8 items 3-4): for a non-administrator, a project, then a team or area
+    /// the address names, outside in, that is missing or hidden answers its own 404 before any 403. A <c>teamId</c>, <c>departmentId</c>
+    /// or <c>projectId</c> of the query that names an object the caller does not see answers the same. Nothing is asked when the
+    /// address names none of them. The set read here is kept for the request, so the handler's own reads do not load it twice.
+    /// </summary>
+    private async Task<OrganizationAccessFailure?> HiddenObjectAsync(
+        HttpContext httpContext, Guid organizationId, OrganizationRole role, OrganizationPermissionRequirement requirement)
+    {
+        var routeValues = httpContext.Request.RouteValues;
+        var query = httpContext.Request.Query;
+
+        if (!routeValues.ContainsKey("projectId") && !routeValues.ContainsKey("teamId") && !routeValues.ContainsKey("areaId")
+            && !query.ContainsKey("teamId") && !query.ContainsKey("departmentId") && !query.ContainsKey("projectId"))
+        {
+            return null;
+        }
+
+        var set = await scopedAccess.LoadSetAsync(organizationId, currentUser.SubjectId, role, httpContext.RequestAborted);
+        httpContext.Items[HttpContextOrganizationAccess.SetKey] = set;
+
+        OrganizationAccessFailure Hidden(string errorCode) => new(
+            this, OrganizationAccessFailureKind.ObjectNotFound, organizationId.ToString(), requirement.Code, requirement.Scope, errorCode);
+
+        // Path ids, outside in: the project, then the team or area. A malformed or unknown id is as hidden as a hidden one.
+        if (routeValues["projectId"] is string project
+            && !(AddressedId.TryParse(project, out var projectId) && set.SeesProject(projectId)))
+        {
+            return Hidden(OrganizationErrorCodes.ProjectNotFound);
+        }
+
+        if (routeValues["teamId"] is string team && !(AddressedId.TryParse(team, out var teamId) && set.SeesTeam(teamId)))
+        {
+            return Hidden(OrganizationErrorCodes.TeamNotFound);
+        }
+
+        if (routeValues["areaId"] is string area && !(AddressedId.TryParse(area, out var areaId) && set.SeesArea(areaId)))
+        {
+            return Hidden(OrganizationErrorCodes.AreaNotFound);
+        }
+
+        // Query ids (the filters of the lists and boards): one that names an object the caller does not see answers its not-found; one
+        // that names nothing keeps today's answer (the filter selects nothing), as does the word `none`.
+        foreach (var value in query["projectId"])
+        {
+            if (AddressedId.TryParse(value, out var id) && set.KnowsProject(id) && !set.SeesProject(id))
+            {
+                return Hidden(OrganizationErrorCodes.ProjectNotFound);
+            }
+        }
+
+        foreach (var value in query["teamId"])
+        {
+            if (AddressedId.TryParse(value, out var id) && set.KnowsTeam(id) && !set.SeesTeam(id))
+            {
+                return Hidden(OrganizationErrorCodes.TeamNotFound);
+            }
+        }
+
+        foreach (var value in query["departmentId"])
+        {
+            if (AddressedId.TryParse(value, out var id) && set.KnowsArea(id) && !set.SeesArea(id))
+            {
+                return Hidden(OrganizationErrorCodes.AreaNotFound);
+            }
+        }
+
+        return null;
+    }
+
     protected override async Task HandleRequirementAsync(AuthorizationHandlerContext context, OrganizationPermissionRequirement requirement)
     {
         if (context.User.Identity is not { IsAuthenticated: true })
@@ -94,6 +164,13 @@ public sealed class OrganizationPermissionHandler(
         {
             context.Fail(new OrganizationAccessFailure(
                 this, OrganizationAccessFailureKind.OrganizationNotFound, organizationId.ToString(), requirement.Code, requirement.Scope));
+
+            return;
+        }
+
+        if (role != OrganizationRole.Admin && await HiddenObjectAsync(httpContext, organizationId, role, requirement) is { } hidden)
+        {
+            context.Fail(hidden);
 
             return;
         }

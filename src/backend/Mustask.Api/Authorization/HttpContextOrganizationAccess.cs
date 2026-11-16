@@ -16,7 +16,7 @@ internal sealed class HttpContextOrganizationAccess(
     /// <summary>The key of the resolved access in <c>HttpContext.Items</c>.</summary>
     internal const string ItemKey = "Mustask.Api.Authorization.OrganizationAccess";
 
-    private const string SetKey = "Mustask.Api.Authorization.AccessSet";
+    internal const string SetKey = "Mustask.Api.Authorization.AccessSet";
 
     private ResolvedOrganizationAccess Resolved =>
         httpContextAccessor.HttpContext?.Items[ItemKey] as ResolvedOrganizationAccess

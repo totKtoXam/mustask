@@ -67,7 +67,27 @@ public sealed class Project
     /// </summary>
     public Guid? DefaultTeamId { get; private set; }
 
+    /// <summary>
+    /// «Видим всей организации» (doc-016 BR-TD-12 (c), feat-041): when on, every member of the organization sees the project;
+    /// off at creation and for every project that existed at the upgrade (OQ-5 A). The one boolean replaces mod-019's reserved
+    /// three visibility values (ADR-0040 § 4). Sight only: it adds no code.
+    /// </summary>
+    public bool VisibleToOrganization { get; private set; }
+
     public bool IsActive => Status == ProjectStatus.Active;
+
+    /// <summary>Sets the flag; <c>false</c> when it already holds <paramref name="visible"/>: nothing changes.</summary>
+    public bool SetVisibleToOrganization(bool visible)
+    {
+        if (VisibleToOrganization == visible)
+        {
+            return false;
+        }
+
+        VisibleToOrganization = visible;
+
+        return true;
+    }
 
     /// <summary>
     /// Names the project's default team, or clears the setting with <c>null</c> (BR-OT-4). The caller has judged the team with

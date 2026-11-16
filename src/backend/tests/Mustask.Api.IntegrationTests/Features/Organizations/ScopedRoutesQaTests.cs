@@ -38,6 +38,7 @@ public sealed class ScopedRoutesQaTests(MustaskApiFactory factory)
         {
             var projects = services.GetRequiredService<IProjectRepository>();
             var project = Project.Create(structure.OrganizationId, OrganizationsTestData.Name("Под отделом"), "DPT", OrganizationsTestData.Now, "seed", "blue", parentAreaId: department.Id);
+            project.Project.SetVisibleToOrganization(true);
             projects.Add(project);
             await projects.SaveAsync(ct);
 
@@ -376,6 +377,7 @@ public sealed class ScopedRoutesQaTests(MustaskApiFactory factory)
         var kirill = await HolderAsync(w, ResourceScope.Project, w.InDepartment.Id, GrantRole.Manager);
         var teamManager = await HolderAsync(w, ResourceScope.Team, jupiter.Id, GrantRole.Manager);
         var viewer = await MembershipTestData.NewMemberAsync(factory, w.Structure.OrganizationId, OrganizationRole.Viewer);
+        await SeedAsync(ResourceScope.Team, w.Structure.OrganizationId, jupiter.Id, kirill.Id, GrantRole.Reader);
         var ghost = Guid.CreateVersion7().ToString();
         var teams = OrganizationsApi.OrgTeams(w.Structure.OrganizationId);
         var unlink = $"{UnderProject(w)}/teams/{ghost}/unlink";
@@ -392,7 +394,7 @@ public sealed class ScopedRoutesQaTests(MustaskApiFactory factory)
         Assert.Equal((HttpStatusCode.NotFound, "organizations.team.not_found"), (ghostUnlink.Status, ghostUnlink.ErrorCode));
         Assert.Equal(HttpStatusCode.NotFound, ghostCount.Status);
         Assert.Equal(HttpStatusCode.Forbidden, knownUnlink.Status);
-        Assert.Equal(HttpStatusCode.Forbidden, viewerGhost.Status);
+        Assert.Equal(HttpStatusCode.NotFound, viewerGhost.Status);
         Assert.Equal(HttpStatusCode.NotFound, reverseGhost.Status);
         Assert.Equal(HttpStatusCode.NotFound, reverseGhostAreas.Status);
     }

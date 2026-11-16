@@ -372,7 +372,8 @@ public sealed class OrganizationAccessInventoryTests(MustaskApiFactory factory)
         // mod-019 api-contract § 2: fifteen grant routes (five under each of a department, a project and a team) - 97.
         // mod-019 api-contract § 3, § 5: the switch, its impact read and the writable ids - 100.
         // mod-021 retires the five department-team link routes and adds the team move (96), mod-007 adds the team's eleven sprint routes - 107.
-        Assert.Equal(107, expected.Count);
+        // feat-041 adds the project's visibility write - 108.
+        Assert.Equal(108, expected.Count);
     }
 
     // Every organization code of the catalog is declared by at least one route — a code with no route is a decision nobody enforces
@@ -424,6 +425,20 @@ public sealed class OrganizationAccessInventoryTests(MustaskApiFactory factory)
             OrganizationAddressedRoutes.Path(template, organization.Id.ToString()),
             OrganizationAddressedRoutes.Body(method),
             caller.Token);
+
+        // feat-041 (ADR-0029 § 8 items 3-4 before item 5): a non-administrator who names a project, a team or an area that is missing
+        // or hidden gets its «не найден» before any 403; the template's ids name nothing here, so such a route answers 404.
+        var namesAnObject = role != OrganizationRole.Admin
+            && (template.Contains("{projectId}", StringComparison.Ordinal) || template.Contains("{teamId}", StringComparison.Ordinal) || template.Contains("{areaId}", StringComparison.Ordinal));
+
+        if (namesAnObject)
+        {
+            Assert.True(
+                answer.Status == HttpStatusCode.NotFound && answer.ErrorCode is "organizations.project.not_found" or "organizations.team.not_found" or "organizations.area.not_found",
+                $"{route.Key} answered {(int)answer.Status} {answer.ErrorCode} to a {role} naming an object that does not exist.");
+
+            return;
+        }
 
         if (OrganizationRoleBundles.Holds(role, route.Code))
         {

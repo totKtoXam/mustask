@@ -154,6 +154,12 @@ public sealed class GetTeamMembersEndpointTests(MustaskApiFactory factory)
             Assert.Equal((HttpStatusCode.NotFound, TeamNotFound), (answer.Status, answer.ErrorCode));
         }
 
+        // BR-TD-13: a team linked to nothing is hidden from a member who is not in it and holds no grant on it.
+        var hidden = await OrganizationsApi.SendAsync(factory, HttpMethod.Get, Path(structure.OrganizationId, unlinked.Id.ToString()), token: reader.Token);
+        Assert.Equal((HttpStatusCode.NotFound, TeamNotFound), (hidden.Status, hidden.ErrorCode));
+
+        await OrganizationsTestData.GrantAsync(factory, Mustask.Domain.Identity.ResourceScope.Team, structure.OrganizationId, unlinked.Id, reader.Id);
+
         var read = await OrganizationsApi.SendAsync(factory, HttpMethod.Get, Path(structure.OrganizationId, unlinked.Id.ToString()), token: reader.Token);
 
         Assert.Equal(HttpStatusCode.OK, read.Status);

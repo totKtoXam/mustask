@@ -123,7 +123,7 @@ public sealed class SetProjectDescriptionEndpointTests(MustaskApiFactory factory
         var missing = await DescribeAsync(structure.OrganizationId, Guid.CreateVersion7().ToString(), new { description = "Новое" }, caller.Token);
 
         Assert.Equal((HttpStatusCode.Forbidden, "organizations.access.forbidden"), (answer.Status, answer.ErrorCode));
-        Assert.Equal((HttpStatusCode.Forbidden, "organizations.access.forbidden"), (missing.Status, missing.ErrorCode));
+        Assert.Equal((HttpStatusCode.NotFound, "organizations.project.not_found"), (missing.Status, missing.ErrorCode)); // feat-041: a missing project answers 404 before the 403 (ADR-0029 § 8 item 3)
         Assert.Null(await StoredAsync(structure.ProjectId));
     }
 

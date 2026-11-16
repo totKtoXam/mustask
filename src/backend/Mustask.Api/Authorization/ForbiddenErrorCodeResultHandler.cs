@@ -33,18 +33,15 @@ public sealed class ForbiddenErrorCodeResultHandler(ILogger<ForbiddenErrorCodeRe
             && authorizeResult.AuthorizationFailure?.FailureReasons.OfType<OrganizationAccessFailure>().FirstOrDefault() is { } failure)
         {
             var notFound = failure.Kind == OrganizationAccessFailureKind.OrganizationNotFound;
+            var objectNotFound = failure.Kind == OrganizationAccessFailureKind.ObjectNotFound && failure.ErrorCode is not null;
+            var errorCode = objectNotFound
+                ? failure.ErrorCode!
+                : notFound ? OrganizationErrorCodes.OrganizationNotFound : OrganizationErrorCodes.AccessForbidden;
 
-            RefusalLog.Write(
-                logger,
-                context,
-                failure.Kind.ToString(),
-                failure.OrganizationId,
-                failure.Code,
-                failure.Scope,
-                notFound ? OrganizationErrorCodes.OrganizationNotFound : OrganizationErrorCodes.AccessForbidden);
+            RefusalLog.Write(logger, context, failure.Kind.ToString(), failure.OrganizationId, failure.Code, failure.Scope, errorCode);
 
-            throw notFound
-                ? new NotFoundException(OrganizationErrorCodes.OrganizationNotFound)
+            throw notFound || objectNotFound
+                ? new NotFoundException(errorCode)
                 : new ForbiddenException(OrganizationErrorCodes.AccessForbidden);
         }
 

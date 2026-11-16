@@ -465,7 +465,7 @@ public sealed class ReorderProjectBacklogEndpointTests(MustaskApiFactory factory
         BoardsTestData.AssertRefused(outsider, HttpStatusCode.NotFound, "organizations.organization.not_found");
         Assert.Equal("Организация не найдена.", outsider.Detail);
         BoardsTestData.AssertRefused(viewerOnProject, HttpStatusCode.Forbidden, "organizations.access.forbidden");
-        BoardsTestData.AssertRefused(viewerOnNothing, HttpStatusCode.Forbidden, "organizations.access.forbidden");
+        BoardsTestData.AssertRefused(viewerOnNothing, HttpStatusCode.NotFound, "organizations.project.not_found");
         BoardsTestData.AssertRefused(memberOnNothing, HttpStatusCode.NotFound, "organizations.project.not_found");
         Assert.Equal("Проект не найден.", memberOnNothing.Detail);
         BoardsTestData.AssertRefused(memberOnTasks, HttpStatusCode.NotFound, "boards.level.not_found");

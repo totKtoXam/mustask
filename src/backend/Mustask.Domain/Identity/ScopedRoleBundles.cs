@@ -2,8 +2,7 @@ namespace Mustask.Domain.Identity;
 
 /// <summary>
 /// The codes each grant role holds, per the scope it is granted on (ADR-0029 § 4 as amended by ADR-0038, spec § Roles).
-/// The bundles are explicit sets over <b>registered</b> codes; a code joins them in the change that first checks it
-/// (<c>organizations.visibility.write</c> is not registered yet). A bundle holds
+/// The bundles are explicit sets over <b>registered</b> codes; a code joins them in the change that first checks it. A bundle holds
 /// codes of several resource scopes: a code applies to an object only where its resource scope is the object's, and where
 /// the grant reaches it (<see cref="EffectivePermissions"/>). Only <see cref="ResourceScope.Area"/> (a department),
 /// <see cref="ResourceScope.Project"/> and <see cref="ResourceScope.Team"/> are grant scopes. No bundle holds an
@@ -43,7 +42,8 @@ public static class ScopedRoleBundles
         PermissionCatalog.OrganizationsAreaGrant,
         PermissionCatalog.OrganizationsProjectWrite,
         PermissionCatalog.OrganizationsProjectLink,
-        PermissionCatalog.OrganizationsProjectGrant);
+        PermissionCatalog.OrganizationsProjectGrant,
+        PermissionCatalog.OrganizationsVisibilityWrite);
 
     // The project's «Менеджер»: the project's own codes, and the area code on its node and sub-areas (OQ-3 B; the reach rule keeps it there).
     private static readonly IReadOnlySet<string> ProjectManager = Set(
@@ -56,7 +56,8 @@ public static class ScopedRoleBundles
         PermissionCatalog.OrganizationsProjectLink,
         PermissionCatalog.OrganizationsProjectGrant,
         PermissionCatalog.BoardsProjectBacklogReorder,
-        PermissionCatalog.OrganizationsAreaWrite);
+        PermissionCatalog.OrganizationsAreaWrite,
+        PermissionCatalog.OrganizationsVisibilityWrite);
 
     private static readonly IReadOnlySet<string> None = Set();
 

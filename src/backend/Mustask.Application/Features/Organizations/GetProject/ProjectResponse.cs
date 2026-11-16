@@ -14,4 +14,5 @@ public sealed record ProjectResponse(
     IReadOnlyList<string>? Codes = null,
     DepartmentRefView? Department = null,
     bool? InheritsAccess = null,
-    string? Color = null);
+    string? Color = null,
+    bool VisibleToOrganization = false);

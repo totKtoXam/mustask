@@ -136,6 +136,7 @@ public sealed class GrantEndpointTests(MustaskApiFactory factory)
         {
             var projects = services.GetRequiredService<IProjectRepository>();
             var created = Project.Create(structure.OrganizationId, OrganizationsTestData.Name("Под отделом"), "DPT", OrganizationsTestData.Now, "seed", "blue", parentAreaId: department.Id);
+            created.Project.SetVisibleToOrganization(true);
             projects.Add(created);
             await projects.SaveAsync(ct);
 

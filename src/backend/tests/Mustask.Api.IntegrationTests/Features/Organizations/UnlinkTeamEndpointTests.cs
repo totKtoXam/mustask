@@ -480,7 +480,7 @@ public sealed class UnlinkTeamEndpointTests(MustaskApiFactory factory)
         var noBody = await UnlinkAsync(world, Guid.CreateVersion7(), null, caller.Token);
 
         Assert.Equal((HttpStatusCode.Forbidden, "organizations.access.forbidden"), (real.Status, real.ErrorCode));
-        Assert.Equal((HttpStatusCode.Forbidden, "organizations.access.forbidden"), (noBody.Status, noBody.ErrorCode));
+        Assert.Equal((HttpStatusCode.NotFound, "organizations.team.not_found"), (noBody.Status, noBody.ErrorCode)); // feat-041: a missing team answers 404 before the 403
         Assert.Equal(before, await StateAsync(world));
     }
 

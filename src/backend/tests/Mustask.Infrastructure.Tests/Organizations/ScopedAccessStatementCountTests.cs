@@ -19,7 +19,7 @@ public sealed class ScopedAccessStatementCountTests(OrganizationsDatabaseFixture
     private const int CheckStatements = 3;
     private const int AreaStatements = 3;
     private const int ProjectStatements = 4;
-    private const int SetStatements = 4;
+    private const int SetStatements = 8; // 4 for the grants and the tree, 4 more for the sight data (feat-041), still fixed
 
     private async Task<(Guid Organization, Guid Project, string Caller)> SeedAsync(int otherHolders)
     {

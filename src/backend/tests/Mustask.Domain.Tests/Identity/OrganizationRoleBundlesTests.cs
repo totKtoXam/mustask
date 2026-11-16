@@ -33,6 +33,7 @@ public sealed class OrganizationRoleBundlesTests
         (PermissionCatalog.OrganizationsAreaGrant, true, false, false),
         (PermissionCatalog.OrganizationsProjectGrant, true, false, false),
         (PermissionCatalog.OrganizationsTeamGrant, true, false, false),
+        (PermissionCatalog.OrganizationsVisibilityWrite, true, false, false),
         (PermissionCatalog.ProcessDefinitionRead, true, true, true),
         (PermissionCatalog.WorkItemsWorkItemRead, true, true, true),
         (PermissionCatalog.WorkItemsWorkItemWrite, true, true, false),

@@ -64,6 +64,7 @@ public static class OrganizationAddressedRoutes
         // asked by the handler) and lists the linked ones.
         new("PUT", Project + "/default-team", PermissionCatalog.OrganizationsProjectWrite),
         new("PUT", Project + "/description", PermissionCatalog.OrganizationsProjectWrite),
+        new("PUT", Project + "/visibility", PermissionCatalog.OrganizationsVisibilityWrite),
         new("GET", Project + "/teams", PermissionCatalog.OrganizationsTeamRead),
         new("GET", Project + "/team-links", PermissionCatalog.OrganizationsTeamRead),
         new("POST", Project + "/teams", PermissionCatalog.OrganizationsProjectLink),
