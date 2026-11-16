@@ -72,7 +72,7 @@ public sealed class ProjectSightQaTests(MustaskApiFactory factory)
 
     // Non-disclosure (spec US-6 "A hidden object does not exist": «as for an address that names nothing»): through a query id, a hidden
     // existing object and an id that names nothing must be indistinguishable by status and error code.
-    [Fact(Skip = "qa.md D-1 (open): a hidden query id answers 404, an id naming nothing answers 200; remove the Skip with the fix")]
+    [Fact]
     public async Task AHiddenQueryId_IsIndistinguishableFromOneThatNamesNothing()
     {
         var w = await WorldAsync();

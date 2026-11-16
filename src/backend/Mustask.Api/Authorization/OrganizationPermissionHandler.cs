@@ -103,27 +103,27 @@ public sealed class OrganizationPermissionHandler(
             return Hidden(OrganizationErrorCodes.AreaNotFound);
         }
 
-        // Query ids (the filters of the lists and boards): one that names an object the caller does not see answers its not-found; one
-        // that names nothing keeps today's answer (the filter selects nothing), as does the word `none`.
-        foreach (var value in query["projectId"])
+        // Query ids (the filters of the lists and boards): one that is not a visible object of the organization (unknown, foreign, malformed
+        // or hidden: indistinguishable) answers its not-found; the word `none` and an empty value are not ids.
+        foreach (var value in Ids(query["projectId"]))
         {
-            if (AddressedId.TryParse(value, out var id) && set.KnowsProject(id) && !set.SeesProject(id))
+            if (!(AddressedId.TryParse(value, out var id) && set.SeesProject(id)))
             {
                 return Hidden(OrganizationErrorCodes.ProjectNotFound);
             }
         }
 
-        foreach (var value in query["teamId"])
+        foreach (var value in Ids(query["teamId"]))
         {
-            if (AddressedId.TryParse(value, out var id) && set.KnowsTeam(id) && !set.SeesTeam(id))
+            if (!(AddressedId.TryParse(value, out var id) && set.SeesTeam(id)))
             {
                 return Hidden(OrganizationErrorCodes.TeamNotFound);
             }
         }
 
-        foreach (var value in query["departmentId"])
+        foreach (var value in Ids(query["departmentId"]))
         {
-            if (AddressedId.TryParse(value, out var id) && set.KnowsArea(id) && !set.SeesArea(id))
+            if (!(AddressedId.TryParse(value, out var id) && set.SeesArea(id)))
             {
                 return Hidden(OrganizationErrorCodes.AreaNotFound);
             }
@@ -131,6 +131,9 @@ public sealed class OrganizationPermissionHandler(
 
         return null;
     }
+
+    private static IEnumerable<string> Ids(Microsoft.Extensions.Primitives.StringValues values) =>
+        values.OfType<string>().Where(value => value.Length > 0 && !string.Equals(value, "none", StringComparison.OrdinalIgnoreCase));
 
     protected override async Task HandleRequirementAsync(AuthorizationHandlerContext context, OrganizationPermissionRequirement requirement)
     {

@@ -344,9 +344,9 @@ public sealed class ScopedRoutesQaTests(MustaskApiFactory factory)
         Assert.Equal(HttpStatusCode.Forbidden, withoutProject.Status);
     }
 
-    // QA pass 2 · a project of another organization, a malformed id and an unknown id are judged by the organization role alone.
+    // feat-041 qa D-1/D-2 · a project of another organization, a malformed id and an unknown id are not visible objects: 404 for everyone but the administrator.
     [Fact]
-    public async Task TheAssigneePicker_ANamedProjectOfAnotherOrganizationOrAMalformedId_FallsBackToTheRole()
+    public async Task TheAssigneePicker_ANamedProjectOfAnotherOrganizationOrAMalformedId_Is404()
     {
         var w = await WorldAsync();
         var foreign = await OrganizationsTestData.CreateStructureAsync(factory);
@@ -360,11 +360,10 @@ public sealed class ScopedRoutesQaTests(MustaskApiFactory factory)
         var roleForeign = await SendAsync(HttpMethod.Get, $"{path}?projectId={foreign.ProjectId}", null, orgMember.Token);
         var roleMalformed = await SendAsync(HttpMethod.Get, $"{path}?projectId=not-an-id", null, orgMember.Token);
 
-        Assert.Equal(HttpStatusCode.Forbidden, holderForeign.Status);
-        Assert.Equal(HttpStatusCode.Forbidden, holderMalformed.Status);
-        Assert.Equal(HttpStatusCode.Forbidden, holderUnknown.Status);
-        Assert.Equal(HttpStatusCode.OK, roleForeign.Status);
-        Assert.Equal(HttpStatusCode.OK, roleMalformed.Status);
+        foreach (var answer in new[] { holderForeign, holderMalformed, holderUnknown, roleForeign, roleMalformed })
+        {
+            Assert.Equal((HttpStatusCode.NotFound, "organizations.project.not_found"), (answer.Status, answer.ErrorCode));
+        }
     }
 
     // QA pass 2 · BR-SA-9 / US-7 on the other link routes: an unknown other end is 404 for a holder of the addressed end's code; a known

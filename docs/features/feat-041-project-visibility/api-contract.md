@@ -13,11 +13,12 @@ For a non-administrator, after 401 and 404 organization (rows 1-2), the first th
 2. **404 `organizations.team.not_found`** «Команда не найдена.» / **404 `organizations.area.not_found`** «Область не найдена.»: the
    path's `teamId` / `areaId` is malformed, unknown, or hidden (BR-TD-13, -14; a project node and its sub-areas are hidden exactly
    with their project). This includes the team's backlog reorder and sprint routes.
-3. The same two answers (and the project's) for the query ids of a read: `teamId` (not `none`), `departmentId` and `projectId` that
-   name an existing object the caller does not see. An id naming nothing keeps today's answer (the filter selects nothing).
+3. The same three answers for the query ids of a read: a `teamId`, `departmentId` or `projectId` that is not a visible object of the
+   organization (unknown, of another organization, malformed or hidden: indistinguishable) answers the 404 of its kind. The word
+   `none` and an empty value are not ids and pass. This includes `GET /workitems/assignee-candidates?projectId=` (a malformed id is a 404).
 4. 403 `organizations.access.forbidden`; then 400, body ids, the operation's own answers (unchanged).
 
-The administrator sees everything: answers 1-3 never apply to them for an existing object (a missing one answers as before).
+The administrator sees everything: answers 1-3 never apply to them (a missing object answers as before).
 Sight changes (a grant, a team membership, a link, the flag) apply on the caller's next request.
 
 ## 2. New route
