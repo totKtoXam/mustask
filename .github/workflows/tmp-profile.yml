@@ -1,0 +1,35 @@
+# TEMPORARY (tech-074 investigation, removed before review): a CPU profile of
+# the slow work-item form tests on a quiet runner.
+name: tmp-profile
+
+on:
+  push:
+    branches: [tech/074-ci-full-run-speed]
+
+jobs:
+  profile:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: src/frontend/package-lock.json
+      - working-directory: src/frontend
+        run: npm ci
+      - name: Profile
+        working-directory: src/frontend
+        run: |
+          mkdir -p "$RUNNER_TEMP/prof"
+          npx vitest run src/features/workitems/pages/WorkItemFormPage.membership.test.tsx src/features/workitems/pages/WorkItemFormPage.related.test.tsx \
+            --pool=forks --poolOptions.forks.singleFork \
+            --poolOptions.forks.execArgv=--cpu-prof --poolOptions.forks.execArgv=--cpu-prof-dir="$RUNNER_TEMP/prof" \
+            --reporter=verbose || true
+      - name: Summary
+        run: node scripts/tmp-profile-summary.mjs "$RUNNER_TEMP/prof"
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: cpuprofile
+          path: ${{ runner.temp }}/prof
+          retention-days: 3
