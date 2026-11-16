@@ -10,7 +10,7 @@
 
 ## Gates
 
-gate-3: approved (2026-11-16, by the human in chat, after the gate-3 package; debts R-4, R-5 remainder (to feat-062), R-7 accepted)
+gate-3: approved (2026-11-16, by the human in chat, after the gate-3 package; debts R-4, R-5 remainder (to feat-062), R-7 accepted) · PR #203 https://github.com/totKtoXam/mustask/pull/203
 
 ## Plan
 
@@ -66,3 +66,4 @@ Verification: affected tests locally, the full verify.sh in CI.
 - 2026-11-16 [code-reviewer] round 2 (delta read of ccb67b2d..4ff58635) in review.md: approved; R-1, R-2, R-3, R-4, R-6, R-8 closed; open minors (debts): R-5 rest (team reorder item ids and other body ids, feat-062), R-7 (per-request statements), R-9 (no test for the hidden body team on POST /projects/{p}/teams). Ready for gate-3.
 - 2026-11-16 [backend] R-9: mirror test `ProjectSightNestedIdsTests.ABodyTeamThatIsHidden_AnswersAsOneThatNamesNothing` for `POST /projects/{p}/teams` (a hidden team in the body answers byte-identically to an unknown one); passes with the class (3 of 3).
 - 2026-11-16 [orchestrator] gate-3 approved by the human in chat after the gate-3 package. Accepted with it: debts R-4 (header selectors offer hidden objects until feat-061; the aggregate views show the generic error), R-5 remainder (team backlog reorder item ids and other routes' body ids, to feat-062), R-7 (the gate's per-request statements). The upgrade log (project_sight_upgrade_log) fills on deploy; the MR cannot quote production rows in advance.
+- 2026-11-16 [orchestrator] merged fresh origin/main (queue lines only), pushed; PR #203 opened (merge commit, auto-merge asked for per tech-072, branch kept).
