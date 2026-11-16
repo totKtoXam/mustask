@@ -6,6 +6,9 @@
 # body), a squash "Queue ..." commit, a merge from a sync/ branch, and two tags.
 # They pin the grouping, the exclusion of queue PRs, the first-release wording,
 # an explicit previous tag, the preview of an untagged ref and an empty range.
+# tech-071 adds: a docs-only merge goes to Documentation whatever its branch,
+# an empty body gives the branch made readable, and a two-parent merge whose
+# subject was rewritten to "<title> (#N)" is listed, grouped by its task id.
 #
 # Usage: sh scripts/tests/release-notes-cases.sh
 # (verify.sh runs it when release-notes.sh or this file changes)
@@ -160,7 +163,7 @@ merge_raw tech/015-crlf 15 "CRLF title" main
 merge plainbranch 16 "No prefix title"
 out=$(notes main)
 has "percent and backslashes printed verbatim" "$out" '- Pct 100% %s %n \n \\ done (#13)'
-has "empty body falls back to the branch name" "$out" "- bug/014-empty (#14)"
+has "empty body: the branch made readable" "$out" "- bug-014: empty (#14)"
 has "CRLF stripped from the title" "$out" "- CRLF title (#15)"
 has "branch without a prefix goes to other" "$out" "- No prefix title (#16)"
 if printf '%s\n' "$out" | grep -q "$(printf '\r')"; then bad "no carriage return in the notes"; else ok "no carriage return in the notes"; fi
@@ -195,6 +198,63 @@ out=$(notes v0.4.0 v0.4.0)
 has "previous tag equal to the end keeps the heading" "$out" "## v0.4.0"
 has "previous tag equal to the end: no PRs" "$out" "No pull requests in this range."
 lacks "previous tag equal to the end: no 'since'" "$out" "Changes since"
+
+# tech-071. merge_as <branch> <subject> <body> <files...>: a two-parent merge
+# on main with the given subject and body, the branch bringing in <files>.
+merge_as() {
+    b=$1 s=$2 body=$3
+    shift 3
+    g checkout -q -b "$b" main
+    for file in "$@"; do
+        mkdir -p "$repo/$(dirname "$file")"
+        printf '%s\n' "$b" > "$repo/$file"
+        g add "$file"
+    done
+    g commit -q -m "work on $b"
+    g checkout -q main
+    if [ -n "$body" ]; then
+        g merge -q --no-ff -m "$s" -m "$body" "$b"
+    else
+        g merge -q --no-ff -m "$s" "$b"
+    fi
+}
+
+# v0.6.0's defects: an analysis merged from feat/ with an empty body (#178),
+# a merge whose subject was rewritten (#188).
+merge_as feat/065-global-search "Merge pull request #30 from owner/feat/065-global-search" "" \
+    docs/features/feat-065-global-search/spec.md docs/features/feat-065-global-search/design.md
+merge_as mod/021-teams "mod-021: teams in departments (#31)" "" src/teams.cs
+merge_as feat/043-selectors "feat(feat-043): four selectors (#32)" "" src/selectors.ts
+merge_as tech/033-mixed "Merge pull request #33 from owner/tech/033-mixed" "Docs and a script" \
+    docs/mixed.md scripts/mixed.sh
+merge_as doc/034-guide "Merge pull request #34 from owner/doc/034-guide" "A guide" docs/guide.md
+merge_as other-35 "Polish without a task id (#35)" "" src/polish.cs
+merge_as sync/queue-x "Queue tech-099-y (#36)" "" docs/backlog.md
+merge_as plain37 "Merge branch 'plain37'" "" src/plain.cs
+merge_as noprefix "Merge pull request #38 from owner/noprefix" "" src/noprefix.cs
+n=$((n + 1))
+printf '%s\n' "$n" > "$repo/f$n"
+g add "f$n"
+g commit -q -m "tech-039: a squash PR (#39)"
+
+out=$(notes main)
+has "docs-only feat merge goes to documentation" "$out" "- feat-065: global search (#30)"
+features=$(printf '%s\n' "$out" | sed -n '/^### Features$/,/^### /p')
+lacks "docs-only feat merge is not a feature" "$features" "#30"
+has "rewritten subject is listed" "$out" "- mod-021: teams in departments (#31)"
+modules=$(printf '%s\n' "$out" | sed -n '/^### Modules$/,/^### /p')
+has "rewritten subject grouped by its task id" "$modules" "- mod-021: teams in departments (#31)"
+has "task id in a conventional-commit scope" "$features" "- feat(feat-043): four selectors (#32)"
+technical=$(printf '%s\n' "$out" | sed -n '/^### Technical$/,/^### /p')
+has "docs plus a script is not docs-only" "$technical" "- Docs and a script (#33)"
+docs=$(printf '%s\n' "$out" | sed -n '/^### Documentation$/,$p')
+has "doc branch stays in documentation" "$docs" "- A guide (#34)"
+other=$(printf '%s\n' "$out" | sed -n '/^### Other$/,$p')
+has "rewritten subject without a task id goes to other" "$other" "- Polish without a task id (#35)"
+lacks "rewritten queue subject skipped" "$out" "tech-099"
+lacks "merge without a PR number skipped" "$out" "plain37"
+has "unshaped branch with an empty body stays as is" "$other" "- noprefix (#38)"
+lacks "squash commit with (#N) still drops out" "$out" "#39"
 
 if (cd "$repo" && sh "$scripts/release-notes.sh" v9.9.9 >/dev/null 2>&1); then
     bad "unknown ref fails"
