@@ -147,7 +147,12 @@ public sealed class ParentWriteSecondCodeTests(MustaskApiFactory factory)
         {
             var answer = await SendAsync(derived.Client, HttpMethod.Patch, path, body, member.Token);
 
-            var expected = name == "a project that does not exist" ? (HttpStatusCode.NotFound, "organizations.project.not_found") : (HttpStatusCode.Forbidden, ForbiddenCode);
+            var expected = name switch
+            {
+                "a project that does not exist" => (HttpStatusCode.NotFound, "organizations.project.not_found"),
+                "an item that does not exist" => (HttpStatusCode.NotFound, "workitems.workitem.not_found"),
+                _ => (HttpStatusCode.Forbidden, ForbiddenCode),
+            };
 
             Assert.True(
                 answer.Status == expected.Item1 && answer.ErrorCode == expected.Item2,

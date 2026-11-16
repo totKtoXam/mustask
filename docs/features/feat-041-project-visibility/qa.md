@@ -23,7 +23,7 @@ Plan written from doc-016 spec BR-TD-12..-16 / OQ-5 A, US-6 (core), ADR-0040 § 
 | Team seen via visible project answers team routes | QA | `ATeamSeenThroughAVisibleProject_…` | added |
 | `PUT /visibility` authorization: project/department «Менеджер», admin; reader 403; hidden 404; cut manager 404; bad body 400 | | `TheFlagIsWrittenUnderTheVisibilityCode_…`, QA `SightAddsNoCode_…` | covered |
 | Assignee candidates and a new assignee limited to those who see the project; existing stays | | `TheAssigneeCandidates_…`, QA `Save_ANewAssignee…` | covered |
-| Upgrade (OQ-5 A): additive, default false, per-project log on populated data, Down | | `ProjectVisibleToOrganizationMigrationTests` (4) | covered |
+| Upgrade (OQ-5 A): additive, default false, per-project log on populated data, Down | | `ProjectVisibleToOrganizationMigrationTests` (2) | covered |
 | Set / single / inverse parity | | `AccessSetSightTests`, parity test | covered |
 
 ### Additional scenarios

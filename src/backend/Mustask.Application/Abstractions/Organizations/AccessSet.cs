@@ -112,15 +112,6 @@ public sealed class AccessSet
         return SightRules.SeesDepartment(Role, _areaGrants.ContainsKey(areaId), seesTeamInside, seesProjectInside);
     }
 
-    /// <summary>Whether the project, team or department exists in the organization as far as the sight data knows (non-administrator sets only).</summary>
-    public bool KnowsTeam(Guid teamId) => _sight.Teams.ContainsKey(teamId);
-
-    /// <summary>Whether the sight data holds the project (non-administrator sets only).</summary>
-    public bool KnowsProject(Guid projectId) => _sight.Projects.ContainsKey(projectId);
-
-    /// <summary>Whether the tree holds the area (non-administrator sets only).</summary>
-    public bool KnowsArea(Guid areaId) => _nodes.ContainsKey(areaId);
-
     /// <summary>The caller's codes on one object of <paramref name="scope"/>; an unknown object is judged by the role alone.</summary>
     public IReadOnlySet<string> CodesOn(ResourceScope scope, Guid objectId)
     {

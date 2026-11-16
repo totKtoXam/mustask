@@ -49,5 +49,11 @@ public interface IOrganizationAccess
     Task<AccessSet> SetAsync(CancellationToken cancellationToken) =>
         Task.FromResult(new AccessSet(Role, [], Empty, Empty, Empty));
 
+    /// <summary>
+    /// Whether the caller sees the project or team (feat-041, BR-TD-12, -13): a body id that names an object the caller does not see is
+    /// judged as one that names nothing. The administrator sees all; the default (a double without grants) sees all.
+    /// </summary>
+    Task<bool> SeesAsync(ResourceScope scope, Guid objectId, CancellationToken cancellationToken) => Task.FromResult(true);
+
     private static readonly IReadOnlyDictionary<Guid, IReadOnlyList<GrantRole>> Empty = new Dictionary<Guid, IReadOnlyList<GrantRole>>();
 }

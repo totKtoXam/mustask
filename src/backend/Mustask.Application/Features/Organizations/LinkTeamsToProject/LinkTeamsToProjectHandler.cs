@@ -89,6 +89,12 @@ public sealed class LinkTeamsToProjectHandler(
                     throw new NotFoundException(OrganizationErrorCodes.TeamNotFound);
                 }
 
+                // A team the caller does not see is one that does not exist (BR-TD-13), before the second code.
+                if (!await ScopedCodes.SeesAllAsync(access, ResourceScope.Team, command.TeamIds, ct))
+                {
+                    throw new NotFoundException(OrganizationErrorCodes.TeamNotFound);
+                }
+
                 // The second code, after the team entries are known to name active teams of the organization (BR-SA-9, US-7: the
                 // addressed end's 403 first, then the other end's not-found, then the other end's code).
                 if (!await ScopedCodes.HoldsOnAllAsync(access, PermissionCatalog.OrganizationsTeamLink, command.TeamIds, ct))

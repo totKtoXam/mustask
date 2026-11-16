@@ -16,10 +16,14 @@ For a non-administrator, after 401 and 404 organization (rows 1-2), the first th
 3. The same three answers for the query ids of a read: a `teamId`, `departmentId` or `projectId` that is not a visible object of the
    organization (unknown, of another organization, malformed or hidden: indistinguishable) answers the 404 of its kind. The word
    `none` and an empty value are not ids and pass. This includes `GET /workitems/assignee-candidates?projectId=` (a malformed id is a 404).
-4. 403 `organizations.access.forbidden`; then 400, body ids, the operation's own answers (unchanged).
+3a. **404 `iterations.sprint.not_found`** / **404 `workitems.workitem.not_found`** (code review R-2; ADR-0029 § 8 item 4, mod-019 BR-SA-9 "until feat-041"): a path `sprintId` that is malformed or names no sprint of the team, and a path `identifier` that is malformed, of another project key or names no item of the project (an item in any state, a deleted one too), answer their not-found after the project, team and area checks and before any 403. The container is visible by then, so nothing hidden is disclosed. An identifier whose type key is wrong for an existing number is still judged by the handler (403 first for a role lacking the code).
+4. 403 `organizations.access.forbidden`; then 400, then the **body ids**: on `POST /teams/{t}/projects` and `POST /projects/{p}/teams` a body project or team that the caller does not see answers 404 `organizations.project.not_found` / `team.not_found`, as one that names nothing, before the second code (R-5). Not done here, left for feat-062 with the team views: the item ids of a team backlog reorder (an item of a project the caller does not see is still ordered), and the other body ids.
+5. The operation's own answers (unchanged).
 
 The administrator sees everything: answers 1-3 never apply to them (a missing object answers as before).
 Sight changes (a grant, a team membership, a link, the flag) apply on the caller's next request.
+
+The visibility write logs an information line with the project, the value and the actor (as grant writes do).
 
 ## 2. New route
 

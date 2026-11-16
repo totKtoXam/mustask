@@ -198,6 +198,8 @@ public sealed class ScopedRoutesQaTests(MustaskApiFactory factory)
         var projectOnly = await HolderAsync(w, ResourceScope.Project, w.InDepartment.Id, GrantRole.Manager);
         var both = await HolderAsync(w, ResourceScope.Project, w.InDepartment.Id, GrantRole.Manager);
         await SeedAsync(ResourceScope.Team, w.Structure.OrganizationId, jupiter.Id, both.Id, GrantRole.Manager);
+        // The project end alone sees the team through a «Читатель» grant (a team linked to nothing is hidden otherwise, BR-TD-13): it lacks the team end's code.
+        await SeedAsync(ResourceScope.Team, w.Structure.OrganizationId, jupiter.Id, projectOnly.Id, GrantRole.Reader);
         var link = $"{UnderProject(w)}/teams";
 
         var one = await SendAsync(HttpMethod.Post, link, new { teamIds = new[] { jupiter.Id.ToString() } }, projectOnly.Token);

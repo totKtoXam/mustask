@@ -174,7 +174,13 @@ public sealed class ScopedAccessTests(MustaskApiFactory factory)
                 Assert.True(answer.Status == HttpStatusCode.NotFound, $"{method} {template} ({code}) answered {answer.Status} {answer.ErrorCode}.");
                 Assert.Contains(answer.ErrorCode, new[] { "organizations.project.not_found", "organizations.team.not_found", "organizations.area.not_found" });
 
-                continue;
+                // The role cell, with the ids of a visible project and a team linked to it (the proof the 404 cell does not replace).
+                answer = await OrganizationsApi.SendAsync(
+                    factory,
+                    new HttpMethod(method),
+                    OrganizationAddressedRoutes.PathOf(template, organizationId, structure.ProjectId, structure.Platform.Id, structure.Platform.Id, null, null),
+                    Body(method, template),
+                    caller.Token);
             }
 
             Assert.True(answer.Status == HttpStatusCode.Forbidden, $"{method} {template} ({code}) answered {answer.Status} {answer.ErrorCode}.");

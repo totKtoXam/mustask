@@ -206,6 +206,18 @@ public static class OrganizationAddressedRoutes
             .Replace("{identifier}", "PRM-BUG-1", StringComparison.Ordinal)
             .Replace("{level}", "stories", StringComparison.Ordinal);
 
+    /// <summary>The route's address with the ids of real objects (feat-041): the project, the team, the department as the area, a sprint, an item.</summary>
+    public static string PathOf(string template, string organizationId, Guid projectId, Guid teamId, Guid areaId, string? sprintId, string? identifier) =>
+        template
+            .Replace("{organizationId}", Uri.EscapeDataString(organizationId), StringComparison.Ordinal)
+            .Replace("{projectId}", projectId.ToString(), StringComparison.Ordinal)
+            .Replace("{teamId}", teamId.ToString(), StringComparison.Ordinal)
+            .Replace("{areaId}", areaId.ToString(), StringComparison.Ordinal)
+            .Replace("{sprintId}", sprintId ?? "{sprintId}", StringComparison.Ordinal)
+            .Replace("{userId}", "u-" + Guid.CreateVersion7().ToString("N"), StringComparison.Ordinal)
+            .Replace("{identifier}", identifier ?? "PRM-BUG-1", StringComparison.Ordinal)
+            .Replace("{level}", "stories", StringComparison.Ordinal);
+
     /// <summary>A body every write route binds: each field present and well formed, so only the address can be wrong.</summary>
     public static object? Body(string method) =>
         method is "POST" or "PUT" or "PATCH"

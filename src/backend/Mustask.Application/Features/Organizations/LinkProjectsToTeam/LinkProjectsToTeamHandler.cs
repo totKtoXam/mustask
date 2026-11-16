@@ -86,6 +86,12 @@ public sealed class LinkProjectsToTeamHandler(
                     throw new NotFoundException(OrganizationErrorCodes.ProjectNotFound);
                 }
 
+                // A project the caller does not see is one that does not exist (BR-TD-12), before the second code.
+                if (!await ScopedCodes.SeesAllAsync(access, ResourceScope.Project, command.ProjectIds, ct))
+                {
+                    throw new NotFoundException(OrganizationErrorCodes.ProjectNotFound);
+                }
+
                 // The second code, after the ids are known to name objects of the organization (BR-SA-9, US-7: not-found first).
                 if (!await ScopedCodes.HoldsOnAllAsync(access, PermissionCatalog.OrganizationsProjectLink, command.ProjectIds, ct))
                 {

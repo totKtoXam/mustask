@@ -1,3 +1,4 @@
+using Microsoft.Extensions.Logging;
 using Mustask.Application.Abstractions;
 using Mustask.Application.Abstractions.Organizations;
 using Mustask.Domain.Organizations;
@@ -17,7 +18,8 @@ namespace Mustask.Application.Features.Organizations.SetProjectVisibility;
 /// <c>FOR NO KEY UPDATE</c>, the lock a rename and a deactivation take, so a flag write and a deactivation serialize. Setting the value
 /// it already holds is a success that changes nothing.
 /// </remarks>
-public sealed class SetProjectVisibilityHandler(IProjectRepository projects, IUnitOfWork unitOfWork)
+public sealed class SetProjectVisibilityHandler(
+    IProjectRepository projects, IUnitOfWork unitOfWork, ICurrentUser currentUser, ILogger<SetProjectVisibilityHandler> logger)
 {
     public async Task<SetProjectVisibilityResponse> Handle(SetProjectVisibilityCommand command, CancellationToken cancellationToken) =>
         await unitOfWork.ExecuteInTransactionAsync(
@@ -47,6 +49,9 @@ public sealed class SetProjectVisibilityHandler(IProjectRepository projects, IUn
                 if (project.SetVisibleToOrganization(visible))
                 {
                     await projects.SaveAsync(ct);
+                    logger.LogInformation(
+                        "Project visibility set: project {ProjectId} in organization {OrganizationId} visible to the organization {Visible}, by {ActorId}.",
+                        project.Id, organizationId, visible, currentUser.SubjectId);
                 }
 
                 return new SetProjectVisibilityResponse(project.Id, project.OrganizationId, project.VisibleToOrganization);

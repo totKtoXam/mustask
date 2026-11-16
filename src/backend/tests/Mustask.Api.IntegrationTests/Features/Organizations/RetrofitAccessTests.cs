@@ -58,9 +58,12 @@ public sealed class RetrofitAccessTests(MustaskApiFactory factory)
         var world = await WorkItemsTestData.CreateWorldAsync(factory);
         var viewer = await MembershipTestData.NewMemberAsync(factory, world.OrganizationId, OrganizationRole.Viewer);
         var admin = await MembershipTestData.NewMemberAsync(factory, world.OrganizationId, OrganizationRole.Admin);
+        // feat-041: an item that does not exist is 404 before the viewer's 403 (ADR-0029 § 8 item 4), so the PATCH names a real one.
+        var identifier = await WorkItemsTestData.CreateItemAsync(factory, world, "TASK", "Задача");
         var path = template
             .Replace("{o}", world.OrganizationId.ToString(), StringComparison.Ordinal)
-            .Replace("{p}", world.ProjectId.ToString(), StringComparison.Ordinal);
+            .Replace("{p}", world.ProjectId.ToString(), StringComparison.Ordinal)
+            .Replace("MSK-TASK-1", identifier, StringComparison.Ordinal);
 
         async Task<HttpStatusCode> StatusAsync(string token)
         {

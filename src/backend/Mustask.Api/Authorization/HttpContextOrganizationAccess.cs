@@ -42,6 +42,23 @@ internal sealed class HttpContextOrganizationAccess(
         return EffectivePermissions.Holds(resolved.Role, scope, reaching, code);
     }
 
+    public async Task<bool> SeesAsync(ResourceScope scope, Guid objectId, CancellationToken cancellationToken)
+    {
+        if (Resolved.Role == OrganizationRole.Admin)
+        {
+            return true;
+        }
+
+        var set = await SetAsync(cancellationToken);
+
+        return scope switch
+        {
+            ResourceScope.Project => set.SeesProject(objectId),
+            ResourceScope.Team => set.SeesTeam(objectId),
+            _ => true,
+        };
+    }
+
     public async Task<AccessSet> SetAsync(CancellationToken cancellationToken)
     {
         var items = httpContextAccessor.HttpContext!.Items;
