@@ -56,9 +56,11 @@ case "$mode" in
         [ -n "$(ls "$blobs")" ] || { echo "ci-coverage-gate: no Vitest blob reports under $input" >&2; exit 1; }
         report="$scratch/coverage"
         # The merged run replays the shards' results; the reporter only has to
-        # print the summary, the coverage is what this step is for.
+        # print the summary, the coverage is what this step is for. --silent
+        # drops the replayed console output of the tests: the shards' own logs
+        # have it, and here it buried the floor's verdict.
         (cd "$repo/src/frontend" && npx vitest --merge-reports="$(native_path "$blobs")" \
-            --coverage --coverage.reportsDirectory="$(native_path "$report")" --reporter=dot)
+            --coverage --coverage.reportsDirectory="$(native_path "$report")" --reporter=dot --silent)
         [ -f "$report/coverage-summary.json" ] || { echo "ci-coverage-gate: the merge wrote no coverage-summary.json" >&2; exit 1; }
         node "$repo/scripts/coverage-gate.mjs" frontend "$report/coverage-summary.json"
         ;;
