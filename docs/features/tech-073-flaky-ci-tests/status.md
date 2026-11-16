@@ -3,14 +3,14 @@
 - type: tech
 - size: S
 - branch: tech/073-flaky-ci-tests
-- stage: 08-review
+- stage: complete
 - epic: platform/ci
 - deps: -
 - gates: gate-3
 
 ## Gates
 
-gate-3: pending
+gate-3: approved · 2026-11-16 (the human: «открой PR и включи auto-merge»)
 
 ## Plan
 
@@ -33,3 +33,4 @@ Not in scope: `NavigationReadsQaTests` (#188 first run) and the two route-invent
 - 2026-11-16 [orchestrator] route confirmed by the human: tech, S, dev → light QA → one Opus review → gate-3 → PR (merge commit, auto-merge). Economy mode: CI is the verification. Queue add PR #200, take PR #207; bug-007 queued, PR #206.
 - 2026-11-16 [code-reviewer] Round 1 (code review): approve, 0 blockers, 0 majors, 3 minors open as debts (review.md).
 - 2026-11-16 [developer] review minors m1-m3 fixed in place (review.md, follow-up); no separate QA session: the task changes tests only, the review covered their quality and CI's full verify.sh is the run.
+- 2026-11-16 [orchestrator] gate-3 approved by the human («открой PR и включи auto-merge»); PR with merge commit, auto-merge on.
