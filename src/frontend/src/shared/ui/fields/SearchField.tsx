@@ -55,6 +55,8 @@ export function SearchField({
   onCompositionEnd,
   ref,
   anchorRef,
+  onFocus,
+  onBlur,
   ...passThrough
 }: SearchFieldProps) {
   const inputElement = useRef<HTMLInputElement | null>(null);
@@ -103,6 +105,9 @@ export function SearchField({
         onChange={(event) => onChange(event.target.value)}
         onCompositionStart={onCompositionStart}
         onCompositionEnd={onCompositionEnd}
+        // InputBase overwrites focus handlers given through slotProps.input.
+        onFocus={onFocus}
+        onBlur={onBlur}
         placeholder={placeholder}
         autoComplete="off"
         fullWidth

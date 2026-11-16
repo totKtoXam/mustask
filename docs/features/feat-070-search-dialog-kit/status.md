@@ -3,7 +3,7 @@
 - type: feature
 - size: M
 - branch: feat/070-search-dialog-kit
-- stage: 05-frontend
+- stage: 06-code-review
 - epic: platform/ui
 - deps: -
 - gates: gate-3
@@ -29,6 +29,9 @@ Spec and design are feat-065's (gate-1 and gate-2 approved there, 2026-11-13); t
 - 2026-11-13 [orchestrator] route confirmed by the human in chat: M (queue line says S; about 15 files over five kit parts, the theme, the showcase and the guide, so S's 1–5 files would understate it). Route: frontend-dev → QA → code review → gate-3 → PR. Spec and design are feat-065's, so gate-1 and gate-2 have no subject here. Economy mode: one agent per stage, one Opus review; E2E stays paused.
 - 2026-11-13 [orchestrator] the branch had already been cut by the session «feat-070: search dialog kit», which also took the queue line (PR #189). The human gave the task to this session («Это я, забери себе»): that worktree was detached with no changes, and the branch was checked out in .claude/worktrees/laughing-bartik-3ad2cc.
 - 2026-11-13 [frontend-developer] plan items 1-7 built: ThinSearchIcon, HighlightedText, SearchField, SearchOption, SearchPanel, theme tokens (`layout.searchField|searchPanel|searchOption`, `palette.search.match`), exports, kit tests, `/ui-kit` section «Поиск», guide block. Lint, typecheck and the tests of the touched areas are green; the whole suite is left to CI (economy mode). Stage stays 05-frontend until QA.
+
+- 2026-11-16 [qa-engineer] frontend QA done (qa.md): 4 edge test files finished, D-1 (SearchField dropped host onFocus/onBlur, major) found and fixed in kit code. Lint, tsc -b and touched-area vitest green; 0 blockers. Stage 06-code-review.
+- 2026-11-16 [qa-engineer] Decisions: E2E: no (standing answer, paused).
 
 ## Notes
 
