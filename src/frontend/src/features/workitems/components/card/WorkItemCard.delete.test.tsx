@@ -28,8 +28,6 @@ import {
 // meets), § 9 (roles). Each user action draws the kit's fields in jsdom; a test of several steps
 // outlasts the default.
 
-vi.setConfig({ testTimeout: 120_000 });
-
 const STORY = 'MSK-US-2';
 // A dialog over the card hides it from the accessibility tree, and the card is still there.
 const title = () => screen.getByRole('textbox', { name: 'Заголовок', hidden: true });

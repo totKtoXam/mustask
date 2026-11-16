@@ -16,8 +16,6 @@ import { CardSprintField } from './CardSprintField';
 
 // mod-007 US-4, design § 7: the card's «Спринт» field.
 
-vi.setConfig({ testTimeout: 120_000 });
-
 const ACTIVE: WorkItemSprint = { id: sprintId(2), name: 'Спринт 2', state: 'Active' };
 
 function renderField(

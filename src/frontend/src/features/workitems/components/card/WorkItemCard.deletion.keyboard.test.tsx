@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import { screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { deleteRecord, recordOf, stateId, type Dataset } from '../../testFixtures';
@@ -9,8 +9,6 @@ import { chooseFromMenu, dialogTitled, noDialog, openAs, postsTo } from './testD
 // with focus on its frame, the Purge dialog on «Отмена», and in the Restore dialog Enter on the
 // closed list opens the list and submits nothing. All three are modal `dialog`s, never `alertdialog`
 // (tech-015 K-14). Each user action draws the kit's fields in jsdom, which are slow.
-
-vi.setConfig({ testTimeout: 120_000 });
 
 const STORY = 'MSK-US-2';
 

@@ -168,30 +168,45 @@ describe('mod-016 design § 3.7 Scenario: a member removes themselves', () => {
     expect(screen.queryByRole('link', { name: 'Альфа' })).not.toBeInTheDocument();
   });
 
-  it('says «Вы больше не состоите в организации «Альфа».» when the organization was the user’s only one', async () => {
-    const data = membersDataset();
-    data.memberships = data.memberships!.filter(
-      (membership) => membership.organizationId === ids.alfa,
-    );
-    renderMembers({ data });
-    await settledTable();
-    await userEvent.click(screen.getByRole('button', { name: 'Действия: Анна Смирнова' }));
-    await userEvent.click(await screen.findByRole('menuitem', { name: 'Удалить из организации' }));
-    const dialog = await screen.findByRole('dialog', { name: 'Удалить себя из организации?' });
+  // `it.fails`: a defect still open (bug-007). The notice is drawn on the members page, about
+  // 100 ms before the move to «Организации», and the shell's fallback notice («Ранее выбранный
+  // контекст недоступен.») replaces it as the selection falls away, so the user never reads it.
+  // The test once looked for the notice before the move and passed whenever it caught those
+  // 100 ms — on a slow CI runner it sometimes did not (tech-073). It now reads what stays on
+  // screen after the move, and passes while the defect stands. When bug-007 is fixed it starts
+  // failing; drop `.fails` then.
+  it.fails(
+    'says «Вы больше не состоите в организации «Альфа».» when the organization was the user’s only one',
+    async () => {
+      const data = membersDataset();
+      data.memberships = data.memberships!.filter(
+        (membership) => membership.organizationId === ids.alfa,
+      );
+      renderMembers({ data });
+      await settledTable();
+      await userEvent.click(screen.getByRole('button', { name: 'Действия: Анна Смирнова' }));
+      await userEvent.click(
+        await screen.findByRole('menuitem', { name: 'Удалить из организации' }),
+      );
+      const dialog = await screen.findByRole('dialog', { name: 'Удалить себя из организации?' });
 
-    await userEvent.click(within(dialog).getByRole('button', { name: 'Удалить' }));
+      await userEvent.click(within(dialog).getByRole('button', { name: 'Удалить' }));
 
-    expect(
-      await screen.findByText('Вы больше не состоите в организации «Альфа».'),
-    ).toBeInTheDocument();
-    await waitFor(() => expect(screen.getByTestId('location').textContent).toBe('/organizations'));
-    expect(
-      await screen.findByRole('heading', {
-        level: 2,
-        name: 'Вы пока не состоите ни в одной организации',
-      }),
-    ).toBeVisible();
-  });
+      // The move first, then the notice that stays (design § 3.7).
+      await waitFor(() =>
+        expect(screen.getByTestId('location').textContent).toBe('/organizations'),
+      );
+      expect(
+        await screen.findByText('Вы больше не состоите в организации «Альфа».'),
+      ).toBeInTheDocument();
+      expect(
+        await screen.findByRole('heading', {
+          level: 2,
+          name: 'Вы пока не состоите ни в одной организации',
+        }),
+      ).toBeVisible();
+    },
+  );
 });
 
 describe('mod-016 design § 2.2, § 2.3 Scenario: the codes change behind the open page', () => {

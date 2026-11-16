@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import { Route, useNavigate } from 'react-router-dom';
 import { act, fireEvent, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
@@ -17,8 +17,6 @@ import { WorkItemsPage } from './WorkItemsPage';
 // spec before the code was read. Each `it.fails` is a defect still open (qa.md D-F2, D-F4): it
 // states the behaviour the spec asks for and passes while the defect stands. When one is fixed its
 // test starts failing; drop `.fails` then. D-F1 and D-F3 are fixed: their tests are plain.
-
-vi.setConfig({ testTimeout: 120_000 });
 
 const enc = encodeURIComponent;
 

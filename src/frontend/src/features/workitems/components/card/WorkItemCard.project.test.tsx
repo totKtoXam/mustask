@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import { screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { hierarchyDataset, ids } from '../../testFixtures';
@@ -6,8 +6,6 @@ import { held, openCard } from './testCard';
 
 // feat-040 design § 7, D-2, BR-TS-3: «Проект» in block A of the band, row 2, under «Статус» — the name
 // of the item's project as read-only text, for every role and in every state.
-
-vi.setConfig({ testTimeout: 60_000 });
 
 const project = held(() => screen.getByRole('textbox', { name: 'Проект' }));
 

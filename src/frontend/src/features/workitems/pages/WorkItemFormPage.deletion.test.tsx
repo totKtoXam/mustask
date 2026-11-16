@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { Route, useNavigationType } from 'react-router-dom';
@@ -14,8 +14,6 @@ import { WorkItemFormPage } from './WorkItemFormPage';
 // from the page, the deleted card in a page, and a purge that leaves the page by a replace so Back
 // never meets the purged address. Each user action draws the kit's fields in jsdom; a test of
 // several steps outlasts the default.
-
-vi.setConfig({ testTimeout: 120_000 });
 
 const STORY = mskForm('MSK-US-2');
 const HEADING = 'Пользовательская история MSK-US-2';

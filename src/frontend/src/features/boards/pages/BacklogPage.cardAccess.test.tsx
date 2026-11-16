@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { HttpResponse, http } from 'msw';
@@ -29,8 +29,6 @@ import { BacklogPage } from './BacklogPage';
 // refused save keeps the dialog with its alert and turns it read-only when the role went,
 // and a save that answers «Организация не найдена» closes the dialog with the whole page.
 // The card inside is the kit's fields in jsdom, which are slow.
-
-vi.setConfig({ testTimeout: 120_000 });
 
 const ACCESS_URL = `${API}/api/organizations/:organizationId/access`;
 const OPEN = `${backlogAddress()}?workitem=MSK-BUG-4`;

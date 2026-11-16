@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it } from 'vitest';
 import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { focusManager } from '@tanstack/react-query';
@@ -20,8 +20,6 @@ import {
 // menu leaving the filter behind (feat-040 retires, by name, «another team, and «Весь проект» from a team,
 // are other views and start unfiltered»: the project's head has no menu; a team's own menu starts the
 // other team unfiltered, held by the project filter's tests).
-
-vi.setConfig({ testTimeout: 60_000 });
 
 afterEach(() => {
   focusManager.setFocused(undefined);

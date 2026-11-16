@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { serveWorkItems } from '../testApi';
@@ -7,8 +7,6 @@ import { MSK_LIST, renderWorkItems } from '../testRender';
 
 // feat-003 US-3, BR-WS-9, design § 2.1, D-3 A: «Поиск» over the title and the identifier. The
 // field's timing is `KeywordFilter.test.tsx`'s; here the page reads what the keyword finds.
-
-vi.setConfig({ testTimeout: 120_000 });
 
 const enc = encodeURIComponent;
 

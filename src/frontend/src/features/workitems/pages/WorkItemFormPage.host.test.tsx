@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom';
@@ -16,8 +16,6 @@ import { WorkItemFormPage } from './WorkItemFormPage';
 import { WORK_ITEM_ROUTE, workItemsPath } from '../paths';
 
 // The page as the card’s host: it reads, keys and hosts (feat-029 US-7, BR-C-3, BR-C-6).
-
-vi.setConfig({ testTimeout: 60_000 });
 
 const STORY = `/organizations/${ids.example}/projects/${ids.msk}/workitems/MSK-US-2`;
 const LIST = workItemsPath(ids.example, ids.msk);

@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { iterationErrorCodes } from '../../../shared/api/errorCodes';
@@ -8,8 +8,6 @@ import { renderPage } from '../../../test/renderPage';
 import { LIST_PATH, SPRINTS_ROUTE, serveSprintList, sprintId, sprintRow } from '../testApi';
 
 // mod-007 design § 3, § 4, § 5, § 8, US-1..US-3: the team's «Спринты» through the real routes.
-
-vi.setConfig({ testTimeout: 120_000 });
 
 beforeEach(() => {
   servedObjectCodes.current = ADMIN_CODES;

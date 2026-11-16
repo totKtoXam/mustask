@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it } from 'vitest';
 import { act, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { focusManager } from '@tanstack/react-query';
@@ -19,8 +19,6 @@ import {
 // lives in the page address as the repeated `teamId` (api-contract § 3), so a link carries it, and a
 // re-read and a level change keep it (BR-OT-8). `projectDataset` puts MSK-US-2 on «Мастаск», MSK-US-3 on
 // «Платформа» and MSK-US-9 on «Аналитика». The card inside the first test is slow in jsdom.
-
-vi.setConfig({ testTimeout: 60_000 });
 
 afterEach(() => {
   focusManager.setFocused(undefined);

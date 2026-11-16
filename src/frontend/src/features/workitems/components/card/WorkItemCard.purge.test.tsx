@@ -24,8 +24,6 @@ import {
 // mod-005 US-6, design § 6 (the dialog), § 8 (what it meets). Each user action draws the kit's
 // fields in jsdom; a test of several steps outlasts the default.
 
-vi.setConfig({ testTimeout: 120_000 });
-
 const BUG = 'MSK-BUG-4';
 const EPIC = 'MSK-EPIC-1';
 const purgeDialog = () => dialogTitled('Удалить рабочий элемент навсегда?');

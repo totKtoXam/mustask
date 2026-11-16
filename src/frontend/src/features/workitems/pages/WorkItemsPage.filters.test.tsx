@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import { act, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { HttpResponse, http } from 'msw';
@@ -22,8 +22,6 @@ import { MSK_LIST, mskForm, renderWorkItems } from '../testRender';
 // «Исполнитель» and «Команда»; «Статус» and «Удалена» (the recycle bin); the address; every state of
 // the list. The data is spec § Common data (`listFilterDataset`). Each user action draws the kit's
 // fields in jsdom; a test of several steps outlasts the default.
-
-vi.setConfig({ testTimeout: 120_000 });
 
 const enc = encodeURIComponent;
 
