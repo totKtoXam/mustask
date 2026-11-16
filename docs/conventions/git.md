@@ -107,7 +107,8 @@ session.
    line breaks in `--description` and in
    `git push -o merge_request.description` don't survive.
 5. Merge method — **a merge commit**, not squash: the branch keeps its
-   commits. Branch deletion — **disable**.
+   commits. Right after `gh pr create`: `gh pr merge <N> --auto --merge`
+   (tech-072) — it merges when CI is green. Branch deletion — **disable**.
 6. **Red CI — stop.** An MR is not opened and not merged with failing
    tests or linters.
 7. **The human presses the Merge button**, not the agent.
@@ -397,8 +398,8 @@ are changed by the human, never by an agent):
   `.github/workflows/ci.yml`, reported by GitHub Actions. The branch does not
   have to be up to date with `main` first (`strict` is off).
 - **No required reviews, no required approve.** The API shows no
-  pull-request rule at all: the merge is the human's Merge button (or the
-  auto-merge a standing approval allows), and the check is what must be green
+  pull-request rule at all: the merge is the auto-merge the agent asks for on
+  every task PR (tech-072; the human can disable it per PR), and the check is what must be green
   first.
 - **`enforce_admins` is off:** the rules do not bind a repository admin.
 - Force-push and deletion of `main` are forbidden.
@@ -409,8 +410,8 @@ The repository's merge settings: squash, merge-commit and rebase-merge are
 all allowed, auto-merge is allowed, and "delete head branches on merge" is
 **off**. "Task PRs merge with a merge commit" and "the branch is not
 deleted" are therefore this document's rules, held by the PR step and by
-agents — not by the server (merge-commit is the method the human picks on
-the Merge button; the settings also allow squash, which queue PRs use).
+agents — not by the server (merge-commit is the method `--auto --merge` asks for;
+the settings also allow squash, which queue PRs use).
 
 What follows for the work:
 

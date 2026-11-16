@@ -104,15 +104,24 @@ read it before your first task. In short:
   (`docs/ai-workflow/stages/s-route.md`, § "Light cycle").
 - **The last stage of a task is a PR on GitHub, not a chat message.** After
   `gate-3: approved` the agent pushes the branch and opens a pull request
-  through `gh` (merge commit, branch deletion off), then sends a short
+  through `gh` (merge commit, branch deletion off), turns on auto-merge
+  (`gh pr merge <N> --auto --merge`), then sends a short
   notification with the link to the chat — the format and the commands are in
   `docs/ai-workflow/stages/07-mr-complete.md`, § "Opening the MR". **With no
   remote configured** there is nothing to push to and the task ends as a local
   squash — `scripts/finish-task.sh`, which merges only against a recorded
   acceptance and a green `verify.sh`, and refuses otherwise.
-- **Only a human presses Merge.** The agent does not merge, does not delete
+- **Task PRs auto-merge; the agent never merges by hand.** Right after
+  opening the PR the agent asks for auto-merge with a merge commit
+  (`gh pr merge <N> --auto --merge`, no `--delete-branch`): it merges by
+  itself once CI is green; a red CI keeps it open and is fixed in the branch.
+  The human may switch it off per PR ("Disable auto-merge"). The agent does
+  not run `gh pr merge` without `--auto`, does not bypass CI, does not delete
   the branch — neither locally nor on the server — and does not consider the
-  task finished until that is confirmed. A task's branch lives on the server
+  task finished until the merge is confirmed. Gates stay the human's:
+  auto-merge only follows a recorded `gate-3: approved` — a PR opened under
+  standing approval with gate-3 still `pending` waits for the human's Merge
+  click, which is the approve. A task's branch lives on the server
   after the merge too: the merge commit keeps the branch's commits in
   `main`'s history, and the branch stays as a pointer to them.
 - Do not search the whole disk or the whole home directory: never start a

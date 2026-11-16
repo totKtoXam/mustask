@@ -94,4 +94,4 @@ down — otherwise F becomes a way to bypass the process.
       into `## Log`
 - [ ] Observable behaviour has not changed
 - [ ] The branch is pushed, the PR is opened (merge commit, branch deletion off),
-      the link is sent to the human; the Merge button and `gate-3` stay theirs
+      auto-merge is on (`gh pr merge <N> --auto --merge`), the link is sent to the human; `gate-3` stays theirs

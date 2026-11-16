@@ -25,7 +25,9 @@ verdict and the MR link" below.
 After `gate-3: approved` — or, under standing approval (AGENTS.md,
 "Standing approval"), right after green QA and review: gate-3 stays
 `pending`, and the human expresses the approve with the Merge button (git.md
-§ "Merge Request", item 1; `rejected` blocks in both modes):
+§ "Merge Request", item 1; `rejected` blocks in both modes). Auto-merge is
+asked for only after `gate-3: approved`: while gate-3 is `pending`, the PR
+waits for the human's Merge, since that click is the approve:
 
 1. Rebase onto `main`. If main brought its own EF migrations — the feature's
    migrations are regenerated on top of fresh main (a model snapshot conflict
@@ -56,8 +58,9 @@ After `gate-3: approved` — or, under standing approval (AGENTS.md,
    will issue it.
 3. Pushing the branch and **opening the MR — is done by the agent** (how
    exactly — below).
-4. **The Merge button is pressed by the human in GitLab.** The agent does not
-   merge, does not delete the branch and does not consider the task finished
+4. **The PR merges itself** (tech-072: `gh pr merge <N> --auto --merge` right
+   after opening it, once CI is green). The agent never merges by hand or
+   around CI, does not delete the branch and does not consider the task finished
    until confirmation. The full rules of branching, commits and releases —
    [../../conventions/git.md](../../conventions/git.md).
 
@@ -92,13 +95,20 @@ git push -u origin <branch>
 # 2. PR from the branch. The title is English — it also becomes the merge
 #    commit's title, so it carries the short id.
 gh pr create --base main --head <branch> --title "feat|fix|tech(<scope>): <essence> (<short id>)" --body-file <description file>
+
+# 3. Auto-merge with a merge commit (tech-072): the PR merges by itself once
+#    CI is green. No --delete-branch.
+gh pr merge <N> --auto --merge
 ```
 
 - **The merge method is a merge commit, not squash** (2026-11-09): the
   branch keeps its commits in `main`, which is what a human and an agent search
-  by. The agent does not merge and does not enable auto-merge; the human picks
-  "Create a merge commit" on the Merge button. Queue PRs from
-  `scripts/queue.sh` stay squash.
+  by. Since tech-072 the agent enables auto-merge right after
+  opening the PR (`gh pr merge <N> --auto --merge`); it merges itself when CI
+  is green, and a red CI keeps it open (fix in the branch, Auto-fix). The human
+  can turn it off per PR with "Disable auto-merge". The agent never runs
+  `gh pr merge` without `--auto` and never bypasses CI. Queue PRs from
+  `scripts/queue.sh` stay squash + auto-merge.
 - **Do NOT delete the branch after the merge** — neither with
   `--delete-branch`, nor with the button in the PR. The task
   branch stays on the server as the pointer to the task's commits.
@@ -148,7 +158,7 @@ Commits:  N above main — of them mine M, other people's K
 Tests:    <command> — <result>
 Gates:    gate-1 <verdict> · gate-2 <verdict> · gate-3 <verdict>
 
-Remaining: press Merge in GitLab.
+Auto-merge: on (merge commit) — merges itself when CI is green; "Disable auto-merge" in the PR stops it.
 ```
 
 Several tasks are ready — send a **combined** notification: one table

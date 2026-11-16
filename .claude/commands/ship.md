@@ -23,8 +23,8 @@ Feature: $ARGUMENTS
    tests/linters, `stage: complete` in status.md (goes out in the same
    merge), push the branch and open a PR via `gh` per the
    "Opening the MR" section of the stage instructions — merge commit (no
-   squash, no auto-merge), branch deletion OFF. In chat — a short notification with the link, then stop:
-   the human presses Merge.
+   squash), branch deletion OFF, then `gh pr merge <N> --auto --merge` (auto-merge on; it merges when CI is
+   green). In chat — a short notification with the link, then stop. Never merge by hand or around CI.
 5. After the human merges: `git fetch origin && git switch main && git
    merge --ff-only origin/main`, `git worktree remove <path>`. New tasks
    found along the way are entered by the orchestrator as lines in the
