@@ -118,3 +118,51 @@ Direction 2 (prose outside the diff describing the changed behaviour):
 - Visibility code: grepped `organizations.visibility.write`. mod-019 spec BR-SA-16 and US-8 say "stays the project role's (feat-041)", but the diff also gives it to the department «Менеджер». doc-016 spec line 97 (decided at gate-2) supersedes that, so not a finding.
 - Assignee: ADR-0029 § 11's «нет доступа к проекту» marker for an assignee who lost access is not built. Neither this diff nor its contract claims it. Not swept further.
 - Not swept: every story of mod-007, feat-040, feat-048 and feat-057/058 that describes team or aggregate views as organization-wide (owed to feat-062 by the decomposition).
+
+## Round 2 (delta)
+
+Delta read of `ccb67b2d..4ff58635` (8b725eb2, developer: R-1, R-2, R-3, R-5 in part, R-6, R-8; 4ff58635, orchestrator: R-4) against the
+findings still open from Round 1. No tests run: the developer's full run is in the status Log.
+
+**Verdict: approved** — blockers 0 · majors 0 · minors open: R-5 (rest), R-7, R-9 (new). These are debts for the gate-3 summary.
+
+- **R-1 · closed.** For a non-administrator, `OrganizationAccessInventoryTests` now builds a world with a project visible to the
+  organization, its linked team, the department, a sprint and an item (`OrganizationAddressedRoutes.PathOf`), so the role cell is
+  judged again on every object route. The cells for codes a role lacks must be exactly 403, so they also prove the ids are visible.
+  The not-found cells are a separate theory
+  (`EveryObjectRoute_ForANonAdministrator_NamingAnObjectThatDoesNotExist_Is404OfItsKind_BeforeAny403`). `ScopedAccessTests.cs:177-183`
+  runs the role cell after the 404 cell.
+- **R-2 · closed.** `OrganizationPermissionHandler.cs:114-135` resolves `sprintId` inside the team and `identifier` inside the project.
+  Identifier resolution uses the key compared ordinally, as `WorkItemAddress.cs:40` does, and covers any state. Both run after the
+  project, team and area checks and before the 403, for non-administrators only. This is pinned by
+  `ProjectSightNestedIdsTests.ASprintOrAnItemThatDoesNotExist_…` and the four restated legacy tests. api-contract § 1 item 3a records
+  it, including the type-key gap the handler still judges, and there is a P-10 note in mod-019's status.md.
+- **R-3 · closed.** `AccessSet.Knows*` is deleted.
+- **R-4 · closed.** status.md § Plan names the interim.
+- **R-5 · partly closed.** `ScopedCodes.SeesAllAsync` runs before the second code on both link routes
+  (`LinkProjectsToTeamHandler.cs:89`, `LinkTeamsToProjectHandler.cs:92`), and `HttpContextOrganizationAccess.SeesAsync` reuses the
+  request's set. Still open, recorded in api-contract § 1 item 4: the item ids of a team backlog reorder and the other routes' body
+  ids. These go to feat-062.
+- **R-6 · closed.** `SetProjectVisibilityHandler.cs:52-54` logs the project, the value and the actor (an id, no personal data).
+- **R-7 · open (debt).** Unchanged. The nested-id gate adds 1-2 statements to sprint and item routes on top of it.
+- **R-8 · closed.** `qa.md:26` now says (2).
+
+New in the delta:
+
+**R-9 · minor · tests.** R-5's sight check on `POST /projects/{p}/teams` (`LinkTeamsToProjectHandler.cs:92`) has no test of its own.
+`ProjectSightNestedIdsTests` covers only `POST /teams/{t}/projects`. Fix: a mirror fact asserting that a hidden team in the body gets
+the same bytes as an unknown one.
+
+### Behavioural claims checked (delta)
+
+Direction 1:
+- api-contract § 1 item 3a (sprint and identifier not-found before 403; type key left to the handler) → `OrganizationPermissionHandler.cs:114-135`. OK.
+- api-contract § 1 item 4 (body ids on the two link routes; reorder item ids not done) → `ScopedCodes.SeesAllAsync` + the two handlers. OK.
+- api-contract § 1 "the visibility write logs … the actor" → `SetProjectVisibilityHandler.cs:52`. OK.
+- mod-019 status.md P-10 note → same anchors. OK.
+- status.md § Plan interim (aggregate views 404 with «Повторить») → `AggregateWorkItemsPage.tsx:167-175`. OK.
+- status Log [backend]: "full Api.IntegrationTests … 4 restated and re-run green" → the four restated files are in the diff. Not re-run here.
+
+Direction 2: the changed behaviour is sprint and item not-found before 403. I grepped `Спринт не найден`, `workitem.not_found` and
+"403 before a nested id" under docs/. ADR-0029 § 8 item 4 now matches. mod-019 BR-SA-9's "until feat-041" is fulfilled, with the P-10
+note. No other hit describes the old order as current.
