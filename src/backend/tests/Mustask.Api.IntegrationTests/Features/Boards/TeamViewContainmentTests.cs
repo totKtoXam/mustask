@@ -228,7 +228,7 @@ public sealed class TeamViewContainmentTests(MustaskApiFactory factory)
             OrganizationAddressedRoutes.All,
             route => route.Template.Contains("/projects/{projectId}/teams/{teamId}/backlogs", StringComparison.Ordinal)
                 || route.Template.Contains("/projects/{projectId}/teams/{teamId}/boards", StringComparison.Ordinal));
-        // mod-021 retires five link routes and adds the team move, mod-007 adds the team's eleven sprint routes - 107.
-        Assert.Equal(107, OrganizationAddressedRoutes.All.Count);
+        // mod-021 retires five link routes and adds the team move, mod-007 adds the team's eleven sprint routes - 107; mod-024 adds the fifteen import routes - 122.
+        Assert.Equal(122, OrganizationAddressedRoutes.All.Count);
     }
 }
