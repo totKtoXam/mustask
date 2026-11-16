@@ -48,6 +48,20 @@ const BARE = {
 };
 
 describe('feat-070 Scenario: SearchField (feat-065 design § 1)', () => {
+  it('defaults aria-expanded to false when the host passes none', () => {
+    render(
+      <SearchField
+        value=""
+        onChange={() => undefined}
+        label="Поиск"
+        placeholder="Поиск…"
+        clearLabel="Очистить поле"
+        onClear={() => undefined}
+      />,
+    );
+    expect(screen.getByRole('combobox')).toHaveAttribute('aria-expanded', 'false');
+  });
+
   it('is a combobox named «Поиск» with the placeholder, and the host’s aria props', () => {
     render(<Harness />);
     const input = screen.getByRole('combobox', { name: 'Поиск' });

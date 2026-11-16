@@ -94,6 +94,7 @@ export function SearchDemo() {
           label="Запрос для выделения"
           placeholder="Поиск…"
           hint="Ctrl K"
+          aria-expanded={false}
           clearLabel="Очистить запрос"
           onClear={() => setFixed('')}
         />

@@ -237,8 +237,8 @@ label, show the hint as a permanent helper line.
   stays `dialog`.
 
 **Search parts** (feat-070; `fields`, `dialog`; the global search of feat-065 is built from them, no screen uses them yet) —
-`SearchField`: the 28 px borderless header field, a magnifier, an ARIA combobox input (`aria-expanded`,
-`aria-controls`, `aria-activedescendant` come from the host as props), the shortcut `hint` while empty, a clear button
+`SearchField`: the 28 px borderless header field, a magnifier, an ARIA combobox input (`aria-expanded` defaults to `false`;
+`aria-controls`, `aria-activedescendant` and an open `aria-expanded` come from the host as props), the shortcut `hint` while empty, a clear button
 (`clearLabel`, `onClear`; the field takes the focus back) while not; 300 px wide, 360 focused (`layout.searchField`);
 `anchorRef` gives the frame to the panel. `SearchPanel`: a non-modal `Popper` under `anchorEl` — no backdrop, no focus
 trap, the focus stays in the field — in the `Surface` card look; slots `scope`, `fullSearch`, the scrolling body

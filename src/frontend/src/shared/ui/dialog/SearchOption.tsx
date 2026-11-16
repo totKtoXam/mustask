@@ -95,7 +95,7 @@ export function SearchOption({
             sx={(theme) => ({
               flex: 'none',
               width: theme.spacing(0.5),
-              height: '60%',
+              height: theme.layout.searchOption.stripeHeight,
               marginRight: theme.spacing(-0.5),
               borderRadius: theme.spacing(0.25),
               backgroundColor: stripe ?? 'transparent',

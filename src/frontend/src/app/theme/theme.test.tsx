@@ -607,7 +607,7 @@ describe('feat-070 Scenario: the search tokens (feat-065 design § 1)', () => {
   it('pins the field, the panel and the option', () => {
     expect(theme.layout.searchField).toEqual({ height: 28, width: 300, widthFocused: 360 });
     expect(theme.layout.searchPanel).toEqual({ width: 720, maxHeight: '70vh', viewportGap: 32 });
-    expect(theme.layout.searchOption).toEqual({ height: 48 });
+    expect(theme.layout.searchOption).toEqual({ height: 48, stripeHeight: 28 });
   });
 
   it('has a match tint that keeps the text readable (4.5:1 against the primary text)', () => {

@@ -33,6 +33,7 @@ Spec and design are feat-065's (gate-1 and gate-2 approved there, 2026-11-13); t
 - 2026-11-16 [qa-engineer] frontend QA done (qa.md): 4 edge test files finished, D-1 (SearchField dropped host onFocus/onBlur, major) found and fixed in kit code. Lint, tsc -b and touched-area vitest green; 0 blockers. Stage 06-code-review.
 - 2026-11-16 [qa-engineer] Decisions: E2E: no (standing answer, paused).
 - 2026-11-16 [code-reviewer] round 1 (review.md): request-changes; open: 1 major (M1, the SearchOption stripe renders 0 px high), 4 minors (debts).
+- 2026-11-16 [frontend-developer] review round 1: M1 (option stripe rendered 0 px: now `layout.searchOption.stripeHeight`, pinned in tests), m1 (SearchField defaults `aria-expanded` to false) and m4 (highlight demo passes `aria-expanded={false}`) fixed; m2, m3 left as gate-3 debts.
 
 ## Notes
 

@@ -275,9 +275,10 @@ export interface SearchPanelTokens {
   viewportGap: number;
 }
 
-/** `theme.layout.searchOption` — a row's least height. */
+/** `theme.layout.searchOption` — a row's least height and its colour stripe's height. */
 export interface SearchOptionTokens {
   height: number;
+  stripeHeight: number;
 }
 
 /** `theme.layout.frame` — the thin and the thick frame. */
@@ -624,7 +625,7 @@ export const layout: LayoutTokens = {
   backlogTable,
   searchField: { height: 28, width: 300, widthFocused: 360 },
   searchPanel: { width: 720, maxHeight: '70vh', viewportGap: 32 },
-  searchOption: { height: 48 },
+  searchOption: { height: 48, stripeHeight: 28 },
 };
 
 /** `theme.density` — one dense layout for everyone (BR-3). */

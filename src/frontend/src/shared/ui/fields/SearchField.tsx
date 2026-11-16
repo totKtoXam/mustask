@@ -117,6 +117,7 @@ export function SearchField({
             'aria-label': label,
             'aria-autocomplete': 'list',
             'aria-haspopup': 'listbox',
+            'aria-expanded': false,
             'aria-keyshortcuts': keyShortcuts,
             maxLength,
             ...passThrough,

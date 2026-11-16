@@ -43,6 +43,8 @@ describe('feat-070 Scenario: SearchOption (feat-065 design § 1)', () => {
     expect(style.backgroundColor).toBe(rgb(theme.palette.shell.rowSelected));
     expect(style.borderLeftColor).toBe(rgb(theme.palette.primary.main));
     expect(style.minHeight).toBe(`${theme.layout.searchOption.height}px`);
+    const stripe = first.querySelector('[aria-hidden]') as HTMLElement;
+    expect(getComputedStyle(stripe).height).toBe(`${theme.layout.searchOption.stripeHeight}px`);
     const hint = (el: HTMLElement) => el.querySelector('kbd') as HTMLElement;
     expect(getComputedStyle(hint(first)).visibility).toBe('visible');
     expect(getComputedStyle(hint(second)).visibility).toBe('hidden');
