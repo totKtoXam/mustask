@@ -11,7 +11,7 @@ public sealed class ProjectTests
     {
         var organizationId = Guid.CreateVersion7();
 
-        var made = Project.Create(organizationId, Name(" Пример проекта "), "PRM", Now, Creator);
+        var made = Project.Create(organizationId, Name(" Пример проекта "), "PRM", Now, Creator, "blue");
         var created = made.Project;
 
         Assert.Equal(organizationId, created.OrganizationId);
@@ -37,7 +37,7 @@ public sealed class ProjectTests
     {
         Assert.True(EntityDescription.TryCreate(" О проекте\n", out var description));
 
-        var created = Project.Create(Guid.CreateVersion7(), Name("Проект"), "PRJ", Now, Creator, description).Project;
+        var created = Project.Create(Guid.CreateVersion7(), Name("Проект"), "PRJ", Now, Creator, "blue", description).Project;
 
         Assert.Equal(" О проекте\n", created.Description);
     }
@@ -67,7 +67,7 @@ public sealed class ProjectTests
     [InlineData("prm")]
     public void Create_MalformedKey_IsADefect(string key)
     {
-        Assert.Throws<ArgumentException>(() => Project.Create(Guid.CreateVersion7(), Name("Проект"), key, Now, Creator));
+        Assert.Throws<ArgumentException>(() => Project.Create(Guid.CreateVersion7(), Name("Проект"), key, Now, Creator, "blue"));
     }
 
     // US-3 · "Renaming a project keeps its key" (mod-018 BR-AW-11: a project has no root area to rename).
@@ -121,5 +121,18 @@ public sealed class ProjectTests
         created.Restore();
         Assert.True(created.IsActive);
         Assert.Equal("PRM", created.Key);
+    }
+
+    // mod-021 US-1 · BR-TD-20: the project keeps the colour it was created with and refuses one outside the palette.
+    [Fact]
+    public void Create_KeepsTheColour()
+    {
+        Assert.Equal("pink", Project.Create(Guid.CreateVersion7(), Name("Проект"), "PRJ", Now, Creator, "pink").Project.Color);
+    }
+
+    [Fact]
+    public void Create_WithAColourOutsideThePalette_IsADefect()
+    {
+        Assert.Throws<ArgumentException>(() => Project.Create(Guid.CreateVersion7(), Name("Проект"), "PRJ", Now, Creator, "chartreuse"));
     }
 }

@@ -47,7 +47,7 @@ public sealed class SetTeamDescriptionHandler(ITeamRepository teams, IUnitOfWork
                 team.Describe(description);
                 await teams.SaveAsync(ct);
 
-                return new SetTeamDescriptionResult(new TeamResponse(team.Id, team.Name, team.Description));
+                return new SetTeamDescriptionResult(new TeamResponse(team.Id, team.Name, team.Description, team.DepartmentId, team.Color));
             },
             cancellationToken);
 }

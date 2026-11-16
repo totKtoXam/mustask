@@ -1,7 +1,7 @@
 import { useMemo, useState, type ReactNode, type Ref } from 'react';
-import { InlineMultiPickerField, InlinePickerField } from '../../../shared/ui';
+import { InlinePickerField } from '../../../shared/ui';
 import { narrow } from '../lib/areaTree';
-import { PICKER_OPTION_LIMIT, areaLinkDialog, departmentsField } from '../lib/areaTexts';
+import { PICKER_OPTION_LIMIT, pickerMore } from '../lib/areaTexts';
 
 /**
  * The searchable pickers of the area workspace (mod-018 design D-1): a local filter over a list the
@@ -45,67 +45,9 @@ function entriesOf<O>(
   ]);
   const list: Entry<O>[] = shown.map((item) => ({ kind: 'item', item }));
   if (total > PICKER_OPTION_LIMIT) {
-    list.push({ kind: 'more', text: areaLinkDialog.more(PICKER_OPTION_LIMIT, total) });
+    list.push({ kind: 'more', text: pickerMore(PICKER_OPTION_LIMIT, total) });
   }
   return list;
-}
-
-/** Several choices (the link dialogs, the creation forms). */
-export function LocalMultiPicker<O>({
-  value,
-  onChange,
-  ...props
-}: CommonProps<O> & { value: readonly O[]; onChange(next: O[]): void }) {
-  const [typed, setTyped] = useState('');
-  const entries = entriesOf(props.options, typed, props.getLabel, props.matchTexts);
-  // Stable between renders: a new array each time reads as a changed value to the autocomplete, which
-  // then resets the typed text on every keystroke.
-  const chosen = useMemo<Entry<O>[]>(() => value.map((item) => ({ kind: 'item', item })), [value]);
-  const known = [
-    ...entries,
-    ...chosen.filter(
-      (entry) =>
-        entry.kind === 'item' &&
-        !entries.some(
-          (other) => other.kind === 'item' && props.getKey(other.item) === props.getKey(entry.item),
-        ),
-    ),
-  ];
-
-  return (
-    <InlineMultiPickerField<Entry<O>>
-      label={props.label}
-      frame="always"
-      hint={props.hint}
-      error={props.error}
-      required={props.required}
-      busy={props.busy}
-      value={chosen}
-      options={known}
-      loading={props.loading}
-      inputValue={typed}
-      onInputChange={(text, reason) => setTyped(reason === 'input' ? text : '')}
-      onOpen={props.onOpen}
-      filterOptions={() => entries}
-      noOptionsText={typed === '' ? props.emptyText : undefined}
-      onChange={(next) =>
-        onChange(next.flatMap((entry) => (entry.kind === 'item' ? [entry.item] : [])))
-      }
-      getOptionLabel={(entry) => (entry.kind === 'item' ? props.getLabel(entry.item) : entry.text)}
-      getOptionKey={(entry) => (entry.kind === 'item' ? props.getKey(entry.item) : '__more__')}
-      getOptionDisabled={(entry) => entry.kind === 'more'}
-      isOptionEqualToValue={(first, second) =>
-        first.kind === 'item' &&
-        second.kind === 'item' &&
-        props.getKey(first.item) === props.getKey(second.item)
-      }
-      renderOption={(entry) =>
-        entry.kind === 'more'
-          ? entry.text
-          : (props.renderOption?.(entry.item) ?? props.getLabel(entry.item))
-      }
-    />
-  );
 }
 
 /** One choice (the parent of an area, the destination of a move). */
@@ -172,51 +114,5 @@ export function LocalPicker<O>({
 function sameEntry<O>(first: Entry<O>, second: Entry<O>, getKey: (option: O) => string): boolean {
   return (
     first.kind === 'item' && second.kind === 'item' && getKey(first.item) === getKey(second.item)
-  );
-}
-
-/** The department a creation form's «Департаменты» field offers: its path is its name. */
-export interface DepartmentOption {
-  id: string;
-  path: string;
-}
-
-/**
- * «Департаменты» of the team creation form (mod-018 api-contract § 5): the organization's
- * departments by name, chosen several at a time over the list the form read when it opened.
- */
-export function DepartmentsField({
-  hint,
-  error,
-  busy,
-  value,
-  options,
-  loading,
-  failed,
-  onChange,
-}: {
-  hint: string;
-  error?: string;
-  busy: boolean;
-  value: readonly DepartmentOption[];
-  options: readonly DepartmentOption[];
-  loading: boolean;
-  failed: boolean;
-  onChange(next: DepartmentOption[]): void;
-}) {
-  return (
-    <LocalMultiPicker<DepartmentOption>
-      label={departmentsField.label}
-      hint={hint}
-      busy={busy}
-      error={error}
-      options={options}
-      loading={loading}
-      emptyText={failed ? areaLinkDialog.teamDepartments.loadFailed : departmentsField.none}
-      value={value}
-      onChange={onChange}
-      getKey={(option) => option.id}
-      getLabel={(option) => option.path}
-    />
   );
 }

@@ -10,9 +10,12 @@ import {
   APPEARANCE_TOKENS,
   CATEGORY_CODES,
   categoryColours,
+  objectColours,
+  OBJECT_COLOUR_KEYS,
   typeColours,
   type AppearanceToken,
   type CategoryCode,
+  type ObjectColourKey,
 } from './tokens';
 
 /** A work item type's look, resolved from its stored appearance token. */
@@ -37,6 +40,11 @@ export interface WorkTrackingLookups {
    * unknown code answers the secondary text colour.
    */
   categoryColour(code: string): string;
+  /**
+   * doc-016 BR-TD-20: the hex of a department's, team's or project's stored palette key. An
+   * unknown key answers the secondary text colour and never throws.
+   */
+  objectColour(key: string): string;
 }
 
 // feat-027 design § 2.4: the crown, the two-page book and the clipboard with a
@@ -54,6 +62,10 @@ const TYPE_ICONS: Record<AppearanceToken, SvgIconComponent> = {
 
 function isAppearanceToken(value: string): value is AppearanceToken {
   return (APPEARANCE_TOKENS as readonly string[]).includes(value);
+}
+
+function isObjectColourKey(value: string): value is ObjectColourKey {
+  return (OBJECT_COLOUR_KEYS as readonly string[]).includes(value);
 }
 
 function isCategoryCode(value: string): value is CategoryCode {
@@ -74,5 +86,6 @@ export function createWorkTrackingLookups(text: {
     typeAppearance: (token) =>
       isAppearanceToken(token) ? { icon: TYPE_ICONS[token], colour: typeColours[token] } : fallback,
     categoryColour: (code) => (isCategoryCode(code) ? categoryColours[code] : text.secondary),
+    objectColour: (key) => (isObjectColourKey(key) ? objectColours[key] : text.secondary),
   };
 }

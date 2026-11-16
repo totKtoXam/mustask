@@ -44,6 +44,7 @@ public sealed class OrganizationRoleBundlesTests
         (PermissionCatalog.ImportsTemplateRead, true, true, true),
         (PermissionCatalog.ImportsTemplateWrite, true, false, false),
         (PermissionCatalog.ImportsImportRun, true, false, false),
+        (PermissionCatalog.IterationsSprintManage, true, false, false),
     ];
 
     public static TheoryData<string, OrganizationRole, bool> Cells()

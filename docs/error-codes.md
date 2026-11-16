@@ -115,10 +115,28 @@ guarantees it exists and differs from the Russian, not its quality
 |imports.template.not_found|404|Шаблон не найден.|Үлгі табылмады.|imports|—|needs review|
 |imports.template.too_many_headers|400|В шаблоне не больше 200 столбцов файла.|Үлгіде файлдың 200-ден артық бағаны болмауы керек.|imports|—|needs review|
 |imports.validation_failed|400|Проверьте правильность заполнения полей.|Өрістердің дұрыс толтырылғанын тексеріңіз.|imports|—|needs review|
+|iterations.sprint.active_dates_required|409|У активного спринта должны быть обе даты.|Белсенді спринттің екі күні де болуы керек.|iterations|—|needs review|
+|iterations.sprint.active_exists|409|У команды уже есть активный спринт.|Команданың белсенді спринті бұрыннан бар.|iterations|—|needs review|
+|iterations.sprint.close_destination_invalid|409|Незавершённые элементы можно перенести только в запланированный спринт этой команды.|Аяқталмаған элементтерді тек осы команданың жоспарланған спринтіне ауыстыруға болады.|iterations|—|needs review|
+|iterations.sprint.closed_dates_locked|409|Даты завершённого спринта изменить нельзя.|Аяқталған спринттің күндерін өзгертуге болмайды.|iterations|—|needs review|
+|iterations.sprint.closed_target|409|Спринт завершён: в него нельзя добавить элемент.|Спринт аяқталған: оған элемент қосуға болмайды.|iterations|—|needs review|
+|iterations.sprint.dates_reversed|400|Дата окончания не может быть раньше даты начала.|Аяқталу күні басталу күнінен бұрын болмауы керек.|iterations|—|needs review|
+|iterations.sprint.dates_unpaired|400|Укажите обе даты спринта или ни одной.|Спринттің екі күнін де көрсетіңіз немесе ешқайсысын көрсетпеңіз.|iterations|—|needs review|
+|iterations.sprint.name_invalid|400|Название спринта — от 1 до 100 символов.|Спринт атауы — 1-ден 100 символға дейін.|iterations|—|needs review|
+|iterations.sprint.name_taken|409|Спринт с таким названием уже есть в команде.|Командада мұндай атаумен спринт бұрыннан бар.|iterations|—|needs review|
+|iterations.sprint.not_active|409|Завершить можно только активный спринт.|Тек белсенді спринтті аяқтауға болады.|iterations|—|needs review|
+|iterations.sprint.not_found|404|Спринт не найден.|Спринт табылмады.|iterations|—|needs review|
+|iterations.sprint.not_planned|409|Начать можно только запланированный спринт.|Тек жоспарланған спринтті бастауға болады.|iterations|—|needs review|
+|iterations.sprint.not_removable|409|Удалить можно только запланированный спринт без элементов.|Тек элементтері жоқ жоспарланған спринтті жоюға болады.|iterations|—|needs review|
+|iterations.sprint.other_team|409|Спринт принадлежит другой команде.|Спринт басқа командаға тиесілі.|iterations|—|needs review|
+|iterations.sprint.start_dates_required|409|Чтобы начать спринт, укажите обе даты.|Спринтті бастау үшін екі күнді де көрсетіңіз.|iterations|—|needs review|
+|iterations.sprint.team_required|409|Сначала выберите команду: спринт есть только у команды.|Алдымен команданы таңдаңыз: спринт тек командада болады.|iterations|—|needs review|
+|iterations.validation_failed|400|Проверьте правильность запроса.|Сұраудың дұрыстығын тексеріңіз.|iterations|—|needs review|
 |organizations.access.forbidden|403|Недостаточно прав|Құқықтар жеткіліксіз|organizations|—|needs review|
 |organizations.area.depth_exceeded|409|Дерево областей не может быть глубже 10 уровней|Аймақ ағашы 10 деңгейден терең болмауы керек|organizations|—|needs review|
+|organizations.area.has_teams|409|Нельзя удалить департамент, в котором есть команды|Командалары бар департаментті жоюға болмайды|organizations|—|needs review|
 |organizations.area.is_team_default|409|Область используется как область по умолчанию команды «{team}»|Аймақ «{team}» командасының әдепкі аймағы ретінде пайдаланылады|organizations|yes|needs review|
-|organizations.area.link_type_not_allowed|409|Команду можно связать только с департаментом. Команды проекта подключаются на странице проекта.|Команданы тек департаментпен байланыстыруға болады. Жоба командалары жоба бетінде қосылады.|organizations|—|needs review|
+|organizations.area.link_type_not_allowed|409|Команду можно связать только с департаментом. Команды проекта подключаются на странице проекта.|Команданы тек департаментпен байланыстыруға болады. Жоба командалары жоба бетінде қосылады.|organizations|yes|needs review|
 |organizations.area.move_into_own_subtree|409|Нельзя переместить область внутрь неё самой или её вложенной области|Аймақты өзінің ішіне немесе оның ішкі аймағына жылжытуға болмайды|organizations|—|needs review|
 |organizations.area.name_taken|409|Область с таким названием уже есть на этом уровне|Бұл деңгейде мұндай атауы бар аймақ бар|organizations|—|needs review|
 |organizations.area.not_empty|409|Нельзя удалить область, в которой есть проекты, вложенные области или рабочие элементы|Жобалары, ішкі аймақтары немесе жұмыс элементтері бар аймақты жоюға болмайды|organizations|—|needs review|
@@ -157,9 +175,11 @@ guarantees it exists and differs from the Russian, not its quality
 |organizations.rescue.self_appointment|409|Нельзя назначить администратором себя|Өзіңізді әкімші етіп тағайындауға болмайды|organizations|—|needs review|
 |organizations.rescue.user_unavailable|409|Этого пользователя нельзя назначить администратором|Бұл пайдаланушыны әкімші етіп тағайындауға болмайды|organizations|—|needs review|
 |organizations.team.default_area_not_owned|409|Область по умолчанию должна принадлежать самой команде|Әдепкі аймақ команданың өзіне тиесілі болуы керек|organizations|yes|needs review|
+|organizations.team.department_required|400|Выберите департамент|Департаментті таңдаңыз|organizations|—|needs review|
 |organizations.team.destination_required|400|Выберите команду или «Без команды»|Команданы немесе «Командасыз» таңдаңыз|organizations|—|needs review|
 |organizations.team.first_team_cannot_be_deleted|409|Нельзя удалить команду, которой принадлежит корневая область проекта|Жобаның түбірлік аймағы тиесілі команданы жоюға болмайды|organizations|yes|needs review|
 |organizations.team.first_team_default_fixed|409|У первой команды область по умолчанию не меняется|Бірінші команданың әдепкі аймағы өзгермейді|organizations|yes|needs review|
+|organizations.team.has_links|409|Команда связана с проектами. Отключите её от них перед перемещением.|Команда жобалармен байланысты. Көшірмес бұрын оны жобалардан ажыратыңыз.|organizations|—|needs review|
 |organizations.team.last_team_cannot_be_deleted|409|Нельзя удалить единственную команду проекта.|Жобаның жалғыз командасын жоюға болмайды.|organizations|yes|needs review|
 |organizations.team.member_exists|409|Пользователь уже состоит в команде|Пайдаланушы командада бұрыннан бар|organizations|—|needs review|
 |organizations.team.member_not_found|404|Участник команды не найден.|Команда мүшесі табылмады.|organizations|—|needs review|

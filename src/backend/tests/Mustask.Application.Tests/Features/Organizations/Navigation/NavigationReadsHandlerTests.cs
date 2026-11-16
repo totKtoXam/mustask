@@ -41,9 +41,9 @@ public sealed class NavigationReadsHandlerTests
             var team = Guid.CreateVersion7();
 
             return Task.FromResult(new SelectorOfferRows(
-                [new NavigationRef(Guid.CreateVersion7(), "Логистика")],
-                [new OfferProjectRow(Guid.CreateVersion7(), "Альфа", "ALF", null, null, [team])],
-                [new OfferTeamRow(team, "MARS", true, [])]));
+                [new OfferDepartmentRow(Guid.CreateVersion7(), "Логистика", "blue")],
+                [new OfferProjectRow(Guid.CreateVersion7(), "Альфа", "ALF", null, null, [team], "orange")],
+                [new OfferTeamRow(team, "MARS", true, Guid.CreateVersion7(), "green")]));
         }
     }
 

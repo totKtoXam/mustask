@@ -1,3 +1,4 @@
+using Mustask.Application.Tests.TestDoubles.Iterations;
 using Mustask.Application.Abstractions;
 using Mustask.Application.Abstractions.Process;
 using Mustask.Application.Abstractions.RichText;
@@ -217,6 +218,7 @@ public sealed class SaveWorkItemDescriptionHandlerTests
                 Repository,
                 new FakeReadModel(test.item, test.type, project),
                 new FakeTeamPlaces(),
+                new FakeSprintRepository(),
                 new FakeOrganizationAccess(OrganizationRole.Admin),
                 new FakeClock(),
                 UnitOfWork,

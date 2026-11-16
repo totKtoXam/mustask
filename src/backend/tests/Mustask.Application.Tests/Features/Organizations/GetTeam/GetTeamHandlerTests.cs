@@ -45,7 +45,7 @@ public sealed class GetTeamHandlerTests
 
         var result = await f.HandleAsync(f.Query());
 
-        Assert.Equal(new TeamResponse(f.Mars.Id, "MARS", "Платформа и инструменты"), result.Response with { Codes = null });
+        Assert.Equal(new TeamResponse(f.Mars.Id, "MARS", "Платформа и инструменты", f.Mars.DepartmentId!.Value, "Департамент", "blue"), result.Response with { Codes = null });
     }
 
     [Fact]

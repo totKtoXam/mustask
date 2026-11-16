@@ -54,6 +54,9 @@ public interface IProjectTeamRepository
     /// <summary>Removes the link, with one statement. The caller has reassigned the items and cleared the setting first.</summary>
     Task RemoveLinkAsync(Guid organizationId, Guid projectId, Guid teamId, CancellationToken cancellationToken);
 
+    /// <summary>Whether the team is linked to any project, of any status (BR-TD-4: a linked team does not move). Read after the team's lock.</summary>
+    Task<bool> HasLinksAsync(Guid organizationId, Guid teamId, CancellationToken cancellationToken);
+
     /// <summary>Removes every link of the team, with one statement (a team's deletion).</summary>
     Task RemoveTeamLinksAsync(Guid organizationId, Guid teamId, CancellationToken cancellationToken);
 

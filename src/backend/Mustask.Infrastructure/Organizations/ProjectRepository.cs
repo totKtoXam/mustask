@@ -59,6 +59,17 @@ internal sealed class ProjectRepository(MustaskDbContext context) : IProjectRepo
             $"UPDATE projects SET default_team_id = NULL WHERE organization_id = {organizationId} AND default_team_id = {teamId}",
             cancellationToken);
 
+    public async Task<IReadOnlyList<string>> ListActiveColorsAsync(Guid organizationId, Guid? departmentId, CancellationToken cancellationToken) =>
+        await (
+                from project in context.Projects.AsNoTracking()
+                join node in context.Areas.AsNoTracking() on project.Id equals node.ProjectId
+                where project.OrganizationId == organizationId
+                    && project.Status == ProjectStatus.Active
+                    && node.Type == AreaType.Project
+                    && node.ParentId == departmentId
+                select project.Color)
+            .ToListAsync(cancellationToken);
+
     public void Add(NewProject project)
     {
         context.Projects.Add(project.Project);

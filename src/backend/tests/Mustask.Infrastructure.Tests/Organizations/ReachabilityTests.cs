@@ -83,7 +83,7 @@ public sealed class ReachabilityTests(OrganizationsDatabaseFixture database)
         var organizationId = structure.Organization.Id;
         var projectId = structure.Project.Project.Id;
 
-        await database.ExecuteAsync("UPDATE teams SET status = 'Deleted' WHERE id = @second", ("second", structure.SecondTeam.Id));
+        await database.ExecuteAsync("UPDATE teams SET status = 'Deleted', department_id = NULL WHERE id = @second", ("second", structure.SecondTeam.Id));
 
         await using var context = database.NewContext();
         Assert.Equal(

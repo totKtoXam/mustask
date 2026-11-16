@@ -9,6 +9,7 @@ import { MarksDemo } from './demos/MarksDemo';
 import { MenusDemo } from './demos/MenusDemo';
 import { NoticesDemo } from './demos/NoticesDemo';
 import { PageHeadDemo } from './demos/PageHeadDemo';
+import { SearchDemo } from './demos/SearchDemo';
 import { SectionsDemo } from './demos/SectionsDemo';
 import { SizesDemo } from './demos/SizesDemo';
 import { StatesDemo } from './demos/StatesDemo';
@@ -78,6 +79,7 @@ export const showcaseRegistry: readonly ShowcaseSection[] = [
       'ThinUndoIcon',
       'ThinSaveIcon',
       'ThinPersonIcon',
+      'ThinSearchIcon',
       'BacklogIcon',
       'IconAction',
     ],
@@ -102,7 +104,15 @@ export const showcaseRegistry: readonly ShowcaseSection[] = [
     id: 'marks',
     title: 'Типы, состояния и люди',
     usage: 'Тип работы и состояние всегда подписаны текстом; цвет и значок только помогают.',
-    covers: ['TypeMark', 'TypeLabel', 'CategoryMarker', 'StateLabel', 'UserAvatar', 'PersonLabel'],
+    covers: [
+      'TypeMark',
+      'TypeLabel',
+      'CategoryMarker',
+      'StateLabel',
+      'UserAvatar',
+      'PersonLabel',
+      'ColorLabel',
+    ],
     Demo: MarksDemo,
   },
   {
@@ -174,6 +184,14 @@ export const showcaseRegistry: readonly ShowcaseSection[] = [
     usage: 'Окно карточки, подтверждение и окно с формой. Занятое окно закрыть нельзя.',
     covers: ['DialogShell', 'ConfirmDialog', 'FormDialog'],
     Demo: DialogsDemo,
+  },
+  {
+    id: 'search',
+    title: 'Поиск',
+    usage:
+      'Поле поиска в шапке, панель под ним, строки результатов и выделение совпадения; данные и клавиши ведёт страница.',
+    covers: ['SearchField', 'SearchPanel', 'SearchOption', 'HighlightedText'],
+    Demo: SearchDemo,
   },
   {
     id: 'notices',

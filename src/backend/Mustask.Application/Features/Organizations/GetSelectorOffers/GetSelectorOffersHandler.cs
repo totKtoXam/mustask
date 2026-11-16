@@ -24,8 +24,8 @@ public sealed class GetSelectorOffersHandler(INavigationReadModel navigation, IO
         var rows = await navigation.ReadSelectorOffersAsync(caller, cancellationToken);
 
         return new SelectorOffersResponse(
-            rows.Departments.Select(row => new OfferDepartmentResponse(row.Id, row.Name)).ToList(),
-            rows.Projects.Select(row => new OfferProjectResponse(row.Id, row.Name, row.Key, row.DepartmentId, row.DepartmentName, row.TeamIds)).ToList(),
-            rows.Teams.Select(row => new OfferTeamResponse(row.Id, row.Name, row.IsMember, row.DepartmentIds)).ToList());
+            rows.Departments.Select(row => new OfferDepartmentResponse(row.Id, row.Name, row.Color)).ToList(),
+            rows.Projects.Select(row => new OfferProjectResponse(row.Id, row.Name, row.Key, row.DepartmentId, row.DepartmentName, row.TeamIds, row.Color)).ToList(),
+            rows.Teams.Select(row => new OfferTeamResponse(row.Id, row.Name, row.IsMember, row.DepartmentId, row.Color)).ToList());
     }
 }

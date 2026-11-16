@@ -58,7 +58,7 @@ public sealed class GetOrganizationTeamsEndpointTests(MustaskApiFactory factory)
         var answer = await ListAsync(structure.OrganizationId);
 
         var described = answer.Body.EnumerateArray().Single(team => team.GetProperty("name").GetString() == "Описанная");
-        Assert.Equal(["description", "id", "isMember", "name", "projects"], PropertyNames(described));
+        Assert.Equal(["color", "departmentId", "departmentName", "description", "id", "isMember", "name", "projects"], PropertyNames(described));
         Assert.Equal(" как набрано ", described.GetProperty("description").GetString());
         var project = Assert.Single(described.GetProperty("projects").EnumerateArray());
         Assert.Equal(["id", "name"], PropertyNames(project));

@@ -371,10 +371,154 @@ namespace Mustask.Infrastructure.Migrations
                         });
                 });
 
+            modelBuilder.Entity("Mustask.Domain.Iterations.Sprint", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset?>("ClosedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("ClosedBy")
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("CreatedBy")
+                        .IsRequired()
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)");
+
+                    b.Property<DateOnly?>("EndDate")
+                        .HasColumnType("date");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<string>("NormalizedName")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<int>("Number")
+                        .HasColumnType("integer");
+
+                    b.Property<Guid>("OrganizationId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateOnly?>("StartDate")
+                        .HasColumnType("date");
+
+                    b.Property<string>("State")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)");
+
+                    b.Property<Guid>("TeamId")
+                        .HasColumnType("uuid");
+
+                    b.Property<uint>("xmin")
+                        .IsConcurrencyToken()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("xid")
+                        .HasColumnName("xmin");
+
+                    b.HasKey("Id")
+                        .HasName("pk_sprints");
+
+                    b.HasAlternateKey("Id", "TeamId")
+                        .HasName("ak_sprints_id_team_id");
+
+                    b.HasIndex("OrganizationId", "TeamId")
+                        .HasDatabaseName("ix_sprints_organization_id_team_id");
+
+                    b.HasIndex(new[] { "TeamId" }, "ix_sprints_team_id_active")
+                        .IsUnique()
+                        .HasDatabaseName("ix_sprints_team_id_active")
+                        .HasFilter("state = 'Active'");
+
+                    b.HasIndex(new[] { "TeamId", "EndDate" }, "ix_sprints_team_id_end_date_closed")
+                        .HasDatabaseName("ix_sprints_team_id_end_date_closed")
+                        .HasFilter("state = 'Closed'");
+
+                    b.HasIndex(new[] { "TeamId", "NormalizedName" }, "ix_sprints_team_id_normalized_name")
+                        .IsUnique()
+                        .HasDatabaseName("ix_sprints_team_id_normalized_name");
+
+                    b.HasIndex(new[] { "TeamId", "Number" }, "ix_sprints_team_id_number")
+                        .IsUnique()
+                        .HasDatabaseName("ix_sprints_team_id_number");
+
+                    b.ToTable("sprints", t =>
+                        {
+                            t.HasCheckConstraint("ck_sprints_closed_marks", "(state = 'Closed') = (closed_at IS NOT NULL AND closed_by IS NOT NULL)");
+
+                            t.HasCheckConstraint("ck_sprints_dates_order", "start_date IS NULL OR end_date >= start_date");
+
+                            t.HasCheckConstraint("ck_sprints_dates_paired", "(start_date IS NULL) = (end_date IS NULL)");
+
+                            t.HasCheckConstraint("ck_sprints_number_positive", "number >= 1");
+
+                            t.HasCheckConstraint("ck_sprints_started_have_dates", "state = 'Planned' OR start_date IS NOT NULL");
+
+                            t.HasCheckConstraint("ck_sprints_state", "state IN ('Planned', 'Active', 'Closed')");
+
+                            t.Property("Id")
+                                .HasColumnName("id");
+
+                            t.Property("ClosedAt")
+                                .HasColumnName("closed_at");
+
+                            t.Property("ClosedBy")
+                                .HasColumnName("closed_by");
+
+                            t.Property("CreatedAt")
+                                .HasColumnName("created_at");
+
+                            t.Property("CreatedBy")
+                                .HasColumnName("created_by");
+
+                            t.Property("EndDate")
+                                .HasColumnName("end_date");
+
+                            t.Property("Name")
+                                .HasColumnName("name");
+
+                            t.Property("NormalizedName")
+                                .HasColumnName("normalized_name");
+
+                            t.Property("Number")
+                                .HasColumnName("number");
+
+                            t.Property("OrganizationId")
+                                .HasColumnName("organization_id");
+
+                            t.Property("StartDate")
+                                .HasColumnName("start_date");
+
+                            t.Property("State")
+                                .HasColumnName("state");
+
+                            t.Property("TeamId")
+                                .HasColumnName("team_id");
+
+                            t.Property("xmin")
+                                .HasColumnName("xmin");
+                        });
+                });
+
             modelBuilder.Entity("Mustask.Domain.Organizations.Area", b =>
                 {
                     b.Property<Guid>("Id")
                         .HasColumnType("uuid");
+
+                    b.Property<string>("Color")
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)");
 
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("timestamp with time zone");
@@ -446,6 +590,8 @@ namespace Mustask.Infrastructure.Migrations
 
                     b.ToTable("areas", t =>
                         {
+                            t.HasCheckConstraint("ck_areas_color", "(type = 1 AND color IS NOT NULL AND color IN ('blue', 'orange', 'green', 'purple', 'red', 'teal', 'amber', 'pink', 'indigo', 'lime', 'magenta', 'cyan')) OR (type <> 1 AND color IS NULL)");
+
                             t.HasCheckConstraint("ck_areas_description_length", "description IS NULL OR char_length(description) BETWEEN 1 AND 2000");
 
                             t.HasCheckConstraint("ck_areas_name_length", "char_length(name) BETWEEN 1 AND 100");
@@ -454,6 +600,9 @@ namespace Mustask.Infrastructure.Migrations
 
                             t.Property("Id")
                                 .HasColumnName("id");
+
+                            t.Property("Color")
+                                .HasColumnName("color");
 
                             t.Property("CreatedAt")
                                 .HasColumnName("created_at");
@@ -550,65 +699,6 @@ namespace Mustask.Infrastructure.Migrations
 
                             t.Property("Role")
                                 .HasColumnName("role");
-
-                            t.Property("xmin")
-                                .HasColumnName("xmin");
-                        });
-                });
-
-            modelBuilder.Entity("Mustask.Domain.Organizations.AreaTeam", b =>
-                {
-                    b.Property<Guid>("AreaId")
-                        .HasColumnType("uuid");
-
-                    b.Property<Guid>("TeamId")
-                        .HasColumnType("uuid");
-
-                    b.Property<DateTimeOffset>("LinkedAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<string>("LinkedBy")
-                        .IsRequired()
-                        .HasMaxLength(255)
-                        .HasColumnType("character varying(255)");
-
-                    b.Property<Guid>("OrganizationId")
-                        .HasColumnType("uuid");
-
-                    b.Property<uint>("xmin")
-                        .IsConcurrencyToken()
-                        .ValueGeneratedOnAddOrUpdate()
-                        .HasColumnType("xid")
-                        .HasColumnName("xmin");
-
-                    b.HasKey("AreaId", "TeamId")
-                        .HasName("pk_area_teams");
-
-                    b.HasIndex("OrganizationId", "AreaId")
-                        .HasDatabaseName("ix_area_teams_organization_id_area_id");
-
-                    b.HasIndex("OrganizationId", "TeamId")
-                        .HasDatabaseName("ix_area_teams_organization_id_team_id");
-
-                    b.HasIndex(new[] { "TeamId", "AreaId" }, "ix_area_teams_team_id_area_id")
-                        .HasDatabaseName("ix_area_teams_team_id_area_id");
-
-                    b.ToTable("area_teams", null, t =>
-                        {
-                            t.Property("AreaId")
-                                .HasColumnName("area_id");
-
-                            t.Property("TeamId")
-                                .HasColumnName("team_id");
-
-                            t.Property("LinkedAt")
-                                .HasColumnName("linked_at");
-
-                            t.Property("LinkedBy")
-                                .HasColumnName("linked_by");
-
-                            t.Property("OrganizationId")
-                                .HasColumnName("organization_id");
 
                             t.Property("xmin")
                                 .HasColumnName("xmin");
@@ -839,6 +929,11 @@ namespace Mustask.Infrastructure.Migrations
                     b.Property<Guid>("Id")
                         .HasColumnType("uuid");
 
+                    b.Property<string>("Color")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)");
+
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("timestamp with time zone");
 
@@ -901,6 +996,8 @@ namespace Mustask.Infrastructure.Migrations
 
                     b.ToTable("projects", t =>
                         {
+                            t.HasCheckConstraint("ck_projects_color", "color IN ('blue', 'orange', 'green', 'purple', 'red', 'teal', 'amber', 'pink', 'indigo', 'lime', 'magenta', 'cyan')");
+
                             t.HasCheckConstraint("ck_projects_description_length", "description IS NULL OR char_length(description) BETWEEN 1 AND 2000");
 
                             t.HasCheckConstraint("ck_projects_key_format", "key ~ '^[A-Z][A-Z0-9]{1,9}$'");
@@ -911,6 +1008,9 @@ namespace Mustask.Infrastructure.Migrations
 
                             t.Property("Id")
                                 .HasColumnName("id");
+
+                            t.Property("Color")
+                                .HasColumnName("color");
 
                             t.Property("CreatedAt")
                                 .HasColumnName("created_at");
@@ -1074,6 +1174,14 @@ namespace Mustask.Infrastructure.Migrations
                     b.Property<Guid>("Id")
                         .HasColumnType("uuid");
 
+                    b.Property<string>("Color")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)");
+
+                    b.Property<Guid?>("DepartmentId")
+                        .HasColumnType("uuid");
+
                     b.Property<string>("Description")
                         .HasColumnType("text");
 
@@ -1107,6 +1215,9 @@ namespace Mustask.Infrastructure.Migrations
                     b.HasAlternateKey("OrganizationId", "Id")
                         .HasName("ak_teams_organization_id_id");
 
+                    b.HasIndex(new[] { "OrganizationId", "DepartmentId" }, "ix_teams_organization_id_department_id")
+                        .HasDatabaseName("ix_teams_organization_id_department_id");
+
                     b.HasIndex(new[] { "OrganizationId", "NormalizedName" }, "ix_teams_organization_id_normalized_name")
                         .IsUnique()
                         .HasDatabaseName("ix_teams_organization_id_normalized_name")
@@ -1114,6 +1225,10 @@ namespace Mustask.Infrastructure.Migrations
 
                     b.ToTable("teams", t =>
                         {
+                            t.HasCheckConstraint("ck_teams_color", "color IN ('blue', 'orange', 'green', 'purple', 'red', 'teal', 'amber', 'pink', 'indigo', 'lime', 'magenta', 'cyan')");
+
+                            t.HasCheckConstraint("ck_teams_department_place", "(status <> 'Deleted' AND department_id IS NOT NULL) OR (status = 'Deleted' AND department_id IS NULL)");
+
                             t.HasCheckConstraint("ck_teams_description_length", "description IS NULL OR char_length(description) BETWEEN 1 AND 2000");
 
                             t.HasCheckConstraint("ck_teams_name_length", "char_length(name) BETWEEN 1 AND 100");
@@ -1122,6 +1237,12 @@ namespace Mustask.Infrastructure.Migrations
 
                             t.Property("Id")
                                 .HasColumnName("id");
+
+                            t.Property("Color")
+                                .HasColumnName("color");
+
+                            t.Property("DepartmentId")
+                                .HasColumnName("department_id");
 
                             t.Property("Description")
                                 .HasColumnName("description");
@@ -1901,6 +2022,9 @@ namespace Mustask.Infrastructure.Migrations
                     b.Property<int?>("Severity")
                         .HasColumnType("integer");
 
+                    b.Property<Guid?>("SprintId")
+                        .HasColumnType("uuid");
+
                     b.Property<DateOnly?>("StartDate")
                         .HasColumnType("date");
 
@@ -1950,6 +2074,9 @@ namespace Mustask.Infrastructure.Migrations
 
                     b.HasIndex("TypeId")
                         .HasDatabaseName("ix_work_items_type_id");
+
+                    b.HasIndex("SprintId", "OwningTeamId")
+                        .HasDatabaseName("ix_work_items_sprint_id_owning_team_id");
 
                     b.HasIndex(new[] { "AssigneeId", "ChangedAt" }, "ix_work_items_assignee_id_changed_at")
                         .IsDescending(false, true)
@@ -2001,6 +2128,10 @@ namespace Mustask.Infrastructure.Migrations
                         .IsDescending(false, false, true, true)
                         .HasDatabaseName("ix_work_items_project_id_type_id_changed_at_number");
 
+                    b.HasIndex(new[] { "SprintId" }, "ix_work_items_sprint_id")
+                        .HasDatabaseName("ix_work_items_sprint_id")
+                        .HasFilter("sprint_id IS NOT NULL");
+
                     b.ToTable("work_items", t =>
                         {
                             t.HasCheckConstraint("ck_work_items_acceptance_criteria_length", "char_length(acceptance_criteria) <= 100000");
@@ -2038,6 +2169,8 @@ namespace Mustask.Infrastructure.Migrations
                             t.HasCheckConstraint("ck_work_items_risk", "risk BETWEEN 1 AND 3");
 
                             t.HasCheckConstraint("ck_work_items_severity", "severity BETWEEN 1 AND 4");
+
+                            t.HasCheckConstraint("ck_work_items_sprint_needs_team", "sprint_id IS NULL OR owning_team_id IS NOT NULL");
 
                             t.HasCheckConstraint("ck_work_items_start_date", "start_date BETWEEN DATE '2000-01-01' AND DATE '2099-12-31'");
 
@@ -2135,6 +2268,9 @@ namespace Mustask.Infrastructure.Migrations
 
                             t.Property("Severity")
                                 .HasColumnName("severity");
+
+                            t.Property("SprintId")
+                                .HasColumnName("sprint_id");
 
                             t.Property("StartDate")
                                 .HasColumnName("start_date");
@@ -2328,6 +2464,115 @@ namespace Mustask.Infrastructure.Migrations
                         });
                 });
 
+            modelBuilder.Entity("Mustask.Infrastructure.Iterations.SprintCounter", b =>
+                {
+                    b.Property<Guid>("TeamId")
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("LastNumber")
+                        .HasColumnType("integer");
+
+                    b.Property<uint>("xmin")
+                        .IsConcurrencyToken()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("xid")
+                        .HasColumnName("xmin");
+
+                    b.HasKey("TeamId")
+                        .HasName("pk_sprint_counters");
+
+                    b.ToTable("sprint_counters", null, t =>
+                        {
+                            t.HasCheckConstraint("ck_sprint_counters_last_number", "last_number >= 0");
+
+                            t.Property("TeamId")
+                                .HasColumnName("team_id");
+
+                            t.Property("LastNumber")
+                                .HasColumnName("last_number");
+
+                            t.Property("xmin")
+                                .HasColumnName("xmin");
+                        });
+                });
+
+            modelBuilder.Entity("Mustask.Infrastructure.Iterations.SprintSnapshotItem", b =>
+                {
+                    b.Property<Guid>("SprintId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("WorkItemId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("AssigneeId")
+                        .HasMaxLength(255)
+                        .HasColumnType("character varying(255)");
+
+                    b.Property<bool>("IsDone")
+                        .HasColumnType("boolean");
+
+                    b.Property<Guid>("LevelId")
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("Number")
+                        .HasColumnType("integer");
+
+                    b.Property<Guid>("ProjectId")
+                        .HasColumnType("uuid");
+
+                    b.Property<decimal>("StoryPoints")
+                        .HasPrecision(6, 2)
+                        .HasColumnType("numeric(6,2)");
+
+                    b.Property<Guid>("TypeId")
+                        .HasColumnType("uuid");
+
+                    b.Property<uint>("xmin")
+                        .IsConcurrencyToken()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("xid")
+                        .HasColumnName("xmin");
+
+                    b.HasKey("SprintId", "WorkItemId")
+                        .HasName("pk_sprint_snapshot_items");
+
+                    b.HasIndex(new[] { "SprintId", "LevelId" }, "ix_sprint_snapshot_items_sprint_id_level_id")
+                        .HasDatabaseName("ix_sprint_snapshot_items_sprint_id_level_id");
+
+                    b.ToTable("sprint_snapshot_items", null, t =>
+                        {
+                            t.Property("SprintId")
+                                .HasColumnName("sprint_id");
+
+                            t.Property("WorkItemId")
+                                .HasColumnName("work_item_id");
+
+                            t.Property("AssigneeId")
+                                .HasColumnName("assignee_id");
+
+                            t.Property("IsDone")
+                                .HasColumnName("is_done");
+
+                            t.Property("LevelId")
+                                .HasColumnName("level_id");
+
+                            t.Property("Number")
+                                .HasColumnName("number");
+
+                            t.Property("ProjectId")
+                                .HasColumnName("project_id");
+
+                            t.Property("StoryPoints")
+                                .HasColumnName("story_points");
+
+                            t.Property("TypeId")
+                                .HasColumnName("type_id");
+
+                            t.Property("xmin")
+                                .HasColumnName("xmin");
+                        });
+                });
+
             modelBuilder.Entity("Mustask.Infrastructure.Organizations.Configurations.AreaTreeLock", b =>
                 {
                     b.Property<Guid>("OrganizationId")
@@ -2438,6 +2683,17 @@ namespace Mustask.Infrastructure.Migrations
                         .HasConstraintName("fk_import_templates_organizations_organization_id");
                 });
 
+            modelBuilder.Entity("Mustask.Domain.Iterations.Sprint", b =>
+                {
+                    b.HasOne("Mustask.Domain.Organizations.Team", null)
+                        .WithMany()
+                        .HasForeignKey("OrganizationId", "TeamId")
+                        .HasPrincipalKey("OrganizationId", "Id")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_sprints_teams_organization_id_team_id");
+                });
+
             modelBuilder.Entity("Mustask.Domain.Organizations.Area", b =>
                 {
                     b.HasOne("Mustask.Domain.Organizations.Organization", null)
@@ -2477,25 +2733,6 @@ namespace Mustask.Infrastructure.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired()
                         .HasConstraintName("fk_area_grants_organization_memberships");
-                });
-
-            modelBuilder.Entity("Mustask.Domain.Organizations.AreaTeam", b =>
-                {
-                    b.HasOne("Mustask.Domain.Organizations.Area", null)
-                        .WithMany()
-                        .HasForeignKey("OrganizationId", "AreaId")
-                        .HasPrincipalKey("OrganizationId", "Id")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired()
-                        .HasConstraintName("fk_area_teams_areas_organization_id_area_id");
-
-                    b.HasOne("Mustask.Domain.Organizations.Team", null)
-                        .WithMany()
-                        .HasForeignKey("OrganizationId", "TeamId")
-                        .HasPrincipalKey("OrganizationId", "Id")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired()
-                        .HasConstraintName("fk_area_teams_teams_organization_id_team_id");
                 });
 
             modelBuilder.Entity("Mustask.Domain.Organizations.Organization", b =>
@@ -2589,6 +2826,13 @@ namespace Mustask.Infrastructure.Migrations
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired()
                         .HasConstraintName("fk_teams_organizations_organization_id");
+
+                    b.HasOne("Mustask.Domain.Organizations.Area", null)
+                        .WithMany()
+                        .HasForeignKey("OrganizationId", "DepartmentId")
+                        .HasPrincipalKey("OrganizationId", "Id")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .HasConstraintName("fk_teams_areas_organization_id_department_id");
                 });
 
             modelBuilder.Entity("Mustask.Domain.Organizations.TeamGrant", b =>
@@ -2716,6 +2960,13 @@ namespace Mustask.Infrastructure.Migrations
                         .HasPrincipalKey("ProjectId", "Id")
                         .OnDelete(DeleteBehavior.Restrict)
                         .HasConstraintName("fk_work_items_work_items_project_id_parent_id");
+
+                    b.HasOne("Mustask.Domain.Iterations.Sprint", null)
+                        .WithMany()
+                        .HasForeignKey("SprintId", "OwningTeamId")
+                        .HasPrincipalKey("Id", "TeamId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .HasConstraintName("fk_work_items_sprints_sprint_id_owning_team_id");
                 });
 
             modelBuilder.Entity("Mustask.Infrastructure.Boards.BacklogOrder", b =>
@@ -2784,6 +3035,26 @@ namespace Mustask.Infrastructure.Migrations
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired()
                         .HasConstraintName("fk_project_backlog_places_project_backlog_orders_project_id_bac~");
+                });
+
+            modelBuilder.Entity("Mustask.Infrastructure.Iterations.SprintCounter", b =>
+                {
+                    b.HasOne("Mustask.Domain.Organizations.Team", null)
+                        .WithMany()
+                        .HasForeignKey("TeamId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_sprint_counters_teams_team_id");
+                });
+
+            modelBuilder.Entity("Mustask.Infrastructure.Iterations.SprintSnapshotItem", b =>
+                {
+                    b.HasOne("Mustask.Domain.Iterations.Sprint", null)
+                        .WithMany()
+                        .HasForeignKey("SprintId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_sprint_snapshot_items_sprints_sprint_id");
                 });
 
             modelBuilder.Entity("Mustask.Infrastructure.Organizations.Configurations.AreaTreeLock", b =>

@@ -73,6 +73,13 @@ public sealed class WorkItem
     /// </summary>
     public Guid? OwningTeamId { get; private set; }
 
+    /// <summary>
+    /// mod-007 (BR-2): the item's sprint, always a sprint of its owning team (a composite key in the database says so), or
+    /// <c>null</c>. A change of the owning team clears it unless the same save sets a sprint of the new team; a Closed sprint stays
+    /// as the item leaves it (a completed item keeps it).
+    /// </summary>
+    public Guid? SprintId { get; private set; }
+
     public string Title { get; private set; } = null!;
 
     /// <summary>The text as stored: exactly as sent when <see cref="DescriptionFormat"/> is plain, the reduced html otherwise.</summary>
@@ -470,9 +477,21 @@ public sealed class WorkItem
         }
 
         // mod-017 (BR-OT-1): the team changes nothing else on the item; «Изменён» moves only when the value differs.
+        var ownerChanged = false;
+
         if (edit.Team is { } team && team.TeamId != OwningTeamId)
         {
             OwningTeamId = team.TeamId;
+            changed = true;
+            ownerChanged = true;
+        }
+
+        // mod-007 (BR-2): a new owner clears the sprint unless this save sets one of the new team; otherwise a sent sprint is set.
+        var newSprintId = ownerChanged ? edit.Sprint?.SprintId : edit.Sprint is { } sprint ? sprint.SprintId : SprintId;
+
+        if (newSprintId != SprintId)
+        {
+            SprintId = newSprintId;
             changed = true;
         }
 
@@ -757,13 +776,21 @@ public sealed record WorkItemEdit(
     Guid? AreaId = null,
     WorkItemFieldsEdit? Fields = null,
     TeamEdit? Team = null,
-    DescriptionFormat? DescriptionFormat = null);
+    DescriptionFormat? DescriptionFormat = null,
+    SprintEdit? Sprint = null);
 
 /// <summary>
 /// The sent owning team (mod-017 BR-OT-2): a team of the item's project, or <c>null</c> for «Без команды». A save that sends
 /// no team has no <see cref="TeamEdit"/> at all and keeps the stored value (BR-M3-25).
 /// </summary>
 public sealed record TeamEdit(Guid? TeamId);
+
+/// <summary>
+/// The sent sprint (mod-007 BR-2, BR-5): a Planned or Active sprint of the item's owning team, or <c>null</c> for «Без спринта».
+/// A save that sends none has no <see cref="SprintEdit"/> and keeps the stored pointer (unless the owner changes). The caller has
+/// judged the sprint under its lock.
+/// </summary>
+public sealed record SprintEdit(Guid? SprintId);
 
 /// <summary>
 /// The sent assignee: a user id, or <c>null</c> for «Не назначен» (BR-M3-22).

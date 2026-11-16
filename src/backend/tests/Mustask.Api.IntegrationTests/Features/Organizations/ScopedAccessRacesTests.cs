@@ -129,7 +129,7 @@ public sealed class ScopedAccessRacesTests(MustaskApiFactory factory)
         var created = await OrganizationsTestData.InUnitOfWorkAsync(factory, async (services, ct) =>
         {
             var projects = services.GetRequiredService<IProjectRepository>();
-            var project = Project.Create(structure.OrganizationId, OrganizationsTestData.Name("Под отделом"), "RCE", OrganizationsTestData.Now, "seed", parentAreaId: source.Id);
+            var project = Project.Create(structure.OrganizationId, OrganizationsTestData.Name("Под отделом"), "RCE", OrganizationsTestData.Now, "seed", "blue", parentAreaId: source.Id);
             projects.Add(project);
             await projects.SaveAsync(ct);
 

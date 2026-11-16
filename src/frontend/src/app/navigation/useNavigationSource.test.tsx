@@ -74,8 +74,8 @@ const GONE_PROJECT = '30000000-0000-4000-8000-0000000000ff';
 const OFFERS: WorkContextOffers = {
   departments: [],
   teams: [
-    { id: MARS, name: 'MARS', isMember: true, departmentIds: [] },
-    { id: VENUS, name: 'VENUS', isMember: false, departmentIds: [] },
+    { id: MARS, name: 'MARS', isMember: true, departmentId: 'd1' },
+    { id: VENUS, name: 'VENUS', isMember: false, departmentId: 'd1' },
   ],
   projects: [{ id: PROJECT_A, name: 'A', key: 'A', departmentId: null, teamIds: [MARS, VENUS] }],
 };
@@ -87,8 +87,8 @@ const QA_OFFERS: WorkContextOffers = {
     { id: OTHER_DEPARTMENT, name: 'Финансы' },
   ],
   teams: [
-    { id: MARS, name: 'MARS', isMember: true, departmentIds: [] },
-    { id: JUPITER, name: 'JUPITER', isMember: false, departmentIds: [] },
+    { id: MARS, name: 'MARS', isMember: true, departmentId: 'd1' },
+    { id: JUPITER, name: 'JUPITER', isMember: false, departmentId: 'd1' },
   ],
   projects: [{ id: PROJECT_A, name: 'A', key: 'A', departmentId: DEPARTMENT, teamIds: [MARS] }],
 };

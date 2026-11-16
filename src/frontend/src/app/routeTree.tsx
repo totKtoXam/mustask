@@ -84,6 +84,12 @@ import {
   TemplatesListPage,
   importsPermissions,
 } from '../features/imports';
+import {
+  SPRINT_OUTCOME_ROUTE,
+  SprintOutcomePage,
+  TEAM_SPRINTS_ROUTE,
+  TeamSprintsPage,
+} from '../features/iterations';
 import { UI_KIT_PATH, UiKitShowcasePage } from '../features/uikit';
 import { WORK_ITEMS_ROUTE, WORK_ITEM_ROUTE, WorkItemFormPage } from '../features/workitems';
 import { HOME_PATH } from '../shared/config/paths';
@@ -497,6 +503,22 @@ export const routeTree = (
             element={
               <OrganizationPage code={SECTION_ENTRY} title="Рабочие элементы" skeleton="registry">
                 <AggregateWorkItemsPage />
+              </OrganizationPage>
+            }
+          />
+          <Route
+            path={TEAM_SPRINTS_ROUTE}
+            element={
+              <OrganizationPage code={SECTION_ENTRY} title="Спринты" skeleton="registry">
+                <TeamSprintsPage />
+              </OrganizationPage>
+            }
+          />
+          <Route
+            path={SPRINT_OUTCOME_ROUTE}
+            element={
+              <OrganizationPage code={SECTION_ENTRY} title="Итоги спринта" skeleton="registry">
+                <SprintOutcomePage />
               </OrganizationPage>
             }
           />

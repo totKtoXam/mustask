@@ -7,10 +7,10 @@ namespace Mustask.Application.Features.Organizations.GetAreaDeletion;
 /// <summary>The query of <c>GET /api/organizations/{organizationId}/areas/{areaId}/deletion</c>.</summary>
 public sealed record GetAreaDeletionQuery(string? OrganizationId, string? AreaId);
 
-/// <summary>A team whose link a deletion ends.</summary>
+/// <summary>A team standing in the department: it holds the deletion (BR-TD-5).</summary>
 public sealed record AreaDeletionTeamResponse(Guid Id, string Name);
 
-/// <summary>What the deletion of the node ends (mod-018 api-contract § 1, <c>AreaDeletion</c>): its team links (a department's).</summary>
+/// <summary>What holds the deletion of the node: the active teams standing in a department (BR-TD-5); empty for any other node.</summary>
 public sealed record GetAreaDeletionResult(IReadOnlyList<AreaDeletionTeamResponse> Teams);
 
 /// <summary>

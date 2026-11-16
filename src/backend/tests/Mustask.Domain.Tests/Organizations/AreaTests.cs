@@ -9,7 +9,7 @@ public sealed class AreaTests
     private static readonly Guid Org = Guid.CreateVersion7();
 
     private static Area Department(string name = "Разработка", Guid? organizationId = null) =>
-        Area.CreateDepartment(organizationId ?? Org, Name(name), description: null, Creator, Now);
+        Area.CreateDepartment(organizationId ?? Org, "blue", Name(name), description: null, Creator, Now);
 
     private static Area ProjectNode(Guid? parentId = null, string name = "Проект", Guid? projectId = null) =>
         Area.CreateProjectNode(Org, parentId, projectId ?? Guid.CreateVersion7(), Name(name), Creator, Now);
@@ -79,7 +79,7 @@ public sealed class AreaTests
     public void Create_WithoutOrganizationOrCreator_IsADefect()
     {
         Assert.Throws<ArgumentException>(() => Department(organizationId: Guid.Empty));
-        Assert.Throws<ArgumentException>(() => Area.CreateDepartment(Org, Name("Разработка"), null, "", Now));
+        Assert.Throws<ArgumentException>(() => Area.CreateDepartment(Org, "blue", Name("Разработка"), null, "", Now));
         Assert.Throws<ArgumentException>(() => Area.CreateProjectNode(Org, null, Guid.Empty, Name("Проект"), Creator, Now));
     }
 
@@ -190,5 +190,37 @@ public sealed class AreaTests
         Assert.Equal(OrganizationErrorCodes.AreaDepthExceeded, CodeOf(() => movedTop.MoveUnder(chain[^1], tree)));
         Assert.Equal(node.Id, movedTop.ParentId);
         Assert.True(movedChild.MoveUnder(chain[^1], tree));
+    }
+
+    // mod-021 US-1 · BR-TD-20: a department keeps the colour it was created with; a sub-area and a project node have none.
+    [Fact]
+    public void CreateDepartment_KeepsItsColour()
+    {
+        Assert.Equal("teal", Area.CreateDepartment(Org, "teal", Name("Разработка"), null, Creator, Now).Color);
+    }
+
+    [Fact]
+    public void CreateDepartment_WithAColourOutsideThePalette_IsADefect()
+    {
+        Assert.Throws<ArgumentException>(() => Area.CreateDepartment(Org, "chartreuse", Name("Разработка"), null, Creator, Now));
+    }
+
+    // mod-021 US-4 · BR-TD-5: a department with an active team is not deleted, and that answer wins over "not empty".
+    [Fact]
+    public void EnsureDeletable_WithTeams_AnswersHasTeams_BeforeNotEmpty()
+    {
+        var department = Department();
+
+        Assert.Equal(OrganizationErrorCodes.AreaHasTeams, CodeOf(() => department.EnsureDeletable(hasChildren: true, holdsWorkItems: true, holdsTeams: true)));
+        Assert.Equal(OrganizationErrorCodes.AreaHasTeams, CodeOf(() => department.EnsureDeletable(hasChildren: false, holdsWorkItems: false, holdsTeams: true)));
+    }
+
+    [Fact]
+    public void EnsureDeletable_WithoutTeams_KeepsTheOldAnswers()
+    {
+        var department = Department();
+
+        Assert.Equal(OrganizationErrorCodes.AreaNotEmpty, CodeOf(() => department.EnsureDeletable(hasChildren: true, holdsWorkItems: false)));
+        department.EnsureDeletable(hasChildren: false, holdsWorkItems: false);
     }
 }

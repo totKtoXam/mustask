@@ -21,9 +21,9 @@ public enum AreaType
 /// <summary>
 /// A typed node of the organization's one area tree (mod-018, ADR-0031): each node has an optional parent of the same organization, a
 /// name unique among its siblings (the top level included, departments and project nodes in one name space: OQ-12 A, BR-AW-4), an
-/// optional description and the stored «Наследовать доступ» switch (BR-AW-5, OQ-2 B). A project's node and its sub-areas carry the
+/// optional description, a palette colour (a department only) and the stored «Наследовать доступ» switch (BR-AW-5, OQ-2 B). A project's node and its sub-areas carry the
 /// project's id (<see cref="ProjectId"/>): a work item's «Область» is one of them (BR-AW-11). A node <b>owns nothing</b> (BR-AW-2):
-/// teams are linked to a department (<see cref="AreaTeam"/>), never stored in it; a project is placed under a department, not owned
+/// teams stand in a department by their own reference (<c>Team.DepartmentId</c>), never stored in it; a project is placed under a department, not owned
 /// by it. A node has no status: a leaf is deleted outright and a project's node only with its project.
 /// </summary>
 public sealed class Area
@@ -42,9 +42,11 @@ public sealed class Area
         EntityName name,
         EntityDescription? description,
         string createdBy,
-        DateTimeOffset createdAt)
+        DateTimeOffset createdAt,
+        string? color = null)
     {
         Id = id;
+        Color = color;
         OrganizationId = organizationId;
         ParentId = parentId;
         Type = type;
@@ -76,6 +78,9 @@ public sealed class Area
     /// <summary>The description as typed, or <c>null</c> when there is none (BR-AW-4).</summary>
     public string? Description { get; private set; }
 
+    /// <summary>The palette key of a department (BR-TD-20), chosen at creation and never edited; <c>null</c> for every other type.</summary>
+    public string? Color { get; private set; }
+
     /// <summary>
     /// «Наследовать доступ» (BR-AW-5): stored on for every node, the input of ADR-0029 § 6. No request changes it and no response
     /// shows it before <c>mod-019-scoped-access</c>.
@@ -92,14 +97,20 @@ public sealed class Area
     /// <summary>A new department (BR-AW-3): at the top level, no parent. The caller judged the name among the top-level siblings.</summary>
     public static Area CreateDepartment(
         Guid organizationId,
+        string color,
         EntityName name,
         EntityDescription? description,
         string createdBy,
         DateTimeOffset createdAt)
     {
+        if (!ColorPalette.IsKey(color))
+        {
+            throw new ArgumentException("The colour is a key of the palette.", nameof(color));
+        }
+
         EnsureWellFormed(organizationId, createdBy);
 
-        return new Area(Guid.CreateVersion7(), organizationId, null, AreaType.Department, null, name, description, createdBy, createdAt);
+        return new Area(Guid.CreateVersion7(), organizationId, null, AreaType.Department, null, name, description, createdBy, createdAt, color);
     }
 
     /// <summary>
@@ -249,9 +260,15 @@ public sealed class Area
     /// A node is deleted only as a leaf holding no work item (BR-AW-9); a project's node only with its project:
     /// <see cref="OrganizationErrorCodes.AreaRootIsFixed"/> first, then <see cref="OrganizationErrorCodes.AreaNotEmpty"/>.
     /// </summary>
-    public void EnsureDeletable(bool hasChildren, bool holdsWorkItems)
+    public void EnsureDeletable(bool hasChildren, bool holdsWorkItems, bool holdsTeams = false)
     {
         EnsureNotProjectNode();
+
+        // BR-TD-5: an active team standing in the department answers first, before the projects and sub-areas it also holds.
+        if (holdsTeams)
+        {
+            throw new ConflictException(OrganizationErrorCodes.AreaHasTeams);
+        }
 
         if (hasChildren || holdsWorkItems)
         {

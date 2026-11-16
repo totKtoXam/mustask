@@ -137,6 +137,43 @@ export const categoryColours: Record<CategoryCode, string> = {
   Removed: '#A4262C',
 };
 
+/**
+ * doc-016 BR-TD-20: the 12 entries of the stored colour of a department, a team and a project, in
+ * the palette's order. The API returns the key and the panel owns the hex; one hex per key serves
+ * the panel's one (light) theme. A key outside the set is the neutral grey, never a name.
+ */
+export const OBJECT_COLOUR_KEYS = [
+  'blue',
+  'orange',
+  'green',
+  'purple',
+  'red',
+  'teal',
+  'amber',
+  'pink',
+  'indigo',
+  'lime',
+  'magenta',
+  'cyan',
+] as const;
+
+export type ObjectColourKey = (typeof OBJECT_COLOUR_KEYS)[number];
+
+export const objectColours: Record<ObjectColourKey, string> = {
+  blue: '#0078D4',
+  orange: '#D8661B',
+  green: '#2E8B57',
+  purple: '#8E4EC6',
+  red: '#D13438',
+  teal: '#00A3A3',
+  amber: '#B8860B',
+  pink: '#D6458F',
+  indigo: '#4F52B2',
+  lime: '#7A9B1E',
+  magenta: '#B146C2',
+  cyan: '#0A8FBF',
+};
+
 /** `palette.shell` — the shell's own surfaces (design § 2.1). */
 export interface ShellPalette {
   navigation: string;
@@ -182,6 +219,14 @@ export const shellPalette: ShellPalette = {
   logoMust: '#3A96DD',
   logoAccent: '#F2A93B',
 };
+
+/** `palette.search` — the global search's own tint (feat-070; feat-065 design § 1). */
+export interface SearchPalette {
+  /** The tint behind a matched piece of text; the bold weight carries the meaning, not the tint. */
+  match: string;
+}
+
+export const searchPalette: SearchPalette = { match: '#FFE9A8' };
 
 /** The width classes of BR-10 and D-8 (design § 3.6). */
 export type WidthClass = 'wide' | 'medium' | 'narrow';
@@ -244,6 +289,33 @@ export interface LayoutTokens {
   card: CardTokens;
   /** The backlog table and its page's head (feat-027 design § 2.3). */
   backlogTable: BacklogTableTokens;
+  /** The header search field (feat-065 design § 1, D-14). */
+  searchField: SearchFieldTokens;
+  /** The search panel under the field. */
+  searchPanel: SearchPanelTokens;
+  /** One row of the search panel. */
+  searchOption: SearchOptionTokens;
+}
+
+/** `theme.layout.searchField` — 28 px high; grows from `width` to `widthFocused`. */
+export interface SearchFieldTokens {
+  height: number;
+  width: number;
+  widthFocused: number;
+}
+
+/** `theme.layout.searchPanel` — `width` wide, at most the viewport less `viewportGap`. */
+export interface SearchPanelTokens {
+  width: number;
+  /** A CSS length: the body scrolls beyond it. */
+  maxHeight: string;
+  viewportGap: number;
+}
+
+/** `theme.layout.searchOption` — a row's least height and its colour stripe's height. */
+export interface SearchOptionTokens {
+  height: number;
+  stripeHeight: number;
 }
 
 /** `theme.layout.frame` — the thin and the thick frame. */
@@ -588,6 +660,9 @@ export const layout: LayoutTokens = {
   columns,
   card,
   backlogTable,
+  searchField: { height: 28, width: 300, widthFocused: 360 },
+  searchPanel: { width: 720, maxHeight: '70vh', viewportGap: 32 },
+  searchOption: { height: 48, stripeHeight: 28 },
 };
 
 /** `theme.density` — one dense layout for everyone (BR-3). */

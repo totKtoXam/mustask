@@ -13,10 +13,9 @@ import {
 const model = buildModel(diagramAreas, diagramOffers);
 
 describe('feat-049 diagram model (design §§ 4.1, 4.7)', () => {
-  it('stands a team under every department it is linked to, projects first', () => {
+  it('stands a team once, in the department it stands in, projects first', () => {
     expect(model.childrenOf.get('d1')!.map((n) => n.id)).toEqual([
       'nA',
-      'team:JUPITER@d1',
       'team:MARS@d1',
       'team:VENUS@d1',
     ]);
@@ -33,14 +32,15 @@ describe('feat-049 diagram model (design §§ 4.1, 4.7)', () => {
     expect(model.roots.departments.map((n) => n.id)).toEqual(['d1', 'd2']);
   });
 
-  it('ignores a link to a department that is not in the tree', () => {
+  it('leaves a team whose place is not in the tree outside, and keeps one department per team', () => {
     expect(model.departmentsOfTeam.get('VENUS')).toEqual(['d1']);
+    expect(model.departmentsOfTeam.get('ATLAS')).toEqual([]);
   });
 
-  it('counts each team once and the lines as pairs plus copy joins', () => {
+  it('counts each team once and draws the lines as pairs only', () => {
     expect(model.counts).toEqual({ departments: 2, projects: 4, areas: 2, teams: 5 });
     expect(model.pairs).toHaveLength(5);
-    expect(model.lineTotal).toBe(6);
+    expect(model.lineTotal).toBe(5);
   });
 
   it('draws no pairs for a deactivated project and takes keys from the offers', () => {
@@ -72,16 +72,15 @@ describe('feat-049 diagram model (design §§ 4.1, 4.7)', () => {
   it('emphasises a department with its whole branch and the far ends of relations', () => {
     const emphasis = emphasisOf(model, 'd1');
     expect([...emphasis.ids].sort()).toEqual(
-      ['JUPITER', 'MARS', 'VENUS', 'a1', 'a2', 'd1', 'nA', 'nB', 'nF'].sort(),
+      ['MARS', 'VENUS', 'a1', 'a2', 'd1', 'nA', 'nB'].sort(),
     );
     expect(emphasis.lines.has('nA>MARS')).toBe(true);
     expect(emphasis.lines.has('nB>MARS')).toBe(true);
-    expect(emphasis.lines.has('copy:JUPITER')).toBe(true);
   });
 
-  it('emphasises a team with all its copies, projects and departments', () => {
+  it('emphasises a team with its projects and its department', () => {
     const emphasis = emphasisOf(model, 'JUPITER');
-    expect([...emphasis.ids].sort()).toEqual(['JUPITER', 'd1', 'd2', 'nF']);
+    expect([...emphasis.ids].sort()).toEqual(['JUPITER', 'd2', 'nF']);
   });
 
   it('summarises a team, a project and a department', () => {
@@ -96,7 +95,7 @@ describe('feat-049 diagram model (design §§ 4.1, 4.7)', () => {
 
   it('keeps the branch, the related, their ancestors and related teams departments', () => {
     const filter = relatedFilter(model, emphasisOf(model, 'nF'));
-    expect([...filter.keep].sort()).toEqual(['d1', 'd2', 'nF']);
+    expect([...filter.keep].sort()).toEqual(['d2', 'nF']);
     expect([...filter.teams]).toEqual(['JUPITER']);
   });
 
@@ -111,8 +110,8 @@ describe('feat-049 diagram model (design §§ 4.1, 4.7)', () => {
     expect(cardName(model, model.nodes.get('nA')!)).toBe(
       'Проект Склад (WH), в департаменте Логистика, команд: 2',
     );
-    expect(cardName(model, model.nodes.get('team:JUPITER@d1')!)).toBe(
-      'Команда JUPITER, проектов: 1, в департаменте Логистика, ещё в: Финансы',
+    expect(cardName(model, model.nodes.get('team:JUPITER@d2')!)).toBe(
+      'Команда JUPITER, проектов: 1, в департаменте Финансы',
     );
     expect(cardName(model, model.nodes.get('team:ATLAS@-')!)).toBe(
       'Команда ATLAS, проектов: 0, без департамента',

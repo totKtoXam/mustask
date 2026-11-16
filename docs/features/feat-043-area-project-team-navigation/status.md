@@ -81,6 +81,7 @@ gate-3: approved 2026-11-02 (the human, in chat, after screenshots on test data)
 - 2026-11-02 [orchestrator] Post-gate-3 test change: the pre-push hook failed on backend tests. DeletedItemSurfaceMatrixTests lacked `/overview` and `/selector-offers`; both added as NoWorkItem, test only. Whole backend suite before the fix: 5626 passed, 1 failed.
 
 - 2026-11-03 [orchestrator] P-10 note from feat-048-aggregate-level-views (the human, in chat, before feat-048's gate-2; feat-048 spec BR-AV-1..12): the grouping switch «Группировка» (none, by department, by project, by team, offered by level) on «Бэклог», «Канбан» and «Рабочие элементы» amends BR-NV-20 (one group per project) to: by project is the default, other groupings and none are the user's choice, and outside by project the rows go by change time with no reorder. It also touches BR-NV-17 clause 2 (a default only) and BR-NV-12 (the flat list is the no-grouping form; a grouped form is added). US-10 stands for the default grouping; this folder's other text is not edited.
+- 2026-11-13 [orchestrator] mod-021 changed this line (doc-016 BR-TD-1, ADR-0040): the selector-offers read's `teams[].departmentIds` became `departmentId` (a team stands in one department) and the fit rule reads the place; see mod-021 api-contract.md § 3.
 
 ## Notes
 

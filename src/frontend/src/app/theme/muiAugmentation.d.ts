@@ -5,16 +5,18 @@
 // `theme.mixins.visuallyHidden` without importing
 // `app/` — they read the values through `useTheme()` or an `sx` callback.
 import type { CSSProperties } from '@mui/material/styles/createMixins';
-import type { DensityTokens, LayoutTokens, ShellPalette } from './tokens';
+import type { DensityTokens, LayoutTokens, SearchPalette, ShellPalette } from './tokens';
 import type { RichTextTheme } from './richText';
 import type { WorkTrackingLookups } from './workTracking';
 
 declare module '@mui/material/styles' {
   interface Palette {
     shell: ShellPalette;
+    search: SearchPalette;
   }
   interface PaletteOptions {
     shell?: ShellPalette;
+    search?: SearchPalette;
   }
   interface Theme {
     layout: LayoutTokens;

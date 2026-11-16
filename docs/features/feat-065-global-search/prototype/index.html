@@ -1,0 +1,303 @@
+<!doctype html>
+<html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>feat-065 prototype: global search palette and the full search page</title>
+<style>
+:root{--bg:#F8F8F8;--nav:#EBEBEB;--navh:#E2E2E2;--tx:#242424;--tx2:#616161;--lab:#707070;--acc:#0078D4;--accd:#0C5598;--div:#E0E0E0;--rule:#EAEAEA;--hov:#F0F0F0;--sel:#E5F0FA;--fh:#C8C8C8;--err:#C42B1C;--warn:#9D5D00;--mark:#FFE9A8;--glow:0 3px 7px rgba(0,0,0,.13),0 .6px 1.8px rgba(0,0,0,.11)}
+*{box-sizing:border-box}html,body{max-width:100%}body{margin:0;font:14px/20px "Segoe UI",system-ui,sans-serif;color:var(--tx);background:var(--bg);overflow-x:hidden}
+button,select,input{font:inherit}button{background:var(--nav);color:var(--tx);border:0;border-radius:4px;min-height:32px;padding:4px 12px;font-weight:600;cursor:pointer}button:hover{background:var(--navh)}
+button.p{background:var(--acc);color:#fff}button.p:hover{background:var(--accd)}button.lnk{background:none;color:var(--accd);font-weight:400;min-height:0;padding:0}button.lnk:hover{text-decoration:underline;background:none}
+button:focus-visible,select:focus-visible,input:focus-visible,a:focus-visible,[tabindex]:focus-visible{outline:2px solid var(--acc);outline-offset:1px}
+a{color:var(--accd);text-decoration:none}a:hover{text-decoration:underline}
+.hint{background:#fff;border-bottom:1px solid var(--div);padding:6px 16px;font-size:12px;color:var(--tx2);display:flex;gap:12px;flex-wrap:wrap;align-items:center}.hint select{min-height:24px;font-size:12px}.hint button{min-height:24px;font-size:12px;font-weight:400;padding:0 8px}.hint label{display:inline-flex;gap:4px;align-items:center}
+#bar{min-height:48px;background:#fff;border-bottom:1px solid var(--div);display:flex;align-items:center;gap:8px;padding:0 16px}
+#bar b{font-size:16px;margin-right:8px}.path{color:var(--tx2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}.sp{flex:1}
+.ib{background:transparent;border-radius:6px;width:36px;min-height:36px;padding:0;display:inline-flex;align-items:center;justify-content:center;color:var(--tx2)}.ib:hover{background:rgba(0,0,0,.06)}
+.av{width:32px;height:32px;border-radius:50%;background:#8a8a8a;color:#fff;display:inline-flex;align-items:center;justify-content:center;font-size:12px;font-weight:600}
+#wrap{display:flex;min-height:calc(100vh - 110px)}nav{width:200px;background:var(--nav);padding:8px 0;flex:none}nav a{display:block;height:36px;line-height:36px;padding:0 16px;color:var(--tx)}nav a:hover{background:var(--navh);text-decoration:none}
+main{flex:1;padding:16px 24px;min-width:0}h1{font-size:20px;line-height:28px;font-weight:600;margin:0 0 4px}h1:focus{outline:none}
+.card{background:#fff;border-radius:4px;box-shadow:var(--glow);padding:12px 16px;margin:12px 0}.mut{color:var(--tx2)}.small{font-size:12px;color:var(--lab)}
+#ed{border:1px solid var(--fh);border-radius:4px;min-height:48px;padding:6px 8px;background:#fff}
+#note{position:fixed;left:16px;bottom:16px;max-width:calc(100vw - 32px);background:#242424;color:#fff;padding:10px 16px;border-radius:4px;display:none;z-index:50}
+mark{background:var(--mark);color:inherit;font-weight:600;padding:0 1px;border-radius:2px}
+.ty{width:20px;height:20px;fill:none;stroke:var(--tx2);stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round;flex:none}
+/* palette */
+.x{min-height:28px;width:28px;padding:0;background:transparent;color:var(--lab);flex:none}kbd{font:11px/16px "Segoe UI",sans-serif;border:1px solid var(--fh);border-bottom-width:2px;border-radius:4px;padding:0 5px;color:var(--tx2);background:#fff}
+#bar{position:relative}#sw{flex:1;min-width:0;max-width:300px;margin:0 auto;display:flex;align-items:center;gap:6px;height:28px;padding:0 4px 0 8px;background:rgba(0,0,0,.04);border:0;border-radius:6px;transition:background .12s,max-width .12s}#sw:hover{background:rgba(0,0,0,.06)}#sw:focus-within,#sw.on{background:rgba(0,0,0,.06);max-width:360px;box-shadow:inset 0 -2px 0 var(--acc)}
+#sw .ty{width:16px;height:16px;stroke:var(--lab)}#sw:focus-within .ty{stroke:var(--accd)}
+#sw input{flex:1;min-width:0;border:0;outline:0;background:transparent;font-size:13px;line-height:18px}#sw input::placeholder{color:var(--lab)}#sw input:focus-visible{outline:0}#sw kbd{border:0;background:transparent;padding:0;font-size:11px;color:var(--lab);white-space:nowrap}#sw .x{min-height:22px;width:22px;font-size:12px}
+#mag{display:none}#bar.cmp #mag{display:inline-flex}#bar.cmp #sw{display:none}#bar.cmp.sopen #sw{display:flex;max-width:none;margin:0}#bar.cmp.sopen>:not(#sw):not(#pal){display:none}
+.pal{display:none;position:absolute;top:46px;left:0;width:720px;background:#fff;border-radius:4px;box-shadow:var(--glow);z-index:30;max-height:min(70vh,640px);flex-direction:column;overflow:hidden}.pal.open{display:flex}
+.pal.compact{left:0!important;right:0;width:auto!important;border-radius:0;max-height:calc(100vh - 56px)}.rh{display:flex;align-items:center;justify-content:space-between;padding:0 16px 0 0}.rh .gh{flex:1}.rh .lnk{font-size:12px;padding:8px 0 0}.fb{display:inline-flex;align-items:center;gap:4px;font-size:12px;min-height:24px;padding:0 6px;border-radius:4px}.fb:hover{background:var(--hov)}.fb .ty{width:16px;height:16px;stroke:var(--accd)}.sc{flex-wrap:wrap}
+.sc{display:flex;align-items:center;gap:6px;padding:4px 12px;font-size:12px;color:var(--lab);border-bottom:1px solid var(--rule)}
+.sc select,.sc .tagx{border:1px solid var(--fh);border-radius:12px;background:#fff;min-height:24px;padding:0 8px;font-size:12px;color:var(--tx)}.sc .tagx{display:inline-flex;align-items:center}
+.body{flex:1;overflow-y:auto;min-height:60px}.body[aria-busy=true] .rows{opacity:.55}
+.msg{padding:14px 16px;color:var(--tx2)}.msg.err{border-left:3px solid var(--err);background:#FDF3F2;margin:8px;border-radius:4px;color:var(--tx);display:flex;gap:12px;align-items:center}.msg.err span{flex:1}
+.sk{height:14px;margin:17px 16px;border-radius:3px;background:linear-gradient(90deg,#eee,#f7f7f7,#eee)}
+.rows{list-style:none;margin:0;padding:0 0 4px}.g{list-style:none;margin:0;padding:0}.gh{margin:0;padding:10px 16px 2px;color:var(--lab);font-size:12px;line-height:16px;font-weight:600}
+.sim{padding:6px 16px 0 52px;font-size:11px;line-height:16px;color:var(--lab);font-style:italic}
+.o{display:flex;align-items:center;gap:12px;padding:6px 12px 6px 12px;min-height:48px;cursor:pointer;color:var(--tx);border-left:3px solid transparent}.o:hover{text-decoration:none}.o.act{background:var(--sel);border-left-color:var(--acc)}
+.o .st{width:4px;height:24px;border-radius:2px;flex:none;margin-right:-4px}.o .tx{flex:1;min-width:0}.o .p1,.o .p2{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.o .p2{font-size:12px;line-height:16px;color:var(--lab)}.o .p1 b{font-weight:600;margin-right:6px}
+.o .en{visibility:hidden;color:var(--lab)}.o.act .en{visibility:visible}.o.mr,.o.cl{min-height:36px;color:var(--accd)}.o.al{border-top:1px solid var(--rule);margin-top:4px;min-height:52px}
+.keys{border-top:1px solid var(--rule);padding:6px 12px;font-size:12px;color:var(--lab);display:flex;gap:14px;flex-wrap:wrap}.pal.compact .keys{display:none}
+.vh{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+#oth{position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:25;display:none;align-items:center;justify-content:center}#oth.open{display:flex}#oth .b{background:#fff;padding:20px;border-radius:4px;width:380px;max-width:92vw}
+/* full page */
+.sf{display:flex;gap:8px;max-width:640px;margin:8px 0}.sf input{flex:1;min-width:0;border:1px solid var(--fh);border-radius:4px;min-height:32px;padding:4px 10px;background:#fff}.sf input.bad{border-color:var(--err)}
+.res{list-style:none;margin:0;padding:0}.res li{padding:10px 16px;border-bottom:1px solid var(--rule)}.res li:last-child{border:0}.res .h{display:flex;gap:8px;align-items:center}.res .h b{font-weight:600}.res .sn{margin:4px 0 0 28px;color:var(--tx2);font-size:13px}.res .m2{margin-left:28px;font-size:12px;color:var(--lab)}
+.pg{display:flex;gap:12px;align-items:center;justify-content:flex-end;padding:8px 0}.pg button{min-width:32px}.pg button[aria-disabled=true]{opacity:.4;cursor:default}
+.frame{text-align:center;padding:32px 16px;color:var(--tx2)}.frame h2{font-size:16px;color:var(--tx);margin:0 0 4px}
+.alert{background:#FDF3F2;border:1px solid #F1BBB7;border-left:3px solid var(--err);border-radius:4px;padding:8px 12px;margin:8px 0;display:flex;gap:12px;align-items:center}.alert span{flex:1}
+@media(max-width:900px){nav{width:130px}}@media(max-width:640px){#wrap{flex-direction:column}nav{width:100%;display:flex;overflow-x:auto}main{padding:12px}}
+</style></head><body>
+<div class="hint" id="hint">
+ <b>Прототип feat-065.</b>
+ <label>Пользователь <select id="usel"><option value="max">Максим (видит всё, 2 организации)</option><option value="olga">Ольга (видит только проект «Альфа», 1 организация)</option><option value="vera">Вера (1 организация)</option></select></label>
+ <label>Состояние <select id="ssel"><option value="ok">Норма</option><option value="loading">Загрузка (не заканчивается)</option><option value="error">Ошибка</option><option value="404">Организация не найдена</option><option value="empty">Пустой результат</option></select></label>
+ <label><input type="checkbox" id="nar"> Узкий вид (поле сворачивается в лупу)</label>
+ <button id="rrec">Заполнить недавние</button>
+ <span>«Все организации» — в списке «Искать в» (только у Максима: у Ольги и Веры одна организация): «оплата», «ALP-US-7», «ори».</span><span>Попробуйте: Ctrl+K, «оплата», «отчёт» (Показать ещё), «лагистика», «MSK-42», «alp-7», «ол»; на странице «Поиск» — «списание», «payment», «шаблон».</span>
+</div>
+<div id="bar"><b>▣ MUSTASK</b><span class="path" id="hpath">Ромашка › все</span>
+ <div id="sw"><svg class="ty" viewBox="0 0 24 24" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5"/><path d="M15.5 15.5L21 21"/></svg><input id="q" type="text" role="combobox" aria-label="Поиск" aria-expanded="false" aria-controls="lb" aria-autocomplete="list" aria-haspopup="listbox" autocomplete="off" spellcheck="false" maxlength="100" placeholder="Поиск…">
+  <kbd id="hk"></kbd><button class="x" id="clr" aria-label="Очистить поле" hidden>✕</button><button class="x" id="cls" aria-label="Закрыть поиск" hidden>✕</button></div>
+ <button class="ib" id="mag" aria-label="Поиск (Ctrl+K)" title="Поиск (Ctrl+K)"><svg class="ty" viewBox="0 0 24 24" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5"/><path d="M15.5 15.5L21 21"/></svg></button>
+ <span class="av" aria-hidden="true">МП</span>
+ <div class="pal" id="pal">
+ <div class="sc"><span id="sclab">Искать в:</span><span id="scbox"></span><span class="sp"></span><button class="lnk fb" id="fbtn" title="Искать везде, включая описания" aria-label="Полный поиск, включая описания"><svg class="ty" viewBox="0 0 24 24" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5"/><path d="M15.5 15.5L21 21"/></svg>Полный поиск</button></div>
+ <div class="body" id="body"><div id="stat"></div><div class="rh" id="rh" hidden></div><ul class="rows" id="lb" role="listbox" aria-label="Результаты поиска" hidden></ul></div>
+ <div class="keys" id="keys"></div><div class="vh" id="live" role="status" aria-live="polite"></div>
+ </div></div>
+<div id="wrap"><nav><a href="#/">Главная</a><a id="navalpha" href="#/">Проект «Альфа»</a><a href="#/search?q=&page=1">Поиск</a></nav><main id="main"></main></div>
+<div id="oth"><div class="b" role="dialog" aria-modal="true" aria-label="Новый рабочий элемент"><p><b>Новый рабочий элемент</b></p><p class="mut">Другой модальный диалог: Ctrl+K сейчас ничего не делает.</p><button id="othx">Закрыть</button></div></div>
+<div id="note" role="status"></div>
+<script>
+(function(){
+'use strict';
+function $(s){return document.querySelector(s)}
+function esc(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;')}
+function fold(s){return String(s).toLowerCase().replace(/ё/g,'е')}
+var MAC=/Mac|iPhone|iPad/.test(navigator.platform||'');
+var MOD=MAC?'⌘':'Ctrl';
+// ---------- fake data ----------
+var TYPES=['item','proj','team','dept','area','user'];
+var HEAD={item:'Рабочие элементы',proj:'Проекты',team:'Команды',dept:'Департаменты',area:'Области',user:'Пользователи'};
+var TYW={item:'Рабочий элемент',proj:'Проект',team:'Команда',dept:'Департамент',area:'Область',user:'Пользователь'};
+var CLR={blue:'#0078D4',orange:'#D8661B',green:'#2E8B57',purple:'#8E4EC6',teal:'#00A3A3'};
+var E=[];function add(o){o.uid=E.length;E.push(o);return o}
+var R='Ромашка',O='Другая';
+add({t:'dept',org:R,name:'Логистика',c:'blue',olga:1});add({t:'dept',org:R,name:'Финансы',c:'green'});add({t:'dept',org:R,name:'Маркетинг',c:'purple'});
+add({t:'team',org:R,name:'MARS',dept:'Логистика',c:'orange',olga:1});add({t:'team',org:R,name:'VENUS',dept:'Логистика',c:'teal',olga:1});add({t:'team',org:R,name:'JUPITER',dept:'Финансы',c:'orange'});
+var PRJ={ALP:add({t:'proj',org:R,name:'Альфа',key:'ALP',dept:'Логистика',c:'orange',olga:1}),BRV:add({t:'proj',org:R,name:'Браво',key:'BRV',dept:'Логистика',c:'teal'}),CHR:add({t:'proj',org:R,name:'Чарли',key:'CHR',dept:'Финансы',c:'purple'}),MSK:add({t:'proj',org:R,name:'Платформа',key:'MSK',dept:'Логистика',c:'blue'})};
+add({t:'area',org:R,name:'Склад',proj:'Альфа',dept:'Логистика',olga:1});add({t:'area',org:R,name:'Приёмка',proj:'Альфа',dept:'Логистика',olga:1});add({t:'area',org:R,name:'Оплата',proj:'Чарли',dept:'Финансы'});
+add({t:'user',org:R,name:'Анна Орлова',email:'anna.orlova@romashka.example',olga:1});add({t:'user',org:R,name:'Максим Петров',email:'max.petrov@romashka.example',olga:1});add({t:'user',org:R,name:'Ольга Смирнова',email:'olga.smirnova@romashka.example',olga:1});add({t:'user',org:R,name:'Вера Кузнецова',email:'vera.k@romashka.example',olga:1,inactive:1});
+var ts=1000;
+function item(k,id,title,state,desc){var p=PRJ[k];return add({t:'item',org:R,id:id,alias:id.split('-')[0]+'-'+id.split('-').pop(),name:title,state:state,proj:p.name,pk:k,desc:desc||'',ts:ts--,olga:p.olga})}
+item('ALP','ALP-US-7','Оплата картой','В работе','Через Stripe, повторная попытка списания');
+item('BRV','BRV-BUG-3','Оплата картой','Новая','Оплата картой не проходит на шаге 3');
+item('CHR','CHR-TASK-5','Оплата счёта','Готово','');
+item('ALP','ALP-TASK-12','Приёмка товара на склад','Новая','Нужно принять товар по накладной и проверить количество.');
+item('ALP','ALP-BUG-8','Падение при входе','В работе','Приложение закрывается после ввода пароля.');
+item('ALP','ALP-TASK-14','Повтор платежа','Новая','Retry the failed payments after three days.');
+item('MSK','MSK-TASK-42','Настройка уведомлений','В работе','Письма и push-сообщения, оповещения по почте.');
+item('MSK','MSK-BUG-43','Ошибка в шаблоне письма','Новая','В шаблоне виден текст <scr'+'ipt>alert(1)</scr'+'ipt> вместо имени получателя.');
+for(var i=1;i<=14;i++)item('BRV','BRV-TASK-'+(20+i),'Отчёт о перевозках, неделя '+i,i%3?'Готово':'В работе','Еженедельный отчёт: маршруты, задержки и затраты.');
+for(i=1;i<=30;i++)item('CHR','CHR-TASK-'+(50+i),'Счёт-фактура №'+i,'Новая','Оплата по счёту проходит через банк, срок оплаты пять дней.');
+add({t:'dept',org:O,name:'Склад'});add({t:'team',org:O,name:'ORION',dept:'Склад',c:'orange'});
+var ZED=add({t:'proj',org:O,name:'Зет',key:'ZED',dept:'Склад',c:'teal'});
+add({t:'user',org:O,name:'Ольга Смирнова',email:'olga.smirnova@drugaya.example'});add({t:'user',org:O,name:'Максим Петров',email:'max.petrov@drugaya.example'});
+add({t:'item',org:O,id:'ZED-US-1',alias:'ZED-1',name:'Оплата картой',state:'Новая',proj:'Зет',desc:'Оплата в другой организации.',ts:1});
+add({t:'proj',org:O,name:'Альфа-2',key:'ALP',dept:'Склад',c:'purple'});
+add({t:'item',org:O,id:'ALP-US-7',alias:'ALP-7',name:'Оплата в магазине',state:'В работе',proj:'Альфа-2',desc:'Терминал и чек в торговой точке.',ts:2});
+add({t:'item',org:O,id:'ZED-TASK-2',alias:'ZED-2',name:'Отчёт по поставкам',state:'Новая',proj:'Зет',desc:'Еженедельный отчёт.',ts:3});
+add({t:'team',org:O,name:'Корион-2',dept:'Склад',c:'teal'});
+var USERS={max:{name:'Максим',orgs:[R,O],all:1},olga:{name:'Ольга',orgs:[R],all:0},vera:{name:'Вера',orgs:[R],all:1}};
+// ---------- state ----------
+var ALL='*';var S={user:'max',cur:R,org:R,q:'',status:'recent',data:null,busy:false,exp:{},act:0,rows:[],req:0,open:false,opener:null,composing:false,recent:{},state:'ok',narrow:false,dt:0};
+S.recent[R]=[];S.recent[O]=[];
+function seedRecent(){var f=function(t,n){return E.filter(function(e){return e.org===R&&e.t===t&&(e.name===n||e.id===n)})[0].uid};S.recent[R]=[f('item','ALP-US-7'),f('team','VENUS'),f('proj','Альфа'),f('dept','Логистика')];S.recent[O]=[]}
+seedRecent();
+function sees(e){var u=USERS[S.user];if(S.org===ALL?u.orgs.indexOf(e.org)<0:e.org!==S.org)return false;return !!(u.all||e.org===O||e.olga)}
+function multi(){return USERS[S.user].orgs.length>1}
+function setPath(t){$('#hpath').textContent=t}
+function toast(t){var n=$('#note');n.textContent=t;n.style.display='block';clearTimeout(toast.t);toast.t=setTimeout(function(){n.style.display='none'},3800)}
+function icon(t){var P={item:'<rect x="4" y="3" width="16" height="18" rx="2"/><path d="M8 8h8M8 12h8M8 16h5"/>',proj:'<path d="M3 6h6l2 2h10v11H3z"/>',team:'<circle cx="9" cy="8" r="3"/><circle cx="17" cy="9" r="2.4"/><path d="M3 19c0-3.3 2.7-5.5 6-5.5s6 2.2 6 5.5M15 14c3 0 6 1.5 6 4.5"/>',dept:'<path d="M4 20V4h10v16M14 9h6v11M3 20h18M7 8h3M7 12h3M7 16h3"/>',area:'<path d="M12 21s-6-5.5-6-10a6 6 0 0 1 12 0c0 4.5-6 10-6 10z"/><circle cx="12" cy="11" r="2"/>',user:'<circle cx="12" cy="8" r="3.5"/><path d="M5 20c0-3.8 3.1-6 7-6s7 2.2 7 6"/>',search:'<circle cx="10.5" cy="10.5" r="6.5"/><path d="M15.5 15.5L21 21"/>',clear:'<path d="M5 7h14M9 7V4h6v3M7 7l1 13h8l1-13"/>',more:'<path d="M6 9l6 6 6-6"/>'};
+ return '<svg class="ty" viewBox="0 0 24 24" aria-hidden="true">'+P[t]+'</svg>'}
+// highlight: plain text in, escaped html with <mark> out (never markup from data)
+function hl(text,q){var f=fold(text),k=fold(q),out='',i=0,j;if(!k)return esc(text);
+ while((j=f.indexOf(k,i))>=0){out+=esc(text.slice(i,j))+'<mark>'+esc(text.slice(j,j+k.length))+'</mark>';i=j+k.length}
+ return out+esc(text.slice(i))}
+// ---------- quick search ----------
+function tierName(name,q){var f=fold(name);if(f===q)return 1;if(f.indexOf(q)===0)return 2;if((' '+f.replace(/[^а-яa-z0-9]+/g,' ')).indexOf(' '+q)>=0)return 3;if(f.indexOf(q)>=0)return 4;return 0}
+function tri(s){var p='  '+fold(s)+' ',r={};for(var i=0;i+3<=p.length;i++)r[p.substr(i,3)]=1;return r}
+function sim(q,text){var tq=tri(q),qn=Object.keys(tq).length,best=0;fold(text).split(/[^а-яa-z0-9]+/).forEach(function(w){if(w.length<3)return;var tw=tri(w),c=0;Object.keys(tq).forEach(function(k){if(tw[k])c++});if(c/qn>best)best=c/qn});return best}
+function tierOf(e,q){var t=0,n;
+ if(e.t==='item'){var id=fold(e.id),al=fold(e.alias);if(q===id||q===al)return 1;if(id.indexOf(q)===0)t=2;n=tierName(e.name,q);if(n&&(!t||n<t))t=n;return t}
+ t=tierName(e.name,q);
+ if(e.t==='proj'){var k=fold(e.key);if(k===q)return 1;if(k.indexOf(q)===0&&(!t||t>2))t=2}
+ if(e.t==='user'){var m=fold(e.email);if(m.indexOf(q)>=0){var tm=m.indexOf(q)===0?2:4;if(!t||tm<t)t=tm}}
+ return t}
+function search(q){q=fold(q);var res={};TYPES.forEach(function(ty){var ex=!!S.exp[ty],lim=ex?20:5,pool=E.filter(function(e){return e.t===ty&&sees(e)}),hit=[],sm=[];
+  pool.forEach(function(e){var t=tierOf(e,q);if(t)hit.push({e:e,t:t});});
+  hit.sort(function(a,b){return a.t-b.t||((a.e.org===S.cur?0:1)-(b.e.org===S.cur?0:1))||a.e.org.localeCompare(b.e.org,'ru')||(a.e.ts&&b.e.ts?b.e.ts-a.e.ts:0)||a.e.name.localeCompare(b.e.name,'ru')});
+  if(q.length>=4&&hit.length<lim){pool.forEach(function(e){if(hit.some(function(h){return h.e===e}))return;var sc=Math.max(sim(q,e.name),e.key?sim(q,e.key):0);if(sc>=.5)sm.push({e:e,t:5,s:sc})});sm.sort(function(a,b){return b.s-a.s})}
+  var all=hit.concat(sm);if(!all.length)return;
+  res[ty]={rows:all.slice(0,lim),more:!ex&&all.length>5,best:all[0].t,hits:hit.length}});
+ var ord=Object.keys(res).sort(function(a,b){return res[a].best-res[b].best||TYPES.indexOf(a)-TYPES.indexOf(b)});
+ return ord.map(function(ty){return {ty:ty,g:res[ty]}})}
+// ---------- rows ----------
+function line2(e,recent){var s0=line2b(e,recent);return (S.org===ALL&&!recent)?(s0?s0+' · ':'')+e.org:s0}
+function line2b(e,recent){var s=e.t==='item'?e.state+' · '+e.proj:e.t==='proj'?e.key+' · '+e.dept:e.t==='team'?e.dept:e.t==='area'?e.proj+' · '+e.dept:e.t==='user'?e.email:'';
+ if(recent)s=TYW[e.t]+(s?' · '+s:'');return s}
+function nm(e){return e.name+(e.inactive?' (неактивен)':'')}
+function href(r){if(r.kind==='all')return '#/search?q='+encodeURIComponent(S.q.trim())+'&page=1&org='+encodeURIComponent(S.org);return '#/e/'+r.e.uid}
+function rowHtml(r,i,q,recent){var e=r.e,p1,st='';
+ if(e.t==='item')p1='<b>'+(r.sim||recent?esc(e.id):hl(e.id,q))+'</b>'+(r.sim||recent?esc(e.name):hl(e.name,q));
+ else p1=(r.sim||recent?esc(nm(e)):hl(nm(e),q))+(e.t==='proj'?'':'');
+ if(e.c&&(e.t==='dept'||e.t==='team'||e.t==='proj'))st='<span class="st" style="background:'+CLR[e.c]+'"></span>';
+ var l2=line2(e,recent);
+ return '<li role="presentation"><a class="o" tabindex="-1" id="o'+i+'" role="option" aria-selected="false" data-i="'+i+'" href="'+href(r)+'">'+st+icon(e.t)+'<span class="tx"><div class="p1">'+p1+'</div>'+(l2?'<div class="p2">'+esc(l2)+'</div>':'')+'</span><kbd class="en">↵</kbd></a></li>'}
+function plain(i,cls,ic,t1,t2,extra){return '<li role="presentation"><div class="o '+cls+'" id="o'+i+'" role="option" aria-selected="false" data-i="'+i+'">'+ic+'<span class="tx"><div class="p1">'+t1+'</div>'+(t2?'<div class="p2">'+t2+'</div>':'')+'</span><kbd class="en">↵</kbd></div></li>'}
+function build(){var h='',rows=[],q=S.q.trim(),n=0,i;
+ if(S.status==='recent'){var sv=S.org;S.org=S.cur;var list=(S.recent[S.cur]||[]).map(function(u){return E[u]}).filter(function(e){return e&&sees(e)});S.org=sv;
+  if(!list.length){return {msg:'<div class="msg">Здесь появятся недавно открытые объекты</div>',rows:[],html:''}}
+  list.forEach(function(e){i=rows.length;rows.push({kind:'row',e:e});h+=rowHtml(rows[i],i,'',true)});n=list.length;
+  return {html:h,rows:rows,head:'<h3 class="gh" id="gh-r">Недавние</h3><button class="lnk" id="clrrec">Очистить недавние</button>',live:'Недавние: '+n}}
+ if(S.status==='ready'){var d=S.data;
+  d.forEach(function(gr){var g=gr.g,ty=gr.ty,sep=false;h+='<li role="presentation"><ul class="g" role="group" aria-labelledby="gh-'+ty+'"><li role="presentation"><h3 class="gh" id="gh-'+ty+'">'+HEAD[ty]+'</h3></li>';
+   g.rows.forEach(function(r){if(r.t===5&&!sep){sep=true;h+='<li role="presentation"><div class="sim">Похожие</div></li>'}i=rows.length;rows.push({kind:'row',e:r.e,sim:r.t===5});h+=rowHtml(rows[i],i,q,false);n++});
+   if(g.more){i=rows.length;rows.push({kind:'more',ty:ty});h+=plain(i,'mr',icon('more'),S.busyMore===ty?'Загрузка…':'Показать ещё','')}
+   h+='</ul></li>'});
+  i=rows.length;rows.push({kind:'all'});h+='<li role="presentation"><a class="o al" tabindex="-1" id="o'+i+'" role="option" aria-selected="false" data-i="'+i+'" href="'+href({kind:'all'})+'">'+icon('search')+'<span class="tx"><div class="p1">Искать везде, включая описания</div><div class="p2">«'+esc(q)+'»</div></span><kbd class="en">↵</kbd></a></li>';
+  return {html:h,rows:rows,msg:d.length?'':'<div class="msg">Ничего не найдено</div>',live:d.length?'Найдено: '+n:'Ничего не найдено'}}
+ return {html:'',rows:[]}}
+// ---------- palette life ----------
+var el={bar:$('#bar'),sw:$('#sw'),pal:$('#pal'),q:$('#q'),lb:$('#lb'),stat:$('#stat'),body:$('#body'),live:$('#live'),mag:$('#mag'),clr:$('#clr'),cls:$('#cls'),rh:$('#rh'),fb:$('#fbtn')};
+function canOpen(){return !$('#oth').classList.contains('open')}
+function defOrg(){return S.cur}
+function openPal(op){if(S.open||!canOpen())return;S.open=true;S.opener=op||null;S.org=defOrg();S.q=el.q.value;S.exp={};S.data=null;
+ $('#keys').innerHTML='<span><kbd>↑</kbd> <kbd>↓</kbd> выбрать</span><span><kbd>↵</kbd> открыть</span><span><kbd>'+MOD+'</kbd>+<kbd>↵</kbd> в новой вкладке</span><span><kbd>Esc</kbd> закрыть</span>';
+ el.pal.classList.add('open');el.bar.classList.add('sopen');layout();scope();mode();el.q.setAttribute('aria-expanded','true');if(document.activeElement!==el.q)el.q.focus()}
+function closePal(restore,keep){if(!S.open)return;S.open=false;S.req++;clearTimeout(S.dt);if(!keep){S.q='';el.q.value='';el.clr.hidden=true;$('#hk').hidden=false}el.q.setAttribute('aria-expanded','false');el.q.removeAttribute('aria-activedescendant');el.pal.classList.remove('open');el.bar.classList.remove('sopen');
+ if(restore){var o=S.opener;if(o&&o.focus&&document.contains(o)&&o.offsetParent!==null)o.focus();else if(document.activeElement===el.q||el.sw.contains(document.activeElement))el.q.blur()}}
+function place(){var c=el.pal.classList.contains('compact');if(c){el.pal.style.left='';el.pal.style.width='';return}
+ var b=el.bar.getBoundingClientRect(),f=el.sw.getBoundingClientRect(),w=Math.max(f.width,Math.min(720,window.innerWidth-32));el.pal.style.width=w+'px';var l=f.left-b.left;l=Math.min(l,window.innerWidth-16-w-b.left);el.pal.style.left=Math.max(8-b.left,l)+'px'}
+function layout(){var c=S.narrow||window.innerWidth<700;el.pal.classList.toggle('compact',c);el.bar.classList.toggle('cmp',c);el.cls.hidden=!(c&&S.open);$('#hk').textContent=MAC?'⌘K':'Ctrl K';$('#hk').hidden=!!S.q;place()}
+function scopeSel(id,cur){cur=cur||S.org;var u=USERS[S.user];return '<select id="'+id+'" aria-label="Организация поиска">'+u.orgs.map(function(o){return '<option value="'+esc(o)+'"'+(o===cur?' selected':'')+'>'+esc(o)+'</option>'}).join('')+(u.orgs.length>1?'<option value="'+ALL+'"'+(cur===ALL?' selected':'')+'>Все организации</option>':'')+'</select>'}
+function fullUrl(){return '/search?q='+encodeURIComponent(S.q.trim())+'&page=1&org='+encodeURIComponent(S.org)}
+function scope(){var u=USERS[S.user],b=$('#scbox');
+ if(u.orgs.length>1){b.innerHTML=scopeSel('osel');$('#osel').onchange=function(){S.org=this.value;S.exp={};S.data=null;mode();el.q.focus()}}
+ else b.innerHTML='<span class="tagx">'+esc(S.org)+'</span>'}
+function mode(){var q=S.q.trim();S.req++;clearTimeout(S.dt);S.busy=false;el.clr.hidden=!S.q;
+ if(!S.q){S.status='recent';S.data=null;if(S.state==='ok'||S.state==='empty'){paint()}else if(S.state==='loading'){S.status='loading';paint()}else{S.status=S.state==='404'?'404':'error';paint()}return}
+ if(q.length<2){S.status='hint';S.data=null;paint();return}
+ S.busy=true;if(!S.data)S.status='loading';paint();S.dt=setTimeout(fetchNow,200)}
+function fetchNow(more){var id=++S.req;setTimeout(function(){if(id!==S.req)return;
+  if(S.state==='loading')return;if(S.state==='error'){S.status='error';S.busy=false;S.busyMore=null;return paint()}if(S.state==='404'){S.status='404';S.busy=false;return paint()}
+  S.data=S.state==='empty'?[]:search(S.q.trim());S.status='ready';S.busy=false;S.busyMore=null;S.act=more!==undefined?more:0;paint(true)},more!==undefined?250:350)}
+function paint(keep){var b=build(),q=S.q.trim();S.rows=b.rows;
+ var m='';if(S.status==='hint')m='<div class="msg">Введите не менее 2 символов</div>';
+ if(S.status==='loading')m='<div aria-label="Загрузка">'+'<div class="sk" style="width:60%"></div><div class="sk" style="width:80%"></div><div class="sk" style="width:45%"></div></div>';
+ if(S.status==='error')m='<div class="msg err" role="alert"><span>Не удалось выполнить поиск. Попробуйте ещё раз.</span><button id="retry">Повторить</button></div>';
+ if(S.status==='404')m='<div class="msg err" role="alert"><span>Организация не найдена.</span></div>';
+ if(S.status==='recent'||S.status==='ready')m=b.msg||'';
+ el.stat.innerHTML=m;el.rh.innerHTML=b.head||'';el.rh.hidden=!b.head;el.lb.innerHTML=b.html||'';el.lb.hidden=!b.rows.length;
+ el.body.setAttribute('aria-busy',S.busy||S.status==='loading'?'true':'false');
+ el.q.setAttribute('aria-expanded',b.rows.length?'true':'false');
+ if(!keep||S.act>=b.rows.length)S.act=0;
+ setAct(S.act,true);
+ if(b.live&&!S.busy)el.live.textContent=b.live;
+ var rt=$('#retry');if(rt)rt.onclick=function(){mode()}}
+function setAct(i,noScroll){var r=S.rows;S.act=i;[].forEach.call(el.lb.querySelectorAll('[role=option]'),function(o){o.classList.remove('act');o.setAttribute('aria-selected','false')});
+ var o=r.length?$('#o'+i):null;if(o){o.classList.add('act');o.setAttribute('aria-selected','true');el.q.setAttribute('aria-activedescendant','o'+i);if(!noScroll)o.scrollIntoView({block:'nearest'})}else el.q.removeAttribute('aria-activedescendant')}
+function choose(i,newTab){var r=S.rows[i];if(!r)return;if(S.busy)return;
+ if(r.kind==='more'){S.exp[r.ty]=true;S.busyMore=r.ty;var idx=S.rows.indexOf(r);paint(true);fetchNow(idx);return}
+ var h=href(r);
+ if(newTab){toast('В новой вкладке откроется: '+h+' (палитра остаётся открытой)');return}
+ closePal(false);el.q.blur();location.hash=h.slice(1);route()}
+// ---------- events ----------
+el.q.addEventListener('input',function(){S.q=el.q.value;$('#hk').hidden=!!S.q;S.exp={};if(S.composing){el.clr.hidden=!S.q;return}mode()});
+el.q.addEventListener('compositionstart',function(){S.composing=true});
+el.q.addEventListener('compositionend',function(){S.composing=false;S.q=el.q.value;mode()});
+el.clr.addEventListener('click',function(){el.q.value='';S.q='';$('#hk').hidden=false;S.exp={};mode();el.q.focus()});
+el.cls.addEventListener('click',function(){closePal(true)});
+el.rh.addEventListener('click',function(e){if(e.target.closest('#clrrec')){S.recent[S.cur]=[];toast('Недавние очищены.');S.act=0;mode();el.q.focus()}});
+el.fb.addEventListener('click',function(){var u=fullUrl();closePal(false);el.q.blur();location.hash=u;route()});
+el.lb.addEventListener('click',function(e){var o=e.target.closest('[data-i]');if(!o)return;var i=+o.getAttribute('data-i');if(o.tagName==='A'&&(e.ctrlKey||e.metaKey||e.shiftKey)){e.preventDefault();choose(i,true);return}e.preventDefault();choose(i,false)});
+el.lb.addEventListener('mousemove',function(e){var o=e.target.closest('[data-i]');if(o&&+o.getAttribute('data-i')!==S.act)setAct(+o.getAttribute('data-i'),true)});
+el.pal.addEventListener('mousedown',function(e){if(!e.target.closest('select,button,input'))e.preventDefault()});
+el.q.addEventListener('focus',function(e){if(!S.open)openPal(e.relatedTarget)});
+function onKey(e){var n=S.rows.length;
+ if(e.key==='Escape'){if(e.target.tagName==='SELECT')return;e.preventDefault();if(S.open)closePal(true,true);else if(el.q.value){el.q.value='';S.q='';el.clr.hidden=true;$('#hk').hidden=false}return}
+ if(e.target!==el.q)return;
+ if(e.key==='ArrowDown'||e.key==='ArrowUp'){e.preventDefault();if(!n)return;var i=S.act+(e.key==='ArrowDown'?1:-1);if(i>=n)i=0;if(i<0)i=n-1;setAct(i);return}
+ if(e.key==='Enter'){if(e.isComposing||S.composing)return;e.preventDefault();if(n)choose(S.act,e.ctrlKey||e.metaKey)}}
+el.pal.addEventListener('keydown',onKey);el.sw.addEventListener('keydown',onKey);
+function leave(){setTimeout(function(){if(!S.open)return;var a=document.activeElement;if(el.sw.contains(a)||el.pal.contains(a)||a===el.mag)return;closePal(false,true)},0)}
+el.pal.addEventListener('focusout',leave);el.sw.addEventListener('focusout',leave);
+window.addEventListener('keydown',function(e){if((e.ctrlKey||e.metaKey)&&!e.altKey&&(e.key==='k'||e.key==='K'||e.code==='KeyK')){
+  if(!USERS[S.user])return;if(e.target.closest&&e.target.closest('[data-editor]')){return}
+  if(!canOpen())return;e.preventDefault();if(S.open)closePal(true,true);else{var op=document.activeElement;openPal(op);el.q.focus()}}},true);
+el.mag.addEventListener('click',function(){openPal(el.mag)});
+window.addEventListener('resize',function(){layout()});
+$('#usel').onchange=function(){S.user=this.value;S.cur=USERS[S.user].orgs[0];setPath(S.cur+' › все');if(S.open)closePal(false);route()};
+$('#ssel').onchange=function(){S.state=this.value;if(S.open)mode();route()};
+$('#nar').onchange=function(){S.narrow=this.checked;layout()};layout();
+$('#rrec').onclick=function(){seedRecent();toast('Недавние заполнены.');if(S.open&&!S.q)mode()};
+$('#othx').onclick=function(){$('#oth').classList.remove('open')};
+// ---------- fake pages (hash routes) ----------
+function record(e){if(e.t==='user')return;var l=S.recent[e.org]||(S.recent[e.org]=[]);var k=l.indexOf(e.uid);if(k>=0)l.splice(k,1);l.unshift(e.uid);l.length=Math.min(l.length,10)}
+function ctxChain(e){var c=[e.org],dp=e.dept;if(!dp&&e.proj){for(var k=0;k<E.length;k++){if(E[k].t==='proj'&&E[k].org===e.org&&E[k].name===e.proj){dp=E[k].dept;break}}}if(dp)c.push(dp);if((e.t==='item'||e.t==='area')&&e.proj)c.push(e.proj);if(e.t!=='item'&&e.t!=='user'&&c.indexOf(e.name)<0)c.push(e.name);var hp=document.getElementById('hpath');if(hp)hp.textContent=c.join(' › ');return c.join(' › ')}
+function route(){var h=location.hash.replace(/^#/,'')||'/',m=$('#main'),u=USERS[S.user];
+ var mm=/^\/e\/(\d+)$/.exec(h);
+ if(mm){var e=E[+mm[1]];if(!e){m.innerHTML='<h1 tabindex="-1">Не найдено</h1>';return}
+  S.cur=e.org;
+  if(e.t==='user'){m.innerHTML='<h1 tabindex="-1">Рабочие элементы</h1><div class="card">Фильтр: «Исполнитель» = <b>'+esc(e.name)+'</b><br><span class="mut">Контекст: '+esc(ctxChain(e))+'. Организация «'+esc(e.org)+'». Если у человека нет видимых элементов, список пуст и показан «Очистить фильтры».</span></div>'}
+  else{record(e);m.innerHTML='<h1 tabindex="-1">'+(e.t==='item'?esc(e.id)+' · '+esc(e.name):esc(TYW[e.t])+' «'+esc(e.name)+'»')+'</h1><div class="card"><div>'+esc(TYW[e.t])+' открыт(а). Контекст выбран: '+esc(ctxChain(e))+'.</div><p class="small">Страница записана в «Недавние».</p>'+(e.desc?'<p>'+esc(e.desc)+'</p>':'')+'</div>'}
+  return}
+ var sm=/^\/search\?q=([^&]*)&page=(\d+)(?:&org=([^&]*))?/.exec(h);
+ if(sm){fullPage(decodeURIComponent(sm[1]),+sm[2],sm[3]?decodeURIComponent(sm[3]):defOrg());return}
+ m.innerHTML='<h1 tabindex="-1">Главная</h1><div class="card">Любая страница оболочки. Нажмите <kbd>'+MOD+'+K</kbd> или лупу в шапке.</div><div class="card"><label for="tf">Обычное текстовое поле (Ctrl+K открывает палитру):</label><br><input id="tf" type="text" style="width:100%;max-width:420px;min-height:32px"><p style="margin-top:12px">Редактор «Описание» (Ctrl+K остаётся командой ссылки, палитра не открывается):</p><div id="ed" data-editor contenteditable="true">Нажмите здесь и Ctrl+K.</div><p><button id="oth0">Новый рабочий элемент</button> <span class="small">открывает другой модальный диалог</span></p></div>';
+ $('#oth0').onclick=function(){$('#oth').classList.add('open')};
+ $('#ed').addEventListener('keydown',function(ev){if((ev.ctrlKey||ev.metaKey)&&(ev.key==='k'||ev.key==='K')){ev.preventDefault();toast('Команда редактора: вставка ссылки.')}})}
+// ---------- full search page ----------
+function stem(w){return w.length>=6?w.slice(0,-2):w.length>=4?w.slice(0,-1):w}
+function words(s){return fold(s).split(/[^а-яa-z0-9]+/).filter(Boolean)}
+function fullSearch(q){var qs=words(q),ql=fold(q),res=[];
+ E.forEach(function(e){if(e.t!=='item'||!sees(e))return;var id=fold(e.id),al=fold(e.alias);
+  var tier=0;if(ql===id||ql===al||id.indexOf(ql)===0)tier=1;
+  var tw=words(e.name),dw=words(e.desc),iw=words(e.id);
+  function has(list,s){return list.some(function(x){return x.indexOf(s)===0})}
+  var ok=qs.length&&qs.every(function(w){var s=stem(w);return has(tw,s)||has(dw,s)||has(iw,w)});
+  if(!tier&&!ok)return;
+  var inTitle=qs.length&&qs.every(function(w){return has(tw,stem(w))});
+  if(!tier)tier=inTitle?2:3;
+  res.push({e:e,tier:tier})});
+ res.sort(function(a,b){return a.tier-b.tier||b.e.ts-a.e.ts});return res}
+function snippet(desc,q){var qs=words(q).map(stem),f=fold(desc),pos=-1;if(!desc)return null;
+ qs.forEach(function(s){var m=new RegExp('(^|[^а-яa-z0-9])'+s.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')).exec(f);if(m){var p=m.index+m[1].length;if(pos<0||p<pos)pos=p}});
+ if(pos<0)return null;var a=Math.max(0,pos-50),b=Math.min(desc.length,pos+90);
+ var txt=desc.slice(a,b),ft=f.slice(a,b),ranges=[];
+ qs.forEach(function(s){var re=new RegExp('(^|[^а-яa-z0-9])('+s.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')+'[а-яa-z0-9]*)','g'),m;while((m=re.exec(ft))){ranges.push([m.index+m[1].length,m.index+m[1].length+m[2].length])}});
+ ranges.sort(function(x,y){return x[0]-y[0]});var out='',i=0;ranges.forEach(function(r){if(r[0]<i)return;out+=esc(txt.slice(i,r[0]))+'<mark>'+esc(txt.slice(r[0],r[1]))+'</mark>';i=r[1]});out+=esc(txt.slice(i));
+ return (a>0?'… ':'')+out+(b<desc.length?' …':'')}
+function fullPage(q,page,org){var m=$('#main'),qq=q.trim();if(org===ALL&&!multi())org=S.cur;S.org=org;
+ var head='<h1 tabindex="-1" id="ph">Поиск</h1><p class="small">Искать в: <span id="psc">'+scopeSel('psel',org)+'</span></p><form class="sf" id="sf"><input id="pq" type="text" maxlength="100" aria-label="Поиск" value="'+esc(q)+'" placeholder="Номер, название или текст описания"><button class="p" type="submit">Найти</button></form>';
+ function body(h){m.innerHTML=head+h;if($('#psel'))$('#psel').onchange=function(){location.hash='/search?q='+encodeURIComponent($('#pq').value.trim())+'&page=1&org='+encodeURIComponent(this.value)};$('#sf').onsubmit=function(ev){ev.preventDefault();location.hash='/search?q='+encodeURIComponent($('#pq').value.trim())+'&page=1&org='+encodeURIComponent(org)}}
+ if(S.state==='404'){body('<div class="frame"><h2>Организация не найдена.</h2></div>');return}
+ if(qq.length<2){body('<p class="mut" id="hint2" role="status">'+(qq?'Введите не менее 2 символов':'Введите запрос: номер, слово из названия или описания.')+'</p>');return}
+ body('<div aria-label="Загрузка"><div class="sk" style="width:70%"></div><div class="sk" style="width:90%"></div><div class="sk" style="width:55%"></div><div class="sk" style="width:80%"></div></div>');
+ if(S.state==='loading')return;
+ var tk=location.hash;setTimeout(function(){if(location.hash!==tk)return;
+  if(S.state==='error'){body('<div class="alert" role="alert"><span>Не удалось выполнить поиск. Попробуйте ещё раз.</span><button id="rt">Повторить</button></div>');$('#rt').onclick=function(){fullPage(q,page,org)};return}
+  var all=S.state==='empty'?[]:fullSearch(qq),n=all.length,last=Math.max(1,Math.ceil(n/20));
+  if(!n){body('<div class="frame" role="status"><h2>Ничего не найдено</h2><div>Ни один рабочий элемент не подходит под запрос. Проверьте написание или упростите запрос.</div></div>');return}
+  if(page>last){body('<p role="status" id="cnt"><b>Найдено: '+n+'</b></p><div class="frame"><h2>На этой странице результатов нет</h2><button class="lnk" id="first">К первой странице</button></div>');$('#first').onclick=function(){location.hash='/search?q='+encodeURIComponent(qq)+'&page=1&org='+encodeURIComponent(org)};return}
+  var from=(page-1)*20,rows=all.slice(from,from+20),h='<p role="status" id="cnt"><b>Найдено: '+n+'</b></p><div class="card" style="padding:0"><ul class="res">';
+  rows.forEach(function(r){var e=r.e,sn=snippet(e.desc,qq);h+='<li><div class="h">'+icon('item')+'<a href="#/e/'+e.uid+'"><b>'+esc(e.id)+'</b> '+esc(e.name)+'</a></div><div class="m2">'+esc(e.state)+' · '+esc(e.proj)+(org===ALL?' · '+esc(e.org):'')+'</div>'+(sn?'<div class="sn">'+sn+'</div>':'')+'</li>'});
+  h+='</ul></div><div class="pg"><span>'+(from+1)+'–'+Math.min(n,from+20)+' из '+n+'</span><button id="pp" aria-label="Предыдущая страница" '+(page<=1?'aria-disabled="true"':'')+'>‹</button><button id="pn" aria-label="Следующая страница" '+(page>=last?'aria-disabled="true"':'')+'>›</button></div>';
+  body(h);function go(p){location.hash='/search?q='+encodeURIComponent(qq)+'&page='+p+'&org='+encodeURIComponent(org)}
+  $('#pp').onclick=function(){if(page>1)go(page-1)};$('#pn').onclick=function(){if(page<last)go(page+1)};},350)}
+$('#navalpha').setAttribute('href','#/e/'+PRJ.ALP.uid);
+window.addEventListener('hashchange',route);
+route();layout();
+})();
+</script></body></html>

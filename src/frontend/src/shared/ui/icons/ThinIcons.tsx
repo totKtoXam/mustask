@@ -91,3 +91,12 @@ export const ThinPersonIcon = createSvgIcon(
   line('M12 10.75a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7zM6 20.25c0-3.3 2.7-5.5 6-5.5s6 2.2 6 5.5'),
   'ThinPerson',
 );
+
+/**
+ * A magnifier, the global search's glyph (feat-070; the prototype's): a ring of radius
+ * 6.5 and a short handle to the bottom right, one open path.
+ */
+export const ThinSearchIcon = createSvgIcon(
+  line('M10.5 4a6.5 6.5 0 1 0 0 13 6.5 6.5 0 0 0 0-13zM15.5 15.5l5 5'),
+  'ThinSearch',
+);

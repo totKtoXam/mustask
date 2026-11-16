@@ -1,6 +1,7 @@
 using Mustask.Application.Abstractions;
 using Mustask.Application.Abstractions.Boards;
 using Mustask.Application.Abstractions.Dictionaries;
+using Mustask.Application.Abstractions.Iterations;
 using Mustask.Application.Abstractions.Organizations;
 using Mustask.Application.Abstractions.Process;
 using Mustask.Application.Abstractions.RichText;
@@ -10,6 +11,7 @@ using Mustask.Application.Features.WorkItems;
 using Mustask.Infrastructure.Boards;
 using Mustask.Infrastructure.Dictionaries;
 using Mustask.Infrastructure.Dictionaries.Seeding;
+using Mustask.Infrastructure.Iterations;
 using Mustask.Infrastructure.Organizations;
 using Mustask.Infrastructure.Process;
 using Mustask.Infrastructure.RichText;
@@ -94,6 +96,9 @@ public static class DependencyInjection
         // Boards and backlogs (mod-006): M4's backlog read model and the order's repository.
         builder.Services.AddBoardsInfrastructure();
 
+        // Iterations (mod-007): team sprints, their repository and read model.
+        builder.Services.AddIterationsInfrastructure();
+
         return builder;
     }
 
@@ -117,6 +122,15 @@ public static class DependencyInjection
 
             return new HtmlRichTextReducer(RichTextVocabulary.LoadEmbedded(), options);
         });
+
+        return services;
+    }
+
+    /// <summary>The iterations module (mod-007): the sprint repository and read model, scoped. Public for the test hosts.</summary>
+    public static IServiceCollection AddIterationsInfrastructure(this IServiceCollection services)
+    {
+        services.AddScoped<ISprintRepository, SprintRepository>();
+        services.AddScoped<ISprintReadModel, SprintReadModel>();
 
         return services;
     }
@@ -150,7 +164,6 @@ public static class DependencyInjection
         services.AddScoped<ITeamRepository, TeamRepository>();
         services.AddScoped<IProjectTeamRepository, ProjectTeamRepository>();
         services.AddScoped<IAreaRepository, AreaRepository>();
-        services.AddScoped<IAreaLinkRepository, AreaLinkRepository>();
         services.AddScoped<IOrganizationReadModel, OrganizationReadModel>();
         services.AddScoped<IProjectReadModel, ProjectReadModel>();
         services.AddScoped<ITeamReadModel, TeamReadModel>();

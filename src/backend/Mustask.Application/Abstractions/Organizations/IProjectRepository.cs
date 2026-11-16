@@ -45,6 +45,12 @@ public interface IProjectRepository
     /// </summary>
     Task ClearDefaultTeamAsync(Guid organizationId, Guid teamId, CancellationToken cancellationToken);
 
+    /// <summary>
+    /// The colours of the active projects standing in the department (<c>null</c>: at the top level, where projects may still stand
+    /// until mod-022), one entry per project (BR-TD-20). Read after the department's lock.
+    /// </summary>
+    Task<IReadOnlyList<string>> ListActiveColorsAsync(Guid organizationId, Guid? departmentId, CancellationToken cancellationToken);
+
     /// <summary>Adds the project with its root. No team comes with it (feat-028 BR-OL-2).</summary>
     void Add(NewProject project);
 

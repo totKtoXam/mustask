@@ -7,13 +7,12 @@ import {
   InlineTextArea,
   InlineTextField,
 } from '../../../shared/ui';
-import type { CreateTeamBody, ProjectListItem, Team } from '../api/organizationsApi';
+import type { AreaNode, CreateTeamBody, ProjectListItem, TeamPlace } from '../api/organizationsApi';
 import { useFocusInvalid } from '../hooks/useFocusInvalid';
 import { useFocusOnMount } from '../hooks/useFocusOnMount';
 import { useAreaTree, useProjects } from '../hooks/queries';
-import { departmentsField } from '../lib/areaTexts';
 import { departmentsOf } from '../lib/areaTree';
-import { DepartmentsField, type DepartmentOption } from './AreaPickers';
+import { LocalPicker } from './AreaPickers';
 import { useUserSearch } from '../hooks/useUserSearch';
 import { placeRefusal, type RefusalField } from '../lib/refusals';
 import { createTeamDialog, linkDialog } from '../lib/teamTexts';
@@ -41,12 +40,14 @@ function sameProject(first: ProjectListItem, second: ProjectListItem): boolean {
  * (api-contract § 2.3a: two trimmed characters, at most 20, the same lines as the team page's
  * search), «Проекты» one over its active projects, drawn only for a user who holds both link codes
  * (`canLink`). A refusal lands on its field with the input kept; the lists are read again after a
- * project is refused, and a choice no longer offered drops. Mounted per opening.
+ * project is refused, and a choice no longer offered drops. «Департамент» is required and single
+ * (doc-016 US-1, BR-TD-1): checked on «Создать», pre-set when the dialog opens from a department. Mounted per
+ * opening.
  */
 export function CreateTeamDialog({
   organizationId,
   canLink,
-  canLinkAreas = false,
+  presetDepartmentId,
   submit,
   onSucceeded,
   onClose,
@@ -54,10 +55,10 @@ export function CreateTeamDialog({
   organizationId: string;
   /** The user holds `team.link` and `project.link`: «Проекты» is drawn. */
   canLink: boolean;
-  /** The user holds `area.link` and `team.link`: «Департаменты» is drawn. */
-  canLinkAreas?: boolean;
-  submit(body: CreateTeamBody): Promise<Team>;
-  onSucceeded(team: Team): void;
+  /** The department the dialog opens from; pre-set in «Департамент». */
+  presetDepartmentId?: string;
+  submit(body: CreateTeamBody): Promise<TeamPlace>;
+  onSucceeded(team: TeamPlace): void;
   /** `contextGone`: the organization answered not found; the page reads itself again. */
   onClose(contextGone: boolean): void;
 }) {
@@ -67,7 +68,7 @@ export function CreateTeamDialog({
   const [memberText, setMemberText] = useState('');
   const [typed, setTyped] = useState('');
   const [projects, setProjects] = useState<ProjectListItem[]>([]);
-  const [areas, setAreas] = useState<DepartmentOption[]>([]);
+  const [departmentId, setDepartmentId] = useState<string | null>(presetDepartmentId ?? null);
   const [errors, setErrors] = useState<FieldErrors>({});
   const [alert, setAlert] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -85,13 +86,9 @@ export function CreateTeamDialog({
     ...members.filter((chosen) => !shown.some((option) => sameOption(option, chosen))),
   ];
   const projectOptions = projectsQuery.data ?? [];
-  const areasQuery = useAreaTree(organizationId, { enabled: canLinkAreas, fresh: true });
-  const departmentOptions: DepartmentOption[] = departmentsOf(areasQuery.data ?? []).map(
-    (node) => ({
-      id: node.id,
-      path: node.name,
-    }),
-  );
+  const areasQuery = useAreaTree(organizationId, { fresh: true });
+  const departmentOptions = departmentsOf(areasQuery.data ?? []);
+  const department = departmentOptions.find((node) => node.id === departmentId) ?? null;
 
   async function handleSubmit() {
     const refused: FieldErrors = {};
@@ -99,12 +96,13 @@ export function CreateTeamDialog({
     const descriptionRefusal = descriptionError(description);
     if (nameRefusal) refused.name = nameRefusal;
     if (descriptionRefusal) refused.description = descriptionRefusal;
+    if (departmentId === null) refused.department = createTeamDialog.department.required;
     if (Object.keys(refused).length > 0) {
       setErrors(refused);
       focusInvalid();
       return;
     }
-    const body: CreateTeamBody = { name };
+    const body: CreateTeamBody = { name, departmentId: departmentId as string };
     if (description !== '') {
       body.description = description;
     }
@@ -114,9 +112,6 @@ export function CreateTeamDialog({
     }
     if (canLink && projects.length > 0) {
       body.projectIds = projects.map((project) => project.id);
-    }
-    if (canLinkAreas && areas.length > 0) {
-      body.areaIds = areas.map((area) => area.id);
     }
     setBusy(true);
     setAlert(null);
@@ -128,9 +123,7 @@ export function CreateTeamDialog({
       if (canLink) {
         fields.push('projects');
       }
-      if (canLinkAreas) {
-        fields.push('areas');
-      }
+      fields.push('department');
       const placed = placeRefusal(error, fields);
       setErrors(placed.fields);
       setAlert(placed.alert);
@@ -148,14 +141,11 @@ export function CreateTeamDialog({
           }
         });
       }
-      if (placed.fields.areas !== undefined) {
-        // The departments are read again, and a choice no longer offered drops.
+      if (placed.fields.department !== undefined) {
+        // The departments are read again; a choice no longer offered drops.
         void areasQuery.refetch().then((result) => {
-          const offered = result.data;
-          if (offered) {
-            setAreas((current) =>
-              current.filter((area) => offered.some((candidate) => candidate.id === area.id)),
-            );
+          if (result.data && !departmentsOf(result.data).some((node) => node.id === departmentId)) {
+            setDepartmentId(null);
           }
         });
       }
@@ -272,21 +262,27 @@ export function CreateTeamDialog({
           )}
         />
       )}
-      {canLinkAreas && (
-        <DepartmentsField
-          hint={departmentsField.teamHint}
-          busy={busy}
-          error={errors.areas}
-          value={areas}
-          options={departmentOptions}
-          loading={areasQuery.isPending}
-          failed={areasQuery.isError}
-          onChange={(next) => {
-            setAreas(next);
-            setErrors((current) => ({ ...current, areas: undefined }));
-          }}
-        />
-      )}
+      <LocalPicker<AreaNode>
+        label={createTeamDialog.department.label}
+        required
+        hint={createTeamDialog.department.hint}
+        busy={busy}
+        error={errors.department}
+        options={departmentOptions}
+        loading={areasQuery.isPending}
+        emptyText={
+          areasQuery.isError
+            ? createTeamDialog.department.loadFailed
+            : createTeamDialog.department.none
+        }
+        value={department}
+        onChange={(next) => {
+          setDepartmentId(next.id);
+          setErrors((current) => ({ ...current, department: undefined }));
+        }}
+        getKey={(node) => node.id}
+        getLabel={(node) => node.name}
+      />
     </FormDialog>
   );
 }

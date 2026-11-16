@@ -1,4 +1,5 @@
 using Mustask.Domain.Dictionaries;
+using Mustask.Domain.Iterations;
 using Mustask.Domain.Organizations;
 using Mustask.Domain.Process;
 
@@ -52,7 +53,6 @@ public sealed class MustaskDbContext(DbContextOptions<MustaskDbContext> options)
 
     public DbSet<Area> Areas => Set<Area>();
 
-    public DbSet<AreaTeam> AreaTeams => Set<AreaTeam>();
 
     /// <summary>Organization access (mod-016): who belongs to which organization with which role, and who is in which team.</summary>
     public DbSet<OrganizationMembership> OrganizationMemberships => Set<OrganizationMembership>();
@@ -78,6 +78,9 @@ public sealed class MustaskDbContext(DbContextOptions<MustaskDbContext> options)
     public DbSet<Domain.Imports.ImportFile> ImportFiles => Set<Domain.Imports.ImportFile>();
 
     public DbSet<Domain.Imports.ImportDryRun> ImportDryRuns => Set<Domain.Imports.ImportDryRun>();
+
+    /// <summary>M5 (mod-007): a team's sprints. The number counter and the close snapshot are mapped with no DbSet (raw SQL and Set<T>).</summary>
+    public DbSet<Sprint> Sprints => Set<Sprint>();
 
     protected override void ConfigureConventions(ModelConfigurationBuilder configurationBuilder)
     {

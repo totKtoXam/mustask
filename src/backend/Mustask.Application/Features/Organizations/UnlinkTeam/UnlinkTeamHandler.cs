@@ -1,4 +1,5 @@
 using Mustask.Application.Abstractions;
+using Mustask.Application.Abstractions.Iterations;
 using Mustask.Application.Abstractions.Organizations;
 using Mustask.Application.Features.Boards;
 using Mustask.Application.Features.WorkItems;
@@ -52,8 +53,8 @@ namespace Mustask.Application.Features.Organizations.UnlinkTeam;
 /// project's items are dropped <i>before</i>
 /// the reassignment (the place key onto the item's owner is checked at the end of the <c>UPDATE</c>); the items change owner in one
 /// <c>UPDATE</c> and show the operation's time as «Изменён»; the setting is cleared before the link goes (the setting's key onto the
-/// link is <c>Restrict</c>); the link is removed last. The sprint pointers of the unlinked team are <b>owed by
-/// <c>mod-007-iterations</c></b>, which adds its step between the link locks and the owned-item lock (rule 8 step 4). All the
+/// link is <c>Restrict</c>); the link is removed last. The open sprints of the team are locked (ADR-0028 rule 7, mod-007) between the hierarchy lock and the owned items; the pointers go with the reassignment. (Formerly owed by
+/// <c>mod-007-iterations</c>.) All the
 /// statements run in the request's transaction: a failure at any step leaves the link, the items, their places and the setting as
 /// they were.
 /// </para>
@@ -63,6 +64,7 @@ public sealed class UnlinkTeamHandler(
     IProjectRepository projects,
     IProjectTeamRepository links,
     IWorkItemTeamOwnership ownership,
+    ISprintRepository sprints,
     ITeamBacklogPlaces places,
     IOrganizationAccess access,
     IClock clock,
@@ -176,6 +178,8 @@ public sealed class UnlinkTeamHandler(
                 // while it locks its child and its parents, in no order of ids, and the items below are locked by id.
                 await projects.ClearDefaultTeamAsync(organizationId, projectId, teamId, ct);
                 await ownership.LockHierarchiesAsync([projectId], ct);
+                // mod-007 (ADR-0028 rule 7): the open-sprint step, between the hierarchy locks (step 5) and the items (step 7).
+                await sprints.LockOpenAsync(teamId, ct);
                 await ownership.LockOwnedAsync([projectId], teamId, ct);
                 await places.DropForTeamInProjectAsync(teamId, projectId, ct);
                 await ownership.ReassignOwnedAsync([projectId], teamId, destinationId, clock.UtcNow, ct);

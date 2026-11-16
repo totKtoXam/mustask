@@ -63,7 +63,7 @@ public sealed class GetTeamsHandlerTests
 
         var teams = await f.ListAsync();
 
-        Assert.Equal([new TeamResponse(alpha.Id, "альфа", null, false, true), new TeamResponse(beta.Id, "Бета", null, false, true)], teams);
+        Assert.Equal([new TeamResponse(alpha.Id, "альфа", null, false, true, "blue"), new TeamResponse(beta.Id, "Бета", null, false, true, "blue")], teams);
     }
 
     // US-3 · "the mark follows the links": the only linked team is marked onlyTeam; naming one carries named and no other mark.
@@ -73,7 +73,7 @@ public sealed class GetTeamsHandlerTests
         var f = new Fixture();
         var alpha = f.Store.AddLinkedTeam(f.Organization, f.Project, "Альфа");
 
-        Assert.Equal([new TeamResponse(alpha.Id, "Альфа", "onlyTeam", false, true)], await f.ListAsync());
+        Assert.Equal([new TeamResponse(alpha.Id, "Альфа", "onlyTeam", false, true, "blue")], await f.ListAsync());
 
         var beta = f.Store.AddLinkedTeam(f.Organization, f.Project, "Бета");
         Assert.All(await f.ListAsync(), team => Assert.Null(team.DefaultMark));

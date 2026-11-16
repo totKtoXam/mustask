@@ -42,7 +42,7 @@ public sealed class SetProjectDescriptionHandlerTests
 
         var result = await f.HandleAsync(" О проекте\n");
 
-        Assert.Equal(new ProjectResponse(f.Project.Project.Id, f.Organization.Id, "Пример проекта", "PRM", " О проекте\n"), result.Response);
+        Assert.Equal(new ProjectResponse(f.Project.Project.Id, f.Organization.Id, "Пример проекта", "PRM", " О проекте\n", "blue"), result.Response);
         Assert.Equal(" О проекте\n", f.Project.Project.Description);
     }
 

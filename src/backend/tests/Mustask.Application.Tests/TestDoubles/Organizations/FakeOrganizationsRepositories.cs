@@ -33,6 +33,14 @@ public sealed class FakeProjectRepository(InMemoryOrganizations store) : IProjec
             .Select(project => (ProjectStatus?)project.Status)
             .FirstOrDefault());
 
+    public Task<IReadOnlyList<string>> ListActiveColorsAsync(Guid organizationId, Guid? departmentId, CancellationToken cancellationToken) =>
+        Task.FromResult<IReadOnlyList<string>>(store.Projects
+            .Where(project => project.OrganizationId == organizationId && project.IsActive
+                && store.Areas.Any(node => node.ProjectId == project.Id && node.Type == AreaType.Project && node.ParentId == departmentId))
+            .Select(project => project.Color)
+            .Concat(departmentId is { } id && store.Areas.SingleOrDefault(area => area.Id == id)?.Color is { } own ? [own] : [])
+            .ToList());
+
     public Task<bool> IsKeyTakenAsync(Guid organizationId, string key, CancellationToken cancellationToken) =>
         Task.FromResult(store.Projects.Any(project => project.OrganizationId == organizationId && project.Key == key));
 
@@ -108,6 +116,15 @@ public sealed class FakeTeamRepository(InMemoryOrganizations store) : ITeamRepos
         Task.FromResult(store.Teams.Any(team =>
             team.OrganizationId == organizationId && team.IsActive && team.NormalizedName == normalizedName && team.Id != exceptId));
 
+    public Task<IReadOnlyList<string>> ListActiveColorsAsync(Guid organizationId, Guid departmentId, CancellationToken cancellationToken) =>
+        Task.FromResult<IReadOnlyList<string>>(store.Teams
+            .Where(team => team.OrganizationId == organizationId && team.IsActive && team.DepartmentId == departmentId)
+            .Select(team => team.Color)
+            .ToList());
+
+    public Task<bool> AnyActiveInDepartmentAsync(Guid organizationId, Guid departmentId, CancellationToken cancellationToken) =>
+        Task.FromResult(store.Teams.Any(team => team.OrganizationId == organizationId && team.IsActive && team.DepartmentId == departmentId));
+
     public Task<string?> FindNameAsync(Guid teamId, CancellationToken cancellationToken) =>
         Task.FromResult(store.Teams.Where(team => team.Id == teamId).Select(team => team.Name).FirstOrDefault());
 
@@ -143,6 +160,9 @@ public sealed class FakeProjectTeamRepository(InMemoryOrganizations store) : IPr
         // As the statement does: the rows it locked, which are the links that exist among the named teams.
         return Task.FromResult<IReadOnlySet<Guid>>(teamIds.Where(teamId => IsHeldByALock(projectId, teamId)).ToHashSet());
     }
+
+    public Task<bool> HasLinksAsync(Guid organizationId, Guid teamId, CancellationToken cancellationToken) =>
+        Task.FromResult(store.Links.Any(link => link.OrganizationId == organizationId && link.TeamId == teamId));
 
     public Task<bool> LockLinkForShareAsync(Guid organizationId, Guid projectId, Guid teamId, CancellationToken cancellationToken)
     {

@@ -10,7 +10,7 @@ namespace Mustask.Application.Features.Organizations.RenameArea;
 public sealed record RenameAreaCommand(string? OrganizationId, string? AreaId, string? Name);
 
 /// <summary>The area as every area write returns it (mod-018 api-contract § 1, <c>Area</c>).</summary>
-public sealed record AreaResponse(Guid Id, Guid? ParentId, string Type, Guid? ProjectId, string Name, string? Description, string Path);
+public sealed record AreaResponse(Guid Id, Guid? ParentId, string Type, Guid? ProjectId, string Name, string? Description, string Path, string? Color = null);
 
 /// <summary>The handler's outcome: the body of the answer.</summary>
 public sealed record RenameAreaResult(AreaResponse Response);
@@ -75,7 +75,7 @@ public sealed class RenameAreaHandler(
 
                 var tree = new AreaTree(await areas.GetNodesAsync(organizationId, ct));
 
-                return new RenameAreaResult(new AreaResponse(area.Id, area.ParentId, AreaRequests.TypeName(area.Type), area.ProjectId, area.Name, area.Description, tree.PathOf(area.Id)));
+                return new RenameAreaResult(new AreaResponse(area.Id, area.ParentId, AreaRequests.TypeName(area.Type), area.ProjectId, area.Name, area.Description, tree.PathOf(area.Id), area.Color));
             },
             cancellationToken);
 }

@@ -55,7 +55,7 @@ export const organizationsKeys = {
   area: (organizationId: string, areaId: string) => [ROOT, 'area', organizationId, areaId] as const,
   /** Every area page of an organization. */
   areaPages: (organizationId: string) => [ROOT, 'area', organizationId] as const,
-  /** A department's linked teams (§ 3). */
+  /** The active teams standing in a department (mod-021 § 3). */
   areaTeams: (organizationId: string, areaId: string) =>
     [ROOT, 'area-teams', organizationId, areaId] as const,
   /** Every department's team list of an organization: a link or an unlink refreshes the ones on screen. */

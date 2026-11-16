@@ -176,7 +176,7 @@ public sealed class TeamViewStatementCountTests(OrganizationsDatabaseFixture dat
             for (var index = 1; index < projects; index++)
             {
                 var project = Project.Create(
-                    organization, OrganizationsDatabaseFixture.Name($"Проект {index:D2}"), $"CT{index:D2}", OrganizationsDatabaseFixture.Now, OrganizationsDatabaseFixture.Creator);
+                    organization, OrganizationsDatabaseFixture.Name($"Проект {index:D2}"), $"CT{index:D2}", OrganizationsDatabaseFixture.Now, OrganizationsDatabaseFixture.Creator, "blue");
                 context.Projects.Add(project.Project);
                 context.Areas.Add(project.Root);
                 context.ProjectTeams.Add(

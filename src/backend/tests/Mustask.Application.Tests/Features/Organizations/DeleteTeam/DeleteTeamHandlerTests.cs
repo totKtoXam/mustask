@@ -1,3 +1,4 @@
+using Mustask.Application.Tests.TestDoubles.Iterations;
 using Mustask.Application.Features.Organizations.DeleteTeam;
 using Mustask.Application.Tests.TestDoubles;
 using Mustask.Application.Tests.TestDoubles.Organizations;
@@ -31,10 +32,10 @@ public sealed class DeleteTeamHandlerTests
                 new FakeProjectRepository(Store),
                 new FakeTeamRepository(Store),
                 new FakeProjectTeamRepository(Store),
-                new FakeAreaLinkRepository(Store),
                 new FakeTeamMembershipRepository(Store),
                 Grants,
                 Ownership,
+                new FakeSprintRepository(),
                 new FakeTeamBacklogPlaces(Store),
                 Clock,
                 new FakeUnitOfWork());
@@ -79,6 +80,7 @@ public sealed class DeleteTeamHandlerTests
         await f.HandleAsync(f.Command());
 
         Assert.Equal(TeamStatus.Deleted, f.Mars.Status);
+        Assert.Null(f.Mars.DepartmentId);
         Assert.Empty(f.Ownership.Owned);
         Assert.Equal(8, f.Ownership.Unowned);
         Assert.Equal(f.Clock.UtcNow, f.Ownership.ReassignedAt);
@@ -201,7 +203,6 @@ public sealed class DeleteTeamHandlerTests
                 $"drop team places {team}",
                 $"reassign owned {team} to none",
                 $"remove team links {team}",
-                $"remove area team links {team}",
                 $"end team memberships {team}",
                 "save",
             ],

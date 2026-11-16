@@ -45,7 +45,6 @@ describe('feat-049 horizontal layout (design § 4.2)', () => {
       'nA',
       'a1',
       'a2',
-      'team:JUPITER@d1',
       'team:MARS@d1',
       'team:VENUS@d1',
       'd2',
@@ -68,12 +67,12 @@ describe('feat-049 horizontal layout (design § 4.2)', () => {
     expect(byId('d1').h).toBe(CARD_HEIGHT);
   });
 
-  it('draws project-team lines with the copy under the project’s own department', () => {
+  it('draws project-team lines to the team standing in one department, and no copy lines', () => {
     const line = layout.lines.find((l) => l.keys.includes('nA>MARS'))!;
     expect(line).toMatchObject({ kind: 'relation', from: 'nA', to: 'team:MARS@d1', hidden: false });
     const jupiter = layout.lines.find((l) => l.keys.includes('nF>JUPITER'))!;
-    expect(jupiter.to).toBe('team:JUPITER@d1');
-    expect(layout.lines.filter((l) => l.kind === 'copy')).toHaveLength(1);
+    expect(jupiter.to).toBe('team:JUPITER@d2');
+    expect(layout.lines.filter((l) => l.kind === 'copy')).toHaveLength(0);
   });
 
   it('drops the cards of a folded section and of a collapsed branch', () => {
@@ -125,15 +124,9 @@ describe('feat-049 «Только связанные» (design § 4.7)', () => {
   it('keeps the chosen branch, its relations and their ancestors', () => {
     const related = relatedFilter(model, emphasisOf(model, 'nF'));
     const layout = layoutDiagram(model, new Set(), { ...base, related });
-    expect(cards(layout).map((c) => c.id)).toEqual([
-      'nF',
-      'd1',
-      'team:JUPITER@d1',
-      'd2',
-      'team:JUPITER@d2',
-    ]);
+    expect(cards(layout).map((c) => c.id)).toEqual(['nF', 'd2', 'team:JUPITER@d2']);
     // The user's expansion is not changed by the forced one.
-    expect(layout.expansion.has('d1')).toBe(true);
+    expect(layout.expansion.has('d2')).toBe(true);
   });
 });
 
@@ -144,8 +137,8 @@ describe('feat-049 vertical layout (design § 4.3)', () => {
     const byId = (id: string) => layout.positions.get(id) as CardItem;
     expect(byId('d1').y).toBeLessThan(byId('nA').y);
     expect(byId('nA').y).toBe(byId('team:MARS@d1').y);
-    const children = ['nA', 'team:JUPITER@d1', 'team:MARS@d1', 'team:VENUS@d1'].map(byId);
-    const middle = (children[0]!.x + children[3]!.x) / 2;
+    const children = ['nA', 'team:MARS@d1', 'team:VENUS@d1'].map(byId);
+    const middle = (children[0]!.x + children[2]!.x) / 2;
     expect(byId('d1').x).toBeCloseTo(middle);
     expect(byId('d1').w).toBe(NODE_WIDTH);
     expect(byId('d1').h).toBe(NODE_HEIGHT);

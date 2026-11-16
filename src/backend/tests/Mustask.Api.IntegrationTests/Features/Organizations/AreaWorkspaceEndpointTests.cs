@@ -43,7 +43,7 @@ public sealed class AreaWorkspaceEndpointTests(MustaskApiFactory factory)
 
         Assert.Equal(HttpStatusCode.Created, department.Status);
         Assert.Equal($"{OrganizationsApi.Areas(organization)}/{departmentId}", department.Location?.OriginalString);
-        Assert.Equal(["id", "parentId", "type", "projectId", "name", "description", "path"], PropertyNames(department.Body));
+        Assert.Equal(["id", "parentId", "type", "projectId", "name", "description", "path", "color"], PropertyNames(department.Body));
         Assert.Equal(("department", "Разработка", " Всё про разработку\n"), (
             department.Body.GetProperty("type").GetString(),
             department.Body.GetProperty("name").GetString(),
@@ -59,10 +59,10 @@ public sealed class AreaWorkspaceEndpointTests(MustaskApiFactory factory)
         var tree = await SendAsync(HttpMethod.Get, OrganizationsApi.Areas(organization));
         Assert.Equal(HttpStatusCode.OK, tree.Status);
         Assert.Equal(
-            ["id", "parentId", "type", "projectId", "projectActive", "name", "description", "path", "depth", "inheritsAccess"],
+            ["id", "parentId", "type", "projectId", "projectActive", "name", "description", "path", "depth", "inheritsAccess", "color"],
             PropertyNames(tree.Body[0]));
         Assert.Equal(
-            new[] { ("Пример проекта", "project", 1), ("Пример проекта / Отчёты", "area", 2), ("Разработка", "department", 1) }.Order().ToList(),
+            new[] { ("Отдел для команд", "department", 1), ("Пример проекта", "project", 1), ("Пример проекта / Отчёты", "area", 2), ("Разработка", "department", 1) }.Order().ToList(),
             tree.Body.EnumerateArray()
                 .Select(n => (n.GetProperty("path").GetString()!, n.GetProperty("type").GetString()!, n.GetProperty("depth").GetInt32()))
                 .Order()
@@ -118,7 +118,7 @@ public sealed class AreaWorkspaceEndpointTests(MustaskApiFactory factory)
         var answer = await CreateAsync(structure.OrganizationId, new { name = "Одиннадцатый", parentId = parent.Id.ToString() });
 
         LinksTestData.AssertRefused(answer, HttpStatusCode.Conflict, "organizations.area.depth_exceeded");
-        Assert.Equal(10, (await OrganizationsTestData.ReadOrganizationTreeAsync(factory, structure.OrganizationId)).Count);
+        Assert.Equal(11, (await OrganizationsTestData.ReadOrganizationTreeAsync(factory, structure.OrganizationId)).Count);
     }
 
     // US-3 · a node's page: the type, the parent with its path, the direct children with their types.
@@ -287,7 +287,7 @@ public sealed class AreaWorkspaceEndpointTests(MustaskApiFactory factory)
         var leaf = await OrganizationsTestData.AddSubAreaAsync(factory, organization, parent.Id, "Квартальные");
         var empty = await OrganizationsTestData.AddDepartmentAsync(factory, organization, "Пустой");
         var team = await OrganizationsTestData.AddUnlinkedTeamAsync(factory, organization, "Марс");
-        await OrganizationsTestData.LinkAreaToTeamAsync(factory, organization, empty.Id, team.Id);
+        await OrganizationsTestData.PlaceTeamAsync(factory, organization, empty.Id, team.Id);
         var busy = await OrganizationsTestData.AddDepartmentAsync(factory, organization, "Занятой");
         await MoveAsync(organization, node.Id, busy.Id);
 
@@ -296,6 +296,8 @@ public sealed class AreaWorkspaceEndpointTests(MustaskApiFactory factory)
         var busyDelete = await SendAsync(HttpMethod.Delete, Area(organization, busy.Id));
         var leafDelete = await SendAsync(HttpMethod.Delete, Area(organization, leaf.Id));
         var preview = await SendAsync(HttpMethod.Get, $"{Area(organization, empty.Id)}/deletion");
+        var emptyRefused = await SendAsync(HttpMethod.Delete, Area(organization, empty.Id));
+        await TeamTestData.DeleteTeamAsync(factory, organization, team.Id);
         var emptyDelete = await SendAsync(HttpMethod.Delete, Area(organization, empty.Id));
 
         LinksTestData.AssertRefused(withChild, HttpStatusCode.Conflict, "organizations.area.not_empty");
@@ -303,8 +305,9 @@ public sealed class AreaWorkspaceEndpointTests(MustaskApiFactory factory)
         LinksTestData.AssertRefused(busyDelete, HttpStatusCode.Conflict, "organizations.area.not_empty");
         Assert.Equal(HttpStatusCode.NoContent, leafDelete.Status);
         Assert.Equal("Марс", Assert.Single(preview.Body.GetProperty("teams").EnumerateArray()).GetProperty("name").GetString());
+        LinksTestData.AssertRefused(emptyRefused, HttpStatusCode.Conflict, "organizations.area.has_teams");
         Assert.Equal(HttpStatusCode.NoContent, emptyDelete.Status);
-        Assert.Equal(3, (await OrganizationsTestData.ReadOrganizationTreeAsync(factory, organization)).Count);
+        Assert.Equal(4, (await OrganizationsTestData.ReadOrganizationTreeAsync(factory, organization)).Count);
     }
 
     // OQ-6 A · a deactivated project's node stays in the tree, marked; its writes answer «Проект не найден».
@@ -324,8 +327,8 @@ public sealed class AreaWorkspaceEndpointTests(MustaskApiFactory factory)
         var move = await MoveAsync(organization, sub.Id, archive.Id);
         var delete = await SendAsync(HttpMethod.Delete, Area(organization, sub.Id));
 
-        Assert.Equal(3, tree.Body.GetArrayLength());
-        Assert.All(tree.Body.EnumerateArray(), n => Assert.False(n.GetProperty("projectActive").GetBoolean()));
+        Assert.Equal(4, tree.Body.GetArrayLength());
+        Assert.All(tree.Body.EnumerateArray().Where(n => n.GetProperty("projectId").ValueKind != JsonValueKind.Null), n => Assert.False(n.GetProperty("projectActive").GetBoolean()));
 
         foreach (var answer in new[] { create, rename, move, delete })
         {
@@ -482,7 +485,7 @@ public sealed class AreaWorkspaceEndpointTests(MustaskApiFactory factory)
             }
         }
 
-        Assert.Equal(2, (await OrganizationsTestData.ReadOrganizationTreeAsync(factory, organization)).Count);
+        Assert.Equal(3, (await OrganizationsTestData.ReadOrganizationTreeAsync(factory, organization)).Count);
     }
 
     // US-6 · an area of another organization is the same 404 as an unknown one on every route that names an area.
@@ -549,8 +552,6 @@ public sealed class AreaWorkspaceEndpointTests(MustaskApiFactory factory)
         yield return (HttpMethod.Put, $"{area}/parent", new { parentId = (string?)null });
         yield return (HttpMethod.Get, $"{area}/deletion", null);
         yield return (HttpMethod.Get, $"{area}/teams", null);
-        yield return (HttpMethod.Post, $"{area}/teams", new { teamIds = new[] { Guid.CreateVersion7().ToString() } });
-        yield return (HttpMethod.Delete, $"{area}/teams/{Guid.CreateVersion7()}", null);
         yield return (HttpMethod.Delete, area, null);
     }
 
@@ -567,8 +568,6 @@ public sealed class AreaWorkspaceEndpointTests(MustaskApiFactory factory)
 
         yield return (HttpMethod.Get, OrganizationsApi.ProjectAreas(organizationId, projectId), null);
         yield return (HttpMethod.Get, OrganizationsApi.ProjectTeamLinks(organizationId, projectId), null);
-        yield return (HttpMethod.Get, OrganizationsApi.TeamAreas(organizationId, teamId), null);
-        yield return (HttpMethod.Post, OrganizationsApi.TeamAreas(organizationId, teamId), new { areaIds = new[] { areaId.ToString() } });
-        yield return (HttpMethod.Delete, $"{OrganizationsApi.TeamAreas(organizationId, teamId)}/{areaId}", null);
+        yield return (HttpMethod.Put, $"{OrganizationsApi.OrgTeams(organizationId)}/{teamId}/department", new { departmentId = areaId.ToString() });
     }
 }

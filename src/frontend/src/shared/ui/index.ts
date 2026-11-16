@@ -17,6 +17,7 @@ export {
   ThinRefreshIcon,
   ThinRemoveIcon,
   ThinSaveIcon,
+  ThinSearchIcon,
   ThinUndoIcon,
 } from './icons/ThinIcons';
 
@@ -47,6 +48,7 @@ export { SplitButton, type SplitButtonProps } from './actions/SplitButton';
 export type { DataAttributes, PassThrough } from './passThrough';
 
 // Marks, people and tags (P3)
+export { ColorDot, ColorLabel, type ColorLabelProps } from './marks/ColorLabel';
 export { PersonLabel, type PersonLabelProps } from './marks/PersonLabel';
 export { StateLabel, type StateLabelProps } from './marks/StateLabel';
 export { Tag, type TagProps, type TagTone } from './marks/Tag';
@@ -55,6 +57,11 @@ export { TypeLabel, type TypeLabelProps } from './marks/TypeLabel';
 export { UserAvatar, type UserAvatarProps } from './marks/UserAvatar';
 
 // Text helpers (P3)
+export {
+  HighlightedText,
+  type HighlightRange,
+  type HighlightedTextProps,
+} from './text/HighlightedText';
 export { InlineEmpty, type InlineEmptyProps } from './text/InlineEmpty';
 export { LiveRegion, type LiveRegionProps } from './text/LiveRegion';
 export { TruncatedText, type TruncatedTextProps } from './text/TruncatedText';
@@ -84,6 +91,7 @@ export {
 export { InlineTextArea, type InlineTextAreaProps } from './fields/InlineTextArea';
 export { InlineTextField, type InlineTextFieldProps } from './fields/InlineTextField';
 export { PersonField, type PersonFieldProps } from './fields/PersonField';
+export { SearchField, type SearchFieldProps } from './fields/SearchField';
 export type {
   AdornmentPlacement,
   FieldFrameKind,
@@ -123,6 +131,12 @@ export {
   type DialogShellProps,
 } from './dialog/DialogShell';
 export { PanelShell, type PanelShellProps } from './dialog/PanelShell';
+export { SearchOption, type SearchOptionProps } from './dialog/SearchOption';
+export {
+  SearchPanel,
+  type SearchPanelCloseReason,
+  type SearchPanelProps,
+} from './dialog/SearchPanel';
 export { usePageHead, type PageHeadOptions } from './usePageHead';
 
 // Tables (P7)

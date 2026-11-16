@@ -10,4 +10,4 @@ namespace Mustask.Application.Features.Organizations.GetTeams;
 /// no team, the panel opens no page on a member's team of its own accord, and the default team affects creation only (BR-MX-10).
 /// Only the list carries it.
 /// </param>
-public sealed record TeamResponse(Guid Id, string Name, string? DefaultMark, bool IsMember = false, bool CanUnlink = false);
+public sealed record TeamResponse(Guid Id, string Name, string? DefaultMark, bool IsMember = false, bool CanUnlink = false, string? Color = null);

@@ -25,6 +25,7 @@
       "imports.import.run",
       "imports.template.read",
       "imports.template.write",
+      "iterations.sprint.manage",
       "organizations.area.create",
       "organizations.area.grant",
       "organizations.area.link",
@@ -139,10 +140,12 @@
     "team": {
       "reader": [],
       "member": [
-        "boards.backlog.reorder"
+        "boards.backlog.reorder",
+        "iterations.sprint.manage"
       ],
       "manager": [
         "boards.backlog.reorder",
+        "iterations.sprint.manage",
         "organizations.team.grant",
         "organizations.team.link",
         "organizations.team.write"
@@ -184,6 +187,11 @@
       "code": "imports.template.write",
       "source": "organization",
       "resourceScope": "project"
+    },
+    {
+      "code": "iterations.sprint.manage",
+      "source": "organization",
+      "resourceScope": "team"
     },
     {
       "code": "organizations.area.create",

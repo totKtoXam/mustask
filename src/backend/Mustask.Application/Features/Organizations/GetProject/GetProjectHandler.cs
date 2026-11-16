@@ -58,6 +58,7 @@ public sealed class GetProjectHandler(IProjectReadModel projects, IOrganizationA
             project.Description,
             set.CodesInCatalogOrder(ResourceScope.Project, projectId),
             inheritance is null ? null : new DepartmentRefView(inheritance.DepartmentId, inheritance.DepartmentName),
-            inheritance?.InheritsAccess));
+            inheritance?.InheritsAccess,
+            project.Color));
     }
 }

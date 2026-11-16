@@ -352,10 +352,8 @@ describe('mod-018 US-2: rename, description, move', () => {
 });
 
 describe('mod-018 US-6: deleting a department or a sub-area', () => {
-  it('lists the teams the department deletion ends and then deletes', async () => {
-    const data = exampleDataset();
-    data.areaTeams = [{ areaId: ids.reportsArea, targetId: ids.platformTeam }];
-    const api = serveOrganizations(data);
+  it('asks the plain question of a department with no team, and then deletes', async () => {
+    const api = serveOrganizations();
     renderPage({ path: AREAS });
     await treegrid();
 
@@ -363,10 +361,9 @@ describe('mod-018 US-6: deleting a department or a sub-area', () => {
     const dialog = await screen.findByRole('dialog', { name: 'Удаление департамента' });
     expect(
       await within(dialog).findByText(
-        'Удалить департамент «Отчёты»? Его связи с командами будут удалены, сами команды не изменятся.',
+        'Удалить департамент «Отчёты»? Восстановить департамент будет нельзя.',
       ),
     ).toBeInTheDocument();
-    expect(within(dialog).getByText('Команды (1)')).toBeInTheDocument();
     expect(within(dialog).getByRole('button', { name: 'Отмена' })).toHaveFocus();
 
     await userEvent.click(within(dialog).getByRole('button', { name: 'Удалить департамент' }));
@@ -378,6 +375,24 @@ describe('mod-018 US-6: deleting a department or a sub-area', () => {
       body: undefined,
     });
     await waitFor(() => expect(screen.queryByText('Отчёты')).not.toBeInTheDocument());
+  });
+
+  it('refuses a department the teams stand in: lists them and offers no confirmation (BR-TD-4)', async () => {
+    const data = exampleDataset();
+    data.teams.find((team) => team.id === ids.platformTeam)!.departmentId = ids.reportsArea;
+    serveOrganizations(data);
+    renderPage({ path: AREAS });
+    await treegrid();
+
+    await choose('Отчёты', 'Удалить департамент');
+    const dialog = await screen.findByRole('dialog', { name: 'Удаление департамента' });
+
+    expect(
+      await within(dialog).findByText('Нельзя удалить департамент, в котором есть команды'),
+    ).toBeInTheDocument();
+    expect(within(dialog).getByText('Команды (1)')).toBeInTheDocument();
+    expect(within(dialog).getByText('Платформа')).toBeInTheDocument();
+    expect(within(dialog).getByRole('button', { name: 'Удалить департамент' })).toBeDisabled();
   });
 
   it('asks the plain question of a sub-area', async () => {

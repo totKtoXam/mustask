@@ -49,7 +49,6 @@ export function DiagramLegend() {
   const entries: readonly [LineKind, string][] = [
     ['nesting', texts.legend.nesting],
     ['relation', texts.legend.relation],
-    ['copy', texts.legend.copy],
     ['hidden', texts.legend.hidden],
   ];
   return (
