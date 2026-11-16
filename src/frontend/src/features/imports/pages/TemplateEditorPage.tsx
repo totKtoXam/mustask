@@ -46,6 +46,7 @@ import {
   type DraftErrors,
   type EditorTab,
 } from '../lib/draft';
+import { heldSample } from '../lib/heldSample';
 import { saveFailure } from '../lib/serverErrors';
 import { texts } from '../lib/texts';
 import { checkPath, importsPath, templatePath } from '../paths';
@@ -156,7 +157,12 @@ function TemplateEditor({
     template ? draftFromTemplate(template) : emptyDraft(),
   );
   const [draft, setDraft] = useState<Draft>(initial);
-  const [sample, setSample] = useState<SampleFile | null>(null);
+  const sampleKey = heldSample.keyOf(template?.id);
+  const [sample, setSampleState] = useState<SampleFile | null>(() => heldSample.get(sampleKey));
+  const setSample = (next: SampleFile | null) => {
+    heldSample.set(sampleKey, next);
+    setSampleState(next);
+  };
   const [tab, setTab] = useState<EditorTab>('source');
   const [shown, setShown] = useState<DraftErrors | null>(null);
   const [banner, setBanner] = useState<string | null>(null);
@@ -176,6 +182,7 @@ function TemplateEditor({
     setShown(null);
     notice.show(texts.saved);
     if (createdNow) {
+      heldSample.promote(saved.id);
       navigate(templatePath(organizationId, saved.id), { replace: true });
     } else {
       setInitial(draft);

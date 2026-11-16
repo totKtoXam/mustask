@@ -138,7 +138,7 @@ describe('the source tab: the sample file', () => {
   });
 
   // QA-FD-1 (open): the blur of the header-row / first-data-row field never re-reads the columns.
-  it.skip('says a header row without headers under the field (QA-FD-1)', async () => {
+  it('says a header row without headers under the field (QA-FD-1)', async () => {
     serveImports();
     serveFile();
     renderPage(NEW);

@@ -230,7 +230,11 @@ function MappingValues({
         error={outdated ? texts.statusOutdatedHint : undefined}
         hint={typeId ? texts.typeValueHint : undefined}
         emptyLabel=""
-        options={optionsFor(typeId).map((option) => ({ value: option.value, label: option.label }))}
+        options={optionsFor(typeId).map((option) => ({
+          value: option.value,
+          // a state with no type chosen is told from the same name of another type by its type
+          label: !typeId && option.group ? `${option.group} · ${option.label}` : option.label,
+        }))}
         onChange={(target) =>
           target === '' ? removeEntry(row.value, typeId) : setTarget(row.value, typeId, target)
         }

@@ -34,7 +34,7 @@ export interface SampleFile {
   read: FileRead;
 }
 
-export function sampleOf(uploaded: UploadedFile): SampleFile {
+function sampleOf(uploaded: UploadedFile): SampleFile {
   const { fileId, fileName, size, expiresAt, read } = uploaded;
   return { fileId, fileName, size, expiresAt, read };
 }
@@ -217,7 +217,7 @@ export function SourceTab({
           readOnly={readOnly}
           error={errors.headerRow ?? headerProblem ?? undefined}
           onChange={(text) => onDraft(numberField('headerRow', text))}
-          inputProps={{ onBlur: () => readAgain(optionsOf(draft), draft) }}
+          onBlur={() => readAgain(optionsOf(draft), draft)}
         />
         <InlineNumberField
           label={texts.firstDataRow}
@@ -227,7 +227,7 @@ export function SourceTab({
           readOnly={readOnly}
           error={errors.firstDataRow}
           onChange={(text) => onDraft(numberField('firstDataRow', text))}
-          inputProps={{ onBlur: () => readAgain(optionsOf(draft), draft) }}
+          onBlur={() => readAgain(optionsOf(draft), draft)}
         />
         {source.format === 'csv' && (
           <>

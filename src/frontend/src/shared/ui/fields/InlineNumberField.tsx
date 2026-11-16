@@ -8,6 +8,8 @@ export interface InlineNumberFieldProps extends FieldProps {
   onChange: (text: string) => void;
   /** The keyboard the device offers: `decimal` with a separator, `numeric` for whole numbers. */
   inputMode: 'decimal' | 'numeric';
+  /** Called when the control loses focus. */
+  onBlur?: () => void;
   inputProps?: FieldInputProps;
   /** Focuses the input. */
   ref?: Ref<HTMLInputElement>;

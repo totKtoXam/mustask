@@ -111,7 +111,7 @@ describe('the editor: out-of-scope features are absent', () => {
 describe('the editor: the sample file across a save', () => {
   // QA-FD-2 (open): the save refreshes the template query, the editor is keyed by its version and
   // remounts, so the sample file held in the editor's state is lost right after «Сохранить».
-  it.skip('keeps the sample file after a save (QA-FD-2)', async () => {
+  it('keeps the sample file after a save (QA-FD-2)', async () => {
     serveImports();
     serveFile(
       fileRead({
@@ -196,7 +196,7 @@ describe('the chain dialog', () => {
 
   // QA-FD-3 (open): the third policy of «По таблице» is sent as `keep`; the API takes only
   // error | default | empty (api-contract § 2.1) and refuses the template with converter_param_invalid.
-  it.skip('sends only a policy the API accepts for «По таблице» (QA-FD-3)', async () => {
+  it('sends only a policy the API accepts for «По таблице» (QA-FD-3)', async () => {
     const sent: unknown[] = [];
     server.use(
       http.put(apiUrl(`${IMPORTS_URL}/templates/:id`), async ({ request }) => {
@@ -208,7 +208,7 @@ describe('the chain dialog', () => {
     await userEvent.click(screen.getByRole('button', { name: texts.addConverter }));
     await userEvent.click(await screen.findByRole('menuitem', { name: 'По таблице' }));
     await userEvent.click(await screen.findByRole('combobox', { name: texts.lookupPolicy }));
-    await userEvent.click(await screen.findByRole('option', { name: texts.lookupPolicyKeep }));
+    await userEvent.click(await screen.findByRole('option', { name: texts.lookupPolicyEmpty }));
     await userEvent.click(screen.getByRole('button', { name: texts.lookupAdd }));
     await userEvent.click(screen.getByRole('button', { name: texts.apply }));
     await userEvent.click(screen.getByRole('button', { name: texts.save }));

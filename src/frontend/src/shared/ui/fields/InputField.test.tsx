@@ -27,6 +27,14 @@ describe('tech-015 Scenario: InputField (design § 5.7)', () => {
     expect(onInputEvent).toHaveBeenCalledExactlyOnceWith(input());
   });
 
+  it('tells the host when the control loses focus', () => {
+    const onBlur = vi.fn();
+    render(<InputField label="Поле" value="" onBlur={onBlur} />);
+    fireEvent.focus(input());
+    fireEvent.blur(input());
+    expect(onBlur).toHaveBeenCalledTimes(1);
+  });
+
   it('tells onInputEvent on a key-up too, and still calls the host’s own key-up handler', () => {
     const onInputEvent = vi.fn();
     const onKeyUp = vi.fn();

@@ -175,7 +175,7 @@ export const texts = {
   lookupPolicy: 'Если значения нет в таблице',
   lookupPolicyError: 'Ошибка строки',
   lookupPolicyDefault: 'Значение по умолчанию',
-  lookupPolicyKeep: 'Оставить как есть',
+  lookupPolicyEmpty: 'Оставить пустым',
   lookupDefault: 'Значение по умолчанию',
   stepParams: (name: string) => `Параметры: ${name}`,
 

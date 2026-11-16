@@ -13,6 +13,7 @@ import type {
   TemplateListItem,
   UploadedFile,
 } from './api/importsApi';
+import { heldSample } from './lib/heldSample';
 
 export const ORG = ids.alfa;
 export const TEMPLATE_ID = 'e0000000-0000-4000-8000-000000000001';
@@ -246,6 +247,7 @@ export function serveImports(
     template?: TemplateDto;
   } = {},
 ) {
+  heldSample.clear(); // a test starts with no sample held by an earlier one
   server.use(
     http.get(apiUrl(`${IMPORTS_URL}/catalogue`), () => HttpResponse.json(catalogue)),
     http.get(apiUrl(`${IMPORTS_URL}/templates`), () =>

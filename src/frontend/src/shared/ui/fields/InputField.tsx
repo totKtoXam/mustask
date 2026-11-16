@@ -1,4 +1,4 @@
-import type { KeyboardEvent, Ref } from 'react';
+import type { FocusEvent, KeyboardEvent, Ref } from 'react';
 import InputBase from '@mui/material/InputBase';
 import { useTheme, type CSSObject } from '@mui/material/styles';
 import { FieldFrame } from './FieldFrame';
@@ -15,6 +15,8 @@ export interface InputFieldProps extends FieldProps {
    * and the browser may announce no change for it.
    */
   onInputEvent?: (input: HTMLInputElement) => void;
+  /** Called when the control loses focus (the host re-reads or checks what was typed). */
+  onBlur?: () => void;
   type?: 'text' | 'date';
   multiline?: boolean;
   minRows?: number;
@@ -36,6 +38,7 @@ export function InputField({
   value,
   onChange,
   onInputEvent,
+  onBlur,
   type = 'text',
   multiline = false,
   minRows,
@@ -71,6 +74,11 @@ export function InputField({
         disabled={field.disabled}
         inputRef={ref}
         fullWidth
+        // InputBase runs its own blur handling and drops slotProps.input.onBlur, so it goes here.
+        onBlur={(event) => {
+          inputProps?.onBlur?.(event as FocusEvent<HTMLInputElement>);
+          onBlur?.();
+        }}
         onChange={(event) => {
           onChange?.(event.target.value);
           onInputEvent?.(event.target as HTMLInputElement);

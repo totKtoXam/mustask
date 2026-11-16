@@ -50,7 +50,7 @@ function lookupEntries(step: ChainStep): LookupEntry[] {
 }
 
 /** The validation of one step's parameters (design § 3.2): the text, or null when the step is fine. */
-export function stepError(step: ChainStep, limits: Catalogue['limits']): string | null {
+function stepError(step: ChainStep, limits: Catalogue['limits']): string | null {
   const { params } = step;
   const text = (name: string) => String(params[name] ?? '').trim();
   switch (step.converter) {
@@ -66,7 +66,9 @@ export function stepError(step: ChainStep, limits: Catalogue['limits']): string 
       if (text('pattern') === '') return texts.fillValue;
       return text('pattern').length > limits.maxPatternLength ? texts.patternTooLong : null;
     case 'lookup':
-      return lookupEntries(step).length > limits.maxRecodingEntries ? texts.lookupTooMany : null;
+      if (lookupEntries(step).length === 0) return texts.fillValue;
+      if (lookupEntries(step).length > limits.maxRecodingEntries) return texts.lookupTooMany;
+      return params.policy === 'default' && text('defaultValue') === '' ? texts.fillValue : null;
     default:
       return null;
   }
@@ -255,7 +257,7 @@ function LookupForm({
         options={[
           { value: 'error', label: texts.lookupPolicyError },
           { value: 'default', label: texts.lookupPolicyDefault },
-          { value: 'keep', label: texts.lookupPolicyKeep },
+          { value: 'empty', label: texts.lookupPolicyEmpty },
         ]}
         onChange={(value) => set({ policy: value })}
       />

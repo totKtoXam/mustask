@@ -11,6 +11,8 @@ export interface ReferenceOption {
   label: string;
   /** For a state: the type it belongs to; the option is that type's. */
   typeId?: string;
+  /** For a state: the name of its type, so equal names of different types can be told apart. */
+  group?: string;
 }
 
 export interface References {
@@ -44,7 +46,12 @@ export function useReferences(organizationId: string, enabled: boolean): Referen
     state: (process.data?.workItemTypes ?? []).flatMap((type) =>
       type.states
         .filter((state) => state.category.code !== 'Removed')
-        .map((state) => ({ value: state.id, label: state.name, typeId: type.id })),
+        .map((state) => ({
+          value: state.id,
+          label: state.name,
+          typeId: type.id,
+          group: type.name,
+        })),
     ),
     priority: PRIORITIES,
     assignee: (members.data ?? [])

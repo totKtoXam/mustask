@@ -288,7 +288,7 @@ export function CheckFilePage() {
               {catalogText(note, {})}
             </InlineNotice>
           ))}
-          {!report.importable && !empty && (
+          {!report.importable && !report.stale && !empty && (
             <InlineNotice severity="warning">{texts.nothingToImport}</InlineNotice>
           )}
           <Box

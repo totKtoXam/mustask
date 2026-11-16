@@ -212,7 +212,7 @@ describe('the values tab', () => {
     );
     const names = (await screen.findAllByRole('option')).map((option) => option.textContent);
     expect(names).not.toContain('Удалена');
-    expect(names).toContain('Закрыта');
+    expect(names.some((name) => name?.endsWith('Закрыта'))).toBe(true);
   });
 
   it('offers «Оставить пустым» only for a field that may stay empty', async () => {

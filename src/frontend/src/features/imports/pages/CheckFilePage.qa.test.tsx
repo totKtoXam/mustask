@@ -92,7 +92,7 @@ describe('the file check: the report', () => {
     expect(await screen.findByText(texts.stale)).toBeInTheDocument();
   });
 
-  it.skip('does not claim «nothing to import» for a stale report whose rows are fine (QA-FD-4)', async () => {
+  it('does not claim «nothing to import» for a stale report whose rows are fine (QA-FD-4)', async () => {
     serveImports();
     serveFile();
     serveRun(dryRun({ stale: true, importable: false }));
