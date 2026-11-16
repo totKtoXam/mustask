@@ -179,6 +179,10 @@ public static class ImportEndpoints
             limit.MaxRequestBodySize = UploadBodyLimit;
         }
 
+        // The whole body fits in memory (it is capped above), so no temp file is written: an IOException while reading can then only come
+        // from the request stream — a truncated body — and never from the server's own disk.
+        context.Features.Set<IFormFeature>(new FormFeature(request, new FormOptions { MemoryBufferThreshold = (int)UploadBodyLimit }));
+
         IFormCollection form;
 
         try
@@ -189,8 +193,9 @@ public static class ImportEndpoints
         {
             throw SourceRefusal.Because(ImportErrorCodes.FileTooLarge);
         }
-        catch (Exception ex) when (ex is InvalidDataException or IOException)
+        catch (Exception ex) when (ex is InvalidDataException || (ex is IOException && !context.RequestAborted.IsCancellationRequested))
         {
+            // A client abort is not a refusal: it falls through and the connection is simply gone.
             throw SourceRefusal.Because(ImportErrorCodes.FileUnreadable);
         }
 

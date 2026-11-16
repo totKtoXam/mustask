@@ -37,7 +37,15 @@ public sealed class ImportFile
         var extension = Path.GetExtension(fileName);
         var keep = extension.Length is > 0 and < 20 ? extension : string.Empty;
 
-        return fileName[..(ImportLimits.MaxFileNameLength - keep.Length)] + keep;
+        var cut = ImportLimits.MaxFileNameLength - keep.Length;
+
+        // Never cut inside a surrogate pair: a lone surrogate is not valid UTF-8 and the database refuses it.
+        if (cut > 0 && char.IsHighSurrogate(fileName[cut - 1]))
+        {
+            cut--;
+        }
+
+        return fileName[..cut] + keep;
     }
 
     public static ImportFile Store(Guid id, Guid organizationId, string userId, string fileName, byte[] content, DateTimeOffset now) => new()

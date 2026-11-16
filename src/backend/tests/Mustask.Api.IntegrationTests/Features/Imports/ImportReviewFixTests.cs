@@ -187,6 +187,6 @@ public sealed class ImportReviewFixTests(MustaskApiFactory factory)
         var answer = await PostFormAsync(world.OrganizationId, content, OrganizationsTokens.SignedIn());
 
         Assert.Equal(HttpStatusCode.BadRequest, answer.Status);
-        Assert.Equal("imports.file.refused", answer.ErrorCode);
+        Assert.Equal("imports.file.unreadable", answer.Body.GetProperty("errors").GetProperty("file")[0].GetProperty("code").GetString());
     }
 }
