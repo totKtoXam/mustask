@@ -21,7 +21,7 @@ gate-3: pending
    frontend ×6 (Vitest shards) in parallel → `verify.sh (change-proportionate)`,
    the required check, keeps its name and checks the coverage floors on the
    merged reports (`scripts/ci-coverage-gate.sh`).
-3. `ReducerBoundCostTests` cold figure: the CI-widened `Budget()` like its siblings.
+3. ~~`ReducerBoundCostTests` cold figure~~ — moved to tech-073, which makes the same change.
 4. The slow `WorkItemFormPage.*` / `WorkItemsPage.keyword` tests (tech-068, absorbed):
    find why a scenario takes 12-29 s and cut it, or justify what stays.
 5. Before/after minutes from CI runs in the PR description.
@@ -31,6 +31,8 @@ gate-3: pending
 - 2026-11-16 [new-task] task started, worktree C:/Users/khamb/Workspace/devex/internal_products/mustask/.claude/worktrees/tech-074-ci-full-run-speed
 - 2026-11-16 [route] human confirmed: tech, size M, Dev → QA → Review → PR, gate-3 only; a new line that absorbs tech-068 (withdrawn, PR #202). Queue: add #201, take #204
 - 2026-11-16 [baseline] PR #197 run 43859011673: one job, Verify step 60 min (backend 16.5 min: Infrastructure 14.5, Api.IntegrationTests 11.8 side by side; Vitest 2526 s wall, 7277 s summed, 445 files, 3 workers); slowest files WorkItemFormPage.related 471 s / 32 tests, .sections 403 s, .planning 351 s
+- 2026-11-16 [overlap] tech-073 (flaky CI tests) owns the test timeouts, `vi.setConfig` removal, routes.members and the reducer cold-figure `Budget(5)`; tech-074 keeps CI parallelism and the form tests' own speed. Reverted the reducer edit here.
+- 2026-11-16 [measure] split run 43899184051: backend jobs infrastructure 10.8 min, api-integration 10.0, rest 1.8 (parallel; was 16.5 min). Profile run 43898877800, quiet runner: WorkItemFormPage.related + .membership 187 s for 38 tests (1-10 s each, single fork) — slow alone, not only under load.
 
 ## Notes
 

@@ -98,10 +98,7 @@ public sealed class ReducerBoundCostTests(ITestOutputHelper output)
 
         output.WriteLine($"cold={coldMs} ms warm={warmMs} ms units={input.Length} exceeded={first.Exceeded}");
         Assert.False(first.Exceeded);
-        // The same CI widening as the budgets above (tech-074): inside the whole suite on a shared runner this was
-        // the one wall-clock bound left exact, and it failed under load while passing alone. The figure itself is
-        // read from a lone run, as the comment above says; here it only guards against a runaway.
-        Assert.True(TimeSpan.FromMilliseconds(coldMs) < RichTextTestSupport.Budget(5), $"Cold start took {coldMs} ms.");
+        Assert.True(coldMs < 5_000, $"Cold start took {coldMs} ms.");
     }
 
     private static string Table(int columns, int units)

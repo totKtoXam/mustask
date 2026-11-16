@@ -22,10 +22,11 @@ jobs:
         working-directory: src/frontend
         run: |
           mkdir -p "$RUNNER_TEMP/prof"
-          npx vitest run src/features/workitems/pages/WorkItemFormPage.membership.test.tsx src/features/workitems/pages/WorkItemFormPage.related.test.tsx \
+          NODE_OPTIONS="--cpu-prof --cpu-prof-dir=$RUNNER_TEMP/prof" \
+          npx vitest run src/features/workitems/pages/WorkItemFormPage.related.test.tsx \
             --pool=forks --poolOptions.forks.singleFork \
-            --poolOptions.forks.execArgv=--cpu-prof --poolOptions.forks.execArgv=--cpu-prof-dir="$RUNNER_TEMP/prof" \
             --reporter=verbose || true
+          ls -la "$RUNNER_TEMP/prof"
       - name: Summary
         run: node scripts/tmp-profile-summary.mjs "$RUNNER_TEMP/prof"
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
