@@ -105,6 +105,38 @@ public sealed class ProjectSightQaTests(MustaskApiFactory factory)
         Assert.True(differences.Count == 0, string.Join("; ", differences));
     }
 
+    // D-1 re-check: a hidden, unknown and malformed query id answer the same 404; `none` and an empty value are not ids (200); the administrator
+    // keeps the answers of an existing object (200) and of a missing one as before.
+    [Fact]
+    public async Task QueryIds_HiddenUnknownAndMalformedAreAlike_NoneAndEmptyAreNotIds_AdministratorUnaffected()
+    {
+        var w = await WorldAsync();
+        var olga = await MemberAsync(w);
+        await SendAsync(HttpMethod.Put, $"{P(w, w.A)}/visibility", new { visibleToOrganization = true }, w.Ann.Token);
+        var path = $"{P(w, w.A)}/workitems";
+
+        foreach (var (name, hidden, code) in new[] { ("teamId", w.Jupiter.Id.ToString(), TeamNotFound), ("departmentId", w.Finance.Id.ToString(), AreaNotFound) })
+        {
+            var answers = new List<Answer>();
+            foreach (var value in new[] { hidden, Guid.NewGuid().ToString(), "abc" })
+            {
+                answers.Add(await SendAsync(HttpMethod.Get, $"{path}?{name}={value}", null, olga.Token));
+            }
+
+            Assert.All(answers, a => Assert.Equal((HttpStatusCode.NotFound, code, answers[0].Detail), (a.Status, a.ErrorCode, a.Detail)));
+            Assert.Equal(HttpStatusCode.OK, (await SendAsync(HttpMethod.Get, $"{path}?{name}=none", null, olga.Token)).Status);
+            Assert.Equal(HttpStatusCode.OK, (await SendAsync(HttpMethod.Get, $"{path}?{name}=", null, olga.Token)).Status);
+            Assert.Equal(HttpStatusCode.OK, (await SendAsync(HttpMethod.Get, $"{path}?{name}={hidden}", null, w.Ann.Token)).Status);
+        }
+
+        var orgItems = $"/api/organizations/{w.OrganizationId}/workitems";
+        var hiddenProject = await SendAsync(HttpMethod.Get, $"{orgItems}?projectId={w.C.Id}", null, olga.Token);
+        var unknownProject = await SendAsync(HttpMethod.Get, $"{orgItems}?projectId={Guid.NewGuid()}", null, olga.Token);
+
+        Assert.Equal((HttpStatusCode.NotFound, ProjectNotFound, hiddenProject.Detail), (unknownProject.Status, unknownProject.ErrorCode, unknownProject.Detail));
+        Assert.Equal(HttpStatusCode.OK, (await SendAsync(HttpMethod.Get, $"{orgItems}?projectId={w.C.Id}", null, w.Ann.Token)).Status);
+    }
+
     // Path ids: a hidden project, team and department answer byte for byte as an unknown one (status, code, detail).
     [Fact]
     public async Task APathIdThatIsHidden_AnswersTheSameBytesAsOneThatNamesNothing()

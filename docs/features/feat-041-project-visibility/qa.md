@@ -38,6 +38,7 @@ Not covered and left as notes: body ids (an owning team, link end) naming a hidd
 | 2026-11-16 | Infrastructure.Tests migration/AccessSet/ScopedAccess filter | 4 pass |
 | 2026-11-16 | Application.Tests `Sight` filter | 6 pass |
 | 2026-11-16 | `ProjectSightQaTests` after the Skip | 7 pass, 1 skipped |
+| 2026-11-16 | re-check of 339f7a04: Api.IntegrationTests Features.Organizations + Boards + AssigneeMembership (Skip removed, new probe `QueryIds_HiddenUnknownAndMalformedAreAlike_…`: hidden, unknown, malformed byte-identical 404; `none` and empty 200; administrator 200) | 2036 pass, 0 fail |
 
 The developer's full-run results are in status.md and were not repeated. E2E: standing answer NO.
 
@@ -49,15 +50,15 @@ The developer's full-run results are in status.md and were not repeated. E2E: st
 - Steps: as a member who does not see JUPITER, «Финансы» or project C, call `GET /api/organizations/{org}/projects/{A}/workitems?teamId={JUPITER}` (also `departmentId={Финансы}`, and `GET /api/organizations/{org}/workitems?projectId={C}`), then the same with a random GUID.
 - Expected: the same answer (spec: a hidden object answers «as for an address that names nothing»; US-6 "A hidden object does not exist"; ADR-0040 § 4: "alike").
 - Actual: hidden → 404 `organizations.team.not_found` / `area.not_found` / `project.not_found`; random GUID → 200 with an empty page. A caller can test whether an id exists in the organization. This is the developer's deviation (a), and api-contract § 1 row 3 writes it in. Fix: a query id that is not a visible object of the organization (unknown, foreign or hidden; `none` excepted) answers the 404 of its kind. The skipped test `ProjectSightQaTests.AHiddenQueryId_IsIndistinguishableFromOneThatNamesNothing` checks it; remove its Skip with the fix.
-- Status: open
+- Status: fixed in 339f7a04, re-checked
 
 #### D-2: a malformed query `projectId` on the assignee candidates offers every member
 
 - Severity: minor
 - Steps: `GET …/workitems/assignee-candidates?projectId=abc`.
 - Expected / Actual: no leak (all active members are an organization-wide fact), but the filter silently drops; harmless, noted for the contract. Carried to gate-3 as a debt.
-- Status: open (minor)
+- Status: fixed in 339f7a04 (malformed projectId now 404), re-checked
 
 ### Verdict
 
-blockers: 0 · majors: 1 (D-1) · result: fail until D-1 is fixed (one re-check)
+blockers: 0 · majors: 0 · result: pass (re-check 1: D-1, D-2 fixed)
