@@ -126,8 +126,67 @@ public static class DryRunEngine
     private static SourceCell? CellOf(SourceRow row, IReadOnlyDictionary<string, int> headers, string column) =>
         headers.TryGetValue(column.Trim(), out var index) && index < row.Cells.Count ? row.Cells[index] : null;
 
+    /// <summary>
+    /// The identifier of each row as the run reads it: the identifier mapping's chain result (BR-IE-10), else the raw cell of the file's own
+    /// «Идентификатор» column; keyed by row number, blank ones left out.
+    /// </summary>
+    private static Dictionary<int, string> RowIdentifiers(
+        TemplateSettings settings, SourceTable table, IReadOnlyDictionary<string, int> headers, int? identifierColumn, CancellationToken cancellationToken)
+    {
+        var identifierMapping = settings.MappingOf(ImportFieldCatalogue.Identifier);
+        var identifiers = new Dictionary<int, string>();
+
+        foreach (var row in table.Rows)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+
+            var text = identifierColumn is { } c && c < row.Cells.Count
+                ? (identifierMapping is not null ? Evaluate(identifierMapping, row, headers, table.DateSystem).Value.Display() : row.Cells[c].Text).Trim()
+                : string.Empty;
+
+            if (text.Length > 0)
+            {
+                identifiers[row.Number] = text;
+            }
+        }
+
+        return identifiers;
+    }
+
+    /// <summary>
+    /// The normalized keys the run looks existing items up by (<see cref="DryRunContext.Items"/>): every row's identifier after its converter
+    /// chain, and every row's «Родитель» value after its chain. The one place that says which texts the run resolves, so the loader of items
+    /// and <see cref="Run"/> cannot disagree.
+    /// </summary>
+    public static HashSet<string> LookupKeys(TemplateSettings settings, SourceTable table, CancellationToken cancellationToken = default)
+    {
+        var headers = HeaderIndex(table.Headers);
+        var keys = new HashSet<string>(StringComparer.Ordinal);
+
+        foreach (var identifier in RowIdentifiers(settings, table, headers, IdentifierColumn(settings, headers), cancellationToken).Values)
+        {
+            keys.Add(NormalizeIdentifier(identifier));
+        }
+
+        if (settings.MappingOf(ImportFieldCatalogue.Parent) is { } parent)
+        {
+            foreach (var row in table.Rows)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                var evaluation = Evaluate(parent, row, headers, table.DateSystem);
+
+                if (evaluation.Failure is null && !evaluation.Value.IsEmpty && ConverterEngine.ToFieldText(evaluation.Value).Trim() is { Length: > 0 } text)
+                {
+                    keys.Add(NormalizeIdentifier(text));
+                }
+            }
+        }
+
+        return keys;
+    }
+
     /// <summary>Runs the dry run over all data rows.</summary>
-    public static DryRunOutcome Run(TemplateSettings settings, SourceTable table, DryRunContext context)
+    public static DryRunOutcome Run(TemplateSettings settings, SourceTable table, DryRunContext context, CancellationToken cancellationToken = default)
     {
         var headers = HeaderIndex(table.Headers);
         var identifierColumn = IdentifierColumn(settings, headers);
@@ -143,20 +202,7 @@ public static class DryRunEngine
             notes.Add(ImportErrorCodes.NoteEmptyFile);
         }
 
-        var identifierMapping = settings.MappingOf(ImportFieldCatalogue.Identifier);
-        var identifiers = new Dictionary<int, string>();
-
-        foreach (var row in table.Rows)
-        {
-            var text = identifierColumn is { } c && c < row.Cells.Count
-                ? (identifierMapping is not null ? Evaluate(identifierMapping, row, headers, table.DateSystem).Value.Display() : row.Cells[c].Text).Trim()
-                : string.Empty;
-
-            if (text.Length > 0)
-            {
-                identifiers[row.Number] = text;
-            }
-        }
+        var identifiers = RowIdentifiers(settings, table, headers, identifierColumn, cancellationToken);
 
         var duplicates = identifiers.GroupBy(pair => NormalizeIdentifier(pair.Value)).Where(g => g.Count() > 1)
             .SelectMany(g => g.Select(pair => (row: pair.Key, others: g.Where(o => o.Key != pair.Key).Select(o => o.Key).ToList())))
@@ -166,6 +212,7 @@ public static class DryRunEngine
 
         foreach (var row in table.Rows)
         {
+            cancellationToken.ThrowIfCancellationRequested();
             identifiers.TryGetValue(row.Number, out var identifier);
             duplicates.TryGetValue(row.Number, out var others);
             results.Add(RunRow(settings, row, headers, table.DateSystem, identifier, others, context));

@@ -39,6 +39,12 @@ public static class ImportLimits
     /// <summary>At most this many entries in one recoding or lookup table (BR-IE-7).</summary>
     public const int MaxRecodingEntries = 1_000;
 
+    /// <summary>The most column names a template remembers of its sample file: the sheet's own column cap (BR-IE-21).</summary>
+    public const int MaxTemplateHeaders = MaxColumns;
+
+    /// <summary>The longest file name kept; the stored column is 260 characters wide.</summary>
+    public const int MaxFileNameLength = 260;
+
     /// <summary>The longest regular expression (BR-IE-21).</summary>
     public const int MaxPatternLength = 500;
 

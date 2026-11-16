@@ -93,7 +93,7 @@ TemplateSettings {
 
 ### 2.5 `POST /imports/templates` body `{ "name", "settings" }` -> 201 `TemplateDto`, `Location`.
 
-Validation (400 `imports.validation_failed`, `errors` keyed `name`, `settings.source`, `settings.mappings[<i>].<part>`, `settings.recoding[<i>]`, every reason at once): `imports.template.name_required`, `name_too_long` (100), `name_taken` (409 `imports.template.name_taken`, checked ignoring case after the body is valid); source: `imports.source.header_row_invalid` (1..50), `first_data_row_invalid`; mappings: `imports.mapping.source_required` (project/type/title), `field_unknown`, `field_taken` (one source per field), `column_unknown` (not among `headers`; merge placeholder `{x}` not among `headers`), `list_into_single` (a split in the chain of a single-valued field), `chain_too_long` (>10), `converter_unknown`, `converter_param_invalid` (empty / out of range), `pattern_too_long` (500), `pattern_invalid`, `clear_not_allowed`; recoding: `imports.recoding.default_required`, `empty_not_allowed`, `too_many_entries` (1 000), `target_unknown` (an id that is not an active project / type / state of the type / member / team / 1..4). Template limit: 409 `imports.template.limit_reached` (100 per organization).
+Validation (400 `imports.validation_failed`, `errors` keyed `name`, `settings.source`, `settings.mappings[<i>].<part>`, `settings.recoding[<i>]`, every reason at once): `imports.template.name_required`, `name_too_long` (100), `name_taken` (409 `imports.template.name_taken`, checked ignoring case after the body is valid); source: `imports.source.header_row_invalid` (1..50), `first_data_row_invalid`, `imports.template.too_many_headers` (more than 200 `headers`); mappings: `imports.mapping.source_required` (project/type/title), `field_unknown`, `field_taken` (one source per field), `column_unknown` (not among `headers`; merge placeholder `{x}` not among `headers`), `id_taken` (two mappings with the same `id`), `list_into_single` (a split in the chain of a single-valued field), `chain_too_long` (>10), `converter_unknown`, `converter_param_invalid` (empty / out of range), `pattern_too_long` (500), `pattern_invalid`, `clear_not_allowed`; recoding: `imports.recoding.default_required`, `empty_not_allowed`, `too_many_entries` (1 000), `too_many_tables` (more tables than mappings, or two for one mapping; keyed `settings.recoding`), `target_unknown` (an id that is not an active project / type / state of the type / member / team / 1..4). Template limit: 409 `imports.template.limit_reached` (100 per organization).
 
 ### 2.6 `PUT /imports/templates/{templateId}` body as 2.5 -> 200 `TemplateDto` with `version` + 1. 403 when `canEdit` is false; 404; 409 `imports.template.name_taken`. Last save wins; no `If-Match`.
 
@@ -118,7 +118,7 @@ FileRead {
 }
 ```
 
-`proposedField` is BR-IE-4's proposal (header equals a field's Russian name or id, ignoring case and spaces; else null = «Не переносить»). Refusals (whole file, nothing read): 400 `imports.file.refused` with `errors.file[0].code` one of § 6; the file is not stored.
+`proposedField` is BR-IE-4's proposal (header equals a field's Russian name or id, ignoring case and spaces; else null = «Не переносить»). Refusals (whole file, nothing read): 400 `imports.file.refused` with `errors.file[0].code` one of § 6; the file is not stored. A malformed multipart body is `imports.file.refused` / `imports.file.unreadable`; a client file name over 260 characters is cut to 260, keeping its extension (the `fileName` answered is the cut one).
 
 ### 3.2 `GET /imports/files/{fileId}/columns?sheet=&headerRow=&firstDataRow=&encoding=&delimiter=` -> 200 `FileRead` (re-read with the options). 404 `imports.file.not_found` (unknown, another user's or expired). 400 `imports.source.header_empty` («В этой строке нет заголовков. Выберите другую строку.»), `header_row_invalid`, `first_data_row_invalid`; file refusals as 3.1 (a limit that depends on the sheet, e.g. 5 000 rows, applies to the chosen sheet).
 
@@ -128,7 +128,7 @@ FileRead {
 { "values": [ { "value": "Баг", "rows": 12 } ], "distinctCount": 3, "exceeded": false }
 ```
 
-The distinct results of the mapping's source and chain (before recoding), counted by rows, ignoring case and surrounding spaces for identity, shown as the first spelling; at most 1 000 values — more gives `"exceeded": true` and `values` empty. A row whose chain fails is not counted.
+The distinct results of the mapping's source and chain (before recoding), counted by rows, ignoring case and surrounding spaces for identity, shown as the first spelling; at most 1 000 values — more gives `"exceeded": true` and `values` empty. A row whose chain fails is not counted. The `mapping` is validated by the template's own per-mapping rules (§ 2.5: chain of at most 10, lookup of at most 1 000 entries, step parameters, pattern) before the file is read: 400 `imports.validation_failed`, `errors` keyed `mapping.source` / `mapping.chain`.
 
 ### 3.4 `POST /imports/files/{fileId}/chain-sample` body as 3.3 -> 200
 
@@ -136,7 +136,7 @@ The distinct results of the mapping's source and chain (before recoding), counte
 { "rows": [ { "row": 3, "original": "15.03.2026", "steps": [ { "converter": "dateFormat", "value": "2026-03-15", "error": null } ], "result": "2026-03-15", "error": { "code": "imports.row.convert_failed", "params": {…} } } ] }
 ```
 
-The first 5 data rows through each step.
+The first 5 data rows through each step. The same `mapping` validation as 3.3 applies.
 
 ## 4. Dry run
 
@@ -170,7 +170,7 @@ Errors: 400 `imports.file.refused` (`columns_missing` with `columns`, `sheet_mis
 
 ### 4.3 `GET /imports/dry-runs/{dryRunId}/report` -> 200 `.xlsx` (`Content-Disposition` attachment), one row per file row: row number, result, item title, identifier, project, every reason and warning (text). Cells beginning with `=`, `+`, `-`, `@`, tab or carriage return get a leading apostrophe (BR-IE-22). 404 as 4.2.
 
-Row reasons (a row may carry several): `imports.row.empty` («Пустая строка»), `convert_failed` (params `column`, `cell`, `value`, `converter`), `value_not_recoded` (policy error: «Значение «{value}» не сопоставлено»), `recoding_outdated` (target no longer qualifies; project: «Проект не найден.»), `project_forbidden` («Нет прав на импорт в этот проект.»), `project_not_found`, `type_not_found`, `state_not_found`, `assignee_not_found`, `team_not_linked` («Команда не участвует в проекте.»), `field_not_on_type` («Это поле недоступно для рабочего элемента этого типа.»; warning when `fieldAbsent = drop`), `date_out_of_range` («Укажите дату с 2000 по 2099 год.»), `regex_timeout` («Шаблон выполняется слишком долго.»), `identifier_not_found` («Элемент не найден.»), `identifier_deleted` («Элемент находится в корзине.»), `identifier_skipped` («Строка без идентификатора пропущена по настройке шаблона.»), `identifier_duplicate` («Тот же идентификатор в строке {row}.»), `project_changed`, `type_changed` (an update never moves an item), `value_invalid` (a field's own range/length rule, params `field`), `value_truncated` (warning). Texts of the form's own errors are reused from `contracts/errors/workitems.json` where they exist.
+Row reasons (a row may carry several): `imports.row.empty` («Пустая строка»), `convert_failed` (params `column`, `cell`, `value`, `converter`), `value_not_recoded` (policy error: «Значение «{value}» не сопоставлено»), `recoding_outdated` (target no longer qualifies; project: «Проект не найден.»), `project_forbidden` («Нет прав на импорт в этот проект.»), `project_not_found`, `type_not_found`, `state_not_found`, `assignee_not_found`, `team_not_linked` («Команда не участвует в проекте.»), `field_not_on_type` («Это поле недоступно для рабочего элемента этого типа.»; warning when `fieldAbsent = drop`), `date_out_of_range` («Укажите дату с 2000 по 2099 год.»), `regex_timeout` («Шаблон выполняется слишком долго.»), `identifier_not_found` («Элемент не найден.»), `identifier_deleted` («Элемент находится в корзине.»), `identifier_skipped` («Строка без идентификатора пропущена по настройке шаблона.»), `identifier_duplicate` («Тот же идентификатор в строке {row}.»), `project_changed`, `type_changed` (an update never moves an item), `value_invalid` (a field's own range/length rule, params `field`), `required_missing` (a required field's cell is empty). No `value_truncated` is emitted. Texts of the form's own errors are reused from `contracts/errors/workitems.json` where they exist.
 
 ## 5. Behaviour notes
 

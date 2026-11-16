@@ -26,7 +26,7 @@ public static class ImportFileInput
         await files.FindAsync(organizationId, userId, fileId, now, cancellationToken)
         ?? throw new NotFoundException(ImportErrorCodes.FileNotFound);
 
-    /// <summary>The mapping, or a 400 when the body has none.</summary>
+    /// <summary>The mapping, or a 400 when the body has none or it breaks the template rules (chain cap, lookup cap, step parameters).</summary>
     public static FieldMapping RequireMapping(MappingProbeBody? body)
     {
         if (body?.Mapping is null)
@@ -35,6 +35,8 @@ public static class ImportFileInput
                 ImportErrorCodes.ValidationFailed,
                 new Dictionary<string, IReadOnlyList<FieldError>> { ["mapping"] = [new FieldError(ImportErrorCodes.MappingSourceRequired)] });
         }
+
+        TemplateValidator.EnsureProbeValid(body.Mapping);
 
         return body.Mapping;
     }

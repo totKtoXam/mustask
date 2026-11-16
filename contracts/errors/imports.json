@@ -177,6 +177,27 @@
       "kk": "Кестеде 1 000-нан артық мән болмауы керек: мәндері көп баған — еркін мәтін.",
       "kkNeedsReview": true
     },
+    "imports.recoding.too_many_tables": {
+      "statuses": [400],
+      "params": {},
+      "ru": "Для одного сопоставления — одна таблица перекодировки.",
+      "kk": "Бір сәйкестендіруге — бір қайта кодтау кестесі.",
+      "kkNeedsReview": true
+    },
+    "imports.mapping.id_taken": {
+      "statuses": [400],
+      "params": {},
+      "ru": "Идентификаторы сопоставлений в шаблоне должны быть разными.",
+      "kk": "Үлгідегі сәйкестендірулердің идентификаторлары әртүрлі болуы керек.",
+      "kkNeedsReview": true
+    },
+    "imports.template.too_many_headers": {
+      "statuses": [400],
+      "params": {},
+      "ru": "В шаблоне не больше 200 столбцов файла.",
+      "kk": "Үлгіде файлдың 200-ден артық бағаны болмауы керек.",
+      "kkNeedsReview": true
+    },
     "imports.file.refused": {
       "statuses": [400],
       "params": {},

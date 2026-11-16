@@ -365,4 +365,40 @@ public sealed class DryRunEngineTests
 
         Assert.Equal((2, 1, 3), (totals.Created, totals.Skipped, totals.All));
     }
+
+    [Fact]
+    public void LookupKeys_AreTheIdentifierAfterItsChain_AndTheParent_Normalized()
+    {
+        var settings = Settings(
+            Col("identifier", "Ключ", Step("extract", "{\"pattern\":\"MSK-[A-Z]+-[0-9]+\"}")),
+            Col("parent", "Родитель"));
+        var table = Table(["Заголовок", "Ключ", "Родитель"], ["a", "see https://x.example/msk-task-1/ MSK-TASK-1", " msk-epic-7 "], ["b", "", ""]);
+
+        var keys = DryRunEngine.LookupKeys(settings, table);
+
+        Assert.Equal(["MSK-EPIC-7", "MSK-TASK-1"], keys.Order().ToArray());
+    }
+
+    [Fact]
+    public void Run_ParentThatExistsOnlyThroughTheParentColumn_IsFound()
+    {
+        var settings = Settings(Col("parent", "Родитель"));
+        var table = Table(["Заголовок", "Родитель"], ["Дочерняя", "MSK-EPIC-7"], ["Сирота", "MSK-EPIC-8"]);
+        var context = Context(Item("MSK-EPIC-7"));
+
+        var rows = DryRunEngine.Run(settings, table, context).Rows;
+
+        Assert.False(Has(rows[0], ImportErrorCodes.RowIdentifierNotFound));
+        Assert.True(Has(rows[1], ImportErrorCodes.RowIdentifierNotFound));
+    }
+
+    [Fact]
+    public void Run_ACancelledToken_StopsTheRowLoop()
+    {
+        using var cts = new CancellationTokenSource();
+        cts.Cancel();
+
+        Assert.Throws<OperationCanceledException>(
+            () => DryRunEngine.Run(Settings(), Table(["Заголовок"], ["a"]), Context(), cts.Token));
+    }
 }

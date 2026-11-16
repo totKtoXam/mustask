@@ -68,6 +68,12 @@ public static class ImportErrorCodes
 
     public const string RecodingTooManyEntries = "imports.recoding.too_many_entries";
 
+    public const string RecodingTooManyTables = "imports.recoding.too_many_tables";
+
+    public const string MappingIdTaken = "imports.mapping.id_taken";
+
+    public const string TemplateTooManyHeaders = "imports.template.too_many_headers";
+
     // ----- The refusal of a file: one top-level code, the reason in errors.file -----
 
     public const string FileRefused = "imports.file.refused";

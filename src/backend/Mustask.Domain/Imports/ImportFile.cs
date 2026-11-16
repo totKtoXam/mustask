@@ -26,12 +26,26 @@ public sealed class ImportFile
 
     public DateTimeOffset ExpiresAt { get; private set; }
 
+    /// <summary>The name cut to the stored width, keeping its extension.</summary>
+    public static string FitName(string fileName)
+    {
+        if (fileName.Length <= ImportLimits.MaxFileNameLength)
+        {
+            return fileName;
+        }
+
+        var extension = Path.GetExtension(fileName);
+        var keep = extension.Length is > 0 and < 20 ? extension : string.Empty;
+
+        return fileName[..(ImportLimits.MaxFileNameLength - keep.Length)] + keep;
+    }
+
     public static ImportFile Store(Guid id, Guid organizationId, string userId, string fileName, byte[] content, DateTimeOffset now) => new()
     {
         Id = id,
         OrganizationId = organizationId,
         UserId = userId,
-        FileName = fileName,
+        FileName = FitName(fileName),
         Content = content,
         Size = content.LongLength,
         CreatedAt = now,

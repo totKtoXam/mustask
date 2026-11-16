@@ -192,4 +192,66 @@ public sealed class TemplateValidatorTests
         Assert.True(Run("L", "empty").IsEmpty);
         Assert.False(ConverterEngine.RunChain(ConversionValue.OfText("L"), [new ConverterStep(ConverterIds.Lookup, Entries: table, Policy: "error")]).Ok);
     }
+
+    private static FieldMapping Probe(params ChainStepSettings[] chain) => Col("type", "Тип", chain);
+
+    [Fact]
+    public void EnsureProbeValid_ValidMapping_Passes() =>
+        TemplateValidator.EnsureProbeValid(Probe(Step("trim")));
+
+    [Fact]
+    public void EnsureProbeValid_ElevenSteps_RefusedAsChainTooLong()
+    {
+        var ex = Assert.Throws<Mustask.Shared.Exceptions.ValidationException>(
+            () => TemplateValidator.EnsureProbeValid(Probe(Enumerable.Range(0, 11).Select(_ => Step("trim")).ToArray())));
+
+        Assert.Equal(ImportErrorCodes.ValidationFailed, ex.Code);
+        Assert.Contains(ex.Errors["mapping.chain"], e => e.Code == ImportErrorCodes.MappingChainTooLong);
+    }
+
+    [Fact]
+    public void EnsureProbeValid_LookupOverThe1000EntryCap_Refused()
+    {
+        var entries = string.Join(",", Enumerable.Range(0, 1001).Select(i => $"{{\"from\":\"v{i}\",\"to\":\"x\"}}"));
+        var step = Step("lookup", $"{{\"entries\":[{entries}],\"policy\":\"empty\"}}");
+
+        var ex = Assert.Throws<Mustask.Shared.Exceptions.ValidationException>(() => TemplateValidator.EnsureProbeValid(Probe(step)));
+
+        Assert.Contains(ex.Errors["mapping.chain"], e => e.Code == ImportErrorCodes.RecodingTooManyEntries);
+    }
+
+    [Fact]
+    public void EnsureProbeValid_BadPattern_Refused() =>
+        Assert.Throws<Mustask.Shared.Exceptions.ValidationException>(
+            () => TemplateValidator.EnsureProbeValid(Probe(Step("extract", "{\"pattern\":\"(\"}"))));
+
+    [Fact]
+    public void EnsureProbeValid_ColumnNotInAnyTemplate_IsNotChecked() =>
+        TemplateValidator.EnsureProbeValid(Col("type", "Любой столбец файла"));
+
+    [Fact]
+    public void Validate_MoreHeadersThanColumnsAllowed_Reported()
+    {
+        var settings = Valid() with { Source = Valid().Source with { Headers = [.. Enumerable.Range(0, 201).Select(i => $"Колонка {i}"), .. Headers] } };
+        Assert.True(Has(TemplateValidator.Validate("a", settings), "settings.source", ImportErrorCodes.TemplateTooManyHeaders));
+    }
+
+    [Fact]
+    public void Validate_DuplicateMappingIds_Reported()
+    {
+        var first = Col("project", "Проект");
+        var settings = Valid() with { Mappings = [first, Col("type", "Тип") with { Id = first.Id }, Col("title", "Заголовок")] };
+        Assert.True(Has(TemplateValidator.Validate("a", settings), "settings.mappings[1].id", ImportErrorCodes.MappingIdTaken));
+    }
+
+    [Fact]
+    public void Validate_MoreRecodingTablesThanMappings_OrTwoForOneMapping_Reported()
+    {
+        var table = new RecodingTableSettings { MappingId = Valid().Mappings[0].Id };
+        var many = Valid() with { Recoding = [.. Enumerable.Range(0, 4).Select(_ => table)] };
+        var twice = Valid() with { Recoding = [table, table] };
+
+        Assert.True(Has(TemplateValidator.Validate("a", many), "settings.recoding", ImportErrorCodes.RecodingTooManyTables));
+        Assert.True(Has(TemplateValidator.Validate("a", twice), "settings.recoding", ImportErrorCodes.RecodingTooManyTables));
+    }
 }

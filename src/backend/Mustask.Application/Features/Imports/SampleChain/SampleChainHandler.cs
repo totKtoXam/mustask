@@ -31,6 +31,7 @@ public sealed class SampleChainHandler(
 
         foreach (var row in table.Rows.Take(ImportLimits.SampleRows))
         {
+            cancellationToken.ThrowIfCancellationRequested();
             var evaluation = DryRunEngine.Evaluate(mapping, row, headers, table.DateSystem);
             var done = evaluation.Steps ?? [];
             ChainErrorView? rowError = null;

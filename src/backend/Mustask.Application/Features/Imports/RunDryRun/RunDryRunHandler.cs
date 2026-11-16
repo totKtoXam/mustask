@@ -61,28 +61,13 @@ public sealed class RunDryRunHandler(
                 new ErrorParams { ["columns"] = ErrorParam.Text(string.Join(", ", missing)) });
         }
 
-        var identifiers = new HashSet<string>(StringComparer.Ordinal);
-
-        if (DryRunEngine.IdentifierColumn(settings, headers) is { } column)
-        {
-            foreach (var row in table.Rows)
-            {
-                var text = column < row.Cells.Count ? row.Cells[column].Text : string.Empty;
-
-                if (!string.IsNullOrWhiteSpace(text))
-                {
-                    identifiers.Add(DryRunEngine.NormalizeIdentifier(text));
-                }
-            }
-        }
-
-        var refs = await references.LoadAsync(organizationId, identifiers, cancellationToken);
+        var refs = await references.LoadAsync(organizationId, DryRunEngine.LookupKeys(settings, table, cancellationToken), cancellationToken);
         var set = rights.Set;
         var context = refs.ToContext(
             projectId => set.Holds(PermissionCatalog.ImportsImportRun, projectId) && set.Holds(PermissionCatalog.WorkItemsWorkItemWrite, projectId),
             projectId => set.Holds(PermissionCatalog.WorkItemsWorkItemRead, projectId));
 
-        var outcome = DryRunEngine.Run(settings, table, context);
+        var outcome = DryRunEngine.Run(settings, table, context, cancellationToken);
         var run = ImportDryRun.Record(
             Guid.CreateVersion7(), organizationId, template.Id, template.Version, file, DryRunTotals.Of(outcome.Rows), outcome.Notes, outcome.Rows, now);
 

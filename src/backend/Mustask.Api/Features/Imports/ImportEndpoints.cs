@@ -189,6 +189,10 @@ public static class ImportEndpoints
         {
             throw SourceRefusal.Because(ImportErrorCodes.FileTooLarge);
         }
+        catch (Exception ex) when (ex is InvalidDataException or IOException)
+        {
+            throw SourceRefusal.Because(ImportErrorCodes.FileUnreadable);
+        }
 
         var file = form.Files.GetFile("file") ?? throw SourceRefusal.Because(ImportErrorCodes.FileUnreadable);
 

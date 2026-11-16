@@ -32,6 +32,7 @@ public sealed class GetFileValuesHandler(
 
         foreach (var row in table.Rows)
         {
+            cancellationToken.ThrowIfCancellationRequested();
             var evaluation = DryRunEngine.Evaluate(mapping, row, headers, table.DateSystem);
 
             if (evaluation.Failure is not null || evaluation.Value.IsEmpty)

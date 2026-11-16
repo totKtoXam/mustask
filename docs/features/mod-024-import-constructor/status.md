@@ -3,7 +3,7 @@
 - type: module
 - size: L
 - branch: mod/024-import-constructor
-- stage: 04-backend
+- stage: 08-review
 - epic: core/work-items
 - deps: mod-019,doc-017
 - gates: gate-2, gate-3
@@ -66,6 +66,7 @@ fixtures use made-up data only.
 - 2026-11-16 [qa-engineer] frontend QA re-check 1: QA-FD-1..7 verified fixed (kit onBlur does not double-call inputProps.onBlur; `empty` matches the contract enum); new minor QA-FD-9 (heldSample leaks the abandoned `new` sample into the next new template, test skipped); QA-FD-8 stays open (minor, gate-3). 957 passed, 7 skipped in the affected sets, tsc and ESLint clean; result: passed with minors, see qa.md.
 - 2026-11-16 [orchestrator] fixed QA-FD-9 (minor): a new template's editor drops the held `new` sample on mount, so an abandoned draft's file never reaches the next new template; the skipped QA test runs green (features/imports 92 passed), tsc, ESLint and Prettier clean. QA-FD-8 stays a minor for gate-3.
 - 2026-11-16 [code-reviewer] code review round 1 (with the security pass) on f6ed981b, see review.md: changes requested; open 0 blockers, 2 majors (R1-1 dry-run item lookup misses parent and chained identifiers, R1-2 probe routes run an unvalidated chain), 4 minors.
+- 2026-11-16 [backend-dev] fixed R1-1, R1-2, R1-4, R1-5 (partial), R1-6; left R1-3 (ADR-0042 scope wording, to the human at gate-3) and the per-user file quota of R1-5 (goes with QA-D-5 to feat-067). R1-1: the dry run loads existing items by `DryRunEngine.LookupKeys` (identifier after its chain + the parent after its chain), the one helper `Run` shares for identifiers; R1-2: probe routes call `TemplateValidator.EnsureProbeValid` (same per-mapping rules, 400 `mapping.*`), row loops observe the CancellationToken; R1-4: long file names cut to 260 keeping the extension, `InvalidDataException`/`IOException` from the multipart read give `imports.file.unreadable`; R1-5: template limits (200 headers, unique mapping ids, at most one recoding table per mapping) with 3 new codes `imports.template.too_many_headers`, `imports.mapping.id_taken`, `imports.recoding.too_many_tables` (contracts/errors/imports.json, docs/error-codes.md). api-contract.md changed (note per the hard rule): § 2.5 new codes, § 3.1 refusal of a malformed body and the cut name, § 3.3/3.4 probe validation, § 4.3 reasons list (`value_truncated` dropped, `required_missing` added). Tests: Domain Imports 98, Application Imports 19, Infrastructure Imports 70, Api Imports integration 29 (6 new), Architecture 82, Contracts 234, all green; stage: 08-review.
 
 ## Notes
 

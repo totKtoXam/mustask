@@ -115,10 +115,21 @@ public static class TemplateValidator
         ValidateSource(settings.Source, errors);
 
         var seenFields = new HashSet<string>(StringComparer.Ordinal);
+        var seenIds = new HashSet<Guid>();
 
         for (var i = 0; i < settings.Mappings.Count; i++)
         {
-            ValidateMapping(settings.Mappings[i], i, headers, seenFields, errors);
+            ValidateMapping(settings.Mappings[i], $"settings.mappings[{i}]", headers, seenFields, errors);
+
+            if (!seenIds.Add(settings.Mappings[i].Id))
+            {
+                Add(errors, $"settings.mappings[{i}].id", ImportErrorCodes.MappingIdTaken);
+            }
+        }
+
+        if (settings.Recoding.Count > settings.Mappings.Count || settings.Recoding.Select(t => t.MappingId).Distinct().Count() < settings.Recoding.Count)
+        {
+            Add(errors, "settings.recoding", ImportErrorCodes.RecodingTooManyTables);
         }
 
         foreach (var required in ImportFieldCatalogue.All.Where(f => f.Required))
@@ -130,7 +141,7 @@ public static class TemplateValidator
             }
         }
 
-        for (var i = 0; i < settings.Recoding.Count; i++)
+        for (var i = 0; i < Math.Min(settings.Recoding.Count, settings.Mappings.Count); i++)
         {
             ValidateRecoding(settings.Recoding[i], i, settings, errors);
         }
@@ -156,16 +167,43 @@ public static class TemplateValidator
         {
             Add(errors, key, ImportErrorCodes.FirstDataRowInvalid);
         }
+
+        if (source.Headers.Count > ImportLimits.MaxTemplateHeaders)
+        {
+            Add(errors, key, ImportErrorCodes.TemplateTooManyHeaders);
+        }
+    }
+
+    /// <summary>
+    /// The per-mapping rules for a mapping sent on its own — the probe routes (api-contract § 3.3, § 3.4) — which run a chain over a whole file:
+    /// the same source shape, chain cap, step parameters, pattern and lookup limits as a saved template, keyed <c>mapping.*</c>. The columns
+    /// are the file's, so they are not checked against a template's header list.
+    /// </summary>
+    public static void EnsureProbeValid(FieldMapping mapping)
+    {
+        var errors = new Dictionary<string, List<FieldError>>(StringComparer.Ordinal);
+        ValidateMapping(mapping, "mapping", null, null, errors);
+
+        if (errors.Count > 0)
+        {
+            throw new ValidationException(
+                ImportErrorCodes.ValidationFailed,
+                errors.ToDictionary(pair => pair.Key, pair => (IReadOnlyList<FieldError>)pair.Value));
+        }
     }
 
     private static void ValidateMapping(
-        FieldMapping mapping, int index, HashSet<string> headers, HashSet<string> seenFields, Dictionary<string, List<FieldError>> errors)
+        FieldMapping mapping, string prefix, HashSet<string>? headers, HashSet<string>? seenFields, Dictionary<string, List<FieldError>> errors)
     {
-        string Key(string part) => $"settings.mappings[{index}].{part}";
+        string Key(string part) => $"{prefix}.{part}";
 
         var field = ImportFieldCatalogue.Find(mapping.Field);
 
-        if (field is null)
+        if (seenFields is null)
+        {
+            // a probe: the field is optional, and only narrows the step rules when it is known
+        }
+        else if (field is null)
         {
             Add(errors, Key("field"), ImportErrorCodes.MappingFieldUnknown);
         }
@@ -184,7 +222,7 @@ public static class TemplateValidator
                 {
                     Add(errors, Key("source"), ImportErrorCodes.MappingSourceRequired);
                 }
-                else if (!headers.Contains(source.Column.Trim()))
+                else if (headers is not null && !headers.Contains(source.Column.Trim()))
                 {
                     Add(errors, Key("source"), ImportErrorCodes.MappingColumnUnknown, ColumnParam(source.Column));
                 }
@@ -212,7 +250,7 @@ public static class TemplateValidator
                 }
                 else
                 {
-                    foreach (var placeholder in ConverterEngine.MergePlaceholders(source.Pattern).Where(p => !headers.Contains(p.Trim())))
+                    foreach (var placeholder in ConverterEngine.MergePlaceholders(source.Pattern).Where(p => headers is not null && !headers.Contains(p.Trim())))
                     {
                         Add(errors, Key("source"), ImportErrorCodes.MappingColumnUnknown, ColumnParam(placeholder));
                     }
@@ -229,7 +267,8 @@ public static class TemplateValidator
             Add(errors, Key("chain"), ImportErrorCodes.MappingChainTooLong);
         }
 
-        for (var i = 0; i < mapping.Chain.Count; i++)
+        // an over-long chain is refused as a whole: its steps are not looked into one by one
+        for (var i = 0; i < Math.Min(mapping.Chain.Count, ImportLimits.MaxChainLength); i++)
         {
             ValidateStep(mapping.Chain[i], isSource, field, Key("chain"), errors);
         }

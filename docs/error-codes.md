@@ -73,6 +73,7 @@ guarantees it exists and differs from the Russian, not its quality
 |imports.mapping.converter_unknown|400|Неизвестное преобразование.|Белгісіз түрлендіру.|imports|—|needs review|
 |imports.mapping.field_taken|400|Это поле уже сопоставлено.|Бұл өріс бұрын сәйкестендірілген.|imports|—|needs review|
 |imports.mapping.field_unknown|400|Это поле не поддерживается.|Бұл өріс қолдау көрсетілмейді.|imports|—|needs review|
+|imports.mapping.id_taken|400|Идентификаторы сопоставлений в шаблоне должны быть разными.|Үлгідегі сәйкестендірулердің идентификаторлары әртүрлі болуы керек.|imports|—|needs review|
 |imports.mapping.list_into_single|400|Поле «{field}» хранит одно значение: уберите «Разделить» из цепочки.|«{field}» өрісі бір мәнді сақтайды: тізбектен «Бөлу» әрекетін алып тастаңыз.|imports|—|needs review|
 |imports.mapping.pattern_invalid|400|Некорректное регулярное выражение.|Тұрақты өрнек дұрыс емес.|imports|—|needs review|
 |imports.mapping.pattern_too_long|400|Шаблон — не больше 500 символов.|Үлгі — 500 таңбадан көп емес.|imports|—|needs review|
@@ -81,6 +82,7 @@ guarantees it exists and differs from the Russian, not its quality
 |imports.recoding.empty_not_allowed|400|Для этого поля нельзя оставить пустым.|Бұл өрісті бос қалдыруға болмайды.|imports|—|needs review|
 |imports.recoding.target_unknown|400|Значение больше недоступно. Выберите другое.|Мән енді қолжетімді емес. Басқасын таңдаңыз.|imports|—|needs review|
 |imports.recoding.too_many_entries|400|В таблице не больше 1 000 значений: столбец с большим числом разных значений — свободный текст.|Кестеде 1 000-нан артық мән болмауы керек: мәндері көп баған — еркін мәтін.|imports|—|needs review|
+|imports.recoding.too_many_tables|400|Для одного сопоставления — одна таблица перекодировки.|Бір сәйкестендіруге — бір қайта кодтау кестесі.|imports|—|needs review|
 |imports.row.assignee_not_found|any|Исполнитель не найден или не имеет доступа к проекту.|Орындаушы табылмады немесе жобаға қолжетімділігі жоқ.|imports|—|needs review|
 |imports.row.convert_failed|any|Не удалось преобразовать: столбец «{column}», ячейка {cell}, значение «{value}», преобразование «{converter}».|Түрлендіру мүмкін болмады: «{column}» бағаны, {cell} ұяшығы, «{value}» мәні, «{converter}» түрлендіруі.|imports|—|needs review|
 |imports.row.date_out_of_range|any|Укажите дату с 2000 по 2099 год.|2000 жылдан 2099 жылға дейінгі күнді көрсетіңіз.|imports|—|needs review|
@@ -111,6 +113,7 @@ guarantees it exists and differs from the Russian, not its quality
 |imports.template.name_taken|409|Шаблон с таким названием уже есть.|Мұндай атаумен үлгі бар.|imports|—|needs review|
 |imports.template.name_too_long|400|Название — не больше 100 символов.|Атау — 100 таңбадан көп емес.|imports|—|needs review|
 |imports.template.not_found|404|Шаблон не найден.|Үлгі табылмады.|imports|—|needs review|
+|imports.template.too_many_headers|400|В шаблоне не больше 200 столбцов файла.|Үлгіде файлдың 200-ден артық бағаны болмауы керек.|imports|—|needs review|
 |imports.validation_failed|400|Проверьте правильность заполнения полей.|Өрістердің дұрыс толтырылғанын тексеріңіз.|imports|—|needs review|
 |organizations.access.forbidden|403|Недостаточно прав|Құқықтар жеткіліксіз|organizations|—|needs review|
 |organizations.area.depth_exceeded|409|Дерево областей не может быть глубже 10 уровней|Аймақ ағашы 10 деңгейден терең болмауы керек|organizations|—|needs review|
