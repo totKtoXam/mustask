@@ -39,8 +39,8 @@ Scenario Outline: The caps
   Then the answer is <result>
   Examples:
     | file                                                  | result                    |
-    | 10 485 760 bytes                                      | accepted                  |
-    | 10 485 761 bytes                                      | refused: size             |
+    | 5 242 880 bytes                                       | accepted                  |
+    | 5 242 881 bytes, sent as an ordinary upload           | refused: size (the reduction is US-6's) |
     | a PNG declaring 20 001 × 100 pixels                   | refused: dimensions       |
     | a PNG declaring 20 000 × 3 000 (60 000 000 pixels)    | accepted                  |
     | a PNG declaring 8 000 × 8 000 (64 000 000 pixels)     | refused: dimensions       |
@@ -71,9 +71,9 @@ Scenario: A screenshot stays exact
   And it is not larger than the upload
 
 Scenario: A large photo is compressed without visible loss
-  Given a 7 MB JPEG photo of 4 032 × 3 024
+  Given a 4.8 MB JPEG photo of 4 032 × 3 024
   When it is uploaded
-  Then the stored image is a JPEG of 4 032 × 3 024, smaller than 7 MB
+  Then the stored image is a JPEG of 4 032 × 3 024, smaller than 4.8 MB
   And its structural similarity to the source (BR-IM-4 (4): SSIM on luminance, 8×8 windows) is at least 0.98
 
 Scenario: A small photo is left alone
@@ -82,15 +82,15 @@ Scenario: A small photo is left alone
   Then its pixels are not re-encoded, only metadata is removed
 
 Scenario: A very large picture is scaled down
-  Given a JPEG of 8 160 × 6 120 (49 939 200 pixels)
+  Given a 4.9 MB JPEG of 8 160 × 6 120 (49 939 200 pixels)
   When it is uploaded
   Then the stored image keeps the proportions and holds at most 16 777 216 pixels
   And its similarity to the source scaled to the same dimensions is at least 0.98
 
 Scenario: A large PNG is never encoded lossily
-  Given a 9 MB PNG of 3 000 × 2 000
+  Given a 4.9 MB PNG of 3 000 × 2 000
   When it is uploaded
-  Then the stored image is a PNG decoding to exactly the same pixels, at most 9 MB
+  Then the stored image is a PNG decoding to exactly the same pixels, at most 4.9 MB
 
 Scenario: Compression never makes it bigger
   Given an already well-compressed 1.5 MB JPEG whose re-encoding would come out larger
@@ -133,5 +133,5 @@ texts are US-1's notices.
 | What | How |
 |---|---|
 | Formats, caps, processing, similarity, who may upload | integration (API) tests with checked-in image fixtures; the similarity is measured by the test |
-| Speed of a 10 MB upload | integration test with a budget, plus a stand observation |
+| Speed of a 5 MB upload | integration test with a budget, plus a stand observation |
 | How a compressed photo looks | manual QA: the source and the stored image side by side |

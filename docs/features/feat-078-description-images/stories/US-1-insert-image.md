@@ -10,6 +10,7 @@ an image file or choose one from the toolbar into Описание**, so that **
 picture sits in the description next to the words that explain it**.
 
 Rules: spec BR-IM-1, -2, -3, -5, -13, -14, -15, -19 (the editor's host seam).
+A still image over 5 MB and up to 20 MB is US-6's offer, not a refusal.
 
 ## Copy
 
@@ -19,7 +20,9 @@ Rules: spec BR-IM-1, -2, -3, -5, -13, -14, -15, -19 (the editor's host seam).
 | Placeholder while uploading | «Загрузка изображения…» |
 | Image menu (on a selected image) | «Открыть в полном размере», «Удалить изображение» |
 | Notice: wrong format | «Можно вставить только изображения PNG, JPEG, GIF или WebP.» |
-| Notice: file too big | «Файл больше 10 МБ. Уменьшите изображение и вставьте снова.» |
+| Notice: file over 20 MB (BR-IM-3 (b)) | «Файл больше 20 МБ. Уменьшите изображение в другой программе и вставьте снова.» |
+| Notice: animation over 5 MB (BR-IM-20 (6)) | «Анимация больше 5 МБ. Уменьшите её в другой программе и вставьте снова.» |
+| A still image of 5..20 MB | no notice: the offer of US-6 |
 | Notice: too many pixels | «Изображение слишком большое: не больше 60 мегапикселей и 20 000 пикселей по стороне.» |
 | Notice: animation over the frame caps (BR-IM-3) | «Анимация слишком большая: не больше 1 000 кадров.» |
 | Notice: over 50 images | «В описании может быть не больше 50 изображений.» |
@@ -70,7 +73,8 @@ Scenario Outline: A file is refused before upload
     | file                              | notice                                                                          |
     | a PDF                             | Можно вставить только изображения PNG, JPEG, GIF или WebP.                      |
     | an SVG                            | Можно вставить только изображения PNG, JPEG, GIF или WebP.                      |
-    | a 10 485 761-byte JPEG            | Файл больше 10 МБ. Уменьшите изображение и вставьте снова.                      |
+    | a 20 971 521-byte JPEG            | Файл больше 20 МБ. Уменьшите изображение в другой программе и вставьте снова.    |
+    | a 6 MB animated GIF               | Анимация больше 5 МБ. Уменьшите её в другой программе и вставьте снова.         |
     | a 51st image into an Описание of 50 | В описании может быть не больше 50 изображений.                              |
 
 Scenario: Of several dropped files only the valid ones go in
