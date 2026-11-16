@@ -67,3 +67,54 @@ The slices follow `docs/conventions/backend.md`: one folder per use case, shared
   - `httpClient` sends `FormData` and reads blobs: grepped `Content-Type|FormData|apiFetch` in `docs/conventions/frontend.md`, `src/frontend/AGENTS.md`, `ui-kit.md`. None.
   - `InputField` `onBlur`: grepped `onBlur` in the same files. None.
   Not swept: design.md screen copy against the frontend beyond the deviations already listed in status.md (QA did that reconciliation), and the prototype.
+
+## Round 2 (delta)
+
+Delta read of `git diff 6f832be3..d16ee7c2` (fix commit d16ee7c2) against the round 1 findings. Evidence run: `dotnet test Mustask.Domain.Tests --filter Imports` 98/98, `dotnet test Mustask.Api.IntegrationTests --filter ImportReviewFixTests` 6/6 (real PostgreSQL), both green.
+
+**Verdict: approve.** 0 blockers, 0 majors open. Open minors: R1-3 (to the human at gate-3, unchanged), R1-5's per-user file quota (deferred to feat-067 with QA-D-5), R2-1, R2-2.
+
+### Round 1 findings
+
+- **R1-1 — fixed.** `DryRunEngine.LookupKeys` (`DryRunEngine.cs:161-186`) builds the keys from `RowIdentifiers`, the same helper `Run` now uses (`:205`). It adds the parent mapping's chain result, read through `ConverterEngine.ToFieldText(...).Trim()` exactly as `Canonical` reads it (`:663`). `RunDryRunHandler.cs:64` loads items by those keys. Read access is not bypassed. `ImportReferenceReader.LoadItemsAsync` still resolves only against the organization's projects, and both lookups still check `context.CanRead` (`:286`, `:665`). Tests: the HTTP + PostgreSQL tests cover four cases:
+  - an update by the raw column;
+  - an update by the identifier after an `extract` chain (this test fails on the old code);
+  - a parent absent from the identifier column;
+  - an orphan parent.
+  Domain tests cover the keys and the parent path.
+- **R1-2 — fixed.** `ImportFileInput.RequireMapping` calls `TemplateValidator.EnsureProbeValid` in both handlers, after the rights check and before the file is read. The probe skips only the field and header checks, and a null field is safe in `ValidateStep`.
+  - An over-long chain is refused without a per-step pass (`TemplateValidator.cs:271`), so a 10⁴-step body costs a bounded validation.
+  - The lookup cap and the pattern are checked per step.
+  - Row loops observe the token: values, chain-sample, `RowIdentifiers`, `LookupKeys`, `Run`.
+  Tests: 11 steps, 1 001 entries and a bad pattern on both routes over HTTP, plus the domain cases.
+- **R1-3 — open, minor, left for the human at gate-3** (no change in this diff).
+- **R1-4 — fixed, with two minor residues (R2-1, R2-2).** Names over 260 characters are cut (`ImportFile.cs:30-41`). `InvalidDataException`/`IOException` from `ReadFormAsync` give `imports.file.refused`/`unreadable` (`ImportEndpoints.cs:192-195`). `BadHttpRequestException` is a subclass of `IOException`, and its catch stays first, so the existing too-large mapping is unchanged.
+- **R1-5 — partly fixed; the rest is accepted as deferred.**
+  - The template's own limits are in place (`TemplateValidator.cs:118-132, 144, 173`): ≤ 200 headers, unique mapping ids, recoding tables ≤ mappings, and no two tables for one mapping.
+  - All three codes are in both `contracts/errors/imports.json` and `docs/error-codes.md`.
+  - The per-user live-file cap goes to feat-067 together with QA-D-5. That is acceptable for a minor.
+- **R1-6 — fixed.** § 4.3 drops `value_truncated` and adds `required_missing`, and the `stage:` line reads `08-review`. The unused `RowValueTruncated` constant and its catalogue entry remain. This is harmless, since the contract now says the code is not emitted.
+
+### New findings
+
+- **R2-1 minor** — `src/backend/Mustask.Domain/Imports/ImportFile.cs:40`: `fileName[..(260 - keep.Length)]` cuts by UTF-16 unit, so it can split a surrogate pair. Example: `"a" + 200 emoji + ".csv"` leaves a lone high surrogate. Npgsql encodes text with a throwing UTF-8 encoder, so that name still answers 500, which is R1-4's own case. At best it stores U+FFFD. Fix: when `char.IsHighSurrogate(name[cut - 1])`, cut one unit earlier. Add that example to `ImportFileNameTests`.
+- **R2-2 minor** — `src/backend/Mustask.Api/Features/Imports/ImportEndpoints.cs:192`: the `IOException` catch is wider than "malformed body".
+  - `ReadFormAsync` buffers a file part over 64 KB to a temp file. A server-side disk fault (a full or denied temp directory) therefore becomes a 400 «unreadable», and no error is logged.
+  - An aborted client is logged as a refusal.
+  - The HTTP test (`ImportReviewFixTests.cs:205-208`) asserts only `imports.file.refused`. It would pass on the old `BadHttpRequestException` → `file_too_large` path too, so it does not pin `unreadable`.
+  Fix: read with `FormOptions { MemoryBufferThreshold = UploadBodyLimit }` (the body is copied to memory anyway), or catch `IOException` only when `RequestAborted` is not set and log it. In the test, assert `errors.file[0].code == "imports.file.unreadable"`.
+
+### Behavioural claims checked
+
+- api-contract § 2.5 `too_many_headers`, `id_taken`, `too_many_tables` → `TemplateValidator.cs:124, 132, 173` — anchored.
+- api-contract § 3.1 "a malformed multipart body is `imports.file.refused` / `unreadable`" → `ImportEndpoints.cs:192-195` — anchored (the test is weaker, R2-2).
+- api-contract § 3.1 "a name over 260 is cut to 260, keeping its extension; the answered name is the cut one" → `ImportFile.cs:30-41, 48`, `UploadFileHandler.cs:55` — anchored. The extension is kept only when shorter than 20 characters; the overstatement changes nothing a client does. The surrogate case is R2-1.
+- api-contract § 3.3/3.4 "the mapping is validated by the template's per-mapping rules before the file is read" → `ImportFileInput.cs:39`, `GetFileValuesHandler.cs:26-27`, `SampleChainHandler.cs:23-24` — anchored.
+- api-contract § 4.3 `required_missing` emitted, no `value_truncated` → `DryRunEngine.cs:367, 372, 432`; no emitter of `RowValueTruncated` — anchored.
+- status.md Log (backend-dev): "`LookupKeys` … the one helper `Run` shares" → `DryRunEngine.cs:166, 205`; "row loops observe the CancellationToken" → the five loops under R1-2 — anchored.
+- api-contract.md changes noted in status.md: the backend-dev Log line names § 2.5, § 3.1, § 3.3/3.4 and § 4.3, which are all four hunks of the diff — satisfied.
+- Direction 2, three behaviours swept:
+  - the probe routes' new 400: grepped `chain-sample|/values` in `src/frontend/src/features/imports`. The only hits are `importsApi.ts` and `ValuesTab`, which shows a generic error notice. The editor caps chains at `limits.maxChainLength` (`ChainDialog.tsx:336`), so the 400 is reachable only with a hand-built body.
+  - the dropped `value_truncated`: grepped `value_truncated|усеч|обрез` in spec.md, stories/ and design.md. None.
+  - the cut name: no prose outside api-contract.
+  Not swept: the frontend's rendering of the three new template codes, which the editor cannot produce in normal use.
