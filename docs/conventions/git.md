@@ -245,6 +245,10 @@ from either way, so an edit to `verify.sh` is live at once.
 > `CI` workflow (`.github/workflows/ci.yml`) runs the same `scripts/verify.sh`
 > with `VERIFY_FULL=1` on every pull request, so the whole frontend suite is
 > CI's check, required on `main`, and the push pays only for the quick run.
+> CI splits that run into parallel jobs (tech-074): the static checks, the
+> .NET tests in three groups, the Vitest suite in six shards, each a part of
+> `verify.sh` (`VERIFY_PART`, the script's header); the required check comes
+> last and also checks the coverage floors on the merged reports.
 > The check's name, `verify.sh (change-proportionate)`, is the context
 > `main`'s protection requires: rename the job and the protection together.
 > A full run before the push is one variable away (`VERIFY_FULL=1 git push`;
@@ -394,8 +398,9 @@ discipline. What is live on GitHub, as read on 2026-10-18 with `gh api
 repos/totKtoXam/mustask/branches/main/protection` (read-only: the settings
 are changed by the human, never by an agent):
 
-- **A required status check:** `verify.sh (change-proportionate)` — the job of
-  `.github/workflows/ci.yml`, reported by GitHub Actions. The branch does not
+- **A required status check:** `verify.sh (change-proportionate)` — the last
+  job of `.github/workflows/ci.yml` (it reports whether every parallel job
+  before it went green or was not needed), reported by GitHub Actions. The branch does not
   have to be up to date with `main` first (`strict` is off).
 - **No required reviews, no required approve.** The API shows no
   pull-request rule at all: the merge is the auto-merge the agent asks for on
