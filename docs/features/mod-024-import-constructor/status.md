@@ -3,7 +3,7 @@
 - type: module
 - size: L
 - branch: mod/024-import-constructor
-- stage: 08-review
+- stage: complete
 - epic: core/work-items
 - deps: mod-019,doc-017
 - gates: gate-2, gate-3
@@ -11,7 +11,7 @@
 ## Gates
 
 gate-2: approved (by the human in chat, 2026-11-13: «сразу переходи к реализации, в процессе разработки пересмотрим, что да как»)
-gate-3: pending
+gate-3: approved (by the human in chat, 2026-11-16: «Сначала R2-1/R2-2, потом PR»; R1-3: «Поправить ADR под код»)
 
 ## Plan
 
@@ -69,6 +69,7 @@ fixtures use made-up data only.
 - 2026-11-16 [backend-dev] fixed R1-1, R1-2, R1-4, R1-5 (partial), R1-6; left R1-3 (ADR-0042 scope wording, to the human at gate-3) and the per-user file quota of R1-5 (goes with QA-D-5 to feat-067). R1-1: the dry run loads existing items by `DryRunEngine.LookupKeys` (identifier after its chain + the parent after its chain), the one helper `Run` shares for identifiers; R1-2: probe routes call `TemplateValidator.EnsureProbeValid` (same per-mapping rules, 400 `mapping.*`), row loops observe the CancellationToken; R1-4: long file names cut to 260 keeping the extension, `InvalidDataException`/`IOException` from the multipart read give `imports.file.unreadable`; R1-5: template limits (200 headers, unique mapping ids, at most one recoding table per mapping) with 3 new codes `imports.template.too_many_headers`, `imports.mapping.id_taken`, `imports.recoding.too_many_tables` (contracts/errors/imports.json, docs/error-codes.md). api-contract.md changed (note per the hard rule): § 2.5 new codes, § 3.1 refusal of a malformed body and the cut name, § 3.3/3.4 probe validation, § 4.3 reasons list (`value_truncated` dropped, `required_missing` added). Tests: Domain Imports 98, Application Imports 19, Infrastructure Imports 70, Api Imports integration 29 (6 new), Architecture 82, Contracts 234, all green; stage: 08-review.
 - 2026-11-16 [code-reviewer] round 2 (delta over d16ee7c2), see review.md: approve; R1-1, R1-2, R1-4, R1-6 fixed, R1-5 partly fixed (file quota deferred to feat-067); open 0 blockers, 0 majors, 4 minors (R1-3 for gate-3, R1-5 quota, new R2-1 surrogate-splitting name cut, R2-2 wide IOException catch / weak test).
 - 2026-11-16 [backend-dev] fixed R2-1 (`ImportFile.FitName` never cuts inside a surrogate pair), R2-2 (upload buffers the form in memory; `IOException` maps to `imports.file.unreadable` only when the client did not abort, as `InvalidDataException` does; malformed-multipart test asserts `errors.file[0].code == imports.file.unreadable`); ADR-0042 § 5 amended for R1-3 (human's gate-3 decision, no code change). Tests: Domain Imports filter 99 passed, Api Imports integration filter 29 passed, 0 failed.
+- 2026-11-16 [orchestrator] gate-3 approved by the human in chat: fix R2-1/R2-2 first, then the PR; R1-3 resolved by amending ADR-0042 to the code (project scope with managers' scope; the amendment also drops the author-only edit/delete rule of spec OQ-12 B, as the code never had it). Debts carried out of this task, for the orchestrator to queue: QA-D-5 + R1-5 per-user upload quota (expired files purged only on the next upload, no storage cap) → feat-067's worker; QA-FD-8 (stale dry-run report not greyed, «Уже сопоставлено» marker); dev D-1 (dry run skips rich-text, hierarchy rules, concurrency) → feat-067 re-checks at write time. Live stand click-through not done (economy mode). stage: complete.
 
 ## Notes
 
