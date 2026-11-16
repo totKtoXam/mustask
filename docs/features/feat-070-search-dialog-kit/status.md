@@ -3,7 +3,7 @@
 - type: feature
 - size: M
 - branch: feat/070-search-dialog-kit
-- stage: 07-gate-3
+- stage: gate-3
 - epic: platform/ui
 - deps: -
 - gates: gate-3
