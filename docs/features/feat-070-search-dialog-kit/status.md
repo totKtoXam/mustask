@@ -3,14 +3,14 @@
 - type: feature
 - size: M
 - branch: feat/070-search-dialog-kit
-- stage: gate-3
+- stage: 07-mr
 - epic: platform/ui
 - deps: -
 - gates: gate-3
 
 ## Gates
 
-gate-3: pending
+gate-3: approved (by the human in chat, 2026-11-16)
 
 ## Plan
 
@@ -35,6 +35,7 @@ Spec and design are feat-065's (gate-1 and gate-2 approved there, 2026-11-13); t
 - 2026-11-16 [code-reviewer] round 1 (review.md): request-changes; open: 1 major (M1, the SearchOption stripe renders 0 px high), 4 minors (debts).
 - 2026-11-16 [frontend-developer] review round 1: M1 (option stripe rendered 0 px: now `layout.searchOption.stripeHeight`, pinned in tests), m1 (SearchField defaults `aria-expanded` to false) and m4 (highlight demo passes `aria-expanded={false}`) fixed; m2, m3 left as gate-3 debts.
 - 2026-11-16 [orchestrator] delta read of 063f0401 against review round 1: M1, m1, m4 closed as described; no second review round (economy mode). Gate-3 debts: m2 (panel measures the field during render), m3 (narrow panel `100vw` includes the scrollbar), the `/ui-kit` «Поиск» section not checked by eye in a browser.
+- 2026-11-16 [orchestrator] gate-3 approved by the human in chat with the debts m2, m3 and the unchecked `/ui-kit` section accepted; PR next.
 
 ## Notes
 
