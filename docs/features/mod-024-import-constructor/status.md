@@ -65,6 +65,7 @@ fixtures use made-up data only.
 
 - 2026-11-16 [qa-engineer] frontend QA re-check 1: QA-FD-1..7 verified fixed (kit onBlur does not double-call inputProps.onBlur; `empty` matches the contract enum); new minor QA-FD-9 (heldSample leaks the abandoned `new` sample into the next new template, test skipped); QA-FD-8 stays open (minor, gate-3). 957 passed, 7 skipped in the affected sets, tsc and ESLint clean; result: passed with minors, see qa.md.
 - 2026-11-16 [orchestrator] fixed QA-FD-9 (minor): a new template's editor drops the held `new` sample on mount, so an abandoned draft's file never reaches the next new template; the skipped QA test runs green (features/imports 92 passed), tsc, ESLint and Prettier clean. QA-FD-8 stays a minor for gate-3.
+- 2026-11-16 [code-reviewer] code review round 1 (with the security pass) on f6ed981b, see review.md: changes requested; open 0 blockers, 2 majors (R1-1 dry-run item lookup misses parent and chained identifiers, R1-2 probe routes run an unvalidated chain), 4 minors.
 
 ## Notes
 
