@@ -35,6 +35,12 @@ Out of scope: applying the rule on lists, selectors, «Структура», «�
 pickers (feat-061) and on the multi-project views, search, counts and the
 sprint clauses owed to mod-007, feat-057, feat-058 (feat-062).
 
+Interim until feat-061 (review R-4): the header selectors are not narrowed
+yet and still offer hidden objects; choosing one makes the aggregate views
+(`AggregateWorkItemsPage`) answer 404 and show the generic error with
+«Повторить», which never succeeds. Pages that address one object show the
+not-found frame.
+
 Stages: backend (plan-backend.md, code, tests, api-contract.md) → backend QA
 → frontend («Видим всей организации» in the project's «Настройки», the
 assignee picker, «не найден» answers) → frontend QA → code review (one Opus
