@@ -17,19 +17,23 @@ Rules: spec BR-IM-6, -16, -19; amends mod-005 BR-DR-12, -16 (the purge).
 ```gherkin
 Scenario: An upload nobody saves is removed after 2 hours
   Given a member uploaded image U for item X at 10:05 and never saved it
-  When the hourly sweep runs at 11:00
-  Then U is kept (less than 2 hours old)
-  And when it runs at 12:00 U is removed
-  And the next sweep, at 13:00 at the latest, has removed it in any case
+  When the hourly sweep runs at 11:00 and at 12:00
+  Then U is kept by both (less than 2 hours old: 1 h 55 min at 12:00)
+  And the sweep at 13:00 removes it (2 h 55 min, within the 3-hour bound)
 
 Scenario: An upload removed from the editor before the save
   Given a member inserted U, removed it from the text and saved the card
   Then U stays unbound and is removed by the first sweep 2 hours after its upload
 
 Scenario: A save binds before the sweep
-  Given U was uploaded at 10:05 and X's Описание referencing it was saved at 11:50
-  When the sweep runs at 12:00
+  Given U was uploaded at 10:05 and X's Описание referencing it was saved at 12:50
+  When the sweep runs at 13:00
   Then U is kept: it is X's image now
+
+Scenario: A save and the sweep at the same moment
+  Given U is past its 2 hours and a save referencing it runs while the sweep is removing it
+  Then either the save is refused and U is removed, or U is bound and kept
+  And never is a description stored that references a removed image
 
 Scenario: A save after the sweep is refused
   Given U was swept while the card stayed open
@@ -72,5 +76,5 @@ nothing about their owners or items.
 | What | How |
 |---|---|
 | The 2-hour window and the hourly cadence | integration tests with a controlled clock |
-| Binding beats the sweep; a save after the sweep | integration (API) tests |
+| Binding beats the sweep; a save after the sweep; a save racing the sweep | integration (API) tests (the race forced, e.g. the sweep held mid-run) |
 | Kept on removal, deletion and restore; removed by the purge, atomically | integration tests over mod-005's delete, restore and purge |

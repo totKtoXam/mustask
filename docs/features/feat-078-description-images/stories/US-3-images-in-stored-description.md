@@ -19,9 +19,11 @@ run by the server and the client suites.
 | Input | Stored |
 |---|---|
 | an image element with a valid reference, a text alternative, a width, a style, a class and an onerror attribute | the image with the reference and the text alternative only |
-| a text alternative of 300 characters | cut to the first 255 |
+| a text alternative of 300 code points | cut to the first 255 code points |
 | an image with an https, http, data, relative or `//host` source | dropped, the text around kept |
 | `<p>a<img>b</p>` | `<p>a</p>`, the image, `<p>b</p>` |
+| `<p><img>b</p>` | the image, `<p>b</p>` (no empty paragraph) |
+| a list item `<li><p>a<img>b</p></li>` | the list item holding `<p>a</p>`, the image, `<p>b</p>` |
 | `<h3><img>Заголовок</h3>` | the heading, then the image |
 | `<p><a href="https://e.org">x<img></a></p>` | the paragraph with the link "x", then the image without a link |
 | an image in a list item | kept in the list item, as a block of its own |

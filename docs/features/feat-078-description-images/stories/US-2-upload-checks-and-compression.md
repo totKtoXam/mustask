@@ -42,14 +42,27 @@ Scenario Outline: The caps
     | 10 485 760 bytes                                      | accepted                  |
     | 10 485 761 bytes                                      | refused: size             |
     | a PNG declaring 20 001 × 100 pixels                   | refused: dimensions       |
+    | a PNG declaring 20 000 × 3 000 (60 000 000 pixels)    | accepted                  |
     | a PNG declaring 8 000 × 8 000 (64 000 000 pixels)     | refused: dimensions       |
-    | a 40 KB PNG declaring 20 000 × 3 000 (a bomb)         | refused: dimensions, not decoded |
+    | a 40 KB PNG declaring 20 000 × 20 000 (a bomb)        | refused: dimensions, not decoded |
+    | a GIF of 1 001 frames of 10 × 10                      | refused: dimensions, not decoded |
+    | a GIF of 100 frames of 3 000 × 3 000 (900 000 000 pixels in all) | refused: dimensions, not decoded |
 
-Scenario: Metadata is removed and orientation applied
-  Given a JPEG with camera data, a location and an orientation flag "rotated 90°"
+Scenario Outline: Metadata is removed and orientation kept
+  Given a <size> JPEG with camera data, a location, a comment and an orientation flag "rotated 90°"
   When it is uploaded
   Then the stored image holds no camera data, no location and no comment
-  And it shows the same way as the source did (rotated pixels, no flag)
+  And a browser shows it the same way as the source (<orientation>)
+  Examples:
+    | size   | orientation                                  |
+    | 600 KB | pixels as uploaded, the orientation flag kept |
+    | 3 MB   | re-encoded with rotated pixels, no flag       |
+
+Scenario: Colours are kept
+  Given a 3 MB JPEG photo with an embedded Display P3 colour profile
+  When it is uploaded
+  Then the stored image keeps the profile, or its pixels are converted to sRGB
+  And rendered to sRGB it is at least 0.98 similar to the source rendered to sRGB
 
 Scenario: A screenshot stays exact
   Given a 3 MB PNG screenshot of 2 560 × 1 440
@@ -61,7 +74,7 @@ Scenario: A large photo is compressed without visible loss
   Given a 7 MB JPEG photo of 4 032 × 3 024
   When it is uploaded
   Then the stored image is a JPEG of 4 032 × 3 024, smaller than 7 MB
-  And its structural similarity to the source is at least 0.98
+  And its structural similarity to the source (BR-IM-4 (4): SSIM on luminance, 8×8 windows) is at least 0.98
 
 Scenario: A small photo is left alone
   Given a 600 KB JPEG
@@ -72,6 +85,12 @@ Scenario: A very large picture is scaled down
   Given a JPEG of 8 160 × 6 120 (49 939 200 pixels)
   When it is uploaded
   Then the stored image keeps the proportions and holds at most 16 777 216 pixels
+  And its similarity to the source scaled to the same dimensions is at least 0.98
+
+Scenario: A large PNG is never encoded lossily
+  Given a 9 MB PNG of 3 000 × 2 000
+  When it is uploaded
+  Then the stored image is a PNG decoding to exactly the same pixels, at most 9 MB
 
 Scenario: Compression never makes it bigger
   Given an already well-compressed 1.5 MB JPEG whose re-encoding would come out larger

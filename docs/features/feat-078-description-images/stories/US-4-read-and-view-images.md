@@ -68,6 +68,10 @@ Scenario: The answers tell nothing
   When a user reads an image of an item they may not read, a swept upload, and a made-up reference
   Then the three answers are equal in status and body
 
+Scenario: No shared cache keeps an image
+  When a reader reads an image
+  Then the answer declares the stored format's type, forbids content sniffing and is not cacheable by a shared cache
+
 Scenario: The address names nothing
   When a reader inspects an image's address in the page
   Then it holds no organization, project or item id or key and no user
@@ -83,6 +87,6 @@ Scenario: Accessibility
 
 | What | How |
 |---|---|
-| Who reads, equal answers, the address | integration (API) tests |
+| Who reads, equal answers, the address, the answer's type and cache headers | integration (API) tests |
 | Display rules, placeholder, full-size view, keyboard | jsdom component tests (stubbed image reads) |
 | Scaling, scroll in the full view, light and dark | manual QA in a browser |

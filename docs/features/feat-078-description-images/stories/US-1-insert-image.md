@@ -9,7 +9,7 @@ As a **user who may edit a work item**, I want **to paste a screenshot, drop
 an image file or choose one from the toolbar into Описание**, so that **the
 picture sits in the description next to the words that explain it**.
 
-Rules: spec BR-IM-1, -2, -3, -5, -13, -14, -15.
+Rules: spec BR-IM-1, -2, -3, -5, -13, -14, -15, -19 (the editor's host seam).
 
 ## Copy
 
@@ -21,6 +21,7 @@ Rules: spec BR-IM-1, -2, -3, -5, -13, -14, -15.
 | Notice: wrong format | «Можно вставить только изображения PNG, JPEG, GIF или WebP.» |
 | Notice: file too big | «Файл больше 10 МБ. Уменьшите изображение и вставьте снова.» |
 | Notice: too many pixels | «Изображение слишком большое: не больше 60 мегапикселей и 20 000 пикселей по стороне.» |
+| Notice: animation over the frame caps (BR-IM-3) | «Анимация слишком большая: не больше 1 000 кадров.» |
 | Notice: over 50 images | «В описании может быть не больше 50 изображений.» |
 | Notice: upload failed (network, server) | «Не удалось загрузить изображение. Попробуйте ещё раз.» |
 | Notice: image from another site in pasted content | «Изображение с другого сайта не вставлено. Сохраните его как файл и вставьте снова.» |
@@ -45,6 +46,16 @@ Scenario: Several files chosen through the toolbar
   When the member presses «Изображение» and chooses three JPEG files in the file chooser
   Then three images are inserted at the cursor in the order chosen, each as a block of its own
   And each one's text alternative is its file name without the extension
+
+Scenario Outline: Where an insert lands when the cursor cannot hold an image
+  Given the cursor is <place>
+  When the member inserts an image
+  Then the image is inserted right after <block>, as a block of its own
+  Examples:
+    | place                 | block           |
+    | inside a heading      | the heading     |
+    | in a table cell       | the table       |
+    | inside a code block   | the code block  |
 
 Scenario: An image file dropped on the editor
   When the member drops a PNG file on the editor
@@ -98,6 +109,12 @@ Scenario: An image copied from another work item's description
   Then the editor uploads a copy of its bytes as the member's upload for B
   And the stored description of B never references A's image
 
+Scenario: A pasted image of the store the member cannot read
+  Given the clipboard holds an image of an item the member may not read (or no longer exists)
+  When they paste it into item B's Описание
+  Then that image is left out and «Не удалось загрузить изображение. Попробуйте ещё раз.» is announced
+  And the rest of the pasted content goes in
+
 Scenario: An image moved inside the same description
   When the member cuts an image of this item's Описание and pastes it elsewhere in it
   Then the same image is kept, nothing is uploaded again
@@ -107,6 +124,12 @@ Scenario: Removing an image and undoing it
   When the member presses Delete, Backspace or «Удалить изображение»
   Then the image leaves the text
   And Ctrl/Cmd+Z restores it
+
+Scenario: The hosting form supplies the upload and the image address (BR-IM-19)
+  Given the editor is hosted by a form that supplies its own upload operation and its own reference-to-address rule
+  When an image is inserted and shown
+  Then the upload goes through the host's operation and the image loads from the host's address
+  And the editor itself names no route of the work item's image read or upload
 
 Scenario: No insert without the right to edit
   Given a reader with a read-only role, or an item in «Удалена»
@@ -118,5 +141,5 @@ Scenario: No insert without the right to edit
 
 | What | How |
 |---|---|
-| Insert, refusals, notices, save waits, pasted html, undo | jsdom component tests with the real editor (stubbed clipboard and drop `files`, a stubbed upload) |
+| Insert, placement, refusals, notices, save waits, pasted html, undo, the host seam | jsdom component tests with the real editor (stubbed clipboard and drop `files`, a stubbed upload) |
 | Real clipboard screenshot (Windows, macOS), drag from the desktop, an image copied from another browser tab | manual QA in a browser |

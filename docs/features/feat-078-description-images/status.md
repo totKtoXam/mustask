@@ -10,6 +10,7 @@
 
 ## Gates
 
+requirements-review: needs-human-decision (review.md Round 1: R-1..R-15, 14 resolved in the spec, R-14 accepted-risk; OQ-1..OQ-7 for the human)
 gate-1: pending
 gate-2: pending
 gate-3: pending
@@ -25,6 +26,7 @@ gate-3: pending
 - 2026-11-16 [orchestrator] paused before stage 1: weekly usage (all models) at 99%, the 90% stop rule applies; resets 2026-11-20 00:00 UTC. Resume point: launch business-analyst (deep tier for L) with the Notes below as input
 - 2026-11-16 [orchestrator] the human said «Запустить сейчас»: continue at 99% weekly usage, the 90% stop waived for this task; stage 1 started
 - 2026-11-16 [business-analyst] stage 1 done: spec.md + US-1..US-5 (insert; upload checks and compression; stored form and reference rules; reads; sweep and purge). D-4: feat-078 ships the store, the unbound-upload model with a purpose slot, opaque addresses, the 2 h hourly sweep and the image-only description; feat-059 ships the feedback upload operation and binding (BR-IM-19). D-5: crop spun out as feat-NNN-description-image-crop (S). mod-004 is not a dependency (D-1). OQ-1..OQ-7 open for the human (formats, caps, compression, removed images, the 2 h window for items, crop split, animation), each with a recommendation. feat-059's files were read from its worktree on disk
+- 2026-11-16 [requirements-reviewer] stage 2 round 1: verdict needs-human-decision. 15 findings (6 major, 9 minor), all but R-14 (no quotas, accepted-risk) fixed directly in spec.md and US-1..US-5: the feat-059 seam completed (editor takes upload and address from its host, per-purpose binding/reading, stored reference is an identifier), sweep timing in US-5 fixed to BR-IM-16, bind/sweep race ruled out, cap boundary row fixed, animation frame caps added (1 000 frames, 600 MP total), "without visible loss" made measurable (SSIM reference and method, colour profile, orientation), placement rules, no shared caching. OQ-1..OQ-7 remain for gate-1
 
 ## Notes
 
