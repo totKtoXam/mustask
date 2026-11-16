@@ -3,7 +3,7 @@
 - type: feature
 - size: L
 - branch: feat/078-description-images
-- stage: 01-business-analysis
+- stage: 02-requirements-review
 - epic: core/work-items
 - deps: feat-018
 - gates: gate-1, gate-2, gate-3
@@ -23,6 +23,8 @@ gate-3: pending
 - 2026-11-16 [new-task] task started, worktree C:/Users/khamb/Workspace/devex/internal_products/mustask/.claude/worktrees/feat-078-description-images
 - 2026-11-16 [route] the human confirmed: feature, L (L thresholds: an ADR on image byte storage, a new storage slice, new access rules for non-member uploads), full route, gates gate-1/gate-2/gate-3; economy mode; E2E answer NO
 - 2026-11-16 [orchestrator] paused before stage 1: weekly usage (all models) at 99%, the 90% stop rule applies; resets 2026-11-20 00:00 UTC. Resume point: launch business-analyst (deep tier for L) with the Notes below as input
+- 2026-11-16 [orchestrator] the human said «Запустить сейчас»: continue at 99% weekly usage, the 90% stop waived for this task; stage 1 started
+- 2026-11-16 [business-analyst] stage 1 done: spec.md + US-1..US-5 (insert; upload checks and compression; stored form and reference rules; reads; sweep and purge). D-4: feat-078 ships the store, the unbound-upload model with a purpose slot, opaque addresses, the 2 h hourly sweep and the image-only description; feat-059 ships the feedback upload operation and binding (BR-IM-19). D-5: crop spun out as feat-NNN-description-image-crop (S). mod-004 is not a dependency (D-1). OQ-1..OQ-7 open for the human (formats, caps, compression, removed images, the 2 h window for items, crop split, animation), each with a recommendation. feat-059's files were read from its worktree on disk
 
 ## Notes
 
