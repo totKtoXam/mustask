@@ -62,4 +62,22 @@ public sealed class ProjectSightNestedIdsTests(MustaskApiFactory factory)
         Assert.Equal((HttpStatusCode.NotFound, "organizations.project.not_found"), (unknownAnswer.Status, unknownAnswer.ErrorCode));
         Assert.Equal((unknownAnswer.Status, unknownAnswer.ErrorCode, unknownAnswer.Detail), (hiddenAnswer.Status, hiddenAnswer.ErrorCode, hiddenAnswer.Detail));
     }
+
+    // R-9 · POST /projects/{p}/teams: a team the caller does not see answers byte for byte as an unknown one (404, not 403).
+    [Fact]
+    public async Task ABodyTeamThatIsHidden_AnswersAsOneThatNamesNothing()
+    {
+        var organization = await OrganizationsTestData.CreateOrganizationAsync(factory);
+        var project = await OrganizationsTestData.CreateBareProjectAsync(factory, organization.Id, "Проект", "PRJ", visibleToOrganization: false);
+        var hidden = await OrganizationsTestData.AddUnlinkedTeamAsync(factory, organization.Id, "Скрытая");
+        var manager = await MembershipTestData.NewMemberAsync(factory, organization.Id, OrganizationRole.Member);
+        await OrganizationsTestData.GrantAsync(factory, ResourceScope.Project, organization.Id, project.Project.Id, manager.Id, GrantRole.Manager);
+        var path = $"{OrganizationsApi.Project(organization.Id, project.Project.Id)}/teams";
+
+        var hiddenAnswer = await OrganizationsApi.SendAsync(factory, HttpMethod.Post, path, new { teamIds = new[] { hidden.Id.ToString() } }, manager.Token);
+        var unknownAnswer = await OrganizationsApi.SendAsync(factory, HttpMethod.Post, path, new { teamIds = new[] { Guid.CreateVersion7().ToString() } }, manager.Token);
+
+        Assert.Equal((HttpStatusCode.NotFound, "organizations.team.not_found"), (unknownAnswer.Status, unknownAnswer.ErrorCode));
+        Assert.Equal((unknownAnswer.Status, unknownAnswer.ErrorCode, unknownAnswer.Detail), (hiddenAnswer.Status, hiddenAnswer.ErrorCode, hiddenAnswer.Detail));
+    }
 }
