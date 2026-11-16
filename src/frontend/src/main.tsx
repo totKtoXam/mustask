@@ -1,3 +1,4 @@
+// TEMPORARY (tech-074): makes CI run the whole Vitest suite in shards for the measurement; reverted before review.
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { App } from './app/App';
