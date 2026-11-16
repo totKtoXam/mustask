@@ -21,10 +21,14 @@ gate-3: pending
    frontend ×6 (Vitest shards) in parallel → `verify.sh (change-proportionate)`,
    the required check, keeps its name and checks the coverage floors on the
    merged reports (`scripts/ci-coverage-gate.sh`).
-3. ~~`ReducerBoundCostTests` cold figure~~ — moved to tech-073, which makes the same change.
-4. The slow `WorkItemFormPage.*` / `WorkItemsPage.keyword` tests (tech-068, absorbed):
-   find why a scenario takes 12-29 s and cut it, or justify what stays.
+3. ~~`ReducerBoundCostTests` cold figure~~ — out of scope, tech-073's.
+4. ~~The slow `WorkItemFormPage.*` / `WorkItemsPage.keyword` tests~~ — out of
+   scope, tech-073's (see [scope] in the log).
 5. Before/after minutes from CI runs in the PR description.
+
+Scope: CI run speed only — jobs, sharding, the backend split. No test, test
+timeout or test budget is edited here; a change to worker counts or test
+parallelism is agreed with tech-073 first.
 
 ## Log
 
@@ -33,7 +37,8 @@ gate-3: pending
 - 2026-11-16 [baseline] PR #197 run 43859011673: one job, Verify step 60 min (backend 16.5 min: Infrastructure 14.5, Api.IntegrationTests 11.8 side by side; Vitest 2526 s wall, 7277 s summed, 445 files, 3 workers); slowest files WorkItemFormPage.related 471 s / 32 tests, .sections 403 s, .planning 351 s
 - 2026-11-16 [overlap] tech-073 (flaky CI tests) owns the test timeouts, `vi.setConfig` removal, routes.members and the reducer cold-figure `Budget(5)`; tech-074 keeps CI parallelism and the form tests' own speed. Reverted the reducer edit here.
 - 2026-11-16 [measure] split run 43899184051: backend jobs infrastructure 10.8 min, api-integration 10.0, rest 1.8 (parallel; was 16.5 min). Profile run 43898877800, quiet runner: WorkItemFormPage.related + .membership 187 s for 38 tests (1-10 s each, single fork) — slow alone, not only under load.
+- 2026-11-16 [scope] the human's decision, relayed by the orchestrator: tech-074 is CI run speed only. Flaky and slow tests (Vitest timeouts, wall-clock/cost tests, WorkItemFormPage*) belong to tech-073 (session "Fix flaky CI tests"); the profiling of the form tests is dropped and its temporary workflow removed. The 6 Vitest shards were reported to tech-073.
 
 ## Notes
 
-Summary (from the queue line or an argument): Make the CI full run (VERIFY_FULL=1 verify.sh, required check 'verify.sh (change-proportionate)') markedly faster and stop its flakes: backend and frontend as parallel jobs, Vitest sharded across a matrix, the required-check name kept stable; stabilise WorkItemFormPage.membership/readOnly/description and WorkItemsPage.keyword (12-29 s per scenario, time out under load) and the ReducerBoundCostTests timing figure. Baseline PR #197 run 43859011673: ~65 min (backend 16 min, Vitest 2625 s wall, sequential). Absorbs tech-068
+Summary (from the queue line or an argument): Make the CI full run (VERIFY_FULL=1 verify.sh, required check 'verify.sh (change-proportionate)') markedly faster: backend and frontend as parallel jobs, Vitest sharded across a matrix, the required-check name kept stable. (Narrowed 2026-11-16: the flaky/slow tests are tech-073's.) Baseline PR #197 run 43859011673: ~65 min (backend 16 min, Vitest 2625 s wall, sequential). Absorbs tech-068
