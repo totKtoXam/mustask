@@ -16,8 +16,7 @@ import { typeInto } from './testCard';
 import { menuEntries, moreActions, openAs } from './testDeletion';
 
 // mod-005 US-3 and BR-DR-7, design § 4 (the deleted card, the mode that follows the read) and
-// § 8 (a save that loses to a deletion, D-5), § 9 (what each role sees). Each user action draws
-// the kit's fields in jsdom; a test of several steps outlasts the default.
+// § 8 (a save that loses to a deletion, D-5), § 9 (what each role sees).
 
 const STORY = 'MSK-US-2';
 const FIRST_SENTENCE = 'Рабочий элемент удалён и доступен только для чтения.';

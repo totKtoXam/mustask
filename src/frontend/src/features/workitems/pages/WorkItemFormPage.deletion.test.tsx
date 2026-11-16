@@ -12,8 +12,7 @@ import { WorkItemFormPage } from './WorkItemFormPage';
 
 // mod-005 as the card's page meets it (design § 3-§ 6 on the item's own page): the three writes
 // from the page, the deleted card in a page, and a purge that leaves the page by a replace so Back
-// never meets the purged address. Each user action draws the kit's fields in jsdom; a test of
-// several steps outlasts the default.
+// never meets the purged address.
 
 const STORY = mskForm('MSK-US-2');
 const HEADING = 'Пользовательская история MSK-US-2';

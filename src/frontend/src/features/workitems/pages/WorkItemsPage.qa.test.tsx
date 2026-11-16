@@ -67,7 +67,7 @@ describe('QA BR-WS-11 the page returns to 1 whenever any filter’s content chan
     await pickState('Новая'); // unticks it: the filter is empty again
     await waitFor(() => expect(addressSearch()).toBe(''));
 
-    await screen.findByText('1–50 из 120', {}, { timeout: 3_000 });
+    await screen.findByText('1–50 из 120');
     expect(api.reads('/workitems?').at(-1)?.path).toContain('page=1');
   });
 
@@ -83,7 +83,7 @@ describe('QA BR-WS-11 the page returns to 1 whenever any filter’s content chan
     await userEvent.click(within(band()).getByRole('button', { name: 'Очистить фильтры' }));
     await waitFor(() => expect(addressSearch()).toBe(''));
 
-    await screen.findByText('1–50 из 120', {}, { timeout: 3_000 });
+    await screen.findByText('1–50 из 120');
     expect(api.reads('/workitems?').at(-1)?.path).toContain('page=1');
   });
 

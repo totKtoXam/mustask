@@ -23,8 +23,7 @@ import {
   refuseWith,
 } from './testDeletion';
 
-// mod-005 US-4, design § 5 (the dialog), § 8 (what it meets), § 4 (the card it leaves). Each user
-// action draws the kit's fields in jsdom; a test of several steps outlasts the default.
+// mod-005 US-4, design § 5 (the dialog), § 8 (what it meets), § 4 (the card it leaves).
 
 const STORY = 'MSK-US-2';
 const HELD_HINT = 'Выбран статус, в котором рабочий элемент был перед удалением.';

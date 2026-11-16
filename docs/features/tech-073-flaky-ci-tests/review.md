@@ -44,3 +44,9 @@ Plan conformance: items 1-4 and D-1 are implemented, nothing extra. 48 `vi.setCo
 - `routes.members.test.tsx:171-177` (the notice is drawn before the move, and the fallback replaces it; it starts failing when bug-007 is fixed) → the probe sequence in item 3 above; `useNavigationSource.ts:451-457` raises the fallback once the address carries no organization; `noticeCorner.ts:46-47` closes the host's notice. Holds.
 - `ReducerBoundCostTests.cs:101-102` "the CI margin of the other budgets" → `RichTextTestSupport.cs:30-35`, `:56,81`.
 - Direction 2: the changed behaviours are the per-file test timeout, the global `testTimeout` and `asyncUtilTimeout`. I grepped `setConfig|testTimeout|asyncUtilTimeout` over `docs/`, `.claude/`, all `AGENTS.md`, `src/frontend/src` and `src/frontend/scripts`. The hits are the historical records of tech-029 (status, review F5), mod-016 status, tech-053 review and feat-029 review R1-10, left as they are. No live document describes the old values. The stale prose in test-file headers is m1.
+
+## Round 1 follow-up (developer)
+
+- m1 fixed: the six headers lose the sentence.
+- m2 fixed: the 1 500 and 3 000 overrides go (the default covers them); the two 8 000 waits use `waitBudget(8000)` (`src/test/waits.ts`, ×3 on CI like the default).
+- m3 fixed: `leaveTheOnlyOrganization()` is shared; a plain `it` holds the move and the empty-state heading, `it.fails` holds only the notice.

@@ -21,8 +21,7 @@ import {
   refuseWith,
 } from './testDeletion';
 
-// mod-005 US-6, design § 6 (the dialog), § 8 (what it meets). Each user action draws the kit's
-// fields in jsdom; a test of several steps outlasts the default.
+// mod-005 US-6, design § 6 (the dialog), § 8 (what it meets).
 
 const BUG = 'MSK-BUG-4';
 const EPIC = 'MSK-EPIC-1';

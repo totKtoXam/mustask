@@ -25,8 +25,7 @@ import {
 } from './testDeletion';
 
 // mod-005 US-1, design § 2 (the menu), § 3 (the dialog), § 4 (the card it leaves), § 8 (what it
-// meets), § 9 (roles). Each user action draws the kit's fields in jsdom; a test of several steps
-// outlasts the default.
+// meets), § 9 (roles).
 
 const STORY = 'MSK-US-2';
 // A dialog over the card hides it from the accessibility tree, and the card is still there.

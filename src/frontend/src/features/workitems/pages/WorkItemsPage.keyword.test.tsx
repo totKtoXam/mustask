@@ -4,6 +4,7 @@ import userEvent from '@testing-library/user-event';
 import { serveWorkItems } from '../testApi';
 import { emptyDataset, ids, item, listFilterDataset } from '../testFixtures';
 import { MSK_LIST, renderWorkItems } from '../testRender';
+import { waitBudget } from '../../../test/waits';
 
 // feat-003 US-3, BR-WS-9, design § 2.1, D-3 A: «Поиск» over the title and the identifier. The
 // field's timing is `KeywordFilter.test.tsx`'s; here the page reads what the keyword finds.
@@ -26,7 +27,9 @@ async function listed(): Promise<string[]> {
 
 async function expectListed(expected: string[]) {
   // Eight columns of jsdom cells per row (mod-018 added «Область»): the first filter round needs more than the default 1 s.
-  await waitFor(async () => expect(await listed()).toEqual(expected), { timeout: 8000 });
+  await waitFor(async () => expect(await listed()).toEqual(expected), {
+    timeout: waitBudget(8000),
+  });
 }
 
 const NOTHING = () => screen.findByRole('heading', { level: 2, name: 'Ничего не найдено' });
