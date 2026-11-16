@@ -3,14 +3,14 @@
 - type: feature
 - size: L
 - branch: feat/041-project-visibility
-- stage: 8-review
+- stage: complete
 - epic: core/org-access
 - deps: mod-019,mod-021
 - gates: gate-3
 
 ## Gates
 
-gate-3: pending
+gate-3: approved (2026-11-16, by the human in chat, after the gate-3 package; debts R-4, R-5 remainder (to feat-062), R-7 accepted)
 
 ## Plan
 
@@ -65,3 +65,4 @@ Verification: affected tests locally, the full verify.sh in CI.
 - 2026-11-16 [backend] code review round 1 fixes (R-1, R-2, R-3, R-5, R-6, R-8; R-7 stays a debt, R-4 is the frontend's). R-1: the inventory's role cell runs again with real, visible ids (a world with a project visible to the organization, its linked team, the department, a sprint and an item; the administrator keeps fresh ids), and the not-found cell is a separate theory over the same routes; `ScopedAccessTests` keeps the 404 cell and adds the role cell with a visible project and its team. R-2: the gate resolves `sprintId` (inside the team) and `identifier` (project key and number inside the project, any state) after the project, team and area checks, so a missing or malformed one is `iterations.sprint.not_found` / `workitems.workitem.not_found` before any 403; api-contract § 1 item 3a, note in mod-019's status.md; the identifier's type key is still judged by the handler (a deliberate gap). R-3: `AccessSet.Knows*` deleted. R-5: contained part done: `IOrganizationAccess.SeesAsync` and a sight check on the body ids of `POST /teams/{t}/projects` and `POST /projects/{p}/teams` (hidden answers as unknown, before the second code); NOT done: the item ids of a team backlog reorder (the entries carry no project id, so refusing hidden-project items needs a read change; left for feat-062 with the team views) and body ids of other routes. R-6: information log line (project, value, actor) in `SetProjectVisibilityHandler`. R-8: qa.md says (2). Tests: new `ProjectSightNestedIdsTests` (R-2, R-5); four legacy tests restated for the 404-first order for missing items/hidden teams. Full Api.IntegrationTests before the restatements: 3809 passed, 3 skipped, 6 failed (4 restated and re-run green, 2 load-bound volume/timing tests unrelated: `AggregateViewVolumeTests`, `Save_BurstOfLargeDocuments`); Application 883 and Architecture 82 green.
 - 2026-11-16 [code-reviewer] round 2 (delta read of ccb67b2d..4ff58635) in review.md: approved; R-1, R-2, R-3, R-4, R-6, R-8 closed; open minors (debts): R-5 rest (team reorder item ids and other body ids, feat-062), R-7 (per-request statements), R-9 (no test for the hidden body team on POST /projects/{p}/teams). Ready for gate-3.
 - 2026-11-16 [backend] R-9: mirror test `ProjectSightNestedIdsTests.ABodyTeamThatIsHidden_AnswersAsOneThatNamesNothing` for `POST /projects/{p}/teams` (a hidden team in the body answers byte-identically to an unknown one); passes with the class (3 of 3).
+- 2026-11-16 [orchestrator] gate-3 approved by the human in chat after the gate-3 package. Accepted with it: debts R-4 (header selectors offer hidden objects until feat-061; the aggregate views show the generic error), R-5 remainder (team backlog reorder item ids and other routes' body ids, to feat-062), R-7 (the gate's per-request statements). The upgrade log (project_sight_upgrade_log) fills on deploy; the MR cannot quote production rows in advance.
