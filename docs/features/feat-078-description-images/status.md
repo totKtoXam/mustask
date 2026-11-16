@@ -22,6 +22,7 @@ gate-3: pending
 
 - 2026-11-16 [new-task] task started, worktree C:/Users/khamb/Workspace/devex/internal_products/mustask/.claude/worktrees/feat-078-description-images
 - 2026-11-16 [route] the human confirmed: feature, L (L thresholds: an ADR on image byte storage, a new storage slice, new access rules for non-member uploads), full route, gates gate-1/gate-2/gate-3; economy mode; E2E answer NO
+- 2026-11-16 [orchestrator] paused before stage 1: weekly usage (all models) at 99%, the 90% stop rule applies; resets 2026-11-20 00:00 UTC. Resume point: launch business-analyst (deep tier for L) with the Notes below as input
 
 ## Notes
 
