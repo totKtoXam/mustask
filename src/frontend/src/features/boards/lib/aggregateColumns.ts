@@ -7,6 +7,8 @@ export interface AggregateColumn {
   /** `<Category>-<index>`, the key of the groups and cells reads. */
   key: string;
   header: string;
+  /** The column's status category code: the stripe and the dot of the header (feat-060). */
+  categoryCode: string;
   /** The state a card of the type takes when dropped here; absent: no drop target for it. */
   stateOfType: ReadonlyMap<string, string>;
 }
@@ -16,6 +18,7 @@ export function columnsOf(groups: readonly GroupHeader[]): AggregateColumn[] {
   return (groups[0]?.columns ?? []).map((column) => ({
     key: column.key,
     header: column.header,
+    categoryCode: column.category.code,
     stateOfType: new Map(
       column.targets.flatMap((target) =>
         target.stateId === null ? [] : [[target.typeId, target.stateId] as const],

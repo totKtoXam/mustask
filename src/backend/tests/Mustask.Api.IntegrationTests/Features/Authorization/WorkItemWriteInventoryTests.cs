@@ -70,6 +70,15 @@ public sealed class WorkItemWriteInventoryTests(MustaskApiFactory factory)
         ["DELETE " + OrgTeam] = new(Kind.CleanUp, "releases the items the team owns in any state; a deleted one stays deleted", "DeletedItemViewsEndpointTests.DeleteTeam_ReleasesADeletedItemToo_StillDeleted_ChangedAtMoves"),
         ["POST " + Team + "/unlink"] = new(Kind.CleanUp, "reassigns the items the team owns in the project, in any state, to the destination; a deleted one stays deleted", "DeletedItemViewsEndpointTests.Unlink_ReassignsADeletedItemToo_StillDeleted"),
 
+
+        // mod-007: the team's sprints. Their writes act on a sprint, never on a work item's state or deletion; the close moves the
+        // unfinished items' pointer and leaves a deleted item where it was (BR-6).
+        ["POST " + OrgTeam + "/sprints"] = new(Kind.NamesNoWorkItem, "creates a sprint of the team and names no work item"),
+        ["PUT " + OrgTeam + "/sprints/{sprintId}"] = new(Kind.NamesNoWorkItem, "edits a sprint's name and dates and names no work item"),
+        ["DELETE " + OrgTeam + "/sprints/{sprintId}"] = new(Kind.NamesNoWorkItem, "removes a planned sprint with no item outside «Удалена»; it clears the pointer of the deleted ones only (mod-007 BR-6)"),
+        ["POST " + OrgTeam + "/sprints/{sprintId}/start"] = new(Kind.NamesNoWorkItem, "starts a sprint and names no work item"),
+        ["POST " + OrgTeam + "/sprints/{sprintId}/close"] = new(Kind.CleanUp, "moves the unfinished items of the sprint to the destination, in any state but «Удалена»; a deleted one keeps its sprint", "CloseSprintEndpointTests.Close_LeavesADeletedItemWhereItWas_AndCountsItNowhere"),
+
         // mod-002: containers and structure.
         ["PUT " + Org + "/name"] = new(Kind.NamesNoWorkItem, ReasonContainer),
         ["POST " + Org + "/deactivate"] = new(Kind.NamesNoWorkItem, ReasonContainer),
@@ -93,10 +102,7 @@ public sealed class WorkItemWriteInventoryTests(MustaskApiFactory factory)
         ["PUT " + Area + "/parent"] = new(Kind.NamesNoWorkItem, ReasonStructure),
         ["PUT " + Area + "/inherits-access"] = new(Kind.NamesNoWorkItem, "turns an access switch of the tree and moves no item (mod-019 BR-SA-6)"),
         ["PUT " + Area + "/description"] = new(Kind.NamesNoWorkItem, ReasonStructure),
-        ["POST " + Area + "/teams"] = new(Kind.NamesNoWorkItem, "links teams to a department and moves no item"),
-        ["DELETE " + Area + "/teams/{teamId}"] = new(Kind.NamesNoWorkItem, "unlinks a team from a department and moves no item"),
-        ["POST " + OrgTeam + "/areas"] = new(Kind.NamesNoWorkItem, "links departments to the team and moves no item"),
-        ["DELETE " + OrgTeam + "/areas/{areaId}"] = new(Kind.NamesNoWorkItem, "unlinks a department from the team and moves no item"),
+        ["PUT " + OrgTeam + "/department"] = new(Kind.NamesNoWorkItem, "moves a team to another department and moves no item (mod-021 BR-TD-4)"),
         ["DELETE " + Area] = new(Kind.NamesNoWorkItem, "names no work item; it counts the items in the area, deleted ones too (mod-003 BR-M3-24)"),
 
         // mod-016: membership.

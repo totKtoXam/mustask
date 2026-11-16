@@ -119,8 +119,8 @@ describe.each(ROLES)(
       expect(within(table).queryAllByRole('button', { name: /^Ещё действия: / })).toHaveLength(
         holds ? within(table).getAllByRole('row').length - 1 : 0,
       );
-      expect(within(table).getAllByRole('columnheader')).toHaveLength(holds ? 3 : 2);
-      expect(within(table).getByRole('link', { name: 'Платформа' })).toBeVisible();
+      expect(within(table).getAllByRole('columnheader')).toHaveLength(holds ? 4 : 3);
+      expect(within(table).getAllByRole('link', { name: 'Платформа' })[0]).toBeVisible();
       // The projects column left the list (feat-043 design § 5.3).
     });
 
@@ -287,6 +287,8 @@ describe('mod-016 design § 2.3 Scenario: a refused write, then the codes are re
     const dialog = await screen.findByRole('dialog', { name: 'Новая команда' });
     const field = within(dialog).getByRole('textbox', { name: 'Название' });
     await userEvent.type(field, 'Омега');
+    await userEvent.click(within(dialog).getByRole('combobox', { name: /Департамент/ }));
+    await userEvent.click(await screen.findByRole('option', { name: 'Платформа' }));
     serveProblem('post', ORG_TEAMS_URL, problem('organizations.access.forbidden'), { once: true });
 
     await lockedAfterRefusal(dialog, 'Создать', field, 'Омега', page);

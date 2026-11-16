@@ -19,7 +19,7 @@ public sealed class TeamPermissionMatrixEndpointTests(MustaskApiFactory factory)
     private const string OrganizationNotFound = "organizations.organization.not_found";
 
     /// <summary>An organization with a project and two teams linked to it, a second project with no team, a team linked to nothing and one to delete.</summary>
-    private sealed record World(OrganizationStructure Structure, Mustask.Domain.Organizations.NewProject Bare, Mustask.Domain.Organizations.Team Free, Mustask.Domain.Organizations.Team Doomed)
+    private sealed record World(OrganizationStructure Structure, Mustask.Domain.Organizations.NewProject Bare, Mustask.Domain.Organizations.Team Free, Mustask.Domain.Organizations.Team Doomed, string Department)
     {
         public Guid OrganizationId => Structure.OrganizationId;
     }
@@ -31,7 +31,7 @@ public sealed class TeamPermissionMatrixEndpointTests(MustaskApiFactory factory)
         var free = await OrganizationsTestData.AddUnlinkedTeamAsync(factory, structure.OrganizationId, "Свободная");
         var doomed = await OrganizationsTestData.AddUnlinkedTeamAsync(factory, structure.OrganizationId, "Обречённая");
 
-        return new World(structure, bare, free, doomed);
+        return new World(structure, bare, free, doomed, (await OrganizationsTestData.DepartmentForTeamsAsync(factory, structure.OrganizationId)).ToString());
     }
 
     /// <summary>The nine operations: the request each sends and the status the administrator gets.</summary>
@@ -43,7 +43,7 @@ public sealed class TeamPermissionMatrixEndpointTests(MustaskApiFactory factory)
 
         return name switch
         {
-            "create team" => (HttpMethod.Post, OrganizationsApi.OrgTeams(org), new { name = "Новая команда" }, HttpStatusCode.Created),
+            "create team" => (HttpMethod.Post, OrganizationsApi.OrgTeams(org), new { name = "Новая команда", departmentId = world.Department }, HttpStatusCode.Created),
             "rename team" => (HttpMethod.Put, $"{Team(org, platform)}/name", new { name = "Платформа 2" }, HttpStatusCode.OK),
             "describe team" => (HttpMethod.Put, $"{Team(org, platform)}/description", new { description = "Описание" }, HttpStatusCode.OK),
             "delete team" => (HttpMethod.Delete, Team(org, world.Doomed.Id), null, HttpStatusCode.NoContent),
@@ -200,16 +200,16 @@ public sealed class TeamPermissionMatrixEndpointTests(MustaskApiFactory factory)
         var asMember = await OrganizationsApi.SendAsync(factory, HttpMethod.Post, path, everythingWrong, member.Token);
         var invalid = await OrganizationsApi.SendAsync(factory, HttpMethod.Post, path, everythingWrong, admin.Token);
         var unknownProject = await OrganizationsApi.SendAsync(
-            factory, HttpMethod.Post, path, new { name = "Новая", projectIds = new[] { Guid.CreateVersion7().ToString() }, memberIds = new[] { "nobody" } }, admin.Token);
+            factory, HttpMethod.Post, path, new { name = "Новая", departmentId = world.Department, projectIds = new[] { Guid.CreateVersion7().ToString() }, memberIds = new[] { "nobody" } }, admin.Token);
         var conflicts = await OrganizationsApi.SendAsync(
-            factory, HttpMethod.Post, path, new { name = "платформа", memberIds = new[] { "nobody" } }, admin.Token);
-        var nameOnly = await OrganizationsApi.SendAsync(factory, HttpMethod.Post, path, new { name = "платформа" }, admin.Token);
+            factory, HttpMethod.Post, path, new { name = "платформа", departmentId = world.Department, memberIds = new[] { "nobody" } }, admin.Token);
+        var nameOnly = await OrganizationsApi.SendAsync(factory, HttpMethod.Post, path, new { name = "платформа", departmentId = world.Department }, admin.Token);
 
         Assert.Equal(HttpStatusCode.Unauthorized, anonymous.Status);
         Assert.Equal((HttpStatusCode.NotFound, OrganizationNotFound), (outsider.Status, outsider.ErrorCode));
         Assert.Equal((HttpStatusCode.Forbidden, Forbidden), (asMember.Status, asMember.ErrorCode));
         Assert.Equal((HttpStatusCode.BadRequest, "organizations.validation_failed"), (invalid.Status, invalid.ErrorCode));
-        Assert.Equal(["description", "name"], PropertyNames(invalid.Body.GetProperty("errors")));
+        Assert.Equal(["departmentId", "description", "name"], PropertyNames(invalid.Body.GetProperty("errors")));
         Assert.Equal((HttpStatusCode.NotFound, "organizations.project.not_found"), (unknownProject.Status, unknownProject.ErrorCode));
         Assert.Equal((HttpStatusCode.Conflict, "organizations.team.member_not_in_organization"), (conflicts.Status, conflicts.ErrorCode));
         Assert.Equal((HttpStatusCode.Conflict, "organizations.team.name_taken"), (nameOnly.Status, nameOnly.ErrorCode));
@@ -229,7 +229,7 @@ public sealed class TeamPermissionMatrixEndpointTests(MustaskApiFactory factory)
             factory,
             HttpMethod.Post,
             path,
-            new { name = "С проектом и людьми", projectIds = new[] { world.Bare.Project.Id.ToString() }, memberIds = new[] { admin.Id } },
+            new { name = "С проектом и людьми", departmentId = world.Department, projectIds = new[] { world.Bare.Project.Id.ToString() }, memberIds = new[] { admin.Id } },
             admin.Token);
 
         Assert.Equal(HttpStatusCode.Created, answer.Status);

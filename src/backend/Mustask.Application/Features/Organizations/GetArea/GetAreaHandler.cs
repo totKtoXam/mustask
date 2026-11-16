@@ -19,13 +19,14 @@ public sealed record AreaPageResponse(
     string? Description,
     string Path,
     AreaRefResponse? Parent,
-    IReadOnlyList<AreaChildResponse> Children);
+    IReadOnlyList<AreaChildResponse> Children,
+    string? Color = null);
 
 /// <summary>The area's parent: its name and its path.</summary>
 public sealed record AreaRefResponse(Guid Id, string Name, string Path);
 
 /// <summary>A direct child of the area; a project's node carries the project's key and whether it is active (null on the other types).</summary>
-public sealed record AreaChildResponse(Guid Id, string Type, string Name, string? Description, string? ProjectKey, bool? ProjectActive);
+public sealed record AreaChildResponse(Guid Id, string Type, string Name, string? Description, string? ProjectKey, bool? ProjectActive, string? Color = null);
 
 /// <summary>The handler's outcome: the page.</summary>
 public sealed record GetAreaResult(AreaPageResponse Response);
@@ -59,7 +60,8 @@ public sealed class GetAreaHandler(IAreaTreeReadModel readModel, IOrganizationAc
         var children = tree.ChildrenOf(areaId)
             .Select(child => new AreaChildResponse(child.Id, AreaRequests.TypeName(child.Type), child.Name, byId[child.Id].Description,
                 child.Type == AreaType.Project ? byId[child.Id].ProjectKey : null,
-                child.Type == AreaType.Project ? byId[child.Id].ProjectActive : null))
+                child.Type == AreaType.Project ? byId[child.Id].ProjectActive : null,
+                byId[child.Id].Color))
             .ToList();
 
         // The caller's codes on this node, the node's switch (a department's is stored and never shown) and the department above a project node (mod-019 BR-SA-6, BR-SA-11).
@@ -78,6 +80,7 @@ public sealed class GetAreaHandler(IAreaTreeReadModel readModel, IOrganizationAc
                 row.Description,
                 tree.PathOf(areaId),
                 parent,
-                children));
+                children,
+                row.Color));
     }
 }

@@ -18,8 +18,10 @@ public sealed class AddTeamHandlerTests
     {
         public Fixture(OrganizationRole role = OrganizationRole.Admin)
         {
+            AreaRepository = new FakeAreaRepository(Store);
             Organization = Store.AddOrganization();
             Project = Store.AddProject(Organization).Project;
+            Department = Store.AddDepartment(Organization, "Разработка");
             Clock.UtcNow = new DateTimeOffset(2026, 10, 17, 3, 0, 0, TimeSpan.Zero);
             User.SubjectId = "admin-anna";
             Directory.Add("u-1", "Иван", "ivan@example.test", true);
@@ -30,8 +32,7 @@ public sealed class AddTeamHandlerTests
                 new FakeProjectRepository(Store),
                 new FakeTeamRepository(Store),
                 new FakeProjectTeamRepository(Store),
-                new FakeAreaRepository(Store),
-                new FakeAreaLinkRepository(Store),
+                AreaRepository,
                 new FakeTeamMembershipRepository(Store),
                 new FakeMemberReadModel(Store, Directory),
                 Directory,
@@ -53,6 +54,10 @@ public sealed class AddTeamHandlerTests
 
         public Project Project { get; }
 
+        public Area Department { get; }
+
+        public FakeAreaRepository AreaRepository { get; }
+
         public AddTeamHandler Handler { get; }
 
         public AddTeamCommand Command(
@@ -61,8 +66,8 @@ public sealed class AddTeamHandlerTests
             IReadOnlyList<string?>? memberIds = null,
             IReadOnlyList<string?>? projectIds = null,
             string? organizationId = null,
-            IReadOnlyList<string?>? areaIds = null) =>
-            new(organizationId ?? Organization.Id.ToString(), name, description, memberIds, projectIds, areaIds);
+            string? departmentId = "default") =>
+            new(organizationId ?? Organization.Id.ToString(), name, description, memberIds, projectIds, departmentId == "default" ? Department.Id.ToString() : departmentId);
 
         public Task<AddTeamResult> HandleAsync(AddTeamCommand command) => Handler.Handle(command, CancellationToken.None);
     }
@@ -237,15 +242,16 @@ public sealed class AddTeamHandlerTests
         Assert.Empty(f.Store.Teams);
     }
 
-    // plan-backend § 7.2 · the team is new and nothing binds to it: no lock, one flush.
+    // plan-backend: the tree lock, then the department FOR SHARE (ADR-0040 § 1), then one flush; the team itself is new and bound by nothing.
     [Fact]
-    public async Task Handle_LocksNothing_SavesOnce()
+    public async Task Handle_LocksTheTreeThenTheDepartment_SavesOnce()
     {
         var f = new Fixture();
 
         await f.HandleAsync(f.Command(projectIds: [f.Project.Id.ToString()]));
 
-        Assert.Equal(["save"], f.Store.Calls);
+        var calls = f.Store.Calls.Where(call => call.StartsWith("lock area", StringComparison.Ordinal) || call == "save").ToList();
+        Assert.Equal([$"lock area tree {f.Organization.Id}", $"lock area share {f.Department.Id}", "save"], calls);
     }
 
     // US-1 · "two creations of one name": the loser of the race hears the pre-check's 409 and stores nothing.
@@ -261,24 +267,114 @@ public sealed class AddTeamHandlerTests
         Assert.Empty(f.Store.Teams);
     }
 
-    // OQ-8 A · a team is created with departments linked in the same save; any other node refuses the whole request.
+    // mod-021 US-1 · BR-TD-1: the team stands in the department it was created in, and takes the colour the rule gives.
     [Fact]
-    public async Task Handle_Departments_AreLinked_AnyOtherNodeIsLinkTypeNotAllowed()
+    public async Task Handle_StandsInTheDepartment_WithTheFirstFreeColour()
     {
         var f = new Fixture();
-        var department = f.Store.AddDepartment(f.Organization, "Разработка");
-        var node = f.Store.RootOf(f.Project);
 
-        var refusal = await Assert.ThrowsAsync<ConflictException>(() =>
-            f.HandleAsync(f.Command(areaIds: [department.Id.ToString(), node.Id.ToString()])));
-        Assert.Equal(OrganizationErrorCodes.AreaLinkTypeNotAllowed, refusal.Code);
+        var result = await f.HandleAsync(f.Command());
+
+        var team = Assert.Single(f.Store.Teams);
+        Assert.Equal(f.Department.Id, team.DepartmentId);
+        Assert.Equal(f.Department.Id, result.Response.DepartmentId);
+        Assert.Equal("Разработка", result.Response.DepartmentName);
+        Assert.Equal(team.Color, result.Response.Color);
+        Assert.Equal("orange", team.Color);
+    }
+
+    // mod-021 US-1 · BR-TD-20: the department's own colour counts as used; the teams already there are too (blue department: orange, magenta, green).
+    [Fact]
+    public async Task Handle_Colours_FollowTheMaxHueDistanceRule_InTheDepartment()
+    {
+        var f = new Fixture();
+
+        var colours = new List<string>();
+
+        foreach (var name in new[] { "MARS", "VENUS", "JUPITER" })
+        {
+            colours.Add((await f.HandleAsync(f.Command(name: name))).Response.Color);
+        }
+
+        Assert.Equal(["orange", "magenta", "green"], colours);
+    }
+
+    // mod-021 US-1 · BR-TD-20: a colour is chosen within the department; another department's teams do not count, and a deleted team frees its colour.
+    [Fact]
+    public async Task Handle_OtherDepartmentsAndDeletedTeams_DoNotCount()
+    {
+        var f = new Fixture();
+        var other = f.Store.AddDepartment(f.Organization, "Продажи");
+        f.Store.AddTeam(f.Organization, "ELSEWHERE", other, "orange");
+        var gone = f.Store.AddTeam(f.Organization, "GONE", f.Department, "orange");
+        gone.Delete();
+
+        var result = await f.HandleAsync(f.Command());
+
+        Assert.Equal("orange", result.Response.Color);
+    }
+
+    // mod-021 US-1 · "the department is required": «Выберите департамент», with the other reasons, before anything is read.
+    [Fact]
+    public async Task Handle_WithoutADepartment_IsValidationFailed_OnTheDepartmentField()
+    {
+        var f = new Fixture();
+
+        var refusal = await Assert.ThrowsAsync<ValidationException>(() => f.HandleAsync(f.Command(departmentId: null)));
+
+        Assert.Equal(OrganizationErrorCodes.ValidationFailed, refusal.Code);
+        Assert.Equal(OrganizationErrorCodes.TeamDepartmentRequired, refusal.Errors["departmentId"].Single().Code);
         Assert.Empty(f.Store.Teams);
-        Assert.Empty(f.Store.AreaTeams);
+    }
 
-        var result = await f.HandleAsync(f.Command(areaIds: [department.Id.ToString()]));
+    // mod-021 US-1 · "a department that cannot hold it": malformed, unknown and foreign are 404, a project node and a sub-area are 409.
+    [Theory]
+    [InlineData("malformed")]
+    [InlineData("unknown")]
+    [InlineData("foreign")]
+    public async Task Handle_DepartmentNotOfTheOrganization_IsAreaNotFound_CreatesNothing(string how)
+    {
+        var f = new Fixture();
+        var foreign = f.Store.AddDepartment(f.Store.AddOrganization("Чужая"), "Чужой");
+        var id = how switch
+        {
+            "malformed" => "not-an-id",
+            "unknown" => Guid.CreateVersion7().ToString(),
+            _ => foreign.Id.ToString(),
+        };
 
-        Assert.Equal(department.Id, Assert.Single(f.Store.AreaTeams).AreaId);
-        Assert.Equal(result.Response.Id, f.Store.AreaTeams.Single().TeamId);
+        var refusal = await Assert.ThrowsAsync<NotFoundException>(() => f.HandleAsync(f.Command(departmentId: id)));
+
+        Assert.Equal(OrganizationErrorCodes.AreaNotFound, refusal.Code);
+        Assert.Empty(f.Store.Teams);
+    }
+
+    [Fact]
+    public async Task Handle_DepartmentVanishesAtTheLock_IsAreaNotFound_NotAServerError()
+    {
+        var f = new Fixture();
+        f.AreaRepository.VanishedAfterTheLock.Add(f.Department.Id);
+
+        var refusal = await Assert.ThrowsAsync<NotFoundException>(() => f.HandleAsync(f.Command()));
+
+        Assert.Equal(OrganizationErrorCodes.AreaNotFound, refusal.Code);
+        Assert.Empty(f.Store.Teams);
+    }
+
+    [Fact]
+    public async Task Handle_ProjectNodeOrSubArea_IsAreaTypeNotAllowed()
+    {
+        var f = new Fixture();
+        var node = f.Store.RootOf(f.Project);
+        var subArea = f.Store.AddArea(node, "Подраздел");
+
+        foreach (var id in new[] { node.Id, subArea.Id })
+        {
+            var refusal = await Assert.ThrowsAsync<ConflictException>(() => f.HandleAsync(f.Command(departmentId: id.ToString())));
+            Assert.Equal(OrganizationErrorCodes.AreaTypeNotAllowed, refusal.Code);
+        }
+
+        Assert.Empty(f.Store.Teams);
     }
 
     [Fact]

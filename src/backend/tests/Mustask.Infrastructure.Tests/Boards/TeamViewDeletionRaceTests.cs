@@ -82,6 +82,7 @@ public sealed class TeamViewDeletionRaceTests(OrganizationsDatabaseFixture datab
         services.AddApplication();
         services.AddOrganizationsInfrastructure();
         services.AddWorkItemsInfrastructure();
+        services.AddIterationsInfrastructure();
         services.AddBoardsInfrastructure();
 
         if (deleteBeforeTheRead is { } before)
@@ -110,6 +111,7 @@ public sealed class TeamViewDeletionRaceTests(OrganizationsDatabaseFixture datab
         services.AddScoped<IUserDirectory, UserDirectoryReadModel>();
         services.AddScoped<IProcessDefinitionReadModel, ProcessDefinitionReadModel>();
         services.AddWorkItemsInfrastructure();
+        services.AddIterationsInfrastructure();
         services.AddBoardsInfrastructure();
 
         await using var provider = services.BuildServiceProvider();

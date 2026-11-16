@@ -3,6 +3,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import { boardsPermissions } from '../features/boards';
+import { iterationsPermissions } from '../features/iterations';
 import { organizationsPermissions } from '../features/organizations';
 import { workItemsPermissions } from '../features/workitems';
 import {
@@ -25,6 +26,7 @@ const CONSTANTS: PermissionConstants = {
   organizationsPermissions,
   workItemsPermissions,
   boardsPermissions,
+  iterationsPermissions,
 };
 
 const SRC = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
@@ -58,11 +60,13 @@ const DEFINITIONS = [
   'features/organizations/permissions.ts',
   'features/workitems/permissions.ts',
   'features/boards/permissions.ts',
+  'features/iterations/permissions.ts',
 ];
 
 const o = 'features/organizations/';
 const w = 'features/workitems/';
 const b = 'features/boards/';
+const i = 'features/iterations/';
 const self = (file: string, marker: string) => [{ file, marker }];
 const cardHosts = [
   { file: `${w}components/WorkItemCardDialog.tsx`, marker: 'ProjectAccess' },
@@ -78,6 +82,10 @@ const SURFACES: Readonly<Record<string, SurfaceEntry>> = {
       { file: 'app/navigation/visibility.ts', marker: 'objectCodes' },
     ],
   },
+  [`${i}hooks/useSprintAccess.ts`]: {
+    why: 'a sprint page reads the manage code from the team own served codes (BR-SA-18)',
+    via: self(`${i}hooks/useSprintAccess.ts`, 'useObjectAccess'),
+  },
   [`${b}components/AggregateBacklogView.tsx`]: {
     why: 'a group is one project: its reorder is the project rows codes',
     via: self(`${b}components/AggregateBacklogView.tsx`, 'useProjectCodes'),
@@ -90,6 +98,10 @@ const SURFACES: Readonly<Record<string, SurfaceEntry>> = {
     why: 'a team board card is moved by its own project codes',
     via: self(`${b}components/BoardColumns.tsx`, 'useProjectCodes'),
   },
+  [`${b}hooks/useAggregateNewWorkItem.tsx`]: {
+    why: 'the aggregate board create offers the projects whose own codes hold the write (feat-060)',
+    via: self(`${b}hooks/useAggregateNewWorkItem.tsx`, 'useProjectCodes'),
+  },
   [`${b}hooks/useBoardAccess.ts`]: {
     why: 'the checks of a backlog: project rows codes and the team own read',
     via: self(`${b}hooks/useBoardAccess.ts`, 'useProjectCodes'),
@@ -100,10 +112,6 @@ const SURFACES: Readonly<Record<string, SurfaceEntry>> = {
       { file: `${o}pages/AreaPage.tsx`, marker: 'ObjectAccess' },
       { file: `${o}pages/AreasPage.tsx`, marker: 'ObjectAccess' },
     ],
-  },
-  [`${o}components/TeamDepartmentsSection.tsx`]: {
-    why: 'a section of the team page',
-    via: self(`${o}pages/TeamPage.tsx`, 'ObjectAccess'),
   },
   [`${o}components/TeamMembersSection.tsx`]: {
     why: 'a section of the team page',
@@ -118,11 +126,8 @@ const SURFACES: Readonly<Record<string, SurfaceEntry>> = {
     via: self(`${o}pages/AreaPage.tsx`, 'useObjectAccess'),
   },
   [`${o}pages/AreasPage.tsx`]: {
-    why: 'the tree writable ids, once; the role floor for the link of teams',
-    via: [
-      { file: `${o}pages/AreasPage.tsx`, marker: 'useWritableAreaIds' },
-      { file: `${o}pages/AreasPage.tsx`, marker: 'useRoleFloor' },
-    ],
+    why: 'the tree writable ids, once',
+    via: self(`${o}pages/AreasPage.tsx`, 'useWritableAreaIds'),
   },
   [`${o}pages/OrganizationTeamsPage.tsx`]: {
     why: 'team rows carry no codes: the role floor',

@@ -21,13 +21,10 @@ public sealed class CreateAreaHandlerTests
             Organization = Store.AddOrganization();
             Project = Store.AddProject(Organization).Project;
             Node = Store.RootOf(Project);
-            Platform = Store.AddTeam(Organization);
             Handler = new CreateAreaHandler(
                 new FakeOrganizationReadModel(Store),
                 new FakeProjectRepository(Store),
-                new FakeTeamRepository(Store),
                 Areas,
-                new FakeAreaLinkRepository(Store),
                 new FakeOrganizationAccess(role),
                 new FakeCurrentUser(),
                 new FakeClock(),
@@ -43,8 +40,6 @@ public sealed class CreateAreaHandlerTests
         /// <summary>The project's node.</summary>
         public Area Node { get; }
 
-        public Team Platform { get; }
-
         public FakeAreaRepository Areas { get; }
 
         public CreateAreaHandler Handler { get; }
@@ -53,11 +48,27 @@ public sealed class CreateAreaHandlerTests
             string? name = "Отчёты",
             string? parentId = null,
             string? organizationId = null,
-            string? description = null,
-            IReadOnlyList<string?>? teamIds = null) =>
-            new(organizationId ?? Organization.Id.ToString(), name, parentId, description, teamIds);
+            string? description = null) =>
+            new(organizationId ?? Organization.Id.ToString(), name, parentId, description);
 
         public Task<CreateAreaResult> HandleAsync(CreateAreaCommand command) => Handler.Handle(command, CancellationToken.None);
+    }
+
+    // mod-021 US-1 · BR-TD-20: departments take blue, then the farthest from the ones in use (orange, magenta); a sub-area has none.
+    [Fact]
+    public async Task Handle_Departments_TakeColoursByTheMaxHueDistanceRule_SubAreasNone()
+    {
+        var f = new Fixture();
+
+        var first = await f.HandleAsync(f.Command(name: "Первый"));
+        var second = await f.HandleAsync(f.Command(name: "Второй"));
+        var third = await f.HandleAsync(f.Command(name: "Третий"));
+        var sub = await f.HandleAsync(f.Command(name: "Подраздел", parentId: f.Node.Id.ToString()));
+
+        Assert.Equal("blue", first.Response.Color);
+        Assert.Equal("orange", second.Response.Color);
+        Assert.Equal("magenta", third.Response.Color);
+        Assert.Null(sub.Response.Color);
     }
 
     // US-1 · a department at the top; a sub-area under a project's node, then under that sub-area; the path is the names joined.
@@ -70,7 +81,7 @@ public sealed class CreateAreaHandlerTests
         var quarterly = await f.HandleAsync(f.Command(name: "Квартальные", parentId: f.Node.Id.ToString()));
         var deeper = await f.HandleAsync(f.Command(name: "Q1", parentId: quarterly.Response.Id.ToString()));
 
-        Assert.Equal(new AreaResponse(department.Response.Id, null, "department", null, "Разработка", "Всё про разработку", "Разработка"), department.Response);
+        Assert.Equal(new AreaResponse(department.Response.Id, null, "department", null, "Разработка", "Всё про разработку", "Разработка", "blue"), department.Response);
         Assert.Equal(("area", f.Project.Id, f.Node.Id, "Пример проекта / Квартальные"), (quarterly.Response.Type, quarterly.Response.ProjectId, quarterly.Response.ParentId, quarterly.Response.Path));
         Assert.Equal((f.Project.Id, "Пример проекта / Квартальные / Q1"), (deeper.Response.ProjectId, deeper.Response.Path));
         Assert.Equal(4, f.Store.Areas.Count);
@@ -87,33 +98,6 @@ public sealed class CreateAreaHandlerTests
 
         Assert.Equal(OrganizationErrorCodes.AreaTypeNotAllowed, refusal.Code);
         Assert.Equal(0, f.Store.SaveCount);
-    }
-
-    // US-4 · "A department is created with its teams at once": all stored in the same save (OQ-8 A: a department only).
-    [Fact]
-    public async Task Handle_DepartmentWithTeams_StoresTheLinksInTheSameSave()
-    {
-        var f = new Fixture();
-
-        var created = await f.HandleAsync(f.Command(teamIds: [f.Platform.Id.ToString()]));
-
-        Assert.Equal(created.Response.Id, Assert.Single(f.Store.AreaTeams).AreaId);
-        Assert.Equal(f.Platform.Id, f.Store.AreaTeams.Single().TeamId);
-        Assert.Equal(1, f.Store.SaveCount);
-    }
-
-    // OQ-8 A · teams named for a sub-area: link_type_not_allowed, nothing created.
-    [Fact]
-    public async Task Handle_SubAreaWithTeams_IsLinkTypeNotAllowed_NothingStored()
-    {
-        var f = new Fixture();
-
-        var refusal = await Assert.ThrowsAsync<ConflictException>(() => f.HandleAsync(
-            f.Command(parentId: f.Node.Id.ToString(), teamIds: [f.Platform.Id.ToString()])));
-
-        Assert.Equal(OrganizationErrorCodes.AreaLinkTypeNotAllowed, refusal.Code);
-        Assert.Single(f.Store.Areas);
-        Assert.Empty(f.Store.AreaTeams);
     }
 
     // BR-AW-15 step 1: behind the filter the organization is well formed; an unknown or deactivated one is 404.
@@ -157,16 +141,6 @@ public sealed class CreateAreaHandlerTests
         Assert.Empty(f.Store.Calls);
     }
 
-    // BR-AW-15 step 3 before 4: the body's values answer before the other ids of the body are judged.
-    [Fact]
-    public async Task Handle_InvalidNameAndUnknownTeam_AnswersTheNameFirst()
-    {
-        var f = new Fixture();
-
-        await Assert.ThrowsAsync<ValidationException>(() => f.HandleAsync(
-            f.Command(name: "", teamIds: [Guid.CreateVersion7().ToString()])));
-    }
-
     // US-1 · a parent that is malformed, unknown or of another organization is «Область не найдена».
     [Theory]
     [InlineData("malformed")]
@@ -200,24 +174,6 @@ public sealed class CreateAreaHandlerTests
 
         Assert.Equal(OrganizationErrorCodes.ProjectNotFound, refusal.Code);
         Assert.Equal(0, f.Store.SaveCount);
-    }
-
-    // US-4 · a team that is unknown or deleted is 404, and nothing is created.
-    [Theory]
-    [InlineData("unknown team")]
-    [InlineData("deleted team")]
-    public async Task Handle_TeamNotUsable_Is404_AndNothingIsStored(string how)
-    {
-        var f = new Fixture();
-        var team = f.Store.AddTeam(f.Organization, "Вторая");
-        team.Delete();
-        var named = how == "unknown team" ? Guid.CreateVersion7() : team.Id;
-
-        var refusal = await Assert.ThrowsAsync<NotFoundException>(() => f.HandleAsync(f.Command(teamIds: [named.ToString()])));
-
-        Assert.Equal(OrganizationErrorCodes.TeamNotFound, refusal.Code);
-        Assert.Single(f.Store.Areas);
-        Assert.Empty(f.Store.AreaTeams);
     }
 
     // OQ-12 A · one name space per level: a department cannot take a project node's name at the top; per parent below.
@@ -282,7 +238,6 @@ public sealed class CreateAreaHandlerTests
 
         Assert.Equal(OrganizationErrorCodes.AccessForbidden, refusal.Code);
         Assert.Equal(admin.Node.Id, created.Response.ParentId);
-        Assert.Empty(member.Store.AreaTeams);
     }
 
     // ADR-0031: the tree, then the parent, then the teams, then one save.
@@ -294,16 +249,6 @@ public sealed class CreateAreaHandlerTests
         await f.HandleAsync(f.Command(name: "Квартальные", parentId: f.Node.Id.ToString()));
 
         Assert.Equal([$"lock area tree {f.Organization.Id}", $"lock area share {f.Node.Id}", "save"], f.Store.Calls);
-    }
-
-    [Fact]
-    public async Task Handle_DepartmentWithTeams_LockOrder_TreeThenTeams()
-    {
-        var f = new Fixture();
-
-        await f.HandleAsync(f.Command(teamIds: [f.Platform.Id.ToString()]));
-
-        Assert.Equal([$"lock area tree {f.Organization.Id}", $"lock teams share {f.Platform.Id}", "save"], f.Store.Calls);
     }
 
     // ADR-0028 A-9: a parent seen by the unlocked read but absent from the lock statement's answer is 404, never a later read.

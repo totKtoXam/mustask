@@ -2,6 +2,7 @@ import { useLocation } from 'react-router-dom';
 import Box from '@mui/material/Box';
 import UnfoldLessIcon from '@mui/icons-material/UnfoldLess';
 import { PageHeader, Tag } from '../../../shared/ui';
+import type { Command } from '../../../shared/ui/PageHeader';
 import type { Grouping } from '../api/aggregateApi';
 import { aggregateTexts } from '../lib/aggregateTexts';
 import type { BoardLevelCode } from '../lib/levels';
@@ -21,6 +22,7 @@ export function AggregateHeader({
   grouping,
   onGrouping,
   onCollapseAll,
+  primaryAction,
 }: {
   title: string;
   narrowed?: string;
@@ -31,6 +33,8 @@ export function AggregateHeader({
   onGrouping(next: Grouping): void;
   /** Absent when nothing is grouped. */
   onCollapseAll?: () => void;
+  /** The board's «Новый рабочий элемент» (feat-060); absent on the other views. */
+  primaryAction?: Command;
 }) {
   const { pathname, search } = useLocation();
   return (
@@ -39,6 +43,7 @@ export function AggregateHeader({
       title={title}
       documentTitle={title}
       titleControl={narrowed ? <Tag label={narrowed} /> : undefined}
+      primaryAction={primaryAction}
       commands={
         onCollapseAll
           ? [

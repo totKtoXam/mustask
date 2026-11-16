@@ -17,8 +17,8 @@ const VENUS = 'team-venus';
 const OFFERS: WorkContextOffers = {
   departments: [],
   teams: [
-    { id: MARS, name: 'MARS', isMember: true, departmentIds: [] },
-    { id: VENUS, name: 'VENUS', isMember: false, departmentIds: [] },
+    { id: MARS, name: 'MARS', isMember: true, departmentId: 'd1' },
+    { id: VENUS, name: 'VENUS', isMember: false, departmentId: 'd1' },
   ],
   projects: [],
 };

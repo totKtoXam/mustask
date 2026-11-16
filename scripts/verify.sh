@@ -768,6 +768,19 @@ if [ "$need_shell" = 1 ]; then
         fi
     fi
 
+    # Release notes from merged PRs (tech-069).
+    touches_notes=0
+    for file in $changed; do
+        case "$file" in scripts/release-notes.sh|scripts/tests/release-notes-cases.sh) touches_notes=1 ;; esac
+    done
+    if [ "$touches_notes" = 1 ]; then
+        if sh scripts/tests/release-notes-cases.sh; then
+            pass "release-notes.sh: cases"
+        else
+            fail "release-notes.sh: cases"
+        fi
+    fi
+
     # The comparison base and an aborted test run (tech-044): the cases run a
     # nested verify.sh in a throwaway repository with stubs for dotnet, docker
     # and npm.
@@ -838,7 +851,7 @@ if [ "$need_shell$need_ci" != 00 ]; then
     touches_cd=0
     for file in $changed; do
         case "$file" in
-            deploy/vm/mustask-cd.sh|deploy/vm/runner-setup.sh|deploy/vm/runner-job-guard.sh|scripts/tests/cd-runner-cases.sh|.github/workflows/*)
+            deploy/vm/mustask-cd.sh|deploy/vm/runner-setup.sh|deploy/vm/runner-job-guard.sh|deploy/vm/smoke.sh|scripts/tests/cd-runner-cases.sh|.github/workflows/*)
                 touches_cd=1 ;;
         esac
     done

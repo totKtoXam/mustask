@@ -152,28 +152,6 @@ internal sealed class OrganizationStructure(MustaskDbContext context) : IOrganiz
         return tree.Rows.TryGetValue(areaId, out var row) ? ToInfo(organizationId, row, tree.Tree) : null;
     }
 
-    public async Task<IReadOnlyList<AreaInfo>> ListAreasOfTeamAsync(Guid organizationId, Guid teamId, CancellationToken cancellationToken)
-    {
-        var ids = await context.AreaTeams
-            .AsNoTracking()
-            .Where(link => link.OrganizationId == organizationId && link.TeamId == teamId)
-            .Select(link => link.AreaId)
-            .ToListAsync(cancellationToken);
-
-        if (ids.Count == 0)
-        {
-            return [];
-        }
-
-        var loaded = await LoadTreeAsync(organizationId, cancellationToken);
-        var wanted = ids.ToHashSet();
-
-        return loaded.Tree.PreOrder()
-            .Where(node => wanted.Contains(node.Id))
-            .Select(node => ToInfo(organizationId, loaded.Rows[node.Id], loaded.Tree))
-            .ToList();
-    }
-
     private async Task<(Dictionary<Guid, AreaRow> Rows, AreaTree Tree)> LoadTreeAsync(Guid organizationId, CancellationToken cancellationToken)
     {
         var rows = await context.Areas

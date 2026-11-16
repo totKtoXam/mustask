@@ -12,6 +12,10 @@ namespace Mustask.Application.Features.Organizations.AddTeam;
 /// The people to put in the team, as sent: each must be an active member of this organization, known to the user directory and
 /// active there. Absent and <c>null</c> are empty; duplicates collapse.
 /// </param>
+/// <param name="DepartmentId">
+/// The department the team stands in (doc-016 BR-TD-1), as sent: required; an active department of this organization (type
+/// <c>Department</c>).
+/// </param>
 /// <param name="ProjectIds">
 /// The projects to link the team to, as sent: each must be an active project of this organization. Absent and <c>null</c> are
 /// empty; duplicates collapse.
@@ -22,4 +26,4 @@ public sealed record AddTeamCommand(
     string? Description,
     IReadOnlyList<string?>? MemberIds,
     IReadOnlyList<string?>? ProjectIds,
-    IReadOnlyList<string?>? AreaIds = null);
+    string? DepartmentId = null);

@@ -48,6 +48,8 @@ export interface Project {
   department?: { id: string; name: string } | null;
   /** mod-019 api-contract § 3: the node's «Наследовать доступ»; `null` for a department and for a project with no department. */
   inheritsAccess?: boolean | null;
+  /** mod-021 api-contract § 3: the stored palette key (doc-016 BR-TD-20). */
+  color?: string;
 }
 
 /**
@@ -68,7 +70,18 @@ export interface Team {
    * until the server serves them; the panel reads every non-organization code from here (BR-SA-18).
    */
   codes?: string[] | null;
+  /** mod-021 api-contract § 3: the department the team stands in (BR-TD-1). */
+  departmentId: string;
+  /** mod-021 api-contract § 3: that department's name; the name and description writes do not carry it. */
+  departmentName?: string;
+  /** mod-021 api-contract § 3: the stored palette key (doc-016 BR-TD-20). */
+  color: string;
 }
+
+/** mod-021 api-contract § 2: what a team's creation and its move return. */
+export type TeamPlace = Pick<Team, 'id' | 'name' | 'description' | 'departmentId' | 'color'> & {
+  departmentName: string;
+};
 
 /** feat-028 api-contract § 1.2: a project in the organization's list of teams (active projects only). */
 export interface TeamListProject {
@@ -105,6 +118,8 @@ export interface ProjectTeam {
   isMember: boolean;
   /** mod-019 api-contract § 4: whether the caller holds what the unlink needs; the unlink route decides. */
   canUnlink?: boolean;
+  /** mod-021 api-contract § 3: the stored palette key. */
+  color?: string;
 }
 
 /** mod-018 api-contract: one row of the read-only team list of a project. */
@@ -138,8 +153,8 @@ export interface CreateTeamBody {
   description?: string;
   memberIds?: string[];
   projectIds?: string[];
-  /** mod-018 api-contract § 5: departments only. */
-  areaIds?: string[];
+  /** mod-021 api-contract § 3: the department the team stands in; required (BR-TD-1). */
+  departmentId: string;
 }
 
 /** feat-028 api-contract § 2.4: the creation of a project. */
@@ -173,6 +188,8 @@ export interface AreaNode {
   depth: number;
   /** mod-019 api-contract § 3: `null` for a department. */
   inheritsAccess?: boolean | null;
+  /** mod-021 api-contract § 3: a department's own key, a project node's project key, `null` for a sub-area. */
+  color?: string | null;
 }
 
 /** mod-018 api-contract § 2: what create, rename, describe and move return. */
@@ -184,15 +201,8 @@ export interface Area {
   name: string;
   description: string | null;
   path: string;
-}
-
-/** mod-018 api-contract § 2: a department as a team's page lists it. */
-export interface TeamArea {
-  id: string;
-  name: string;
-  path: string;
-  /** mod-019 api-contract § 4: whether the caller holds what the unlink needs; the unlink route decides. */
-  canUnlink?: boolean;
+  /** mod-021 api-contract § 3: a department's colour, `null` for a sub-area. */
+  color?: string | null;
 }
 
 /** mod-018 api-contract § 2: a node's own page: its parent and its direct children. */
@@ -215,6 +225,8 @@ export interface AreaPage {
   department?: { id: string; name: string } | null;
   /** mod-019 api-contract § 3: the node's «Наследовать доступ»; `null` for a department and for a project with no department. */
   inheritsAccess?: boolean | null;
+  /** mod-021 api-contract § 3. */
+  color?: string | null;
   children: {
     id: string;
     type: AreaType;
@@ -223,14 +235,15 @@ export interface AreaPage {
     /** Project nodes only (api-contract § 2): the department page's «Ключ» and its tag. */
     projectKey: string | null;
     projectActive: boolean | null;
+    color?: string | null;
   }[];
 }
 
-export interface LinkedTeam {
+/** mod-021 api-contract § 3: an active team standing in the department. */
+export interface DepartmentTeam {
   id: string;
   name: string;
-  /** mod-019 api-contract § 4: whether the caller holds what the unlink needs; the unlink route decides. */
-  canUnlink?: boolean;
+  color?: string;
 }
 
 /** mod-018 api-contract § 2: what a department's deletion would end. */
@@ -243,7 +256,6 @@ export interface CreateAreaBody {
   name: string;
   parentId?: string;
   description?: string;
-  teamIds?: string[];
 }
 
 /** A list's status tab (§ 1.1/§ 1.2, § 2.1/§ 2.2). */
@@ -373,7 +385,7 @@ export function getOrganizationTeams(
 }
 
 /** § 2.1: one transaction — the team, its members and its links; nothing is created on a refusal. */
-export function createTeam(organizationId: string, body: CreateTeamBody): Promise<Team> {
+export function createTeam(organizationId: string, body: CreateTeamBody): Promise<TeamPlace> {
   return apiFetch(`${organizationApiPath(organizationId)}/teams`, { method: 'POST', body });
 }
 
@@ -551,55 +563,21 @@ export function getAreaDeletion(organizationId: string, areaId: string): Promise
   return apiFetch(`${areaApiPath(organizationId, areaId)}/deletion`);
 }
 
-/** § 3: a department's linked teams (the other types answer an empty list). */
-export function getAreaTeams(organizationId: string, areaId: string): Promise<LinkedTeam[]> {
+/** mod-021 api-contract § 3: the active teams standing in a department (the other types answer an empty list). */
+export function getAreaTeams(organizationId: string, areaId: string): Promise<DepartmentTeam[]> {
   return apiFetch(`${areaApiPath(organizationId, areaId)}/teams`);
 }
 
-export function linkTeamsToArea(
-  organizationId: string,
-  areaId: string,
-  teamIds: readonly string[],
-): Promise<void> {
-  return apiFetch(`${areaApiPath(organizationId, areaId)}/teams`, {
-    method: 'POST',
-    body: { teamIds },
-  });
-}
+// mod-021 § 2: the team's place
 
-export function unlinkTeamFromArea(
-  organizationId: string,
-  areaId: string,
-  teamId: string,
-): Promise<void> {
-  return apiFetch(`${areaApiPath(organizationId, areaId)}/teams/${segment(teamId)}`, {
-    method: 'DELETE',
-  });
-}
-
-// § 5 The team's end: the departments it is linked to
-
-export function getTeamAreas(organizationId: string, teamId: string): Promise<TeamArea[]> {
-  return apiFetch(`${teamApiPath(organizationId, teamId)}/areas`);
-}
-
-export function linkAreasToTeam(
+/** mod-021 api-contract § 2: 200 `TeamPlace`; 409 `organizations.team.has_links` while linked to a project. */
+export function moveTeam(
   organizationId: string,
   teamId: string,
-  areaIds: readonly string[],
-): Promise<void> {
-  return apiFetch(`${teamApiPath(organizationId, teamId)}/areas`, {
-    method: 'POST',
-    body: { areaIds },
-  });
-}
-
-export function unlinkAreaFromTeam(
-  organizationId: string,
-  teamId: string,
-  areaId: string,
-): Promise<void> {
-  return apiFetch(`${teamApiPath(organizationId, teamId)}/areas/${segment(areaId)}`, {
-    method: 'DELETE',
+  departmentId: string,
+): Promise<TeamPlace> {
+  return apiFetch(`${teamApiPath(organizationId, teamId)}/department`, {
+    method: 'PUT',
+    body: { departmentId },
   });
 }

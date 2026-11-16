@@ -80,7 +80,7 @@ export interface WorkContextOffers {
     id: string;
     name: string;
     isMember: boolean;
-    departmentIds: readonly string[];
+    departmentId: string;
   }[];
 }
 

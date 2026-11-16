@@ -1,5 +1,9 @@
 import { ApiError } from '../../../shared/api/httpClient';
-import { organizationErrorCodes, workItemErrorCodes } from '../../../shared/api/errorCodes';
+import {
+  iterationErrorCodes,
+  organizationErrorCodes,
+  workItemErrorCodes,
+} from '../../../shared/api/errorCodes';
 import { apiErrorText } from '../../../shared/lib/apiErrorText';
 import type { WorkItemFieldName } from '../api/workItemsApi';
 import { WORK_ITEM_FIELD_NAMES } from './fields';
@@ -16,6 +20,7 @@ export type RefusalField =
   | 'assignee'
   | 'area'
   | 'team'
+  | 'sprint'
   | 'project'
   | 'parent'
   | WorkItemFieldName;
@@ -45,6 +50,11 @@ const FIELD_OF_CODE: Readonly<Record<string, RefusalField>> = {
   // mod-017 api-contract § 0.2: on an item write the team is a body reference, not a path: field errors.
   [organizationErrorCodes.teamNotFound]: 'team',
   [organizationErrorCodes.teamNotInProject]: 'team',
+  // mod-007 api-contract § 3: the item's sprint, a body reference like the team, never a frame.
+  [iterationErrorCodes.otherTeam]: 'sprint',
+  [iterationErrorCodes.teamRequired]: 'sprint',
+  [iterationErrorCodes.closedTarget]: 'sprint',
+  [iterationErrorCodes.notFound]: 'sprint',
   [workItemErrorCodes.linkParentNotFound]: 'parent',
   [workItemErrorCodes.linkParentLevelNotAllowed]: 'parent',
   [workItemErrorCodes.linkSelfParent]: 'parent',
@@ -156,4 +166,9 @@ export function placeRefusal(error: unknown, fields: readonly RefusalField[]): P
     return { fields: { [field]: apiErrorText(error) }, alert: null, frame: null };
   }
   return { fields: {}, alert: apiErrorText(error), frame: null };
+}
+
+/** mod-007 US-4: the chosen sprint is gone — the card drops the pick and reads the sprints again. */
+export function isSprintGone(error: unknown): boolean {
+  return error instanceof ApiError && error.errorCode === iterationErrorCodes.notFound;
 }

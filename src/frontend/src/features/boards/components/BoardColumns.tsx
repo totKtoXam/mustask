@@ -50,6 +50,7 @@ import type { BoardLevelCode } from '../lib/levels';
 import type { ChecklistKind } from '../lib/checklist';
 import { isAccessRefusal, moveRefusalNotice } from '../lib/refusals';
 import type { BoardScope } from '../lib/scope';
+import { cardStripeSx, columnStripeSx } from './boardStripes';
 import { CardChecklists } from './CardChecklists';
 
 /** spec § Page «Доски»: the button at the top of the first column. */
@@ -351,9 +352,7 @@ export function BoardColumns({
                 display: 'flex',
                 flexDirection: 'column',
                 gap: 1,
-                // The column's status category as a stripe on top, in the colour of the
-                // category dots the backlog and the card draw (the code is never shown).
-                borderTop: `${theme.spacing(0.5)} solid ${theme.workTracking.categoryColour(column.category.code)}`,
+                ...columnStripeSx(theme, column.category.code),
               }),
               ...(isDropArea ? [dropAreaSx(drag?.over === column.key)] : []),
             ]}
@@ -519,7 +518,7 @@ const BoardCard = memo(function BoardCard({
         flexDirection: 'column',
         gap: 0.5,
         cursor: saving || !canWrite ? 'default' : 'grab',
-        borderLeft: `${theme.spacing(0.5)} solid ${theme.workTracking.typeAppearance(card.type.appearance).colour}`,
+        ...cardStripeSx(theme, card.type.appearance),
       })}
     >
       <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1 }}>

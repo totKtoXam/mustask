@@ -67,12 +67,14 @@ internal sealed class WorkItemTeamOwnership(MustaskDbContext context) : IWorkIte
             return 0;
         }
 
+        // The caller has locked the team's open sprints (ISprintRepository.LockOpenAsync, ADR-0028 rule 7) after the hierarchy locks and
+        // before the items, so clearing sprint_id here queues behind a close and is seen by it.
         // The destination is written as a nullable parameter: «Без команды» is NULL, and the owner key is MATCH SIMPLE, so a null
         // owner leaves it unchecked. A destination is a team linked to the item's project (the caller holds that link locked).
         return await context.Database.ExecuteSqlInterpolatedAsync(
             $"""
              UPDATE work_items
-             SET owning_team_id = {destinationTeamId}, changed_at = {now}
+             SET owning_team_id = {destinationTeamId}, sprint_id = NULL, changed_at = {now}
              WHERE project_id = ANY({owned.ProjectIds}) AND owning_team_id = {owned.TeamId}
              """,
             cancellationToken);

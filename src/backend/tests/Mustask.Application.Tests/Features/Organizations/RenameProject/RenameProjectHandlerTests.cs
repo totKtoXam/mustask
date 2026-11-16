@@ -71,6 +71,9 @@ public sealed class RenameProjectHandlerTests
         public Task<ProjectStatus?> FindNameHolderAsync(Guid organizationId, string normalizedName, Guid? exceptId, CancellationToken cancellationToken) =>
             inner.FindNameHolderAsync(organizationId, normalizedName, exceptId, cancellationToken);
 
+        public Task<IReadOnlyList<string>> ListActiveColorsAsync(Guid organizationId, Guid? departmentId, CancellationToken cancellationToken) =>
+            inner.ListActiveColorsAsync(organizationId, departmentId, cancellationToken);
+
         public Task<bool> IsKeyTakenAsync(Guid organizationId, string key, CancellationToken cancellationToken) =>
             inner.IsKeyTakenAsync(organizationId, key, cancellationToken);
 
@@ -110,7 +113,7 @@ public sealed class RenameProjectHandlerTests
 
         var result = await f.HandleAsync(f.Command(" Платформа данных "));
 
-        Assert.Equal(new ProjectResponse(f.Project.Project.Id, f.Organization.Id, "Платформа данных", "PRM", null), result.Response);
+        Assert.Equal(new ProjectResponse(f.Project.Project.Id, f.Organization.Id, "Платформа данных", "PRM", null, "blue"), result.Response);
         Assert.Equal("Платформа данных", f.Project.Project.Name);
         Assert.Equal("ПЛАТФОРМА ДАННЫХ", f.Project.Project.NormalizedName);
         Assert.Equal("PRM", f.Project.Project.Key);

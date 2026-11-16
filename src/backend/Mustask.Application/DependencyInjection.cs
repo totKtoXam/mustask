@@ -16,12 +16,7 @@ using Mustask.Application.Features.Organizations.GetArea;
 using Mustask.Application.Features.Organizations.SetAreaDescription;
 using Mustask.Application.Features.Organizations.GetAreaDeletion;
 using Mustask.Application.Features.Organizations.GetAreaTeams;
-using Mustask.Application.Features.Organizations.LinkTeamsToArea;
-using Mustask.Application.Features.Organizations.UnlinkTeamFromArea;
 using Mustask.Application.Features.Organizations.GetProjectAreas;
-using Mustask.Application.Features.Organizations.GetTeamAreas;
-using Mustask.Application.Features.Organizations.LinkAreasToTeam;
-using Mustask.Application.Features.Organizations.UnlinkAreaFromTeam;
 using Mustask.Application.Features.Organizations.CreateArea;
 using Mustask.Application.Features.Organizations.CreateOrganization;
 using Mustask.Application.Features.Organizations.CreateProject;
@@ -55,6 +50,7 @@ using Mustask.Application.Features.Organizations.GetTeamProjects;
 using Mustask.Application.Features.Organizations.GetProjectTeamLinks;
 using Mustask.Application.Features.Organizations.GetTeams;
 using Mustask.Application.Features.Organizations.MoveArea;
+using Mustask.Application.Features.Organizations.MoveTeam;
 using Mustask.Application.Features.Organizations.RemoveMember;
 using Mustask.Application.Features.Organizations.LinkProjectsToTeam;
 using Mustask.Application.Features.Organizations.LinkTeamsToProject;
@@ -157,17 +153,13 @@ public static class DependencyInjection
         services.AddScoped<CreateAreaHandler>();
         services.AddScoped<RenameAreaHandler>();
         services.AddScoped<MoveAreaHandler>();
+        services.AddScoped<MoveTeamHandler>();
         services.AddScoped<DeleteAreaHandler>();
         services.AddScoped<GetAreaHandler>();
         services.AddScoped<SetAreaDescriptionHandler>();
         services.AddScoped<GetAreaDeletionHandler>();
         services.AddScoped<GetAreaTeamsHandler>();
-        services.AddScoped<LinkTeamsToAreaHandler>();
-        services.AddScoped<UnlinkTeamFromAreaHandler>();
         services.AddScoped<GetProjectAreasHandler>();
-        services.AddScoped<GetTeamAreasHandler>();
-        services.AddScoped<LinkAreasToTeamHandler>();
-        services.AddScoped<UnlinkAreaFromTeamHandler>();
 
         // Organization access (mod-016): one handler per route of MembershipEndpoints.cs.
         services.AddScoped<GetOrganizationAccessHandler>();
@@ -233,6 +225,19 @@ public static class DependencyInjection
         services.AddScoped<Mustask.Application.Features.Boards.GetWorkItemGroupRows.GetWorkItemGroupRowsHandler>();
         services.AddScoped<Mustask.Application.Features.WorkItems.GetOrganizationWorkItems.GetOrganizationWorkItemsHandler>();
         services.AddScoped<Mustask.Application.Features.WorkItems.GetOrganizationAssigneeOptions.GetOrganizationAssigneeOptionsHandler>();
+
+        // Iterations (mod-007): one handler per route of IterationsEndpoints.cs.
+        services.AddScoped<Mustask.Application.Features.Iterations.CreateSprint.CreateSprintHandler>();
+        services.AddScoped<Mustask.Application.Features.Iterations.UpdateSprint.UpdateSprintHandler>();
+        services.AddScoped<Mustask.Application.Features.Iterations.StartSprint.StartSprintHandler>();
+        services.AddScoped<Mustask.Application.Features.Iterations.RemoveSprint.RemoveSprintHandler>();
+        services.AddScoped<Mustask.Application.Features.Iterations.CloseSprint.CloseSprintHandler>();
+        services.AddScoped<Mustask.Application.Features.Iterations.GetSprints.GetSprintsHandler>();
+        services.AddScoped<Mustask.Application.Features.Iterations.GetCloseSprintPreview.GetCloseSprintPreviewHandler>();
+        services.AddScoped<Mustask.Application.Features.Iterations.GetSprint.GetSprintHandler>();
+        services.AddScoped<Mustask.Application.Features.Iterations.GetSprintDynamics.GetSprintDynamicsHandler>();
+        services.AddScoped<Mustask.Application.Features.Iterations.GetSprintParticipants.GetSprintParticipantsHandler>();
+        services.AddScoped<Mustask.Application.Features.Iterations.GetSprintOutcomeItems.GetSprintOutcomeItemsHandler>();
 
         return services;
     }

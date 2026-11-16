@@ -206,6 +206,8 @@ public sealed class OrganizationContainmentTests(MustaskApiFactory factory)
         var before = await StateAsync(world.B);
         var aBefore = await StateAsync(a);
         var unknown = Guid.CreateVersion7().ToString();
+        var department = (await OrganizationsTestData.DepartmentForTeamsAsync(factory, Guid.Parse(a.OrganizationId))).ToString();
+        var foreignDepartment = (await OrganizationsTestData.DepartmentForTeamsAsync(factory, world.B.World.OrganizationId)).ToString();
 
         async Task<Answer> SendAsync(HttpMethod method, string path, object body) =>
             await OrganizationsApi.SendAsync(factory, method, path, body, world.Token);
@@ -230,12 +232,16 @@ public sealed class OrganizationContainmentTests(MustaskApiFactory factory)
                 await SendAsync(HttpMethod.Post, $"{organization}/teams/{a.TeamId}/projects", new { projectIds = new[] { unknown } })),
             (
                 "a new team's project",
-                await SendAsync(HttpMethod.Post, $"{organization}/teams", new { name = "Команда с чужим проектом", projectIds = new[] { world.B.World.ProjectId.ToString() } }),
-                await SendAsync(HttpMethod.Post, $"{organization}/teams", new { name = "Команда с чужим проектом", projectIds = new[] { unknown } })),
+                await SendAsync(HttpMethod.Post, $"{organization}/teams", new { name = "Команда с чужим проектом", departmentId = department, projectIds = new[] { world.B.World.ProjectId.ToString() } }),
+                await SendAsync(HttpMethod.Post, $"{organization}/teams", new { name = "Команда с чужим проектом", departmentId = department, projectIds = new[] { unknown } })),
+            (
+                "a new team's department",
+                await SendAsync(HttpMethod.Post, $"{organization}/teams", new { name = "Команда в чужом департаменте", departmentId = foreignDepartment }),
+                await SendAsync(HttpMethod.Post, $"{organization}/teams", new { name = "Команда в чужом департаменте", departmentId = unknown })),
             (
                 "a new team's member",
-                await SendAsync(HttpMethod.Post, $"{organization}/teams", new { name = "Команда с чужим человеком", memberIds = new[] { stranger.Id } }),
-                await SendAsync(HttpMethod.Post, $"{organization}/teams", new { name = "Команда с чужим человеком", memberIds = new[] { "nobody-" + Guid.CreateVersion7().ToString("N") } })),
+                await SendAsync(HttpMethod.Post, $"{organization}/teams", new { name = "Команда с чужим человеком", departmentId = department, memberIds = new[] { stranger.Id } }),
+                await SendAsync(HttpMethod.Post, $"{organization}/teams", new { name = "Команда с чужим человеком", departmentId = department, memberIds = new[] { "nobody-" + Guid.CreateVersion7().ToString("N") } })),
         };
 
         foreach (var (name, foreign, unnamed) in cases)

@@ -8,7 +8,6 @@ using Mustask.Application.Features.Organizations.GetAreaDeletion;
 using Mustask.Application.Features.Organizations.GetAreaTeams;
 using Mustask.Application.Features.Organizations.GetAreaTree;
 using Mustask.Application.Features.Organizations.GetProjectAreas;
-using Mustask.Application.Features.Organizations.GetTeamAreas;
 using Mustask.Domain.Organizations;
 using Xunit.Abstractions;
 
@@ -29,7 +28,6 @@ public sealed class AreaReadsTests(OrganizationsDatabaseFixture database, ITestO
     private const int LinkedListStatements = 2;
     private const int DeletionStatements = 2;
     private const int ProjectAreasStatements = 3;
-    private const int TeamAreasStatements = 3;
 
     private static Guid Org(SeededStructure structure) => structure.Organization.Id;
 
@@ -39,14 +37,6 @@ public sealed class AreaReadsTests(OrganizationsDatabaseFixture database, ITestO
         await using var scope = provider.CreateAsyncScope();
 
         return await read(scope.ServiceProvider.GetRequiredService<IOrganizationStructure>());
-    }
-
-    private async Task LinkAsync(Guid organization, Area department, Team team)
-    {
-        await using var context = database.NewContext();
-
-        context.Set<AreaTeam>().Add(AreaTeam.Link(organization, department.Id, team.Id, OrganizationsDatabaseFixture.Creator, OrganizationsDatabaseFixture.Now));
-        await context.SaveChangesAsync();
     }
 
     // US-6 · "The structure contract reads areas inside the organization": a foreign area and the departments of a foreign team read as
@@ -60,17 +50,12 @@ public sealed class AreaReadsTests(OrganizationsDatabaseFixture database, ITestO
         var sub = OrganizationsDatabaseFixture.NewSubArea(mine.Project.Root, "Отчёты");
         var foreign = OrganizationsDatabaseFixture.NewDepartment(Org(other), "Разработка");
         await database.AddAreasAsync(department, sub, foreign);
-        await LinkAsync(Org(mine), department, mine.FirstTeam);
-        await LinkAsync(Org(other), foreign, other.FirstTeam);
 
         Assert.Null(await WithStructureAsync(s => s.FindAreaAsync(Org(mine), foreign.Id, default)));
-        Assert.Empty(await WithStructureAsync(s => s.ListAreasOfTeamAsync(Org(mine), other.FirstTeam.Id, default)));
         Assert.Null(await WithStructureAsync(s => s.FindAreaAsync(Org(other), department.Id, default)));
 
         var found = await WithStructureAsync(s => s.FindAreaAsync(Org(mine), sub.Id, default));
         Assert.Equal((AreaType.Area, mine.Project.Project.Id, "Пример проекта / Отчёты"), (found!.Type, found.ProjectId, found.Path));
-        var listed = Assert.Single(await WithStructureAsync(s => s.ListAreasOfTeamAsync(Org(mine), mine.FirstTeam.Id, default)));
-        Assert.Equal((department.Id, AreaType.Department), (listed.Id, listed.Type));
     }
 
     // NFR Query shape · every read takes the same number of statements for a small organization and for a large one.
@@ -102,10 +87,9 @@ public sealed class AreaReadsTests(OrganizationsDatabaseFixture database, ITestO
         yield return ("teams", LinkedListStatements, (p, s) => p.GetRequiredService<GetAreaTeamsHandler>().Handle(new GetAreaTeamsQuery(s.Organization.ToString(), s.Hub.ToString()), default));
         yield return ("deletion", DeletionStatements, (p, s) => p.GetRequiredService<GetAreaDeletionHandler>().Handle(new GetAreaDeletionQuery(s.Organization.ToString(), s.Hub.ToString()), default));
         yield return ("project areas", ProjectAreasStatements, (p, s) => p.GetRequiredService<GetProjectAreasHandler>().Handle(new GetProjectAreasQuery(s.Organization.ToString(), s.Project.ToString()), default));
-        yield return ("team areas", TeamAreasStatements, (p, s) => p.GetRequiredService<GetTeamAreasHandler>().Handle(new GetTeamAreasQuery(s.Organization.ToString(), s.Team.ToString()), default));
     }
 
-    private sealed record Seeded(Guid Organization, Guid Hub, Guid Project, Guid Team);
+    private sealed record Seeded(Guid Organization, Guid Hub, Guid Project);
 
     /// <summary>
     /// <paramref name="projects"/> projects, each with a chain of sub-areas down to <paramref name="depth"/> levels, and <paramref name="linked"/>
@@ -136,15 +120,13 @@ public sealed class AreaReadsTests(OrganizationsDatabaseFixture database, ITestO
 
         for (var index = 0; index < linked; index++)
         {
-            var team = Team.Create(organization, OrganizationsDatabaseFixture.Name($"Команда {index:D3}"));
+            var team = Team.Create(organization, hub.Id, "blue", OrganizationsDatabaseFixture.Name($"Команда {index:D3}"));
             context.Teams.Add(team);
-            context.Set<AreaTeam>().Add(AreaTeam.Link(organization, hub.Id, team.Id, OrganizationsDatabaseFixture.Creator, OrganizationsDatabaseFixture.Now));
         }
 
-        context.Set<AreaTeam>().Add(AreaTeam.Link(organization, hub.Id, structure.FirstTeam.Id, OrganizationsDatabaseFixture.Creator, OrganizationsDatabaseFixture.Now));
         await context.SaveChangesAsync();
 
-        return new Seeded(organization, hub.Id, structure.Project.Project.Id, structure.FirstTeam.Id);
+        return new Seeded(organization, hub.Id, structure.Project.Project.Id);
     }
 
     private async Task<int> CountAsync(Seeded seeded, Func<IServiceProvider, Seeded, Task> run)

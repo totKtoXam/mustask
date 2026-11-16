@@ -96,11 +96,7 @@ public static class OrganizationAddressedRoutes
         new("DELETE", Area, PermissionCatalog.OrganizationsAreaWrite),
         new("GET", Area + "/deletion", PermissionCatalog.OrganizationsAreaWrite),
         new("GET", Area + "/teams", PermissionCatalog.OrganizationsAreaRead),
-        new("POST", Area + "/teams", PermissionCatalog.OrganizationsAreaLink),
-        new("DELETE", Area + "/teams/{teamId}", PermissionCatalog.OrganizationsAreaLink),
-        new("GET", OrgTeam + "/areas", PermissionCatalog.OrganizationsAreaRead),
-        new("POST", OrgTeam + "/areas", PermissionCatalog.OrganizationsTeamLink),
-        new("DELETE", OrgTeam + "/areas/{areaId}", PermissionCatalog.OrganizationsTeamLink),
+        new("PUT", OrgTeam + "/department", PermissionCatalog.OrganizationsTeamCreate),
         new("GET", Project + "/areas", PermissionCatalog.OrganizationsAreaRead),
 
         // mod-001: the process read (row 27).
@@ -130,6 +126,20 @@ public static class OrganizationAddressedRoutes
         new("GET", OrgTeam + "/backlogs/{level}", PermissionCatalog.WorkItemsWorkItemRead),
         new("POST", OrgTeam + "/backlogs/{level}/reorder", PermissionCatalog.BoardsBacklogReorder),
         new("GET", OrgTeam + "/boards/{level}", PermissionCatalog.WorkItemsWorkItemRead),
+
+        // mod-007 api-contract § 2: the team's sprints. The reads take the team's read code; the four writes that change a sprint
+        // and the close take the sprint code on the team (ADR-0038).
+        new("GET", OrgTeam + "/sprints", PermissionCatalog.OrganizationsTeamRead),
+        new("POST", OrgTeam + "/sprints", PermissionCatalog.IterationsSprintManage),
+        new("GET", OrgTeam + "/sprints/{sprintId}", PermissionCatalog.OrganizationsTeamRead),
+        new("PUT", OrgTeam + "/sprints/{sprintId}", PermissionCatalog.IterationsSprintManage),
+        new("DELETE", OrgTeam + "/sprints/{sprintId}", PermissionCatalog.IterationsSprintManage),
+        new("POST", OrgTeam + "/sprints/{sprintId}/start", PermissionCatalog.IterationsSprintManage),
+        new("GET", OrgTeam + "/sprints/{sprintId}/close-preview", PermissionCatalog.OrganizationsTeamRead),
+        new("POST", OrgTeam + "/sprints/{sprintId}/close", PermissionCatalog.IterationsSprintManage),
+        new("GET", OrgTeam + "/sprints/{sprintId}/dynamics", PermissionCatalog.OrganizationsTeamRead),
+        new("GET", OrgTeam + "/sprints/{sprintId}/participants", PermissionCatalog.OrganizationsTeamRead),
+        new("GET", OrgTeam + "/sprints/{sprintId}/items", PermissionCatalog.OrganizationsTeamRead),
 
         // feat-039 api-contract § 5: the project's own backlog, its reorder and its board (no team in the address).
         new("GET", Project + "/backlogs/{level}", PermissionCatalog.WorkItemsWorkItemRead),
@@ -215,7 +225,7 @@ public static class OrganizationAddressedRoutes
                 description = "Описание",
                 teamIds = Array.Empty<string>(),
                 projectIds = Array.Empty<string>(),
-                areaIds = Array.Empty<string>(),
+                departmentId = Guid.CreateVersion7().ToString(),
                 memberIds = Array.Empty<string>(),
                 destination = new { teamId = (string?)null },
             }

@@ -85,7 +85,7 @@ public sealed class CreateProjectHandlerTests
         var result = await f.HandleAsync(f.Command(name: " Пример проекта "));
 
         var (project, root) = f.StoredParts(result.Response.Id);
-        Assert.Equal(new ProjectResponse(project.Id, f.Organization.Id, "Пример проекта", "PRM", null), result.Response);
+        Assert.Equal(new ProjectResponse(project.Id, f.Organization.Id, "Пример проекта", "PRM", null, "blue"), result.Response);
         Assert.Equal(ProjectStatus.Active, project.Status);
         Assert.Equal(f.Organization.Id, project.OrganizationId);
         Assert.Equal(Subject, project.CreatedBy);

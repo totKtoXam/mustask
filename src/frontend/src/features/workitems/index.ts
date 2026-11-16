@@ -29,7 +29,7 @@ export {
 // with this slice's parent write and its «Родитель» picker (BR-H-14), and
 // links a row's «Родитель» to the parent's form.
 export { ParentPicker } from './components/ParentPicker';
-export type { CreatableType } from './lib/process';
+export { creatableTypes, type CreatableType } from './lib/process';
 export type {
   ParentChange,
   ParentWriteResult,

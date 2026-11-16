@@ -102,6 +102,20 @@ export interface WorkItemProject {
  * would read as «not changed». `{ teamId: null }` is «Без команды»; the member left out of
  * the body leaves the field alone.
  */
+/**
+ * mod-007 api-contract § 3: the sprint an item stands in, as it stands now; `null` is «Без спринта».
+ */
+export interface WorkItemSprint {
+  id: string;
+  name: string;
+  state: 'Planned' | 'Active' | 'Closed';
+}
+
+/** mod-007 api-contract § 3: a sprint is sent in a wrapper, `{ sprintId: null }` clears it; absent keeps it. */
+export interface SprintChange {
+  sprintId: string | null;
+}
+
 export interface TeamChange {
   teamId: string | null;
 }
@@ -194,6 +208,8 @@ export interface WorkItem extends WorkItemFields {
   area: WorkItemArea;
   /** mod-017 api-contract § 1.2: the owning team, `null` for «Без команды». */
   team: WorkItemTeam | null;
+  /** mod-007 api-contract § 3: the sprint, `null` for «Без спринта». Absent reads as none. */
+  sprint?: WorkItemSprint | null;
   createdBy: string;
   createdAt: string;
   changedAt: string;
@@ -347,6 +363,8 @@ export interface SaveWorkItemBody extends SaveFieldsBody {
   areaId?: string;
   /** mod-017 api-contract § 2.4: absent keeps the stored team, whoever changed it meanwhile. */
   team?: TeamChange;
+  /** mod-007 api-contract § 3: absent keeps the stored sprint. */
+  sprint?: SprintChange;
   parent?: ParentChange;
   acceptanceCriteria?: AcceptanceCriterion[];
 }

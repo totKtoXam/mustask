@@ -20,6 +20,10 @@ namespace Mustask.Application.Features.WorkItems.SaveWorkItem;
 /// mod-017 (api-contract § 0.2): <c>null</c>: not sent, the stored team stays whoever changed it (BR-M3-25); otherwise the
 /// team to set, or <c>null</c> inside it for «Без команды».
 /// </param>
+/// <param name="Sprint">
+/// mod-007 (api-contract § 3): <c>null</c>: not sent, the stored sprint stays unless the owning team changes; otherwise the sprint to
+/// set, or <c>null</c> inside it for «Без спринта».
+/// </param>
 public sealed record SaveWorkItemCommand(
     string? OrganizationId,
     string? ProjectId,
@@ -32,7 +36,8 @@ public sealed record SaveWorkItemCommand(
     ParentChange? Parent = null,
     WorkItemFieldsEdit? Fields = null,
     TeamChange? Team = null,
-    string? DescriptionFormat = null);
+    string? DescriptionFormat = null,
+    SprintChange? Sprint = null);
 
 /// <summary>The sent assignee: a user id, or <c>null</c> to clear it (BR-M3-22).</summary>
 public sealed record AssigneeChange(string? UserId);

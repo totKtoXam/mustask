@@ -6,16 +6,13 @@ namespace Mustask.Application.Features.Organizations;
 
 /// <summary>
 /// What an unlink needs (mod-019 BR-SA-15, OQ-D2): a project–team link needs both ends' link codes (it reassigns items), a
-/// department–team link needs either. The per-row <c>canUnlink</c> flag is computed from the set form; it never decides a request, the
+/// department–team link of mod-018 is retired by doc-016. The per-row <c>canUnlink</c> flag is computed from the set form; it never decides a request, the
 /// unlink route does.
 /// </summary>
 internal static class LinkRules
 {
     public static bool CanUnlinkProjectTeam(AccessSet set, Guid projectId, Guid teamId) =>
         set.Holds(PermissionCatalog.OrganizationsProjectLink, projectId) && set.Holds(PermissionCatalog.OrganizationsTeamLink, teamId);
-
-    public static bool CanUnlinkAreaTeam(AccessSet set, Guid areaId, Guid teamId) =>
-        set.Holds(PermissionCatalog.OrganizationsAreaLink, areaId) || set.Holds(PermissionCatalog.OrganizationsTeamLink, teamId);
 }
 
 /// <summary>

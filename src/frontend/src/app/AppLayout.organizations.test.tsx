@@ -296,47 +296,6 @@ describe('feat-043 D-4: a link change under the real source', () => {
   });
 });
 
-// D-4: the page that unlinks says nothing of its own when the shell resets what is chosen, and
-// does when the pair still fits.
-describe('feat-043 D-4: the notice of an unlink that resets the selection', () => {
-  async function unlinkDepartment(path: string, name: string) {
-    renderApp(path);
-    const table = await screen.findByRole('table', { name: 'Департаменты команды' });
-    await userEvent.click(within(table).getByRole('button', { name: `Ещё действия: ${name}` }));
-    await userEvent.click(await screen.findByRole('menuitem', { name: 'Отключить от команды' }));
-    const confirm = await screen.findByRole('dialog', {
-      name: 'Отключение департамента от команды',
-    });
-    await userEvent.click(within(confirm).getByRole('button', { name: 'Отключить' }));
-  }
-
-  it('leaves the shell’s «Выбор сброшен» alone when the chosen department and team no longer fit', async () => {
-    const api = serve();
-    (api.data.areaTeams ??= []).push({ areaId: ids.reportsArea, targetId: ids.platformTeam });
-    await unlinkDepartment(
-      `/organizations/${ids.alfa}/teams/${ids.platformTeam}/overview?departmentId=${ids.reportsArea}`,
-      'Отчёты',
-    );
-
-    expect(await screen.findByText('Выбор сброшен: команда Платформа.')).toBeInTheDocument();
-    expect(screen.queryByText('Департамент отключён от команды.')).not.toBeInTheDocument();
-    await waitFor(() =>
-      expect(location()).toBe(`/organizations/${ids.alfa}/areas/${ids.reportsArea}/overview`),
-    );
-  });
-
-  it('keeps its own notice when a project placed in the department still joins them', async () => {
-    serve();
-    await unlinkDepartment(
-      `/organizations/${ids.alfa}/teams/${ids.platformTeam}/overview?departmentId=${ids.platformArea}`,
-      'Платформа',
-    );
-
-    expect(await screen.findByText('Департамент отключён от команды.')).toBeInTheDocument();
-    expect(screen.queryByText(/Выбор сброшен/)).not.toBeInTheDocument();
-  });
-});
-
 describe('mod-002 US-8 Scenario: Own changes without a reload', () => {
   it('a created organization is listed and set by its address', async () => {
     serve();

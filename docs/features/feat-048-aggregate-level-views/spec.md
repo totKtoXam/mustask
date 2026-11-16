@@ -92,7 +92,7 @@ The stated requirement above, and the grouping rules below (the human's answers 
 
 ## Operation completeness
 
-As F43 `spec.md` § Operation completeness, rows "Work item list" and "Board and backlog views, aggregate": no create command on the aggregate views; a move inside a group and a card move inside a lane by the item's project's code; no delete or cancel. The behaviour of a move in a part-loaded group is OQ-6. Added: the grouping choice is read and written by the user (a browser memory, BR-AV-3), cleared by nothing but the user's next choice; a backlog row move exists only under by project (BR-AV-6).
+As F43 `spec.md` § Operation completeness, rows "Work item list" and "Board and backlog views, aggregate": no create command on the aggregate views (the board: reversed by feat-060 D-1); a move inside a group and a card move inside a lane by the item's project's code; no delete or cancel. The behaviour of a move in a part-loaded group is OQ-6. Added: the grouping choice is read and written by the user (a browser memory, BR-AV-3), cleared by nothing but the user's next choice; a backlog row move exists only under by project (BR-AV-6).
 
 ## Non-functional requirements
 

@@ -123,6 +123,7 @@ export const MENU_TABLE: Record<MenuKind, readonly MenuRow[]> = {
       segment: 'workitems',
       code: ENTRY,
     },
+    { id: 'sprints', label: 'Спринты', segment: 'sprints', code: ENTRY },
     { id: 'projects', label: 'Проекты', segment: 'projects', code: ENTRY },
     { id: 'members', label: 'Участники и доступ', segment: 'members', code: read.teamRead },
   ],

@@ -4,13 +4,12 @@ import Box from '@mui/material/Box';
 import Link from '@mui/material/Link';
 import DriveFileMoveOutlinedIcon from '@mui/icons-material/DriveFileMoveOutlined';
 import FolderOpenOutlinedIcon from '@mui/icons-material/FolderOpenOutlined';
-import LinkOffOutlinedIcon from '@mui/icons-material/LinkOffOutlined';
 import { ObjectAccess } from '../../../shared/lib/objectAccessProvider';
 import { useObjectAccess } from '../../../shared/lib/objectAccess';
-import { useWorkContext } from '../../../shared/lib/workContext';
 import { apiErrorText } from '../../../shared/lib/apiErrorText';
 import {
   ActionButton,
+  ColorLabel,
   DataTable,
   InlineEmpty,
   InlineNotice,
@@ -29,8 +28,7 @@ import {
   RequiresOrganizationCode,
 } from '../../../shared/ui/RequiresOrganizationCode';
 import { AccessDenied, NotFound } from '../../../shared/ui/StateFrame';
-import type { AreaPage as AreaPageData, LinkedTeam } from '../api/organizationsApi';
-import { AreaLinkDialog, AreaUnlinkDialog } from '../components/AreaLinkDialog';
+import type { AreaPage as AreaPageData, DepartmentTeam } from '../api/organizationsApi';
 import {
   AreaNodeDialogs,
   type NodeDialog,
@@ -42,10 +40,11 @@ import { FactsPanel, type Fact } from '../components/FactsPanel';
 import { InheritAccessControl } from '../components/InheritAccessControl';
 import { useNotify } from '../components/notice';
 import { PlaceProjectDialog } from '../components/PlaceProjectDialog';
-import { useLinkTeamsToArea, useMoveArea, useUnlinkTeamFromArea } from '../hooks/mutations';
+import { useCreateTeam, useMoveArea } from '../hooks/mutations';
 import { useArea, useAreaTeams, useAreaTree, useWritableAreaIds } from '../hooks/queries';
 import { CreateProjectDialog } from '../components/CreateProjectDialog';
 import { useCreateProject } from '../hooks/mutations';
+import { CreateTeamDialog } from '../components/CreateTeamDialog';
 import { projectGeneralPath } from '../paths';
 import { useObjectCodesNotice } from '../hooks/useObjectCodesNotice';
 import { codesChangedNotice } from '../lib/grantTexts';
@@ -54,20 +53,19 @@ import { commandKinds, commandLabel } from '../lib/areaCommands';
 import {
   areaCommands,
   areasPage,
-  areaLinkDialog,
   areaPage,
-  areaUnlinkDialog,
   liftProjectDialog,
   moveAreaDialog,
   placeProjectDialog,
 } from '../lib/areaTexts';
-import { unlinkResetsDepartmentTeam } from '../lib/linkResets';
+import { createTeamDialog } from '../lib/teamTexts';
 import { notFoundLevel } from '../lib/notFoundLevel';
 import {
   organizationAreaPath,
   areaProjectsPath,
   areaTeamsPath,
   organizationAreasPath,
+  organizationTeamPath,
 } from '../paths';
 import { organizationsPermissions } from '../permissions';
 
@@ -76,8 +74,7 @@ type PageDialog =
   | { kind: 'place' }
   | { kind: 'createProject' }
   | { kind: 'lift'; project: { id: string; name: string } }
-  | { kind: 'linkTeams' }
-  | { kind: 'unlinkTeam'; team: LinkedTeam }
+  | { kind: 'createTeam' }
   | null;
 
 function Muted({ children }: { children: string }) {
@@ -211,8 +208,7 @@ export function AreaPage() {
   const area = query.isSuccess ? query.data : undefined;
   const isDepartment = area?.type === 'department';
   const teams = useAreaTeams(organizationId, areaId, isDepartment);
-  const linkTeams = useLinkTeamsToArea(organizationId, areaId);
-  const unlinkTeam = useUnlinkTeamFromArea(organizationId, areaId);
+  const createTeam = useCreateTeam(organizationId);
   const moveArea = useMoveArea(organizationId);
   const createProject = useCreateProject(organizationId);
   // The writable nodes (mod-019 § 5): the department manager creates in a department they write.
@@ -227,10 +223,9 @@ export function AreaPage() {
     query.data?.codes,
     codesChangedNotice.department,
   );
-  const context = useWorkContext();
   const canWrite = access(organizationsPermissions.areaWrite, 'organization');
   const canCreate = access(organizationsPermissions.areaCreate, 'organization');
-  const canLink = access(organizationsPermissions.areaLink, 'organization');
+  const canCreateTeam = access(organizationsPermissions.teamCreate, 'organization');
   // «Наследовать доступ» needs the node's write code and its parent's (api-contract § 3): the parent's codes are its own read.
   const parentId = area && area.type !== 'department' ? (area.parent?.id ?? null) : null;
   const parentQuery = useArea(organizationId, parentId ?? '', { enabled: parentId !== null });
@@ -240,8 +235,6 @@ export function AreaPage() {
     (parentId === null
       ? canCreate
       : parentAccess(organizationsPermissions.areaWrite, 'organization'));
-  // The department's end; the team's end is the picker's filter and each row's `canUnlink` (api-contract § 4).
-  const canLinkTeams = canLink;
   const [dialog, setDialog] = useState<PageDialog>(null);
   const section = useLocation().pathname.split('/').filter(Boolean).pop() ?? 'overview';
 
@@ -385,7 +378,7 @@ export function AreaPage() {
   }
 
   const teamRows = teams.data ?? [];
-  const teamColumns: DataColumn<LinkedTeam>[] = [
+  const teamColumns: DataColumn<DepartmentTeam>[] = [
     {
       key: 'team',
       header: areaPage.teams.columns.team,
@@ -393,37 +386,11 @@ export function AreaPage() {
         // The team becomes the most specific chosen object; the department stays when it fits.
         const link = objectLink('team', team.id);
         return (
-          <TruncatedText to={link.to} linkState={link.state} look="link">
-            {team.name}
-          </TruncatedText>
+          <ColorLabel colour={team.color} name={team.name} to={link.to} linkState={link.state} />
         );
       },
     },
   ];
-  // The department-end unlink is `area.link` alone (api-contract § 5, DELETE /areas/{a}/teams/{t}).
-  if (canLink || teamRows.some((team) => team.canUnlink)) {
-    teamColumns.push({
-      key: 'actions',
-      header: '',
-      align: 'right',
-      width: 48,
-      render: (team) =>
-        (team.canUnlink ?? canLink) ? (
-          <MoreActionsMenu
-            label={areaPage.rowMenu(team.name)}
-            size="row"
-            items={[
-              {
-                label: areaPage.teams.unlink,
-                icon: <LinkOffOutlinedIcon />,
-                onSelect: () => setDialog({ kind: 'unlinkTeam', team }),
-                destructive: true,
-              },
-            ]}
-          />
-        ) : null,
-    });
-  }
 
   const showCreateChild =
     area !== undefined &&
@@ -561,11 +528,11 @@ export function AreaPage() {
             title={areaPage.teams.title}
             count={teams.isSuccess ? teamRows.length : undefined}
             actions={
-              canLinkTeams ? (
+              canCreateTeam ? (
                 <ActionButton
-                  label={areaPage.teams.add}
+                  label={areaPage.teams.create}
                   icon={<ThinAddIcon />}
-                  onClick={() => setDialog({ kind: 'linkTeams' })}
+                  onClick={() => setDialog({ kind: 'createTeam' })}
                 />
               ) : undefined
             }
@@ -590,7 +557,6 @@ export function AreaPage() {
         organizationId={organizationId}
         dialog={dialog?.kind === 'node' ? dialog.dialog : null}
         canCreate={canCreate}
-        canLinkTeams={canLinkTeams}
         onDone={done}
         onClose={closeDialog}
       />
@@ -644,51 +610,17 @@ export function AreaPage() {
           />
         </RequiresOrganizationCode>
       )}
-      {area && dialog?.kind === 'linkTeams' && (
-        <RequiresOrganizationCode code={organizationsPermissions.areaLink}>
-          <AreaLinkDialog
-            end="departmentTeams"
+      {area && dialog?.kind === 'createTeam' && (
+        <RequiresOrganizationCode code={organizationsPermissions.teamCreate}>
+          <CreateTeamDialog
             organizationId={organizationId}
-            ownName={area.name}
-            linkedIds={teamRows.map((team) => team.id)}
-            submit={(ids) => linkTeams.mutateAsync(ids)}
-            onSucceeded={(chosen) => {
+            canLink={false}
+            presetDepartmentId={area.id}
+            submit={(body) => createTeam.mutateAsync(body)}
+            onSucceeded={(team) => {
               setDialog(null);
-              const [only] = chosen;
-              const texts = areaLinkDialog.departmentTeams;
-              notify(
-                chosen.length === 1 && only
-                  ? texts.linkedOne(only.name)
-                  : texts.linkedMany(chosen.length),
-              );
-            }}
-            onClose={closeDialog}
-          />
-        </RequiresOrganizationCode>
-      )}
-      {area && dialog?.kind === 'unlinkTeam' && (
-        <RequiresOrganizationCode code={organizationsPermissions.areaLink}>
-          <AreaUnlinkDialog
-            kind="departmentTeam"
-            name={dialog.team.name}
-            ownName={area.name}
-            action={async () => {
-              // Judged before the shell sees the change: when the unlink resets the chosen
-              // team, the shell's notice is the only one (D-4).
-              const fallsBack = unlinkResetsDepartmentTeam(
-                context,
-                organizationId,
-                area.id,
-                dialog.team.id,
-              );
-              await unlinkTeam.mutateAsync(dialog.team.id);
-              return fallsBack;
-            }}
-            onSucceeded={(fallsBack) => {
-              setDialog(null);
-              if (!fallsBack) {
-                notify(areaUnlinkDialog.departmentTeam.done);
-              }
+              notify(createTeamDialog.created(team.name));
+              navigate(organizationTeamPath(organizationId, team.id));
             }}
             onClose={closeDialog}
           />

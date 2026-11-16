@@ -1,3 +1,4 @@
+using Mustask.Application.Tests.TestDoubles.Iterations;
 using Mustask.Application.Features.Organizations.UnlinkTeam;
 using Mustask.Application.Tests.TestDoubles;
 using Mustask.Application.Tests.TestDoubles.Organizations;
@@ -29,6 +30,7 @@ public sealed class UnlinkTeamHandlerTests
                 new FakeProjectRepository(Store),
                 Links,
                 Ownership,
+                new FakeSprintRepository(),
                 new FakeTeamBacklogPlaces(Store),
                 new FakeOrganizationAccess(role),
                 Clock,

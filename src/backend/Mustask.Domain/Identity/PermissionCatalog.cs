@@ -140,6 +140,12 @@ public static class PermissionCatalog
     /// <summary>Giving, changing and removing grants on a team (mod-019 BR-SA-2: scope T).</summary>
     public const string OrganizationsTeamGrant = "organizations.team.grant";
 
+    /// <summary>
+    /// Creating, renaming, dating, starting, closing and removing a team's sprints (mod-007 BR-13): scope T, held by the organization
+    /// administrator and by the team roles «Участник» and «Менеджер»; no other role.
+    /// </summary>
+    public const string IterationsSprintManage = "iterations.sprint.manage";
+
     /// <summary>Every code of the catalog, in a stable order: instance codes first, then organization codes.</summary>
     public static IReadOnlyList<PermissionDefinition> All { get; } =
     [
@@ -176,6 +182,7 @@ public static class PermissionCatalog
         new(OrganizationsAreaGrant, PermissionSource.Organization, "Доступ к департаменту: выдача, смена роли и отзыв", ResourceScope.Area),
         new(OrganizationsProjectGrant, PermissionSource.Organization, "Доступ к проекту: выдача, смена роли и отзыв", ResourceScope.Project),
         new(OrganizationsTeamGrant, PermissionSource.Organization, "Доступ к команде: выдача, смена роли и отзыв", ResourceScope.Team),
+        new(IterationsSprintManage, PermissionSource.Organization, "Управление спринтами команды", ResourceScope.Team),
     ];
 
     /// <summary>The descriptions by code (diagnostics, logs).</summary>

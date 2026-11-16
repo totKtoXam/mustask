@@ -1,3 +1,4 @@
+using Mustask.Api.Features.Iterations;
 using Mustask.Api.ApiExplorer;
 using Mustask.Api.CurrentUser;
 using Mustask.Api.ErrorHandling;
@@ -311,6 +312,7 @@ app.MapProcessEndpoints();
 app.MapSessionEndpoints();
 app.MapWorkItemEndpoints();
 app.MapBoardEndpoints();
+app.MapIterationsEndpoints();
 app.MapAggregateViewEndpoints();
 
 app.Run();

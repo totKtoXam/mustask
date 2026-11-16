@@ -30,10 +30,10 @@ public sealed class SpecificationTests
     {
         var organization = Guid.CreateVersion7();
         Assert.True(EntityName.TryCreate("Марс", out var name));
-        var active = Team.Create(organization, name);
-        var deleted = Team.Create(organization, name);
+        var active = Team.Create(organization, Guid.CreateVersion7(), "blue", name);
+        var deleted = Team.Create(organization, Guid.CreateVersion7(), "blue", name);
         deleted.Delete();
-        var foreign = Team.Create(Guid.CreateVersion7(), name);
+        var foreign = Team.Create(Guid.CreateVersion7(), Guid.CreateVersion7(), "blue", name);
         var rule = ReachabilityRules.ActiveTeamOf(organization).Compile();
 
         Assert.Equal([true, false, false], [rule(active), rule(deleted), rule(foreign)]);

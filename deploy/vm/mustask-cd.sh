@@ -14,7 +14,7 @@
 #         listing, and runs that release's kit/install.sh deploy on it.
 # smoke   runs the live release's kit/smoke.sh with the flags recorded in
 #         /etc/mustask/cd-smoke-args (written by runner-setup.sh; empty, or
-#         --resolve-local and/or --insecure).
+#         --insecure and at most one of --resolve-local / --resolve-to=<IPv4>).
 #
 # The release's own install.sh runs as root, as it does by hand: whoever can
 # hand this script a tarball can run code as root. That is why only the
@@ -68,19 +68,28 @@ EOF
     printf '%s\n' "$top"
 }
 
-# The smoke flags from the recorded file: only the two smoke.sh knows, each at
-# most once. A missing file means none.
+# The smoke flags from the recorded file: only the ones smoke.sh knows, each at
+# most once (an exact repeat is dropped), and at most one address to send the
+# site's name to. A missing file means none.
 smoke_args_of() {
-    local file=$1 word seen=' '
+    local file=$1 word seen=' ' resolve=''
     [ -f "$file" ] || return 0
     # shellcheck disable=SC2013 # words not lines
     for word in $(tr -d '\r' < "$file"); do
         case $word in
-            --resolve-local|--insecure) ;;
+            --insecure|--resolve-local) ;;
+            --resolve-to=*)
+                printf '%s' "${word#--resolve-to=}" | grep -Eq '^([0-9]{1,3}\.){3}[0-9]{1,3}$' \
+                    || { echo "smoke flag '$word' in $file: not an IPv4 address" >&2; return 1; } ;;
             *) echo "unknown smoke flag '$word' in $file" >&2; return 1 ;;
         esac
         case $seen in
             *" $word "*) continue ;;
+        esac
+        case $word in
+            --resolve-local|--resolve-to=*)
+                [ -z "$resolve" ] || { echo "$resolve and $word in $file: give one address" >&2; return 1; }
+                resolve=$word ;;
         esac
         seen="$seen$word "
         printf '%s\n' "$word"

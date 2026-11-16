@@ -86,6 +86,7 @@ to main. Plans: `plan-backend.md`, `plan-frontend.md`.
 - 2026-10-18 [dev] P-10 note from feat-040-team-surfaces-across-projects: BR-OL-11 (the team views at a project's address, holding that project's items; a reorder writing only that view's places; D-13) is replaced — the views are at the team's address across its projects, one team order per level, and the project-nested routes answer 404 `http.not_found`; BR-OL-10's way in is extended (the project's «Команды» always offers «Бэклог проекта» and «Доска проекта»). `GET /api/organizations/{o}/teams` (§ 1.2) gains `isMember` (additive). This api-contract is not edited.
 - 2026-10-28 [dev] P-10 note from mod-018 (typed tree, ADR-0031): BR-OL-2's root-area clause is not restored as an area-per-team rule; a project has one project node in the area tree, and its teams are still the project-team links; area-team links join departments only (`organizations.area.link_type_not_allowed`).
 - 2026-11-02 — Broken by feat-043: BR-OL-10 and its interim team pages (see feat-043 spec, "Breaks").
+- 2026-11-13 [orchestrator] mod-021 changed this line (doc-016 BR-TD-1, ADR-0040): "a team is the organization's" reads "a team stands in one department"; see mod-021 api-contract.md § 1.
 
 ## Notes
 

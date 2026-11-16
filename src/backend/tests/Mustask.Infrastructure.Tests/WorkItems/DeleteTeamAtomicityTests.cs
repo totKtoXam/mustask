@@ -153,6 +153,7 @@ public sealed class DeleteTeamAtomicityTests(OrganizationsDatabaseFixture databa
         services.AddApplication();
         services.AddOrganizationsInfrastructure();
         services.AddWorkItemsInfrastructure();
+        services.AddIterationsInfrastructure();
         services.AddBoardsInfrastructure();
 
         return services.BuildServiceProvider();

@@ -13,7 +13,7 @@ const NAME: readonly RefusalField[] = ['name'];
 const PROJECT: readonly RefusalField[] = ['name', 'key'];
 const MOVE: readonly RefusalField[] = ['parent'];
 const DEFAULT_TEAM: readonly RefusalField[] = ['team'];
-const AREAS: readonly RefusalField[] = ['areas'];
+const DEPARTMENT: readonly RefusalField[] = ['department'];
 const CONFIRM: readonly RefusalField[] = [];
 
 describe('mod-002 design § 4.4: every refusal lands where the table says, by its code', () => {
@@ -98,15 +98,15 @@ describe('mod-002 design § 4.4: every refusal lands where the table says, by it
       {},
     ],
     [
-      'organizations.area.link_type_not_allowed',
-      AREAS,
-      'areas',
-      catalogText('organizations.area.link_type_not_allowed'),
+      'organizations.area.type_not_allowed',
+      DEPARTMENT,
+      'department',
+      catalogText('organizations.area.type_not_allowed'),
       {},
     ],
     // mod-018 design §§ 5.1, 5.3: a vanished chosen parent or area lands on its field.
     ['organizations.area.not_found', MOVE, 'parent', 'Область не найдена.', {}],
-    ['organizations.area.not_found', AREAS, 'areas', 'Область не найдена.', {}],
+    ['organizations.area.not_found', DEPARTMENT, 'department', 'Область не найдена.', {}],
     ['organizations.team.not_found', DEFAULT_TEAM, 'team', 'Команда не найдена.', {}],
     [
       'organizations.team.not_in_project',
