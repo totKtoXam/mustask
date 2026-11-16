@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { iterationErrorCodes } from '../../../shared/api/errorCodes';
@@ -9,8 +9,6 @@ import type { Participant, ParticipantsPage } from '../api/iterationsApi';
 import { LIST_PATH, SPRINTS_ROUTE, dynamicsOf, dynamicsRow, sprintId, sprintRow } from '../testApi';
 
 // mod-007 design § 6, US-5, US-9, US-10: a Closed sprint's outcome through the real routes.
-
-vi.setConfig({ testTimeout: 120_000 });
 
 const SPRINT = sprintId(5);
 const PATH = `${LIST_PATH}/${SPRINT}`;

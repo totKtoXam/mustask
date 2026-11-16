@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it } from 'vitest';
 import { act, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { focusManager } from '@tanstack/react-query';
@@ -31,8 +31,6 @@ import {
 // feat-040 US-1..US-4 on a team's backlog: «Платформа» works on «Мастаск» (`MSK`) and «Операции» (`OPS`)
 // and owns MSK-US-3, OPS-US-1 and OPS-US-2 (`acrossProjectsDataset`); other teams' items and a
 // teamless one stand in the same projects. The card inside the first tests is slow in jsdom.
-
-vi.setConfig({ testTimeout: 60_000 });
 
 afterEach(() => {
   focusManager.setFocused(undefined);

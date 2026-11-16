@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it } from 'vitest';
 import { act, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { focusManager } from '@tanstack/react-query';
@@ -21,8 +21,6 @@ import { backlogAddress, renderBoards } from '../testRender';
 // feat-040 US-4 (BR-TS-5) on a team's backlog of several projects: every write of a row goes to the
 // row's own project, and a parent is always of that project. «Платформа» works on «Мастаск» and
 // «Операции»; «Фичи» holds MSK-FEAT-6, MSK-FEAT-8 and OPS-FEAT-7, «Эпики» the two epics too.
-
-vi.setConfig({ testTimeout: 60_000 });
 
 afterEach(() => {
   focusManager.setFocused(undefined);

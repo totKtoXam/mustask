@@ -19,8 +19,6 @@ import { WorkItemCardDialog } from './WorkItemCardDialog';
 // address, shows the state the read is in, and closes, expands and switches by the address too.
 // The card inside is the kit's fields in jsdom, which are slow.
 
-vi.setConfig({ testTimeout: 60_000 });
-
 const BACKLOG = `/organizations/${ids.example}/teams/t/backlogs/stories`;
 const OPEN = `${BACKLOG}?workitem=MSK-US-2`;
 const PAGE = workItemPath(ids.example, ids.msk, 'MSK-US-2');
