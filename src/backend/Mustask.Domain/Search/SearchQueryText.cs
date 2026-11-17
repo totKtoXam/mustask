@@ -1,4 +1,5 @@
 using System.Text;
+using Mustask.Domain.UserDirectory;
 
 namespace Mustask.Domain.Search;
 
@@ -78,39 +79,11 @@ public sealed class SearchQueryText
         return SearchQueryKind.Valid;
     }
 
-    /// <summary>The fold of both sides: NFC, lower case, <c>ё</c> → <c>е</c>; total, no text makes it throw.</summary>
-    public static string Fold(string value)
-    {
-        ArgumentNullException.ThrowIfNull(value);
-
-        var builder = new StringBuilder(value.Length);
-
-        foreach (var rune in value.EnumerateRunes())
-        {
-            if (rune.Value is >= 0xFDD0 and <= 0xFDEF || (rune.Value & 0xFFFE) == 0xFFFE)
-            {
-                builder.Append((char)0xFFFD);
-            }
-            else if (!Rune.IsControl(rune))
-            {
-                builder.Append(rune.ToString());
-            }
-        }
-
-        var assembled = builder.ToString();
-        string composed;
-
-        try
-        {
-            composed = assembled.Normalize(NormalizationForm.FormC);
-        }
-        catch (ArgumentException)
-        {
-            composed = assembled;
-        }
-
-        return composed.ToLowerInvariant().Replace('ё', 'е');
-    }
+    /// <summary>
+    /// The fold of both sides: the user projection's own normalisation (<see cref="DirectorySearchText.Normalize(string)"/>), the one
+    /// function that writes <c>search_name</c>/<c>search_email</c>, so the two cannot drift. Total, no text makes it throw.
+    /// </summary>
+    public static string Fold(string value) => DirectorySearchText.Normalize(value);
 
     /// <summary>The length the contract counts in: Unicode code points.</summary>
     public static int CodePointCount(string value)

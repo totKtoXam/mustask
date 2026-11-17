@@ -3,7 +3,7 @@ namespace Mustask.Domain.Search;
 /// <summary>
 /// The typo tier (BR-GS-17, ADR-0044 § 2): <c>word_similarity(query, text) &gt;= Threshold</c> for a query of at least
 /// <see cref="MinQueryLength"/> characters, only to fill a group below its limit. The threshold is one constant, pinned by the
-/// near-miss table of the tests (<c>SimilarityThresholdTests</c>); changing it is a code change with a test change.
+/// near-miss table of the tests (<c>SearchDatabaseTests</c>); changing it is a code change with a test change.
 /// </summary>
 public static class SimilarityRule
 {

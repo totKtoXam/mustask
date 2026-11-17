@@ -2,7 +2,6 @@ using System.Globalization;
 using Microsoft.EntityFrameworkCore;
 using Mustask.Application.Abstractions.Search;
 using Mustask.Domain.Search;
-using Mustask.Infrastructure.Organizations;
 using Npgsql;
 using NpgsqlTypes;
 
@@ -15,18 +14,13 @@ namespace Mustask.Infrastructure.Search;
 /// <c>pg_trgm.word_similarity_threshold</c> for the transaction the group statements share, so the <c>%&gt;</c> operator the GIN
 /// index serves uses <see cref="SimilarityRule.Threshold"/>.
 /// <para>
-/// The folded column side is the <see cref="Folded"/> expression, the very text of the migration's index expressions
-/// (<c>search_fold(name)</c>); <c>SearchIndexTests</c> pins that the two are the same, because a predicate that differs by one
+/// The folded column side is the <see cref="SearchSql.Folded"/> expression, the very text of the migration's index expressions
+/// (<c>search_fold(name)</c>); <c>SearchDatabaseTests</c> pins that the two are the same, because a predicate that differs by one
 /// character silently stops using the index. The users' columns are folded on write and used as they are.
 /// </para>
 /// </summary>
 internal sealed class SearchReadModel(MustaskDbContext context) : ISearchReadModel
 {
-    /// <summary>The expression of an indexed folded column; the migration's index expressions are written the same.</summary>
-    internal static string Folded(string column) => $"search_fold({column})";
-
-    private static readonly string Collation = $"COLLATE \"{OrganizationsCollation.Russian}\"";
-
     public async Task<SearchCandidates> ReadCandidatesAsync(
         Guid organizationId, IReadOnlyCollection<SearchGroupKind> kinds, CancellationToken cancellationToken)
     {
@@ -228,77 +222,59 @@ internal sealed class SearchReadModel(MustaskDbContext context) : ISearchReadMod
         _ => visibility.Areas,
     };
 
-    // The five tiers of BR-GS-8 over one folded text; NULL when the text does not match. The similar tier exists only for a query of
-    // 4 characters or more (BR-GS-17), so a shorter query's statement does not mention it and the planner has nothing to doubt.
-    internal static string TierOf(string folded, bool similar) =>
-        $"CASE WHEN {folded} = @q THEN 1 WHEN {folded} LIKE @prefix ESCAPE '\\' THEN 2 WHEN {folded} ~ @word THEN 3 "
-        + $"WHEN {folded} LIKE @contains ESCAPE '\\' THEN 4{(similar ? $" WHEN {folded} %> @q THEN 5" : string.Empty)} END";
-
-    internal static string Matches(string folded, bool similar) =>
-        $"({folded} LIKE @contains ESCAPE '\\'{(similar ? $" OR {folded} %> @q" : string.Empty)})";
-
-    internal static string SimilarityOf(IEnumerable<string> folded, bool similar) =>
-        similar ? "GREATEST(" + string.Join(", ", folded.Select(text => $"word_similarity(@q, {text})")) + ")" : "0.0";
-
-    internal static string Wrap(string inner) =>
-        "SELECT s.id::text AS \"Id\", s.name AS \"Name\", s.key AS \"Key\", s.department_id AS \"DepartmentId\", s.department_name AS \"DepartmentName\", "
-        + "s.project_id AS \"ProjectId\", s.project_name AS \"ProjectName\", s.color AS \"Color\", s.email AS \"Email\", s.inactive AS \"Inactive\", s.tier AS \"Tier\" "
-        + $"FROM ({inner}) s "
-        + $"ORDER BY s.tier, CASE WHEN s.tier = 5 THEN -s.similarity END, s.name {Collation}, s.id LIMIT @take";
-
     private static string ProjectsSql(string organizations, string sight, bool similar)
     {
-        var name = Folded("p.name");
-        var key = Folded("p.\"key\"");
+        var name = SearchSql.Folded("p.name");
+        var key = SearchSql.Folded("p.\"key\"");
 
-        return Wrap(
+        return SearchSql.Wrap(
             "SELECT p.id, p.name, p.\"key\" AS key, dep.id AS department_id, dep.name AS department_name, NULL::uuid AS project_id, NULL::text AS project_name, "
             + "p.color, NULL::text AS email, NULL::boolean AS inactive, "
-            + $"LEAST({TierOf(name, similar)}, {TierOf(key, similar)}) AS tier, {SimilarityOf([name, key], similar)} AS similarity "
+            + $"LEAST({SearchSql.TierOf(name, similar)}, {SearchSql.TierOf(key, similar)}) AS tier, {SearchSql.SimilarityOf([name, key], similar)} AS similarity "
             + "FROM projects p "
             + "LEFT JOIN areas node ON node.project_id = p.id AND node.type = 2 "
             + "LEFT JOIN areas dep ON dep.id = node.parent_id "
-            + $"WHERE {organizations} AND p.status = 'Active'{sight} AND ({Matches(name, similar)} OR {Matches(key, similar)})");
+            + $"WHERE {organizations} AND p.status = 'Active'{sight} AND ({SearchSql.Matches(name, similar)} OR {SearchSql.Matches(key, similar)})");
     }
 
     private static string TeamsSql(string organizations, string sight, bool similar)
     {
-        var name = Folded("t.name");
+        var name = SearchSql.Folded("t.name");
 
-        return Wrap(
+        return SearchSql.Wrap(
             "SELECT t.id, t.name, NULL::text AS key, dep.id AS department_id, dep.name AS department_name, NULL::uuid AS project_id, NULL::text AS project_name, "
             + "t.color, NULL::text AS email, NULL::boolean AS inactive, "
-            + $"{TierOf(name, similar)} AS tier, {SimilarityOf([name], similar)} AS similarity "
+            + $"{SearchSql.TierOf(name, similar)} AS tier, {SearchSql.SimilarityOf([name], similar)} AS similarity "
             + "FROM teams t "
             + "LEFT JOIN areas dep ON dep.id = t.department_id "
-            + $"WHERE {organizations} AND t.status = 'Active'{sight} AND {Matches(name, similar)}");
+            + $"WHERE {organizations} AND t.status = 'Active'{sight} AND {SearchSql.Matches(name, similar)}");
     }
 
     private static string DepartmentsSql(string organizations, string sight, bool similar)
     {
-        var name = Folded("a.name");
+        var name = SearchSql.Folded("a.name");
 
-        return Wrap(
+        return SearchSql.Wrap(
             "SELECT a.id, a.name, NULL::text AS key, NULL::uuid AS department_id, NULL::text AS department_name, NULL::uuid AS project_id, NULL::text AS project_name, "
             + "a.color, NULL::text AS email, NULL::boolean AS inactive, "
-            + $"{TierOf(name, similar)} AS tier, {SimilarityOf([name], similar)} AS similarity "
+            + $"{SearchSql.TierOf(name, similar)} AS tier, {SearchSql.SimilarityOf([name], similar)} AS similarity "
             + "FROM areas a "
-            + $"WHERE {organizations} AND a.type = 1{sight} AND {Matches(name, similar)}");
+            + $"WHERE {organizations} AND a.type = 1{sight} AND {SearchSql.Matches(name, similar)}");
     }
 
     private static string AreasSql(string organizations, string sight, bool similar)
     {
-        var name = Folded("a.name");
+        var name = SearchSql.Folded("a.name");
 
-        return Wrap(
+        return SearchSql.Wrap(
             "SELECT a.id, a.name, NULL::text AS key, NULL::uuid AS department_id, dep.name AS department_name, p.id AS project_id, p.name AS project_name, "
             + "NULL::text AS color, NULL::text AS email, NULL::boolean AS inactive, "
-            + $"{TierOf(name, similar)} AS tier, {SimilarityOf([name], similar)} AS similarity "
+            + $"{SearchSql.TierOf(name, similar)} AS tier, {SearchSql.SimilarityOf([name], similar)} AS similarity "
             + "FROM areas a "
             + "JOIN projects p ON p.id = a.project_id AND p.status = 'Active' "
             + "LEFT JOIN areas node ON node.project_id = p.id AND node.type = 2 "
             + "LEFT JOIN areas dep ON dep.id = node.parent_id "
-            + $"WHERE {organizations} AND a.type = 3{sight} AND {Matches(name, similar)}");
+            + $"WHERE {organizations} AND a.type = 3{sight} AND {SearchSql.Matches(name, similar)}");
     }
 
     private sealed class CandidateRow
