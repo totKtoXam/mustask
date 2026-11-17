@@ -3,7 +3,7 @@
 - type: tech
 - size: M
 - branch: tech/074-ci-full-run-speed
-- stage: 04-backend
+- stage: gate-3 (awaiting the human)
 - epic: platform/ci
 - deps: -
 - gates: gate-3
@@ -42,6 +42,7 @@ parallelism is agreed with tech-073 first.
 - 2026-11-16 [dev] done: verify.sh parts + 9 new cases (35 green locally), ci.yml parallel jobs, scripts/ci-coverage-gate.sh, git.md. tech-073 confirmed no change to shards or workers is needed for its fixes.
 - 2026-11-17 [qa] CI pass: case scripts green (35 + 32, 8 new stamp cases for slices); no blocker/major; minor D-1: the backend coverage merge was never exercised in CI; see qa-report.md
 - 2026-11-17 [review] round 1 (whole diff, one session): approve; 0 blocker/major open, 4 minor + 1 nit as debts (R1-1: record the 4e189aae run's green backend floors before reverting it); see review.md
+- 2026-11-17 [measure] D-1/R1-1 closed: run 44073047217 (temporary Program.cs touch 4e189aae, reverted in 5a2c6e18) — backend groups infrastructure 11.9 min, api-integration 8.4, rest 2.3, end to end 12.4 min; "Backend coverage floors" green on the merged reports (Domain 90.5, Application 82.5, Shared 77.8, Infrastructure 92.2, Api 11.8, integration 86.3 %), as the single-job figures of run 43859011673. Review fixes R1-3..R1-5 in b3e62e61; R1-2 (a case script for ci-coverage-gate.sh) and D-2 (unexpanded names of skipped matrix jobs) left as debts. No src/ change against the merge-base; merges cleanly into main.
 
 ## Notes
 
