@@ -1,4 +1,5 @@
 using Mustask.Application.Features.Images;
+using Mustask.Application.Features.Images.GetImage;
 using Mustask.Application.Features.Images.ReduceDescriptionImage;
 using Mustask.Application.Features.Images.UploadDescriptionImage;
 using Mustask.Application.Features.Boards.GetBacklog;
@@ -213,6 +214,7 @@ public static class DependencyInjection
         services.AddScoped<DescriptionImageIntakeFlow>();
         services.AddScoped<UploadDescriptionImageHandler>();
         services.AddScoped<ReduceDescriptionImageHandler>();
+        services.AddScoped<GetImageHandler>();
 
         // The purge (mod-005 US-6): its handler collects the IWorkItemPurgeStep of every line that keeps data of its own
         // (ADR-0030 rule 7); none is registered in this line, so the collection is empty.

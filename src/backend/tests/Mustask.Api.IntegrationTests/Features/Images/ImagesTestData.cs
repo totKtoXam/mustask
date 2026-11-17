@@ -24,6 +24,7 @@ internal sealed record ImageAnswer(HttpStatusCode Status, System.Net.Http.Header
     {
         var node = System.Text.Json.Nodes.JsonNode.Parse(Bytes)!.AsObject();
         node.Remove("traceId");
+        node.Remove("instance");
 
         return node.ToJsonString();
     }
@@ -151,6 +152,25 @@ internal static class ImagesTestData
         using var scope = factory.Services.CreateScope();
 
         return await scope.ServiceProvider.GetRequiredService<MustaskDbContext>().Images.CountAsync(image => image.WorkItemId == workItemId);
+    }
+
+    /// <summary>Binds an image in the database: the save that binds is feat-078 step 9, the read rules do not wait for it.</summary>
+    public static async Task BindAsync(MustaskApiFactory factory, Guid imageId)
+    {
+        using var scope = factory.Services.CreateScope();
+        var context = scope.ServiceProvider.GetRequiredService<MustaskDbContext>();
+        var image = await context.Images.SingleAsync(candidate => candidate.Id == imageId);
+        image.Bind(DateTimeOffset.UtcNow);
+        await context.SaveChangesAsync();
+    }
+
+    public static async Task<Guid> UploadBoundAsync(MustaskApiFactory factory, WorkItemsWorld world, string identifier, byte[]? bytes = null)
+    {
+        var answer = await UploadAsync(factory, world, identifier, bytes ?? Png(60, 40));
+        var id = answer.Body.GetProperty("id").GetGuid();
+        await BindAsync(factory, id);
+
+        return id;
     }
 
     public static async Task<Image?> FindAsync(MustaskApiFactory factory, Guid imageId)

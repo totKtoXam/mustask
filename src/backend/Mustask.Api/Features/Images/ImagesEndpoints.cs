@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;
 using Mustask.Api.Authorization;
 using Mustask.Application.Features.Images;
+using Mustask.Application.Features.Images.GetImage;
 using Mustask.Application.Features.Images.ReduceDescriptionImage;
 using Mustask.Application.Features.Images.UploadDescriptionImage;
 using Mustask.Domain.Identity;
@@ -44,8 +45,21 @@ public static class ImagesEndpoints
             .ProducesProblem(StatusCodes.Status409Conflict)
             .ProducesProblem(StatusCodes.Status503ServiceUnavailable);
 
+        // api-contract § 3. The bytes of an image: the route carries no organization (BR-IM-10), so the access is the item's read
+        // rule, decided in the handler; every refusal is one 404.
+        app.MapGet("/api/images/{imageId}", GetAsync)
+            .WithTags(Tag)
+            .AuthenticatedOnly("the address names no organization (BR-IM-10); the handler applies the item's read rule or the uploader's own")
+            .Produces(StatusCodes.Status200OK, contentType: "image/png", additionalContentTypes: ["image/jpeg", "image/gif", "image/webp"])
+            .Produces(StatusCodes.Status304NotModified)
+            .ProducesProblem(StatusCodes.Status401Unauthorized)
+            .ProducesProblem(StatusCodes.Status404NotFound);
+
         return app;
     }
+
+    private static async Task<IResult> GetAsync(string imageId, HttpRequest request, GetImageHandler handler, CancellationToken cancellationToken) =>
+        ImageResults.Of(await handler.Handle(new GetImageQuery(imageId, request.Headers.IfNoneMatch.ToString() is { Length: > 0 } sent ? sent : null), cancellationToken));
 
     private static async Task<IResult> UploadAsync(
         string organizationId,

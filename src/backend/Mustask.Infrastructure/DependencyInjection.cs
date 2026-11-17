@@ -120,6 +120,7 @@ public static class DependencyInjection
     {
         services.AddScoped<IWorkItemRepository, WorkItemRepository>();
         services.AddScoped<IWorkItemReadModel, WorkItemReadModel>();
+        services.AddScoped<IWorkItemReadAccess, WorkItemReadAccess>();
         services.AddScoped<IAreaUsage, WorkItemAreaUsage>();
         services.AddScoped<IWorkItemTeamOwnership, WorkItemTeamOwnership>();
 
