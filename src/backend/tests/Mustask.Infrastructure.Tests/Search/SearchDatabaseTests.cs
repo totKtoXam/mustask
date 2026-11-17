@@ -3,6 +3,7 @@ using Microsoft.EntityFrameworkCore;
 using Mustask.Application.Abstractions.Search;
 using Mustask.Domain.Search;
 using Mustask.Infrastructure.Search;
+using Mustask.Infrastructure.UserDirectory;
 using Mustask.Infrastructure.Tests.Organizations;
 using Xunit.Abstractions;
 
@@ -85,22 +86,29 @@ public sealed class SearchDatabaseTests(OrganizationsDatabaseFixture database, I
             definition => Assert.Contains("gin_trgm_ops", definition, StringComparison.Ordinal));
     }
 
-    // The read's folded column text is the index's expression: with a sequential scan forbidden the planner still has to use the index
-    // for every predicate shape the read sends, so a drift in either text fails here.
+    // The read's predicate is the index's expression: the predicate text is built from the read model's own SQL helpers (the folded
+    // column from SearchSql.Folded, the predicate from SearchSql.Matches, the users' columns from SearchUsersStatement), with a
+    // sequential scan forbidden, so a drift in either text fails here. The planner "can use" the index at this size; that the read
+    // picks it at volume is what the volume test's timings show.
     [Theory]
-    [InlineData("projects p", "search_fold(p.name)", "ix_projects_search_name_trgm")]
-    [InlineData("projects p", "search_fold(p.\"key\")", "ix_projects_search_key_trgm")]
-    [InlineData("teams t", "search_fold(t.name)", "ix_teams_search_name_trgm")]
-    [InlineData("areas a", "search_fold(a.name)", "ix_areas_search_name_trgm")]
-    [InlineData("directory_users u", "u.search_name", "ix_directory_users_search_name_trgm")]
-    [InlineData("directory_users u", "u.search_email", "ix_directory_users_search_email_trgm")]
-#pragma warning disable EF1003 // test-built EXPLAIN over fixed literals
-    public async Task TheReadsPredicate_UsesItsTrigramIndex(string from, string column, string index)
+    [InlineData("projects p", "p.name", true, "ix_projects_search_name_trgm")]
+    [InlineData("projects p", "p.\"key\"", true, "ix_projects_search_key_trgm")]
+    [InlineData("teams t", "t.name", true, "ix_teams_search_name_trgm")]
+    [InlineData("areas a", "a.name", true, "ix_areas_search_name_trgm")]
+    [InlineData("directory_users u", SearchUsersStatement.NameColumn, false, "ix_directory_users_search_name_trgm")]
+    [InlineData("directory_users u", SearchUsersStatement.EmailColumn, false, "ix_directory_users_search_email_trgm")]
+#pragma warning disable EF1003 // test-built EXPLAIN over the read model's own predicate text and fixed literals
+    public async Task TheReadsPredicate_CanUseItsTrigramIndex(string from, string column, bool folded, string index)
     {
         await SearchDataSet.SeedAsync(database, departments: 3, projects: 30, subAreas: 30, teams: 30, members: 30);
 
-        foreach (var predicate in new[] { $"{column} LIKE '%абв%' ESCAPE '\\'", $"{column} %> 'абвг'" })
+        var expression = folded ? SearchSql.Folded(column) : column;
+
+        foreach (var similar in new[] { false, true })
         {
+            var predicate = SearchSql.Matches(expression, similar).Replace("@contains", "'%абв%'", StringComparison.Ordinal)
+                .Replace("@q", "'абвг'", StringComparison.Ordinal);
+
             await using var context = database.NewContext();
             await using var transaction = await context.Database.BeginTransactionAsync();
             await context.Database.ExecuteSqlRawAsync("SET LOCAL enable_seqscan = off");
@@ -111,10 +119,32 @@ public sealed class SearchDatabaseTests(OrganizationsDatabaseFixture database, I
 
             Assert.True(plan.Contains(index, StringComparison.Ordinal), plan);
         }
-
-        Assert.Equal("search_fold(p.name)", SearchReadModel.Folded("p.name"));
     }
 #pragma warning restore EF1003
+
+    // Review F2 (ADR-0044): the fold and the trigram match depend on the database's ctype. search_fold folds under the explicit ICU
+    // collation; pg_trgm's word classification still follows datctype, so the migration refuses C/POSIX and this test pins the
+    // Cyrillic behaviour a C-ctype image would break.
+    [Fact]
+    public async Task TheFoldAndTheTrigramMatch_KnowCyrillic_OnThisDatabase()
+    {
+        var locale = await database.QueryAsync("SELECT datctype || ' / ' || datcollate FROM pg_database WHERE datname = current_database()");
+        output.WriteLine($"LOCALE datctype / datcollate: {locale.Single()}");
+
+        Assert.Equal(["елка альфа"], await database.QueryAsync("SELECT search_fold('ЁЛКА Альфа')"));
+        Assert.Equal(["true"], await database.QueryAsync("SELECT (word_similarity('логстика', 'логистика') >= 0.5)::text"));
+        Assert.DoesNotMatch("^(C|POSIX) /", locale.Single());
+    }
+
+    // Review F8: one fold for the stored name/e-mail and the typed text.
+    [Fact]
+    public void TheTypedTextFold_IsTheProjectionsFold()
+    {
+        foreach (var text in new[] { "ЁЛКА Альфа", "Ёӝ и ё", "a\u0001b￾c", "Иван Петров" })
+        {
+            Assert.Equal(Mustask.Domain.UserDirectory.DirectorySearchText.Normalize(text), SearchQueryText.Fold(text));
+        }
+    }
 
     // US-2 "Typo tolerance" (BR-GS-17): the near-miss table at the threshold 0.5 and the minimum query length 4.
     [Theory]
@@ -145,7 +175,10 @@ public sealed class SearchDatabaseTests(OrganizationsDatabaseFixture database, I
             set.OrganizationId,
             true,
             new SearchVisibility(set.Projects.Take(20).ToList(), set.Teams.Take(20).ToList(), set.Departments.Take(2).ToList(), set.Areas.Take(78).ToList()));
-        string[] texts = ["проект", "прое", "команда 1", "область 7", "имя1", "user12@", "фамилия 99", "отдел", "проэкт", "кооманда"];
+        // The plan measures the 2-character query (the trigram index cannot serve it), a 3-character one, a no-match and the typo tier too.
+        string[] texts = ["проект", "прое", "команда 1", "область 7", "имя1", "user12@", "фамилия 99", "отдел", "проэкт", "кооманда", "пр", "ко", "про", "юзз", "щщщщ"];
+
+        Assert.Equal(SearchQueryKind.TooShort, SearchQueryText.Judge("п", out _));
         var timings = new List<double>();
 
         for (var round = 0; round < 300; round++)
@@ -169,7 +202,7 @@ public sealed class SearchDatabaseTests(OrganizationsDatabaseFixture database, I
         var ordered = timings.Order().ToList();
         var p95 = ordered[(int)(ordered.Count * 0.95) - 1];
         var p99 = ordered[(int)(ordered.Count * 0.99) - 1];
-        output.WriteLine($"VOLUME search reads: n={ordered.Count} p50={ordered[ordered.Count / 2]:F1} ms p95={p95:F1} ms p99={p99:F1} ms max={ordered[^1]:F1} ms");
+        output.WriteLine($"VOLUME search reads (database read only: no handler, sight-set building or HTTP): n={ordered.Count} p50={ordered[ordered.Count / 2]:F1} ms p95={p95:F1} ms p99={p99:F1} ms max={ordered[^1]:F1} ms");
 
         Assert.True(p95 <= 600, $"p95 {p95:F1} ms");
         Assert.True(p99 <= 1600, $"p99 {p99:F1} ms");
