@@ -1,4 +1,3 @@
-// TEMPORARY (tech-074): makes CI run the backend groups and the merged backend floors; reverted before review.
 using Mustask.Api.Features.Iterations;
 using Mustask.Api.ApiExplorer;
 using Mustask.Api.CurrentUser;
