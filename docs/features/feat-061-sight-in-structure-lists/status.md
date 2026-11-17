@@ -3,14 +3,14 @@
 - type: feature
 - size: L
 - branch: feat/061-sight-in-structure-lists
-- stage: 8-review
+- stage: complete
 - epic: core/org-access
 - deps: feat-041
 - gates: gate-3
 
 ## Gates
 
-gate-3: pending
+gate-3: approved (2026-11-18, by the human in chat, after the gate-3 package; debts m-1, m-2, m-3 accepted)
 
 ## Plan
 
@@ -55,3 +55,6 @@ Verification: affected tests locally, the full verify.sh in CI.
 - 2026-11-18 [code-reviewer] Round 1 (one Opus pass with the L security pass) over 9e0c9262..6c0957ec: approved; 0 blocker, 0 major, 5 minors open (R-1..R-5) plus QA m-1..m-3 confirmed, all debts for gate-3; findings in review.md.
 - 2026-11-18 [backend] Code review R-1..R-5 fixed (see review.md § Fixes). R-1 link-pickers test with Manager grants, exact non-empty sets; R-2 `CallerAccess.Sight` required, eight feat-062 sites use `CallerAccess.NotNarrowed(...)`; R-3 deviation recorded in plan-backend; R-4 `filterTree` + test deleted; R-5 comment. Tests (foreground, affected only): `StructureListsSightTests` 12 passed (the picker test now asserts exact non-empty sets); Application 908 passed; Infrastructure `Organizations` 215 passed; Api, Architecture, Application, Infrastructure test projects build; frontend `areaTree.test.ts` 9 passed (-1 removed), `tsc -b` and ESLint clean. No verify.sh (economy).
 - 2026-11-18 [code-reviewer] Round 2 (delta, b738187a): approved; R-1..R-5 closed, no new finding; open debts for gate-3: QA m-1..m-3.
+- 2026-11-18 [orchestrator] origin/main merged in (feat-041 in main since 2026-11-17, PR #203), clean; Application AccessSet tests green after the merge.
+- 2026-11-18 [orchestrator] gate-3 round 1 package: the human chose to fix R-1..R-5 first; fixed in b738187a, review round 2 approved (4b745b24).
+- 2026-11-18 [orchestrator] gate-3 approved by the human in chat. Accepted debts: m-1 (a team or department stays visible through a deactivated project; discloses nothing), m-2 (the «Схема» tab has no «Структура» filter field; no leak, it reads the narrowed tree), m-3 (the filter also matches sub-area names; a deactivated project's key does not match). The «Список»/«Дерево» redesign is not in the panel yet; the filter acts on «Дерево». stage: complete.
