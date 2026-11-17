@@ -1,5 +1,6 @@
 using Mustask.Application.Tests.TestDoubles.Iterations;
 using Mustask.Application.Abstractions;
+using Mustask.Application.Abstractions.Images;
 using Mustask.Application.Abstractions.Process;
 using Mustask.Application.Abstractions.RichText;
 using Mustask.Application.Abstractions.UserDirectory;
@@ -10,6 +11,7 @@ using Mustask.Application.Features.WorkItems.SaveWorkItem;
 using Mustask.Application.Tests.TestDoubles;
 using Mustask.Application.Tests.TestDoubles.Organizations;
 using Mustask.Domain.Identity;
+using Mustask.Domain.Images;
 using Mustask.Domain.Organizations;
 using Mustask.Domain.Process;
 using Mustask.Domain.WorkItems;
@@ -196,6 +198,61 @@ public sealed class SaveWorkItemDescriptionHandlerTests
             () => fixture.Handler.Handle(Command(new string('a', 2_000_001), "html", identifier: "not-an-identifier"), CancellationToken.None));
     }
 
+    // --- feat-078 images -----------------------------------------------------------------------------------------
+
+    private static RichTextReduction WithImages(int count) =>
+        new(false, "<p>x</p>", 8, 1, true) { ImageIds = [.. Enumerable.Range(0, count).Select(_ => Guid.CreateVersion7())] };
+
+    // US-3 · "Over 50 images": elements are counted, the refusal comes before the transaction and binds nothing.
+    [Fact]
+    public async Task Handle_FiftyOneImages_IsTooManyImages_BeforeTheTransaction()
+    {
+        fixture.Reducer.Result = WithImages(51);
+
+        var failure = await Assert.ThrowsAsync<ValidationException>(
+            () => fixture.Handler.Handle(Command("<p>x</p>", "html"), CancellationToken.None));
+
+        Assert.Equal([WorkItemErrorCodes.DescriptionTooManyImages], failure.Errors["description"].Select(error => error.Code));
+        Assert.Empty(fixture.Binding.Calls);
+        Assert.Equal(0, fixture.Repository.Saves);
+    }
+
+    // BR-IM-6 · the bind happens inside the transaction, once, with the ids the reducer found.
+    [Fact]
+    public async Task Handle_Images_AreBoundInsideTheTransaction()
+    {
+        fixture.Reducer.Result = WithImages(2);
+
+        await fixture.Handler.Handle(Command("<p>x</p>", "html"), CancellationToken.None);
+
+        Assert.Equal([true], fixture.Binding.InTransactionAtCall);
+        Assert.Equal(fixture.Reducer.Result.ImageIds, Assert.Single(fixture.Binding.Calls));
+    }
+
+    // US-3 · "A reference that is not the item's own refuses the whole save": one field reason, nothing stored.
+    [Fact]
+    public async Task Handle_BindingRefused_IsImageUnavailable_NothingStored()
+    {
+        fixture.Reducer.Result = WithImages(1);
+        fixture.Binding.Accepts = false;
+
+        var failure = await Assert.ThrowsAsync<ValidationException>(
+            () => fixture.Handler.Handle(Command("<p>x</p>", "html", title: "Другой"), CancellationToken.None));
+
+        Assert.Equal([WorkItemErrorCodes.DescriptionImageUnavailable], failure.Errors["description"].Select(error => error.Code));
+        Assert.Equal(0, fixture.Repository.Saves);
+    }
+
+    // US-3 · a save without an image, or a plain one, calls the bind for nothing.
+    [Fact]
+    public async Task Handle_NoImages_BindingIsNotCalled()
+    {
+        await fixture.Handler.Handle(Command("<p>x</p>", "html"), CancellationToken.None);
+        await fixture.Handler.Handle(Command("<img data-image-id=\"x\">", "plain"), CancellationToken.None);
+
+        Assert.Empty(fixture.Binding.Calls);
+    }
+
     // --- doubles -------------------------------------------------------------------------------------------------
 
     private sealed class Fixture
@@ -209,6 +266,7 @@ public sealed class SaveWorkItemDescriptionHandlerTests
             UnitOfWork = new RecordingUnitOfWork();
             Reducer = new FakeReducer(UnitOfWork);
             Repository = new FakeRepository(test.item);
+            Binding = new FakeImageBinding(UnitOfWork);
 
             Handler = new SaveWorkItemHandler(
                 new FakeStructure(project),
@@ -223,12 +281,16 @@ public sealed class SaveWorkItemDescriptionHandlerTests
                 new EveryoneSeesSight(),
                 new FakeClock(),
                 UnitOfWork,
-                Reducer);
+                Reducer,
+                Binding,
+                new FakeCurrentUser());
         }
 
         public SaveWorkItemHandler Handler { get; }
 
         public FakeReducer Reducer { get; }
+
+        public FakeImageBinding Binding { get; }
 
         public FakeRepository Repository { get; }
 
@@ -255,6 +317,23 @@ public sealed class SaveWorkItemDescriptionHandlerTests
         }
 
         public Task SaveChangesAsync(CancellationToken cancellationToken) => Task.CompletedTask;
+    }
+
+    private sealed class FakeImageBinding(RecordingUnitOfWork unitOfWork) : IImageBinding
+    {
+        public List<IReadOnlyCollection<Guid>> Calls { get; } = [];
+
+        public List<bool> InTransactionAtCall { get; } = [];
+
+        public bool Accepts { get; set; } = true;
+
+        public Task<bool> LockAndBindAsync(IReadOnlyCollection<Guid> imageIds, ImageBindingRule rule, DateTimeOffset now, CancellationToken cancellationToken)
+        {
+            Calls.Add(imageIds);
+            InTransactionAtCall.Add(unitOfWork.InTransaction);
+
+            return Task.FromResult(Accepts);
+        }
     }
 
     private sealed class FakeReducer(RecordingUnitOfWork unitOfWork) : IRichTextReducer

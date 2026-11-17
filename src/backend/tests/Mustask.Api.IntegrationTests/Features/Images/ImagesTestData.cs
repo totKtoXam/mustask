@@ -191,6 +191,15 @@ internal static class ImagesTestData
         await context.SaveChangesAsync();
     }
 
+    /// <summary>Removes an image row as the sweep would (its content goes with it).</summary>
+    public static async Task DeleteAsync(MustaskApiFactory factory, Guid imageId)
+    {
+        using var scope = factory.Services.CreateScope();
+        var context = scope.ServiceProvider.GetRequiredService<MustaskDbContext>();
+        await context.ImageContents.Where(candidate => candidate.ImageId == imageId).ExecuteDeleteAsync();
+        await context.Images.Where(candidate => candidate.Id == imageId).ExecuteDeleteAsync();
+    }
+
     /// <summary>The ids an html value names in its image elements (lower case).</summary>
     public static IEnumerable<Guid> ImageIdsIn(string? html) =>
         System.Text.RegularExpressions.Regex.Matches(html ?? string.Empty, "data-image-id=[\"']([0-9a-fA-F-]{36})[\"']")

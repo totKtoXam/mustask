@@ -1,5 +1,6 @@
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 using Mustask.Application.Abstractions.Images;
 using Mustask.Infrastructure.Images.Intake;
 using Mustask.Infrastructure.Images.Intake.Processing;
@@ -22,6 +23,10 @@ public static class ImagesServiceCollectionExtensions
         services.AddSingleton<IImageCodec>(provider => new VipsCodec(provider.GetRequiredService<ImagesOptions>()));
         services.AddSingleton<IImageIntake, ImageIntake>();
         services.AddScoped<IImageStore, ImageStore>();
+        services.AddScoped<IImageBinding, ImageBinding>();
+        services.TryAddSingleton(TimeProvider.System);
+        services.AddSingleton<UnboundImageSweeper>();
+        services.AddHostedService(provider => provider.GetRequiredService<UnboundImageSweeper>());
 
         return services;
     }

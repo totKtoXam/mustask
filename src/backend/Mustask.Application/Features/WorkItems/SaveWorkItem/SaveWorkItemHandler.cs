@@ -1,4 +1,5 @@
 using Mustask.Application.Abstractions;
+using Mustask.Application.Abstractions.Images;
 using Mustask.Application.Abstractions.Iterations;
 using Mustask.Application.Abstractions.Organizations;
 using Mustask.Application.Abstractions.Process;
@@ -8,6 +9,7 @@ using Mustask.Application.Abstractions.WorkItems;
 using Mustask.Application.Features.Boards;
 using Mustask.Application.Features.Organizations;
 using Mustask.Domain.Identity;
+using Mustask.Domain.Images;
 using Mustask.Domain.Iterations;
 using Mustask.Domain.Organizations;
 using Mustask.Domain.WorkItems;
@@ -75,7 +77,9 @@ public sealed class SaveWorkItemHandler(
     IScopedAccessReadModel sight,
     IClock clock,
     IUnitOfWork unitOfWork,
-    IRichTextReducer reducer)
+    IRichTextReducer reducer,
+    IImageBinding imageBinding,
+    ICurrentUser currentUser)
 {
     public async Task<SaveWorkItemResult> Handle(SaveWorkItemCommand command, CancellationToken cancellationToken)
     {
@@ -135,19 +139,25 @@ public sealed class SaveWorkItemHandler(
             return PreparedDescription.Refused(WorkItemErrorCodes.DescriptionMarkupTooLarge);
         }
 
-        return WorkItemText.ValidateReduced(reduction.MarkupLength, reduction.VisibleLength) is { } reducedReason
-            ? PreparedDescription.Refused(reducedReason)
-            : PreparedDescription.Of(WorkItemText.Describe(reduction.Html, reduction.HasContent));
+        if (WorkItemText.ValidateReduced(reduction.MarkupLength, reduction.VisibleLength) is { } reducedReason)
+        {
+            return PreparedDescription.Refused(reducedReason);
+        }
+
+        // feat-078 BR-IM-8: the elements are counted, duplicates included, after the visible length and before anything is locked.
+        return WorkItemText.ValidateImages(reduction.ImageIds.Count) is { } imagesReason
+            ? PreparedDescription.Refused(imagesReason)
+            : PreparedDescription.Of(WorkItemText.Describe(reduction.Html, reduction.HasContent), reduction.ImageIds);
     }
 
     /// <summary>The outcome of <see cref="PrepareDescriptionAsync"/>: nothing sent, a reason, or the pair to store.</summary>
-    private readonly record struct PreparedDescription(WorkItemDescription? Value, string? Reason)
+    private readonly record struct PreparedDescription(WorkItemDescription? Value, string? Reason, IReadOnlyList<Guid>? ImageIds = null)
     {
         public static PreparedDescription NotSent { get; } = new(null, null);
 
         public static PreparedDescription Refused(string reason) => new(null, reason);
 
-        public static PreparedDescription Of(WorkItemDescription value) => new(value, null);
+        public static PreparedDescription Of(WorkItemDescription value, IReadOnlyList<Guid>? imageIds = null) => new(value, null, imageIds);
     }
 
     private async Task<SaveWorkItemResult> HandleAsync(
@@ -217,8 +227,16 @@ public sealed class SaveWorkItemHandler(
                     throw new NotFoundException(SprintErrorCodes.NotFound);
                 }
 
+                // 1b. feat-078 BR-IM-6 (plan-backend § 7): the images the description names, locked in id order after the item's
+                // own lock and bound when the writer's own unbound uploads for this item or already bound to it. A refusal is one
+                // field reason below; the transaction ends there, so a bind made here is undone with it.
+                var now = clock.UtcNow;
+                var imagesUnavailable = prepared.ImageIds is { Count: > 0 } imageIds
+                    && !await imageBinding.LockAndBindAsync(
+                        imageIds, ImageBindingRule.ForWorkItemDescription(item.Id, currentUser.SubjectId), now, ct);
+
                 // 2. The values, every field reason at once.
-                var title = ValidateValues(command, item, type, prepared);
+                var title = ValidateValues(command, item, type, prepared, imagesUnavailable);
 
                 // 3. The area: one of the item's own project, still there under the lock (BR-M3-23, BR-M3-24).
                 var areaId = await LockAreaAsync(projectId, item.AreaId, command.AreaId, ct);
@@ -248,7 +266,6 @@ public sealed class SaveWorkItemHandler(
                     prepared.Value?.Format,
                     sprint);
 
-                var now = clock.UtcNow;
                 var previousTeamId = item.OwningTeamId;
                 var changed = item.Save(edit, type, now);
 
@@ -277,7 +294,8 @@ public sealed class SaveWorkItemHandler(
     /// The trimmed title when one was sent; throws one validation answer with every field reason, feat-022's fields
     /// keyed by their request names (its api-contract § 1).
     /// </summary>
-    private static string? ValidateValues(SaveWorkItemCommand command, WorkItem item, WorkItemTypeStates type, PreparedDescription prepared)
+    private static string? ValidateValues(
+        SaveWorkItemCommand command, WorkItem item, WorkItemTypeStates type, PreparedDescription prepared, bool imagesUnavailable)
     {
         var errors = new Dictionary<string, IReadOnlyList<FieldError>>(StringComparer.Ordinal);
         string? title = null;
@@ -297,6 +315,10 @@ public sealed class SaveWorkItemHandler(
         if (prepared.Reason is { } descriptionReason)
         {
             errors["description"] = [new FieldError(descriptionReason)];
+        }
+        else if (imagesUnavailable)
+        {
+            errors["description"] = [new FieldError(WorkItemErrorCodes.DescriptionImageUnavailable)];
         }
 
         if (command.Fields is { } fields)
