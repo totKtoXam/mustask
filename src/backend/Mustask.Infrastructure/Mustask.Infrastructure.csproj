@@ -29,6 +29,10 @@
     <PackageReference Include="AngleSharp" />
     <!-- mod-024: the import source workbooks are read (and the dry-run report is written) on the Open XML SDK (Imports/). -->
     <PackageReference Include="DocumentFormat.OpenXml" />
+    <!-- feat-078 / ADR-0045: libvips for the image intake (Images/Intake/Processing only). -->
+    <PackageReference Include="NetVips" />
+    <PackageReference Include="NetVips.Native.linux-x64" />
+    <PackageReference Include="NetVips.Native.win-x64" />
   </ItemGroup>
 
   <!-- feat-018 / ADR-0039 decision 6: the closed vocabularies are shared with the panel, embedded like the dictionaries. -->

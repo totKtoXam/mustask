@@ -77,6 +77,20 @@
          canonical rules are ours anyway. 1.7.2 is the version the spike and the
          hostile corpus ran on; bump it only with the corpus green. -->
     <PackageVersion Include="AngleSharp" Version="1.7.2" />
+    <!-- feat-078 / ADR-0045: image decode, scale and encode (Mustask.Infrastructure/Images/Intake/Processing,
+         the only folder that names it). NetVips 3.2.0 is the MIT wrapper. The two RID packages
+         (not the NetVips.Native meta-package, which would pull every platform into the release)
+         carry the libvips 8.18.7 binaries. Licences read from the downloaded packages on
+         2026-11-17: NetVips.Native.* declares LGPL-3.0-or-later; its THIRD-PARTY-NOTICES.md lists
+         the bundled libraries and none is GPL (libvips, glib, libexif, libheif, librsvg, pango,
+         fribidi: LGPLv3; libimagequant: BSD-2; mozjpeg: zlib/IJG/BSD-3; libpng, libwebp, libtiff,
+         lcms, cgif, libnsgif, aom, highway, harfbuzz, freetype, ...: permissive). LGPL applies
+         to a dynamically loaded, replaceable shared library; the notices ship with the release.
+         Bump only with the Images tests green. -->
+    <PackageVersion Include="NetVips" Version="3.2.0" />
+    <PackageVersion Include="NetVips.Native.linux-x64" Version="8.18.7" />
+    <PackageVersion Include="NetVips.Native.win-x64" Version="8.18.7" />
+
 
     <!-- mod-024 / plan-backend.md § 2: the Open XML SDK (MIT, Microsoft) reads the import source workbooks (Mustask.Infrastructure/Imports/Reading,
          through its streaming reader behind our own zip safety gate) and writes the dry-run report .xlsx. -->
