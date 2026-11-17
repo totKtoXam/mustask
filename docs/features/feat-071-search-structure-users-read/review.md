@@ -66,3 +66,36 @@ Fix: move `TierOf`/`Matches`/`SimilarityOf`/`Wrap` to a neutral internal static 
 ### Verdict
 
 **changes-requested** — majors 3 (F1, F2, F3), minors 3 (F4-F6), nits 3 (F7-F9). F3 is prose only; F2 has an orchestrator part (the DevOps `datctype` answer) that the developer's fix does not wait for. Size L: one delta read follows the fix; minors stay debts unless folded into the same lines.
+
+## Round 2 (delta)
+
+Scope: `git diff 26915565..59173664` (7a1b5513, 70136bca, 7726291c, 59173664; 16 files) and the round-1 findings, nothing else. No tests run: the fix's own run (Search DB 16 + Migrations 10, the rest as listed in the status Log) covers what the delta touches, and no claim below needed a run to settle.
+
+| Finding | State | Anchor |
+|---|---|---|
+| F1 volume queries | closed | `SearchDatabaseTests.cs` texts now add «пр», «ко», «про», «юзз», «щщщщ»; 1-char asserted rejected by `Judge`; output and qa.md state "database read only"; plan § 7 reworded |
+| F2 ctype precondition | closed (code/docs); DevOps `datctype` answer still owed by the orchestrator | migration guard `DO $$ … datctype IN ('C','POSIX') … RAISE` before `CREATE EXTENSION`; `search_fold` = `replace(lower($1 COLLATE "ru-x-icu"), 'ё', 'е')`; `MigrationsTests.SearchTrigramMigration_RefusesACTypeDatabase_WithAClearMessage` (real `LC_CTYPE 'C'` database, `ProcessEnvironmentCollection` so the env-var swap is serial); `SearchDatabaseTests.TheFoldAndTheTrigramMatch_KnowCyrillic_OnThisDatabase`; vm.md and vm.ru.md say the same |
+| F3 null `color` | closed | `api-contract.md:40,50` now match `SearchStructureResponse.cs:43`; contract note in the status Log |
+| F4 EXPLAIN pin | closed | predicates built from `SearchSql.Matches(SearchSql.Folded(col))` and `SearchUsersStatement.NameColumn/EmailColumn`; test renamed `…CanUseItsTrigramIndex`; plan § 4/§ 7 and backend.md say "can use" |
+| F5 boundary / cycle | closed | neutral `Infrastructure/Search/SearchSql.cs`; `SearchUsersStatement` depends on it only; comment, plan notes and backend.md name the accepted exception to mod-014 A.8 (ADR-0044 § 1) |
+| F6 Down drops pg_trgm | closed | Down keeps the extension, with a comment |
+| F7 stale names | closed | comments now name `SearchDatabaseTests` |
+| F8 two folds | closed | `SearchQueryText.Fold` delegates to `DirectorySearchText.Normalize`; parity test `TheTypedTextFold_IsTheProjectionsFold` |
+| F9 403 | closed | `.ProducesProblem(403)` removed |
+
+The points the coordinator asked about:
+- **ICU availability:** `ru-x-icu` is not a new assumption. `OrganizationsCollation.Russian` is already used by every name ordering and by `AppointmentReadModel`/`WorkItemFilterPredicate`. The function body is checked when the function is created, so a server built without ICU fails the migration loudly.
+- **IMMUTABLE with COLLATE:** correct. `lower` under a fixed collation is immutable to PostgreSQL. The inlined body ends up with the declared default result collation, the same on the index side and the predicate side, so index matching is unchanged; the EXPLAIN test proves it.
+- **The ESCAPE clause:** the delta does not touch it. `LIKE … ESCAPE '\'` is as it was in round 1 and is still correct with `standard_conforming_strings` on.
+- **Editing the migration in place:** acceptable because nothing is merged. See N2.
+
+New, from the delta (nits only, none blocks):
+- **N1 — nit — an ICU upgrade does not flag these indexes.** The four `search_fold` indexes depend on the function, not on the collation, so PostgreSQL's collation-version check does not cover them. After an ICU major upgrade on the host, `REINDEX` them. Case mapping for Cyrillic is stable across ICU versions, so this is a runbook line, not code.
+- **N2 — nit — databases that ran the earlier version keep the old migration.** Any local or stand database that applied the pre-fix migration still has the old `search_fold` body, and if it was rolled back, no `pg_trgm`. On a UTF-8 libc database the results are the same. Reset such a database, or ignore it.
+- **N3 — nit — the guard can refuse a database that would work.** It tests `datctype` only. On PostgreSQL 17+ a database with the `builtin` or ICU provider and `datctype = 'C'` would be refused although it could work. That fails loudly with a clear message, and production is PostgreSQL 16 with libc (vm.md), so it is acceptable.
+
+Prose claims checked in the delta: vm.md / vm.ru.md "the migration refuses such a database" → migration guard; "typo-tolerant match finds nothing" on C → pg_trgm word classification (LIKE still matches, the sentence claims no more); qa.md re-measure scope "database read only" → `SearchDatabaseTests` loop calls only the read model; plan § 4 "builds its EXPLAIN predicates from SearchSql" → test; status Log test counts consistent with the files (16 DB tests = 1+1+6+2+5+1). Direction 2: the changed behaviours are the fold collation and the migration guard; grepped `search_fold`, `datctype`, `pg_trgm` over `docs/`, `.claude/`, AGENTS.md files: hits are backend.md, vm.md, vm.ru.md, this feature's files, all updated in the delta; none elsewhere.
+
+### Verdict
+
+**approve** — F1-F9 closed; open: nits N1-N3 (debts, no round). Still owed before the MR, by the orchestrator: the production database's `datctype` from DevOps, recorded in `status.md` (F2). QA D-1 stays the human's call at gate-3 on qa.md's database-read-only numbers (p95 225 ms, one run) with the end-to-end measurement as debt.
