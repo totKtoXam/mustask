@@ -156,6 +156,8 @@ public static class OrganizationAddressedRoutes
         new("GET", Org + "/boards/{level}/cells", PermissionCatalog.WorkItemsWorkItemRead),
         new("GET", Org + "/workitems/rows", PermissionCatalog.WorkItemsWorkItemRead),
         new("GET", Org + "/workitems", PermissionCatalog.WorkItemsWorkItemRead),
+        // feat-071 api-contract: the quick search, a read sent as POST so the typed text stays out of the URL (ADR-0044 § 5).
+        new("POST", Org + "/search", PermissionCatalog.OrganizationsOrganizationRead),
         new("GET", Org + "/workitems/assignee-options", PermissionCatalog.WorkItemsWorkItemRead),
         // mod-024 api-contract § 0: the import constructor's fifteen routes. The catalogue, the list and the columns read are the
         // template read code; the rest judge the write or run right held anywhere, so the handler decides (membership-only policy).

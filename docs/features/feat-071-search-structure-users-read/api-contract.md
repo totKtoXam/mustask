@@ -59,6 +59,7 @@ Errors (envelope ADR-0007; codes in `contracts/errors/search.json`):
 | 400 | `search.validation_failed` with field `query` and reason `search.query_too_long` | more than 100 characters |
 | 400 | `search.validation_failed` with field `expand` and reason `search.invalid_group` | `expand` is not one of the five kinds |
 | 401 | (the platform's) | not signed in |
+| 403 | `organizations.access.forbidden` | declared for the API description like every organization-scoped route (the inventory test requires it); no member can receive it, since every role holds `organizations.organization.read` |
 | 404 | `organizations.organization.not_found` | not an active member of the organization (an instance administrator without membership included); same body as a nonexistent organization |
 | 429 | `http.too_many_requests` | the limiter refused the read; header `Retry-After: 1` |
 
