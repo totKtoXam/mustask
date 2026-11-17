@@ -349,6 +349,49 @@ public sealed class StructureListsSightTests(MustaskApiFactory factory)
         Assert.Equal(Of(w.Finance.Id), Ids(removed.Body.GetProperty("departments")));
     }
 
+    // QA (backend): a hidden object's own addresses answer as one that names nothing, on every list route that names it (BR-TD-14, BR-TD-17).
+    [Fact]
+    public async Task HiddenObjectsListRoutes_AnswerNotFound_AndAnAreaDetailOfAHiddenAreaDisclosesNothing()
+    {
+        var w = await WorldAsync();
+        var olga = await OlgaAsync(w);
+
+        foreach (var path in new[] { $"areas/{w.Finance.Id}", $"areas/{w.Finance.Id}/teams", $"areas/{w.Finance.Id}/deletion", $"areas/{w.NodeOfD.Id}" })
+        {
+            var answer = await GetAsync(w, path, olga.Token);
+            Assert.Equal((HttpStatusCode.NotFound, "organizations.area.not_found"), (answer.Status, answer.ErrorCode));
+        }
+
+        foreach (var path in new[] { $"projects/{w.C.Id}/teams", $"projects/{w.C.Id}/team-links", $"projects/{w.C.Id}/areas" })
+        {
+            var answer = await GetAsync(w, path, olga.Token);
+            Assert.Equal((HttpStatusCode.NotFound, "organizations.project.not_found"), (answer.Status, answer.ErrorCode));
+        }
+
+        var team = await GetAsync(w, $"teams/{w.Jupiter.Id}/projects", olga.Token);
+        Assert.Equal((HttpStatusCode.NotFound, "organizations.team.not_found"), (team.Status, team.ErrorCode));
+    }
+
+    // QA (backend): a deactivated project leaves the offers and counts of the caller who saw it; its teams stay visible by membership.
+    [Fact]
+    public async Task ADeactivatedVisibleProject_LeavesOffersAndCounts_WithoutHidingOrRevealingAnythingElse()
+    {
+        var w = await WorldAsync();
+        var olga = await OlgaAsync(w);
+        await OrganizationsTestData.SetProjectStatusAsync(factory, w.OrganizationId, w.A.Id, ProjectStatus.Deactivated);
+
+        var offers = await GetAsync(w, "selector-offers", olga.Token);
+        var overview = await GetAsync(w, "overview", olga.Token);
+        var projects = await GetAsync(w, "projects", olga.Token);
+
+        Assert.Empty(Ids(offers.Body.GetProperty("projects")));
+        // feat-041's rule keeps a team seen through a deactivated project (it still stands in the sight data): recorded as qa.md m-1.
+        Assert.Equal(Of(w.Venus.Id, w.Mars.Id), Ids(offers.Body.GetProperty("teams")));
+        Assert.Equal(0, overview.Body.GetProperty("projectCount").GetInt32());
+        Assert.Equal(2, overview.Body.GetProperty("teamCount").GetInt32());
+        Assert.Empty(Ids(projects.Body));
+    }
+
     // BR-TD-17 · a picker: the «linkable» filter of the pickers runs over the sight-narrowed set, never offering a hidden object.
     [Fact]
     public async Task TheLinkPickers_NeverOfferAHiddenObject_EvenToAHolderOfTheLinkCode()
