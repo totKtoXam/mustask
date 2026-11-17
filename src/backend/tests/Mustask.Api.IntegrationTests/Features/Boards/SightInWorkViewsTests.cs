@@ -194,6 +194,57 @@ public sealed class SightInWorkViewsTests(MustaskApiFactory factory)
         }
     }
 
+    // BR-TD-12 (QA) · the narrowing is exactly the sight rule: a project grant, and membership of a team linked to the project, each
+    // bring the hidden project's items back for that viewer (no over-narrowing), while a viewer with neither stays at 5.
+    [Fact]
+    public async Task AViewer_WhoSeesTheProjectByAGrantOrByALinkedTeam_ReadsItsItemsInTheViews()
+    {
+        var real = await BuildAsync(withHidden: true);
+        var cast = real.Cast;
+
+        var granted = await MembershipTestData.NewMemberAsync(factory, cast.OrganizationId, OrganizationRole.Member);
+        await OrganizationsTestData.GrantAsync(factory, ResourceScope.Project, cast.OrganizationId, cast.Gamma.ProjectId, granted.Id, GrantRole.Reader);
+
+        var teamMember = await MembershipTestData.NewMemberAsync(factory, cast.OrganizationId, OrganizationRole.Member);
+        await MembershipTestData.AddTeamMemberAsync(factory, cast.OrganizationId, cast.Mars, teamMember.Id);
+
+        foreach (var token in new[] { granted.Token, teamMember.Token })
+        {
+            var flat = await GetAsync(real, "/workitems", token);
+            Assert.Equal(8, flat.Body.GetProperty("count").GetInt32());
+            Assert.Contains("GAM", (await GetAsync(real, "/backlogs/stories/groups?grouping=project", token)).Body.GetRawText());
+        }
+
+        Assert.Equal(5, (await GetAsync(real, "/workitems")).Body.GetProperty("count").GetInt32());
+    }
+
+    // BR-TD-17 (QA) · a selector naming the hidden project, team-only or organization-wide, selects nothing, as one that names nothing.
+    [Fact]
+    public async Task ASelectorNamingTheHiddenProject_SelectsNothing_AsAnUnknownIdDoes()
+    {
+        var real = await BuildAsync(withHidden: true);
+        var gamma = real.Cast.Gamma.ProjectId;
+        var unknown = Guid.CreateVersion7();
+
+        foreach (var template in new[]
+        {
+            "/workitems?projectId={0}",
+            "/workitems/groups?projectId={0}",
+            "/backlogs/stories/groups?grouping=team&projectId={0}",
+            "/boards/stories/groups?grouping=project&projectId={0}",
+            "/workitems/assignee-options?projectId={0}",
+        })
+        {
+            var hidden = await GetAsync(real, string.Format(template, gamma));
+            var missing = await GetAsync(real, string.Format(template, unknown));
+            Assert.Equal(SightTwin.Shape(missing), SightTwin.Shape(hidden));
+        }
+
+        var teamHidden = await GetBacklogAsync(factory, real.Cast, real.Cast.Mars, "stories", Filter(gamma), real.Viewer);
+        var teamMissing = await GetBacklogAsync(factory, real.Cast, real.Cast.Mars, "stories", Filter(unknown), real.Viewer);
+        Assert.Equal(SightTwin.Shape(teamMissing), SightTwin.Shape(teamHidden));
+    }
+
     // feat-041 debt R-5 remainder · a reorder naming an item of a hidden project (moved or anchor) answers as an id that names nothing.
     [Fact]
     public async Task ATeamBacklogReorder_NamingAnItemOfAHiddenProject_AnswersAsAnIdThatNamesNothing_AndTheVisibleOnesStillMove()

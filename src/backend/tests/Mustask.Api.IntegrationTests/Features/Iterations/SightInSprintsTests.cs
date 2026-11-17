@@ -142,6 +142,42 @@ public sealed class SightInSprintsTests(MustaskApiFactory factory)
         AssertEqualShapes(await ReadAllAsync(twin, twin.Viewer), await ReadAllAsync(real, real.Viewer));
     }
 
+    // mod-007 US-9, US-10 (QA) · a Closed sprint whose range holds an earlier Closed one: the participants, the dynamics of the range,
+    // the outcome and the list count what the viewer sees, as the twin does, after the hidden items rode through two closes.
+    [Fact]
+    public async Task ASprintClosedAfterAnEarlierOne_CountsOnlyWhatTheViewerSees_InItsRangeToo()
+    {
+        var real = await BuildAsync(withHidden: true);
+        var twin = await BuildAsync(withHidden: false);
+
+        foreach (var world in new[] { real, twin })
+        {
+            var closing = await CloseAsync(factory, world.Cast.Alpha, world.Cast.Mars, world.Active, world.Next);
+            Assert.Equal(HttpStatusCode.OK, closing.Status);
+        }
+
+        async Task<Dictionary<string, string>> ReadRangeAsync(World world)
+        {
+            var reads = new Dictionary<string, string>();
+            var path = Sprint(world.Cast.Alpha, world.Cast.Mars, world.Active);
+
+            foreach (var suffix in new[] { string.Empty, "/dynamics", "/participants", "/items" })
+            {
+                reads[suffix] = SightTwin.Shape(await SendAsync(factory, HttpMethod.Get, path + suffix, null, world.Viewer));
+            }
+
+            reads["list"] = SightTwin.Shape(await SendAsync(factory, HttpMethod.Get, Sprints(world.Cast.Alpha, world.Cast.Mars), null, world.Viewer));
+
+            return reads;
+        }
+
+        var seen = await ReadRangeAsync(real);
+        AssertEqualShapes(await ReadRangeAsync(twin), seen);
+
+        Assert.DoesNotContain("hidden-person", string.Concat(seen.Values));
+        Assert.Contains("visible-person", seen["/participants"]);
+    }
+
     // mod-007 · the refusal to remove a sprint that holds items says the same whether or not a hidden item is among them.
     [Fact]
     public async Task RemovingASprint_HoldingHiddenItems_RefusesAsTheTwinDoes()
