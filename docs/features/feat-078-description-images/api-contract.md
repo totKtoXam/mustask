@@ -146,7 +146,8 @@ The stored (and returned) form of one image, a block of its own:
 - Exactly these two attributes, in this order, double-quoted; a void element
   (no `/>`). `alt` is always present (`alt=""` when none was sent), at most
   255 code points (longer is cut), escaped as feat-018's attributes (`&amp;`,
-  `&quot;`, `&nbsp;`).
+  `&quot;`, `&nbsp;`); the characters `<` and `>` are not kept in it (stage 4b, see
+  status.md: an attribute that never holds markup is a fixed point under any serialiser).
 - The server reads `data-image-id` and `alt` and drops every other attribute
   (`src`, `width`, `style`, `class`, `on*`, …). An `img` without a
   `data-image-id` that parses as a uuid is dropped, whatever its `src`
