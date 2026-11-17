@@ -104,3 +104,11 @@ Migration → Domain rules and tests → `ISearchReadModel` + read model with th
 - **Q-3 Expression indexes as raw SQL in one migration owned by this slice, with pinning tests, rather than editing the entity configurations of Organizations and UserDirectory?** Recommendation: **raw SQL here** (§ 4): EF cannot declare expression indexes, and it leaves the other modules' files untouched (parallel branches).
 - **Q-4 `pg_trgm` on the production database host.** Needs a DevOps answer that the database owner may `CREATE EXTENSION pg_trgm` (a trusted extension; Testcontainers and the Aspire image have it). Recommendation: **ask DevOps now**, in parallel with gate-1, and record the answer in `status.md` before the MR; if refused, the fallback is a one-time grant by a DBA, not a code change.
 - **Q-5 Volume-test strictness in CI.** Recommendation: assert 2× the spec's p95/p99 in CI and record the measured values in `qa.md` for the human to compare to the spec's numbers; a strict assertion on shared runners will flake.
+
+## Implementation notes (backend-developer, 2026-11-17)
+
+Deviations from this plan, none of them a contract change:
+
+- The users statement text lives in `Mustask.Infrastructure/UserDirectory/SearchUsersStatement.cs`, not in `Search/SearchReadModel.cs`: the architecture rule `UserDirectoryRawSqlQaRules` lets only the user-directory sub-slice name `directory_users`. The helpers it shares (`Wrap`, `TierOf`, `Matches`, `SimilarityOf`) are `internal` on `SearchReadModel`.
+- The database-level tests (statement count, index pinning, EXPLAIN pins, similarity table, volume) are one class, `Mustask.Infrastructure.Tests/Search/SearchDatabaseTests.cs`, over a bulk `generate_series` seeder (`SearchDataSet`). The key index's EXPLAIN pin drops the btree `ix_projects_organization_id_key` inside its rolled-back transaction, because on a short key the planner prefers it to the GIN index.
+- Migration apply-twice / Down-Up is covered by the existing generic `MigrationsTests` (model matches migrations, pending-model check) plus the pins; no search-specific Down/Up test was added.

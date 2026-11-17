@@ -3,7 +3,7 @@
 - type: feature
 - size: L
 - branch: feat/071-search-structure-users-read
-- stage: 04-backend
+- stage: 05-backend-qa
 - epic: platform/ui
 - deps: feat-041
 - gates: gate-1, gate-3
@@ -30,3 +30,4 @@ Decision record: ADR-0044, accepted with the plan at gate-1 (2026-11-17); Q-1..Q
 ## Notes
 
 Summary (from the queue line): Global search read for departments, teams, projects, sub-areas and users (feat-065 US-2, US-4): one read per organization under sight, groups, ranking tiers with the typo tier, limit+1 more, group expansion, trigram indexes, POST transport, per-user and per-process limiter, the ADR for match technique and limiter, hidden-object, statement-count and volume tests.
+- 2026-11-17 [backend-developer] backend built per plan-backend.md, no contract change: Domain/Search rules, pg_trgm migration AddSearchTrigramIndexes (search_fold + six GIN indexes), ISearchReadModel + SearchReadModel, SearchStructure handler/validator, POST /api/organizations/{id}/search with its own SearchReadLimiter, error catalogue search.json. Deviations (in plan-backend.md): users SQL moved into Infrastructure/UserDirectory/SearchUsersStatement.cs (architecture rule); DB tests in one class SearchDatabaseTests. Tests: Domain.Tests Search 62 passed, Application.Tests Features.Search 13 passed, Api.IntegrationTests Features.Search 50 passed, Infrastructure.Tests Search.SearchDatabaseTests 14 passed (statement count, six index pins + EXPLAIN, similarity table, volume), Contracts.Tests 237 passed, Architecture.Tests 82 passed. Volume (doc-012 set, 300 reads): p95 233-474 ms, p99 298-654 ms across runs (asserted at 2x spec: 600/1600).
