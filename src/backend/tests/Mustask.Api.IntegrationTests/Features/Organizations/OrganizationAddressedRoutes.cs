@@ -157,6 +157,23 @@ public static class OrganizationAddressedRoutes
         new("GET", Org + "/workitems/rows", PermissionCatalog.WorkItemsWorkItemRead),
         new("GET", Org + "/workitems", PermissionCatalog.WorkItemsWorkItemRead),
         new("GET", Org + "/workitems/assignee-options", PermissionCatalog.WorkItemsWorkItemRead),
+        // mod-024 api-contract § 0: the import constructor's fifteen routes. The catalogue, the list and the columns read are the
+        // template read code; the rest judge the write or run right held anywhere, so the handler decides (membership-only policy).
+        new("GET", Org + "/imports/catalogue", PermissionCatalog.ImportsTemplateRead),
+        new("GET", Org + "/imports/templates", PermissionCatalog.ImportsTemplateRead),
+        new("GET", Org + "/imports/templates/{templateId}", PermissionCatalog.ImportsTemplateWrite),
+        new("GET", Org + "/imports/templates/{templateId}/columns", PermissionCatalog.ImportsTemplateRead),
+        new("POST", Org + "/imports/templates", PermissionCatalog.ImportsTemplateWrite),
+        new("PUT", Org + "/imports/templates/{templateId}", PermissionCatalog.ImportsTemplateWrite),
+        new("POST", Org + "/imports/templates/{templateId}/copy", PermissionCatalog.ImportsTemplateWrite),
+        new("DELETE", Org + "/imports/templates/{templateId}", PermissionCatalog.ImportsTemplateWrite),
+        new("POST", Org + "/imports/files", PermissionCatalog.ImportsTemplateWrite),
+        new("GET", Org + "/imports/files/{fileId}/columns", PermissionCatalog.ImportsTemplateWrite),
+        new("POST", Org + "/imports/files/{fileId}/values", PermissionCatalog.ImportsTemplateWrite),
+        new("POST", Org + "/imports/files/{fileId}/chain-sample", PermissionCatalog.ImportsTemplateWrite),
+        new("POST", Org + "/imports/templates/{templateId}/dry-runs", PermissionCatalog.ImportsImportRun),
+        new("GET", Org + "/imports/dry-runs/{dryRunId}", PermissionCatalog.ImportsImportRun),
+        new("GET", Org + "/imports/dry-runs/{dryRunId}/report", PermissionCatalog.ImportsImportRun),
         // feat-033 api-contract § 2.1: the organization's own record of administrator appointments. Before the mod-016 block: `Memberships`
         // takes the last ten rows of this list.
         new("GET", Org + "/appointments", PermissionCatalog.OrganizationsMembershipWrite),

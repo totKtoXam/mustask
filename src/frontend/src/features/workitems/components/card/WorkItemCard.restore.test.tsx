@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { HttpResponse, http } from 'msw';
@@ -23,10 +23,7 @@ import {
   refuseWith,
 } from './testDeletion';
 
-// mod-005 US-4, design § 5 (the dialog), § 8 (what it meets), § 4 (the card it leaves). Each user
-// action draws the kit's fields in jsdom; a test of several steps outlasts the default.
-
-vi.setConfig({ testTimeout: 120_000 });
+// mod-005 US-4, design § 5 (the dialog), § 8 (what it meets), § 4 (the card it leaves).
 
 const STORY = 'MSK-US-2';
 const HELD_HINT = 'Выбран статус, в котором рабочий элемент был перед удалением.';

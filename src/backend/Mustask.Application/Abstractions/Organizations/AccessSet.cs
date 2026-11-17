@@ -182,6 +182,30 @@ public sealed class AccessSet
         return scope == ResourceScope.Organization ? OrganizationRoleBundles.Holds(Role, code) : CodesOn(scope, objectId).Contains(code);
     }
 
+    /// <summary>
+    /// Whether the caller holds <paramref name="code"/> somewhere (mod-024, BR-IE-18): the administrator, a code of the role's bundle, a
+    /// project the caller reaches that holds it, or a department grant whose bundle holds it. For "may create a template anywhere".
+    /// </summary>
+    public bool HoldsAnywhere(string code)
+    {
+        if (Role == OrganizationRole.Admin || OrganizationRoleBundles.Holds(Role, code))
+        {
+            return true;
+        }
+
+        if (PermissionCatalog.ResourceScopeOf(code) == ResourceScope.Organization)
+        {
+            return false;
+        }
+
+        if (_areaGrants.Values.Any(roles => roles.Any(role => ScopedRoleBundles.CodesOf(ResourceScope.Area, role).Contains(code))))
+        {
+            return true;
+        }
+
+        return _projectNodes.Keys.Concat(_projectGrants.Keys).Distinct().Any(projectId => Holds(code, projectId));
+    }
+
     private List<ReachingGrant> Reaching(ResourceScope scope, Guid objectId)
     {
         var reaching = new List<ReachingGrant>();

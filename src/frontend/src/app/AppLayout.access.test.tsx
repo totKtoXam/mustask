@@ -98,6 +98,7 @@ describe('mod-016 US-4 Scenario: the three roles see the same navigation', () =>
         expect(linksOf(menu)).toEqual([
           'Общие',
           'Процесс',
+          'Импорт',
           ...(role === 'admin' ? ['Параметры', 'Параметры'] : []),
           'Языки',
           'Витрина компонентов',
@@ -153,7 +154,7 @@ describe('mod-016 design § 6.1 Scenario: unread codes hide the organization’s
 
     open.open();
 
-    await waitFor(() => expect(linksOf(menu)).toHaveLength(6));
+    await waitFor(() => expect(linksOf(menu)).toHaveLength(7));
     expect(within(menu).getByText('Организация')).toBeInTheDocument();
     expect(within(menu).getByText('Проект')).toBeInTheDocument();
   });
@@ -206,7 +207,7 @@ describe('mod-016 design § 2.2 Scenario: the navigation follows the served answ
       access: 'admin',
     });
     const menu = await screen.findByRole('navigation', { name: 'Меню настроек' });
-    await waitFor(() => expect(linksOf(menu)).toHaveLength(6));
+    await waitFor(() => expect(linksOf(menu)).toHaveLength(7));
 
     act(() => {
       queryClient.setQueryData(organizationsKeys.access(ORG), { kind: 'not-member' });

@@ -39,3 +39,9 @@ A3 with B3.
 - Harder: 5 000 single-row transactions take minutes, not seconds (spec NFR: 5 min); the batch's before-values duplicate data for 30 days; every module that later adds data to an item (comments, tags, participants, attachments) must say whether its write counts as "changed after the import" and must let undo remove what an import added.
 - Locked in: imports never bypass M3; an undone batch cannot be redone.
 - Revisit when: imports exceed 5 000 rows, or a scheduled or API import is asked for.
+
+## Amendment (2026-11-16)
+
+Amends § 5 only, to match the code that `mod-024-import-constructor` shipped; no code changes with this note. Reason: code review R1-3 found that § 5 gives `imports.template.write` organization scope and lets a «Менеджер» edit and delete only templates they authored, while the implementation treats `imports.template.write` (like `imports.import.run`) as a project-scoped code with the managers' scope, so a user who holds the right on any project of the organization may edit the organization's templates, not only their own. The human decided at gate-3 on 2026-11-16 to keep the code and correct the record.
+
+Read § 5 as: `imports.template.write` and `imports.import.run` are both project-scoped, held by the organization administrator on the organization and by a project or department «Менеджер» on the projects their grant reaches (ADR-0038). A holder of either on any project may create, copy, edit and delete the organization's templates; the author-only restriction on edit and delete (spec OQ-12 B) does not apply. `imports.template.read` is unchanged. The rest of the ADR stands.

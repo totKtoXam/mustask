@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import { fireEvent, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { HttpResponse, http } from 'msw';
@@ -15,9 +15,6 @@ import {
   validationProblem,
 } from '../../testFixtures';
 import { fill, held, openCard, typeDescription, typeInto } from './testCard';
-
-// Each user action renders the kit's fields in jsdom; a test of several steps outlasts the default.
-vi.setConfig({ testTimeout: 60_000 });
 
 const title = held(() => screen.getByRole('textbox', { name: 'Заголовок' }));
 const save = held(() => screen.getByRole('button', { name: 'Сохранить' }));

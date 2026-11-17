@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { HttpResponse, http } from 'msw';
@@ -15,9 +15,6 @@ import {
 } from '../testFixtures';
 import { held } from '../components/card/testCard';
 import { mskForm, renderWorkItems } from '../testRender';
-
-// Each user action draws the kit’s fields in jsdom; a test of several steps outlasts the default.
-vi.setConfig({ testTimeout: 120_000 });
 
 // feat-001 frontend pass A: the form's section «Связанная работа» — the
 // «Родитель» field (US-1), the refusals it shows (US-2) and the children list

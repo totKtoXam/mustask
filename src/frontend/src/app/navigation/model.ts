@@ -16,6 +16,7 @@ import {
   organizationGeneralPath,
   organizationsPermissions,
 } from '../../features/organizations';
+import { IMPORTS_ROUTE, importsPath, importsPermissions } from '../../features/imports';
 import { processDefinitionPath, processPermissions } from '../../features/process';
 import { UI_KIT_PATH, uiKitPermissions } from '../../features/uikit';
 import { HOME_PATH } from '../../shared/config/paths';
@@ -199,6 +200,18 @@ export function buildNavigationModel(selection: WorkContextSelection): Navigatio
                 ? `${processDefinitionPath(current.organizationId)}${settingsQuery(current)}`
                 : null,
             pages: ['/organizations/:organizationId/settings/process'],
+          },
+          {
+            id: 'imports',
+            label: 'Импорт',
+            scope: 'organization',
+            permission: importsPermissions.templateRead,
+            landing: (current) =>
+              current.organizationId
+                ? `${importsPath(current.organizationId)}${settingsQuery(current)}`
+                : null,
+            pages: [IMPORTS_ROUTE],
+            beneath: [`${IMPORTS_ROUTE}/*`],
           },
         ],
       },

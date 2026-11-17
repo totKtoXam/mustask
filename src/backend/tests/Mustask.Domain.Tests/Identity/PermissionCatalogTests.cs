@@ -75,9 +75,9 @@ public sealed class PermissionCatalogTests
     }
 
     [Fact]
-    public void OrganizationCodes_AreTheThirtyOneOfTheMatrix_AndNoCodeIsInBothScopes()
+    public void OrganizationCodes_AreTheThirtyFourOfTheMatrix_AndNoCodeIsInBothScopes()
     {
-        Assert.Equal(31, PermissionCatalog.OrganizationCodes.Count); // 30 + organizations.visibility.write (feat-041)
+        Assert.Equal(34, PermissionCatalog.OrganizationCodes.Count); // 33 + organizations.visibility.write (feat-041)
         Assert.Empty(PermissionCatalog.OrganizationCodes.Intersect(PermissionCatalog.InstanceCodes));
         Assert.Equal(
             PermissionCatalog.AllCodes.Order(StringComparer.Ordinal),

@@ -85,6 +85,7 @@ describe('US-3 Scenario: Pages that do not exist yet never appear (BR-7)', () =>
       'Участники',
       'Общие',
       'Процесс',
+      'Импорт',
       'Языки',
       'Все организации',
       'Витрина компонентов',
