@@ -60,6 +60,28 @@
 # all on the PR. .githooks/pre-push sets it: a push used to rerun the tests of
 # the whole branch diff, up to hours on a full-stack branch, and failed on
 # timing-sensitive tests under load. VERIFY_FULL=1 wins over it.
+#
+# Parts (tech-074): CI runs one verification as several parallel jobs, each
+# the same script with a part of the checks. Locally nothing changes: with no
+# VERIFY_PART every part runs.
+#   VERIFY_PART="<part> ..."   space-separated, out of
+#       static          prose, agent instructions, shell, CI workflow, CD cases
+#       backend         the .NET build and tests
+#       keycloak        the KeycloakLive tests
+#       frontend-static lint and build
+#       frontend-tests  Vitest
+#   VERIFY_DOTNET_FILTER=<expr>  the backend tests a backend part runs
+#       (a dotnet test --filter expression; CI splits the solution by it)
+#   VERIFY_SHARD=<i>/<n>          one shard of the whole Vitest suite (needs
+#       VERIFY_FULL=1; vitest --shard)
+#   VERIFY_COVERAGE_OUT=<dir>     keep the raw coverage of a backend run or of
+#       a Vitest shard there instead of checking the floors on it: a slice
+#       covers part of the tests, so the floors are checked on the merged
+#       reports (scripts/ci-coverage-gate.sh); a whole frontend run ignores it
+#   VERIFY_NEEDS_OUT=<file>       append the classification as need_<bucket>=0|1
+#       lines (CI's plan job writes them to $GITHUB_OUTPUT with --list)
+# A run that is a part, a filter or a shard leaves no green stamp and reads
+# none: the stamp means that the whole tree was verified.
 
 set -eu
 
@@ -79,6 +101,44 @@ VERIFY_TESTS=${VERIFY_TESTS:-1}
 unset VITEST_FAST
 LIST_ONLY=0
 [ "${1:-}" = "--list" ] && LIST_ONLY=1
+
+VERIFY_PART=${VERIFY_PART:-all}
+VERIFY_DOTNET_FILTER=${VERIFY_DOTNET_FILTER:-}
+VERIFY_SHARD=${VERIFY_SHARD:-}
+VERIFY_COVERAGE_OUT=${VERIFY_COVERAGE_OUT:-}
+VERIFY_NEEDS_OUT=${VERIFY_NEEDS_OUT:-}
+for verify_part in $VERIFY_PART; do
+    case "$verify_part" in
+        all|static|backend|keycloak|frontend-static|frontend-tests) ;;
+        *) printf "VERIFY_PART: unknown part '%s' (static backend keycloak frontend-static frontend-tests)\n" "$verify_part" >&2; exit 2 ;;
+    esac
+done
+if [ -n "$VERIFY_SHARD" ]; then
+    printf '%s' "$VERIFY_SHARD" | grep -Eq '^[1-9][0-9]*/[1-9][0-9]*$' || {
+        printf "VERIFY_SHARD: '%s' is not <index>/<count>\n" "$VERIFY_SHARD" >&2; exit 2; }
+    [ "${VERIFY_SHARD%/*}" -le "${VERIFY_SHARD#*/}" ] || {
+        printf "VERIFY_SHARD: index %s is above the count %s\n" "${VERIFY_SHARD%/*}" "${VERIFY_SHARD#*/}" >&2; exit 2; }
+    [ "$VERIFY_FULL" = 1 ] || { printf "VERIFY_SHARD needs VERIFY_FULL=1: a shard is a slice of the whole suite\n" >&2; exit 2; }
+fi
+# Absolute: the frontend tests run from src/frontend, dotnet from each project.
+if [ -n "$VERIFY_COVERAGE_OUT" ]; then
+    mkdir -p "$VERIFY_COVERAGE_OUT"
+    VERIFY_COVERAGE_OUT=$(cd "$VERIFY_COVERAGE_OUT" && pwd)
+fi
+# Does this run do the part? `all` (the default) does every one.
+part() { case " $VERIFY_PART " in *" all "*|*" $1 "*) return 0 ;; esac; return 1; }
+# A run that verifies only a slice of the tree: no stamp is read or written.
+partial_run=0
+if [ "$VERIFY_PART" != all ] || [ -n "$VERIFY_DOTNET_FILTER" ] || [ -n "$VERIFY_SHARD" ] || [ -n "$VERIFY_COVERAGE_OUT" ]; then
+    partial_run=1
+fi
+write_needs() {
+    [ -n "$VERIFY_NEEDS_OUT" ] || return 0
+    {
+        printf 'need_prose=%s\nneed_agents=%s\nneed_shell=%s\nneed_ci=%s\n' "$1" "$2" "$3" "$4"
+        printf 'need_dotnet=%s\nneed_frontend=%s\nneed_keycloak=%s\n' "$5" "$6" "$7"
+    } >> "$VERIFY_NEEDS_OUT"
+}
 
 # We check not just that the command exists but that it runs: WindowsApps
 # often puts a broken python.exe shim on PATH. On Git for Windows we fall
@@ -290,6 +350,7 @@ changed=$(
 
 if [ -z "$changed" ]; then
     note "No changes — nothing to verify."
+    write_needs 0 0 0 0 0 0 0
     exit 0
 fi
 
@@ -375,6 +436,8 @@ for file in $changed; do
     done
 done
 
+write_needs "$need_prose" "$need_agents" "$need_shell" "$need_ci" "$need_dotnet" "$need_frontend" "$need_keycloak"
+
 note ""
 if [ "$need_prose$need_agents$need_shell$need_ci$need_dotnet$need_frontend$need_keycloak" = "0000000" ]; then
     note "No checks needed: the changes affect nothing."
@@ -385,6 +448,26 @@ if [ "$need_prose$need_agents$need_shell$need_ci$need_dotnet$need_frontend$need_
 fi
 
 [ "$LIST_ONLY" = 1 ] && exit 0
+
+# --- Parts (tech-074) -------------------------------------------------------------
+# What the classification asks for, narrowed to the parts this run does. The
+# frontend bucket splits in two: its lint and build, and its tests.
+need_frontend_static=$need_frontend
+need_frontend_tests=$need_frontend
+if [ "$VERIFY_PART" != all ]; then
+    note "Parts: $VERIFY_PART${VERIFY_DOTNET_FILTER:+ (backend tests: $VERIFY_DOTNET_FILTER)}${VERIFY_SHARD:+ (Vitest shard $VERIFY_SHARD)}"
+    part static || { need_prose=0; need_agents=0; need_shell=0; need_ci=0; }
+    part backend || need_dotnet=0
+    part keycloak || need_keycloak=0
+    part frontend-static || need_frontend_static=0
+    part frontend-tests || need_frontend_tests=0
+    if [ "$need_prose$need_agents$need_shell$need_ci$need_dotnet$need_keycloak$need_frontend_static$need_frontend_tests" = "00000000" ]; then
+        note "Nothing for these parts: the changes need other checks."
+        note ""
+        note "RESULT: green"
+        exit 0
+    fi
+fi
 
 # --- The green stamp (tech-030) ---------------------------------------------------
 # A green VERIFY_FULL=1 run on a clean tree leaves a stamp keyed by the tree
@@ -406,7 +489,7 @@ stamp_file=""
 stamp_tree=""
 stamp_commit=""
 common_dir=$(git rev-parse --path-format=absolute --git-common-dir 2>/dev/null || true)
-if [ "$VERIFY_FULL" = 1 ] && [ -n "$common_dir" ] && tree_is_clean; then
+if [ "$VERIFY_FULL" = 1 ] && [ "$partial_run" = 0 ] && [ -n "$common_dir" ] && tree_is_clean; then
     stamp_tree=$(git rev-parse "HEAD^{tree}" 2>/dev/null || true)
     stamp_commit=$(git rev-parse HEAD 2>/dev/null || true)
     if [ -n "$stamp_tree" ]; then
@@ -875,12 +958,25 @@ if [ "$need_dotnet" = 1 ]; then
         elif docker info >/dev/null 2>&1; then
             # Coverage is collected only here, where every test project runs:
             # without Docker the floors would read a partial run (tech-046).
-            backend_cov=$(native_path "$(mktemp -d)")
-            if run_tests dotnet dotnet test Mustask.sln --no-build --nologo -v q \
+            # A filtered or CI-part run keeps the raw reports in
+            # VERIFY_COVERAGE_OUT and the floors are checked on all of them.
+            if [ -n "$VERIFY_COVERAGE_OUT" ]; then
+                mkdir -p "$VERIFY_COVERAGE_OUT/backend"
+                backend_cov=$(native_path "$VERIFY_COVERAGE_OUT/backend")
+            else
+                backend_cov=$(native_path "$(mktemp -d)")
+            fi
+            set -- dotnet test Mustask.sln --no-build --nologo -v q \
                 --collect "XPlat Code Coverage" --settings src/backend/coverage.runsettings \
-                -p:MustaskCoverageDir="$backend_cov"; then
-                pass "backend tests, including integration"
-                if node scripts/coverage-gate.mjs backend "$backend_cov"; then
+                -p:MustaskCoverageDir="$backend_cov"
+            [ -n "$VERIFY_DOTNET_FILTER" ] && set -- "$@" --filter "$VERIFY_DOTNET_FILTER"
+            if run_tests dotnet "$@"; then
+                pass "backend tests, including integration${VERIFY_DOTNET_FILTER:+ ($VERIFY_DOTNET_FILTER)}"
+                if [ -n "$VERIFY_COVERAGE_OUT" ]; then
+                    note "  backend coverage: reports kept in $VERIFY_COVERAGE_OUT/backend, floors checked on the merged reports"
+                elif [ -n "$VERIFY_DOTNET_FILTER" ]; then
+                    skipped "  backend coverage floors: NOT CHECKED, a filtered run covers only part of the tests"
+                elif node scripts/coverage-gate.mjs backend "$backend_cov"; then
                     pass "backend coverage floors"
                 else
                     fail "backend coverage below a floor (scripts/coverage-floors.json)"
@@ -888,7 +984,7 @@ if [ "$need_dotnet" = 1 ]; then
             else
                 fail "backend tests"
             fi
-            rm -rf "$backend_cov"
+            [ -n "$VERIFY_COVERAGE_OUT" ] || rm -rf "$backend_cov"
         else
             skipped "  Docker not running: skipping integration tests, running the rest"
             for project in src/backend/tests/*/; do
@@ -898,7 +994,7 @@ if [ "$need_dotnet" = 1 ]; then
                 # The RequiresDocker trait also shows up outside
                 # *IntegrationTests (e.g. MigrationsTests in
                 # Mustask.Infrastructure.Tests).
-                if run_tests dotnet dotnet test "$project" --no-build --nologo -v q --filter "Category!=RequiresDocker"; then
+                if run_tests dotnet dotnet test "$project" --no-build --nologo -v q --filter "${VERIFY_DOTNET_FILTER:+($VERIFY_DOTNET_FILTER)&}Category!=RequiresDocker"; then
                     pass "tests ${project%/}"
                 else
                     fail "tests ${project%/}"
@@ -943,30 +1039,57 @@ elif [ "$need_keycloak" = 1 ]; then
 fi
 
 # --- Frontend ------------------------------------------------------------------
-if [ "$need_frontend" = 1 ]; then
+if [ "$need_frontend_static$need_frontend_tests" != 00 ]; then
     for app in src/frontend; do
         [ -f "$app/package.json" ] || continue
         if [ ! -d "$app/node_modules" ]; then
             fail "$app/node_modules missing, run npm ci first"
             continue
         fi
-        if (cd "$app" && npm run lint --if-present); then
-            pass "lint $app"
-        else
-            fail "lint $app"
-        fi
-        # Smoke build, not an artifact: the guard in vite.config requires
-        # VITE_API_BASE_URL, and a real value isn't needed here and has
-        # nowhere to come from.
-        if (cd "$app" && VITE_API_BASE_URL="${VITE_API_BASE_URL:-http://verify.invalid}" npm run build --if-present); then
-            pass "build $app"
-        else
-            fail "build $app"
+        if [ "$need_frontend_static" = 1 ]; then
+            if (cd "$app" && npm run lint --if-present); then
+                pass "lint $app"
+            else
+                fail "lint $app"
+            fi
+            # Smoke build, not an artifact: the guard in vite.config requires
+            # VITE_API_BASE_URL, and a real value isn't needed here and has
+            # nowhere to come from.
+            if (cd "$app" && VITE_API_BASE_URL="${VITE_API_BASE_URL:-http://verify.invalid}" npm run build --if-present); then
+                pass "build $app"
+            else
+                fail "build $app"
+            fi
         fi
         # Every Vitest run goes through run_tests: its summary is part of the verdict.
         frontend_tests() { (cd "$app" && npm test --if-present -- --run "$@"); }
-        if [ "$VERIFY_TESTS" = 0 ]; then
+        if [ "$need_frontend_tests" = 0 ]; then
+            :
+        elif [ "$VERIFY_TESTS" = 0 ]; then
             note "  tests $app: not run (VERIFY_TESTS=0), CI runs them"
+        elif [ -n "$VERIFY_SHARD" ]; then
+            # One slice of the whole suite (tech-074): CI runs every slice in
+            # its own job. Its coverage is a slice too: the blob report goes to
+            # VERIFY_COVERAGE_OUT and the floor is checked on the merged
+            # reports (scripts/ci-coverage-gate.sh). No lock: a shard runs on
+            # a CI runner of its own.
+            note "  tests $app: shard $VERIFY_SHARD of the whole suite"
+            set -- --shard="$VERIFY_SHARD"
+            if [ -n "$VERIFY_COVERAGE_OUT" ]; then
+                mkdir -p "$VERIFY_COVERAGE_OUT/frontend"
+                set -- "$@" --coverage --reporter=default --reporter=blob \
+                    --outputFile.blob="$(native_path "$VERIFY_COVERAGE_OUT")/frontend/blob-$(printf '%s' "$VERIFY_SHARD" | tr / -).json"
+            fi
+            if run_tests vitest frontend_tests "$@"; then
+                pass "tests $app (shard $VERIFY_SHARD)"
+                if [ -n "$VERIFY_COVERAGE_OUT" ]; then
+                    note "  frontend coverage: blob kept in $VERIFY_COVERAGE_OUT/frontend, the floor is checked on the merged reports"
+                else
+                    skipped "  frontend coverage floor: NOT CHECKED, a shard covers only part of the suite"
+                fi
+            else
+                fail "tests $app (shard $VERIFY_SHARD)"
+            fi
         elif [ "$VERIFY_FULL" = 1 ] || [ -z "$merge_base" ]; then
             if [ "$VERIFY_FULL" = 1 ]; then
                 note "  tests $app: the whole suite (VERIFY_FULL=1)"

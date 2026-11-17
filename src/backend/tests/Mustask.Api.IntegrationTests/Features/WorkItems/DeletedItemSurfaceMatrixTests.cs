@@ -384,6 +384,17 @@ public sealed class DeletedItemSurfaceMatrixTests(MustaskApiFactory factory)
         ["GET " + OrgTeam + "/grants"] = Reads.NoWorkItem,
         ["GET " + OrgTeam + "/grant-candidates"] = Reads.NoWorkItem,
         ["GET " + Org + "/areas/{areaId}/teams"] = Reads.NoWorkItem,
+        // mod-024: the import reads. The catalogue, the templates and the file's columns read the template store and the uploaded
+        // file; a dry-run's result and report read the stored result. None reads a work item: the one route that does is
+        // `POST .../templates/{id}/dry-runs`, a write-method route that matches items by identifier in any state only to refuse the
+        // deleted ones (`imports.row.identifier_deleted`, as an update target and as a parent) - never to update or link them.
+        ["GET " + Org + "/imports/catalogue"] = Reads.NoWorkItem,
+        ["GET " + Org + "/imports/templates"] = Reads.NoWorkItem,
+        ["GET " + Org + "/imports/templates/{templateId}"] = Reads.NoWorkItem,
+        ["GET " + Org + "/imports/templates/{templateId}/columns"] = Reads.NoWorkItem,
+        ["GET " + Org + "/imports/files/{fileId}/columns"] = Reads.NoWorkItem,
+        ["GET " + Org + "/imports/dry-runs/{dryRunId}"] = Reads.NoWorkItem,
+        ["GET " + Org + "/imports/dry-runs/{dryRunId}/report"] = Reads.NoWorkItem,
     };
 
     // ADR-0030 rule 2 · a read of the organization-addressed set says whether it reads work items, and in which states: a GET route

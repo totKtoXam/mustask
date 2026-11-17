@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it } from 'vitest';
 import { act, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { focusManager } from '@tanstack/react-query';
@@ -20,8 +20,6 @@ import { here, projectField, projectOptions } from '../testProjectFilter';
 // feat-040 QA (qa.md, Frontend): what the developer's tests leave open. A card opened over a filtered team backlog keeps the
 // project filter beside `?workitem=`; a project the list still holds but the server calls gone is the work item's frame; the
 // head's menu and the filter hold the NFR's 200 entries and are reached whole by keyboard; a team deleted while its page is open.
-
-vi.setConfig({ testTimeout: 60_000 });
 
 afterEach(() => {
   focusManager.setFocused(undefined);

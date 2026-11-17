@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { serveRole } from '../../../test/renderShell';
@@ -20,9 +20,6 @@ import { mskForm, renderWorkItems } from '../testRender';
 // keeps what they typed on screen under the refusal; a member without `workitems.link.write`
 // has «Родитель» read-only on a card that is editable otherwise (design § 6.2). The page
 // hosts the card here; the dialog over the backlog and the board is tested with those pages.
-
-// Each user action draws the kit’s fields in jsdom; a test of several steps outlasts the default.
-vi.setConfig({ testTimeout: 120_000 });
 
 const STORY = mskForm(ITEM_OF_TYPE['Пользовательская история']);
 const HEADING = 'Пользовательская история MSK-US-2';

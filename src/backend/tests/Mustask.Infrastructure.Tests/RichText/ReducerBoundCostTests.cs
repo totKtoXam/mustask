@@ -98,7 +98,9 @@ public sealed class ReducerBoundCostTests(ITestOutputHelper output)
 
         output.WriteLine($"cold={coldMs} ms warm={warmMs} ms units={input.Length} exceeded={first.Exceeded}");
         Assert.False(first.Exceeded);
-        Assert.True(coldMs < 5_000, $"Cold start took {coldMs} ms.");
+        // The CI margin of the other budgets here (tech-073): on the runner this test shares four cores with the
+        // other test assemblies dotnet test runs beside it, and a bare 5 s failed there while the warm figure held.
+        Assert.True(TimeSpan.FromMilliseconds(coldMs) < RichTextTestSupport.Budget(5), $"Cold start took {coldMs} ms.");
     }
 
     private static string Table(int columns, int units)

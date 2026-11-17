@@ -8,8 +8,6 @@ import { CardSprintField } from './CardSprintField';
 
 // mod-007 QA (frontend): the card field's read-only state and what it asks the server for.
 
-vi.setConfig({ testTimeout: 120_000 });
-
 function renderField(props: Partial<Parameters<typeof CardSprintField>[0]> = {}) {
   const onChange = vi.fn();
   renderWithProviders(

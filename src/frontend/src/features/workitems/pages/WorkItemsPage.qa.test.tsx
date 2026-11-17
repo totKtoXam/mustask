@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import { Route, useNavigate } from 'react-router-dom';
 import { act, fireEvent, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
@@ -17,8 +17,6 @@ import { WorkItemsPage } from './WorkItemsPage';
 // spec before the code was read. Each `it.fails` is a defect still open (qa.md D-F2, D-F4): it
 // states the behaviour the spec asks for and passes while the defect stands. When one is fixed its
 // test starts failing; drop `.fails` then. D-F1 and D-F3 are fixed: their tests are plain.
-
-vi.setConfig({ testTimeout: 120_000 });
 
 const enc = encodeURIComponent;
 
@@ -69,7 +67,7 @@ describe('QA BR-WS-11 the page returns to 1 whenever any filter’s content chan
     await pickState('Новая'); // unticks it: the filter is empty again
     await waitFor(() => expect(addressSearch()).toBe(''));
 
-    await screen.findByText('1–50 из 120', {}, { timeout: 3_000 });
+    await screen.findByText('1–50 из 120');
     expect(api.reads('/workitems?').at(-1)?.path).toContain('page=1');
   });
 
@@ -85,7 +83,7 @@ describe('QA BR-WS-11 the page returns to 1 whenever any filter’s content chan
     await userEvent.click(within(band()).getByRole('button', { name: 'Очистить фильтры' }));
     await waitFor(() => expect(addressSearch()).toBe(''));
 
-    await screen.findByText('1–50 из 120', {}, { timeout: 3_000 });
+    await screen.findByText('1–50 из 120');
     expect(api.reads('/workitems?').at(-1)?.path).toContain('page=1');
   });
 

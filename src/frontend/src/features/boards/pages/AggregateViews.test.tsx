@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { HttpResponse } from 'msw';
+import { waitBudget } from '../../../test/waits';
 import {
   ORG,
   header,
@@ -120,7 +121,7 @@ describe('US-10 Scenario: a group’s own read', () => {
       await screen.findByText(
         'Не удалось загрузить элементы группы. Сервис занят, попробуйте ещё раз.',
         {},
-        { timeout: 8000 },
+        { timeout: waitBudget(8000) },
       ),
     ).toBeInTheDocument();
     refuse = false;

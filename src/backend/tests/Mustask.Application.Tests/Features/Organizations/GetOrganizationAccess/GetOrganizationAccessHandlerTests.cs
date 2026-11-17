@@ -33,7 +33,7 @@ public sealed class GetOrganizationAccessHandlerTests
 
     // BR-SA-11 · the exact served set of each role, spelled out so a change of a bundle or of a code's scope fails here.
     [Fact]
-    public async Task Handle_Admin_ServesExactlyTheTwelveOrganizationScopeCodes()
+    public async Task Handle_Admin_ServesExactlyTheThirteenOrganizationScopeCodes()
     {
         var response = await HandleAsync(OrganizationRole.Admin);
 
@@ -51,12 +51,13 @@ public sealed class GetOrganizationAccessHandlerTests
                 "organizations.area.read",
                 "organizations.area.create",
                 "process.definition.read",
+                "imports.template.read",
             ],
             response.Permissions);
     }
 
     [Fact]
-    public async Task Handle_Member_ServesExactlyTheFiveOrganizationScopeReads()
+    public async Task Handle_Member_ServesExactlyTheSixOrganizationScopeReads()
     {
         var response = await HandleAsync(OrganizationRole.Member);
 
@@ -67,12 +68,13 @@ public sealed class GetOrganizationAccessHandlerTests
                 "organizations.team.read",
                 "organizations.area.read",
                 "process.definition.read",
+                "imports.template.read",
             ],
             response.Permissions);
     }
 
     [Fact]
-    public async Task Handle_Viewer_ServesExactlyTheFiveOrganizationScopeReads()
+    public async Task Handle_Viewer_ServesExactlyTheSixOrganizationScopeReads()
     {
         var response = await HandleAsync(OrganizationRole.Viewer);
 
@@ -83,6 +85,7 @@ public sealed class GetOrganizationAccessHandlerTests
                 "organizations.team.read",
                 "organizations.area.read",
                 "process.definition.read",
+                "imports.template.read",
             ],
             response.Permissions);
     }

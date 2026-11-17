@@ -32,8 +32,13 @@ beforeAll(async () => {
   // Порог ожиданий findBy*/waitFor. Дефолт 1000 ms не покрывает цепочку
   // «восстановление сессии → рендер экрана → запрос данных» под параллельным
   // прогоном.
+  // 5 s on a developer box; 15 s on CI (tech-073): the GitHub runner (4 cores,
+  // three workers, v8 coverage) runs the work item form tests about ten times
+  // slower, and one re-render after a role change or a keystroke outlasted 5 s
+  // there. A wait returns as soon as its condition holds, so the margin costs
+  // nothing on a pass; a real failure only takes longer to report.
   const { configure } = await import('@testing-library/react');
-  configure({ asyncUtilTimeout: 5000 });
+  configure({ asyncUtilTimeout: process.env.CI ? 15_000 : 5_000 });
 
   const { server } = await import('./mocks/server');
   server.listen({ onUnhandledRequest: 'error' });

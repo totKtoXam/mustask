@@ -1,0 +1,19 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    mod-024 plan-backend § 3: a dev-only console probe. It runs the import module's real source reader on a local file the developer
+    names and prints what the reader sees (sheets, headers, first rows) or the refusal. It is not in Mustask.sln, ships nowhere,
+    opens the file read-only and writes nothing, in the repository or elsewhere.
+  -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <IsPackable>false</IsPackable>
+    <IsTestProject>false</IsTestProject>
+    <RootNamespace>Mustask.Tools.ImportParserProbe</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\..\Mustask.Infrastructure\Mustask.Infrastructure.csproj" />
+  </ItemGroup>
+
+</Project>

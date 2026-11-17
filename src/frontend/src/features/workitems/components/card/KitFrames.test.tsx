@@ -7,8 +7,6 @@ import { createFrameStore } from './frameStore';
 import { DialogFrame, PublishFrame } from './KitFrames';
 import { fill, held, openCard, typeInto } from './testCard';
 
-vi.setConfig({ testTimeout: 60_000 });
-
 const TYPE_LINE = 'Пользовательская история MSK-US-2';
 
 /** The card in the dialog's frame, as the dialog host hosts it. */

@@ -131,6 +131,15 @@ public static class PermissionCatalog
     /// </summary>
     public const string WorkItemsWorkItemPurge = "workitems.workitem.purge";
 
+    /// <summary>Listing import templates, their names, export columns and the catalogue (mod-024, ADR-0042 § 5).</summary>
+    public const string ImportsTemplateRead = "imports.template.read";
+
+    /// <summary>Creating and copying import templates, and editing or deleting one's own; the administrator any (mod-024, BR-IE-18).</summary>
+    public const string ImportsTemplateWrite = "imports.template.write";
+
+    /// <summary>Running a dry run (and the import, feat-067) into a project (mod-024, BR-IE-12).</summary>
+    public const string ImportsImportRun = "imports.import.run";
+
     /// <summary>Giving, changing and removing grants on a department (mod-019 BR-SA-2: scope A, the «Менеджер» bundles).</summary>
     public const string OrganizationsAreaGrant = "organizations.area.grant";
 
@@ -185,6 +194,9 @@ public static class PermissionCatalog
         new(WorkItemsWorkItemPurge, PermissionSource.Organization, "Окончательное удаление рабочих элементов проекта", ResourceScope.Project),
         new(BoardsBacklogReorder, PermissionSource.Organization, "Изменение порядка бэклога команды", ResourceScope.Team),
         new(BoardsProjectBacklogReorder, PermissionSource.Organization, "Изменение порядка бэклога проекта", ResourceScope.Project),
+        new(ImportsTemplateRead, PermissionSource.Organization, "Просмотр шаблонов импорта", ResourceScope.Organization),
+        new(ImportsTemplateWrite, PermissionSource.Organization, "Создание и изменение шаблонов импорта", ResourceScope.Project),
+        new(ImportsImportRun, PermissionSource.Organization, "Проверка и запуск импорта в проект", ResourceScope.Project),
         new(OrganizationsAreaGrant, PermissionSource.Organization, "Доступ к департаменту: выдача, смена роли и отзыв", ResourceScope.Area),
         new(OrganizationsProjectGrant, PermissionSource.Organization, "Доступ к проекту: выдача, смена роли и отзыв", ResourceScope.Project),
         new(OrganizationsVisibilityWrite, PermissionSource.Organization, "Видимость проекта всей организации", ResourceScope.Project),
