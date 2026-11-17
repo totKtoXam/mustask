@@ -21,6 +21,7 @@ public static class ImagesServiceCollectionExtensions
         services.AddSingleton(provider => new DecodeGate(provider.GetRequiredService<ImagesOptions>().Intake));
         services.AddSingleton<IImageCodec>(provider => new VipsCodec(provider.GetRequiredService<ImagesOptions>()));
         services.AddSingleton<IImageIntake, ImageIntake>();
+        services.AddScoped<IImageStore, ImageStore>();
 
         return services;
     }

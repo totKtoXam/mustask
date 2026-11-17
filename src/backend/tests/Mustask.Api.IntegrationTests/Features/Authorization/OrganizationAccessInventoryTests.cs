@@ -392,8 +392,8 @@ public sealed class OrganizationAccessInventoryTests(MustaskApiFactory factory)
         // mod-019 api-contract § 3, § 5: the switch, its impact read and the writable ids - 100.
         // mod-021 retires the five department-team link routes and adds the team move (96); mod-007 adds the team's eleven sprint routes (107);
         // mod-024 api-contract § 0 adds the import constructor's fifteen routes (122); feat-041 adds the project's visibility write - 123.
-        // feat-071 api-contract adds the quick search - 124.
-        Assert.Equal(124, expected.Count);
+        // feat-071 api-contract adds the quick search - 124; feat-078 adds the two image upload routes - 126.
+        Assert.Equal(126, expected.Count);
     }
 
     // Every organization code of the catalog is declared by at least one route — a code with no route is a decision nobody enforces

@@ -55,6 +55,8 @@ public sealed class WorkItemWriteInventoryTests(MustaskApiFactory factory)
         ["PATCH " + Item] = new(Kind.RefusesADeletedItem, "workitems.workitem.deleted", "DeletedItemIsReadOnlyEndpointTests.Patch_ADeletedItem_EmptyBody_Is409Deleted"),
         ["POST " + Item + "/delete"] = new(Kind.RefusesADeletedItem, "workitems.workitem.deleted", "DeleteWorkItemEndpointTests.Delete_AlreadyDeleted_Is409Deleted_TheHeldStateIsTheFirstDeletions"),
         ["POST " + Item + "/restore"] = new(Kind.ActsOnOne, "restores it; refuses a live item with workitems.workitem.not_deleted", "RestoreWorkItemEndpointTests.Restore_ALiveItem_Is409NotDeleted_EvenWithAForeignOrRemovedState_StateNotApplied"),
+        ["POST " + Item + "/images"] = new(Kind.RefusesADeletedItem, "workitems.workitem.deleted", "UploadDescriptionImageEndpointTests.Upload_DeletedItem_409Deleted_NothingStored"),
+        ["POST " + Item + "/images/reductions"] = new(Kind.RefusesADeletedItem, "workitems.workitem.deleted", "UploadDescriptionImageEndpointTests.Reduce_DeletedItem_409Deleted_NothingStored"),
         ["POST " + Item + "/purge"] = new(Kind.ActsOnOne, "removes it; refuses a live item with workitems.workitem.not_deleted", "PurgeWorkItemEndpointTests.Purge_ALiveItem_Is409NotDeleted_NothingRemoved"),
 
         // feat-001 and feat-027: the link writes keep their own refusal.
