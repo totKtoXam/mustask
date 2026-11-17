@@ -214,7 +214,7 @@ internal sealed class SearchReadModel(MustaskDbContext context) : ISearchReadMod
             SearchGroupKind.Teams => TeamsSql(organizations, sight, similar),
             SearchGroupKind.Departments => DepartmentsSql(organizations, sight, similar),
             SearchGroupKind.Areas => AreasSql(organizations, sight, similar),
-            _ => UsersSql(organizations, similar),
+            _ => UserDirectory.SearchUsersStatement.Sql(organizations, similar),
         };
 
         return new Statement(sql, [.. parameters]);
@@ -230,17 +230,17 @@ internal sealed class SearchReadModel(MustaskDbContext context) : ISearchReadMod
 
     // The five tiers of BR-GS-8 over one folded text; NULL when the text does not match. The similar tier exists only for a query of
     // 4 characters or more (BR-GS-17), so a shorter query's statement does not mention it and the planner has nothing to doubt.
-    private static string TierOf(string folded, bool similar) =>
+    internal static string TierOf(string folded, bool similar) =>
         $"CASE WHEN {folded} = @q THEN 1 WHEN {folded} LIKE @prefix ESCAPE '\\' THEN 2 WHEN {folded} ~ @word THEN 3 "
         + $"WHEN {folded} LIKE @contains ESCAPE '\\' THEN 4{(similar ? $" WHEN {folded} %> @q THEN 5" : string.Empty)} END";
 
-    private static string Matches(string folded, bool similar) =>
+    internal static string Matches(string folded, bool similar) =>
         $"({folded} LIKE @contains ESCAPE '\\'{(similar ? $" OR {folded} %> @q" : string.Empty)})";
 
-    private static string SimilarityOf(IEnumerable<string> folded, bool similar) =>
+    internal static string SimilarityOf(IEnumerable<string> folded, bool similar) =>
         similar ? "GREATEST(" + string.Join(", ", folded.Select(text => $"word_similarity(@q, {text})")) + ")" : "0.0";
 
-    private static string Wrap(string inner) =>
+    internal static string Wrap(string inner) =>
         "SELECT s.id::text AS \"Id\", s.name AS \"Name\", s.key AS \"Key\", s.department_id AS \"DepartmentId\", s.department_name AS \"DepartmentName\", "
         + "s.project_id AS \"ProjectId\", s.project_name AS \"ProjectName\", s.color AS \"Color\", s.email AS \"Email\", s.inactive AS \"Inactive\", s.tier AS \"Tier\" "
         + $"FROM ({inner}) s "
@@ -299,20 +299,6 @@ internal sealed class SearchReadModel(MustaskDbContext context) : ISearchReadMod
             + "LEFT JOIN areas node ON node.project_id = p.id AND node.type = 2 "
             + "LEFT JOIN areas dep ON dep.id = node.parent_id "
             + $"WHERE {organizations} AND a.type = 3{sight} AND {Matches(name, similar)}");
-    }
-
-    // The projection's search_name and search_email are folded on write (ProjectedUser), so the columns are used as they are. Only the
-    // organization's current members are joined; a disabled or gone account is found and flagged (BR-GS-3).
-    private static string UsersSql(string organizations, bool similar)
-    {
-        return Wrap(
-            "SELECT u.id::text AS id, u.display_name AS name, NULL::text AS key, NULL::uuid AS department_id, NULL::text AS department_name, "
-            + "NULL::uuid AS project_id, NULL::text AS project_name, NULL::text AS color, u.email AS email, NOT u.is_active AS inactive, "
-            + $"LEAST({TierOf("u.search_name", similar)}, {TierOf("u.search_email", similar)}) AS tier, "
-            + $"{SimilarityOf(["u.search_name", "u.search_email"], similar)} AS similarity "
-            + "FROM organization_memberships m "
-            + "JOIN directory_users u ON u.id = m.user_id "
-            + $"WHERE {organizations} AND ({Matches("u.search_name", similar)} OR {Matches("u.search_email", similar)})");
     }
 
     private sealed class CandidateRow
