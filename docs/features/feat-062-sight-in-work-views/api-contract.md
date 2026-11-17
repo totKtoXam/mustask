@@ -11,7 +11,8 @@ not see a project, and which of two refusals a hidden id gets. The administrator
 is seen when the caller holds a grant that reaches it, a department grant above it, or
 the project is flagged visible to the organization. The narrowing is one value,
 `VisibleProjects` (`All` for an administrator, otherwise the ids of the seen projects),
-read once per request from the cached set.
+read once per request from the cached set. It is the project part of feat-061's `AccessSet.Sighted()`
+(`CallerAccess.Sight`; `CallerAccess.Projects` derives it): one set form, one computation, no second helper.
 
 ## 1. Reads narrowed to the seen projects (BR-TD-17)
 

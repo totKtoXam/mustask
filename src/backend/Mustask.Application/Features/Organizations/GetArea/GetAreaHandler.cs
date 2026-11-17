@@ -53,11 +53,19 @@ public sealed class GetAreaHandler(IAreaTreeReadModel readModel, IOrganizationAc
             throw new NotFoundException(OrganizationErrorCodes.AreaNotFound);
         }
 
+        var set = await access.SetAsync(cancellationToken);
+
+        if (!set.SeesArea(areaId))
+        {
+            throw new NotFoundException(OrganizationErrorCodes.AreaNotFound);
+        }
+
         var tree = AreaRequests.TreeOf(rows);
         var parent = row.ParentId is { } parentId
             ? new AreaRefResponse(parentId, byId[parentId].Name, tree.PathOf(parentId))
             : null;
         var children = tree.ChildrenOf(areaId)
+            .Where(child => set.SeesArea(child.Id))
             .Select(child => new AreaChildResponse(child.Id, AreaRequests.TypeName(child.Type), child.Name, byId[child.Id].Description,
                 child.Type == AreaType.Project ? byId[child.Id].ProjectKey : null,
                 child.Type == AreaType.Project ? byId[child.Id].ProjectActive : null,
@@ -65,7 +73,6 @@ public sealed class GetAreaHandler(IAreaTreeReadModel readModel, IOrganizationAc
             .ToList();
 
         // The caller's codes on this node, the node's switch (a department's is stored and never shown) and the department above a project node (mod-019 BR-SA-6, BR-SA-11).
-        var set = await access.SetAsync(cancellationToken);
         var department = row.Type == AreaType.Project && row.ParentId is { } above
             ? new DepartmentRefView(above, byId[above].Name)
             : null;

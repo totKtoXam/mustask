@@ -17,7 +17,7 @@ public sealed record GetAreaTeamsResult(IReadOnlyList<AreaTeamResponse> Items);
 /// <c>GET /api/organizations/{organizationId}/areas/{areaId}/teams</c> (mod-018 api-contract § 3, US-4): the active teams standing
 /// in this department (the area–team links of mod-018 are retired), by name. A deleted team keeps no department.
 /// </summary>
-public sealed class GetAreaTeamsHandler(IAreaRepository areas, IAreaTreeReadModel readModel)
+public sealed class GetAreaTeamsHandler(IAreaRepository areas, IAreaTreeReadModel readModel, IOrganizationAccess access)
 {
     public async Task<GetAreaTeamsResult> Handle(GetAreaTeamsQuery query, CancellationToken cancellationToken)
     {
@@ -33,6 +33,7 @@ public sealed class GetAreaTeamsHandler(IAreaRepository areas, IAreaTreeReadMode
         }
 
         var rows = await readModel.ListTeamsAsync(organizationId, areaId, cancellationToken);
-        return new GetAreaTeamsResult(rows.Select(row => new AreaTeamResponse(row.Id, row.Name, row.Color)).ToList());
+        var set = await access.SetAsync(cancellationToken);
+        return new GetAreaTeamsResult(rows.Where(row => set.SeesTeam(row.Id)).Select(row => new AreaTeamResponse(row.Id, row.Name, row.Color)).ToList());
     }
 }

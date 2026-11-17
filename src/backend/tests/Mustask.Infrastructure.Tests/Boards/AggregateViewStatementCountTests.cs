@@ -205,8 +205,13 @@ public sealed class AggregateViewStatementCountTests(OrganizationsDatabaseFixtur
 
         public bool Holds(string code) => OrganizationRoleBundles.Holds(Role, code);
 
+        private AccessSet? _set;
+
+        public async Task<AccessSet> SetAsync(CancellationToken cancellationToken) =>
+            _set ??= await scoped.LoadSetAsync(organizationId, "count-user-1", Role, cancellationToken);
+
         public async Task<VisibleProjects> VisibleProjectsAsync(CancellationToken cancellationToken) =>
-            (await scoped.LoadSetAsync(organizationId, "count-user-1", Role, cancellationToken)).SeenProjects();
+            (await SetAsync(cancellationToken)).SeenProjects();
     }
 
     private sealed class AdministratorAccess : IOrganizationAccess

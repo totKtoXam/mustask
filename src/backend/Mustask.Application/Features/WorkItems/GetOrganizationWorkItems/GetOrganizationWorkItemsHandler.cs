@@ -33,7 +33,7 @@ public sealed class GetOrganizationWorkItemsHandler(
                 new Dictionary<string, IReadOnlyList<FieldError>> { ["page"] = [new FieldError(WorkItemErrorCodes.InvalidPage)] });
         }
 
-        var caller = new CallerAccess(organizationId, currentUser.SubjectId, access.Role, await access.VisibleProjectsAsync(cancellationToken));
+        var caller = new CallerAccess(organizationId, currentUser.SubjectId, access.Role, (await access.SetAsync(cancellationToken)).Sighted());
         var scope = AggregateSupport.ScopeOf(AggregateView.WorkItems, null, parsed);
         var result = await views.ReadFlatPageAsync(caller, scope, page, WorkItemLimits.ListPageSize, cancellationToken);
 

@@ -22,7 +22,7 @@ public sealed class GetWorkItemGroupRowsHandler(
         var organizationId = AggregateSupport.OrganizationOf(query.Request.OrganizationId);
         var parsed = AggregateParameters.Parse(query.Request, AggregateView.WorkItems, groupRead: true);
 
-        var caller = new CallerAccess(organizationId, currentUser.SubjectId, access.Role, await access.VisibleProjectsAsync(cancellationToken));
+        var caller = new CallerAccess(organizationId, currentUser.SubjectId, access.Role, (await access.SetAsync(cancellationToken)).Sighted());
         var scope = AggregateSupport.ScopeOf(AggregateView.WorkItems, null, parsed);
 
         var page = await views.ReadGroupPageAsync(caller, scope, parsed.Group, parsed.After, parsed.Limit, cancellationToken);

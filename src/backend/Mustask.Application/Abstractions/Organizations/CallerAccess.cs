@@ -13,16 +13,22 @@ namespace Mustask.Application.Abstractions.Organizations;
 /// <param name="OrganizationId">The organization of the address, which the scoped check has already found the caller a member of.</param>
 /// <param name="UserId">The caller's subject (the token's <c>sub</c>), the key of their memberships.</param>
 /// <param name="Role">The caller's role in <paramref name="OrganizationId"/>.</param>
-/// <param name="Visible">
-/// The projects the caller sees (feat-062, BR-TD-17): what a multi-project read narrows by, before paging. A handler passes
-/// <see cref="IOrganizationAccess.VisibleProjectsAsync"/>. A read reaches it through <see cref="Projects"/>, which fails closed:
-/// a non-administrator caller with none is a defect, not an unrestricted read.
+/// <param name="Sight">
+/// What the caller sees (feat-061 and feat-062, BR-TD-17): the ids of the visible projects, teams and departments, from
+/// <see cref="AccessSet.Sighted"/>, the one set form of the sight rule; <c>null</c> for the administrator, who is not narrowed.
+/// <b>Required</b>, so a new read cannot forget it silently. The navigation reads narrow by it directly; a read of several projects'
+/// rows reaches the projects through <see cref="Projects"/>, which fails closed: a non-administrator caller with none is a defect,
+/// not an unrestricted read.
 /// </param>
-public sealed record CallerAccess(Guid OrganizationId, string UserId, OrganizationRole Role, VisibleProjects? Visible = null)
+public sealed record CallerAccess(Guid OrganizationId, string UserId, OrganizationRole Role, SightedIds? Sight)
 {
+    private VisibleProjects? _projects;
+
     /// <summary>The projects this caller's rows may come from; throws for a non-administrator whose sight was not given.</summary>
     public VisibleProjects Projects =>
-        Visible ?? (Role == OrganizationRole.Admin
-            ? VisibleProjects.All
-            : throw new InvalidOperationException("A read of several projects' rows needs the caller's visible projects (feat-062)."));
+        _projects ??= Sight is { } sight
+            ? VisibleProjects.Only(sight.Projects)
+            : Role == OrganizationRole.Admin
+                ? VisibleProjects.All
+                : throw new InvalidOperationException("A read of several projects' rows needs the caller's sight (feat-062).");
 }

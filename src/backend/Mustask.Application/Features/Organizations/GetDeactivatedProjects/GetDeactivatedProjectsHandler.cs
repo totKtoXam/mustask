@@ -27,7 +27,7 @@ namespace Mustask.Application.Features.Organizations.GetDeactivatedProjects;
 /// transaction.
 /// </para>
 /// </remarks>
-public sealed class GetDeactivatedProjectsHandler(IOrganizationReadModel organizations, IProjectReadModel projects)
+public sealed class GetDeactivatedProjectsHandler(IOrganizationReadModel organizations, IProjectReadModel projects, IOrganizationAccess access)
 {
     public async Task<GetDeactivatedProjectsResult> Handle(GetDeactivatedProjectsQuery query, CancellationToken cancellationToken)
     {
@@ -39,8 +39,9 @@ public sealed class GetDeactivatedProjectsHandler(IOrganizationReadModel organiz
         }
 
         var rows = await projects.ListAsync(organizationId, ProjectStatus.Deactivated, cancellationToken);
+        var set = await access.SetAsync(cancellationToken);
 
         return new GetDeactivatedProjectsResult(
-            rows.Select(row => new ProjectListItemResponse(row.Id, row.Name, row.Key, row.Color)).ToList());
+            rows.Where(row => set.SeesProject(row.Id)).Select(row => new ProjectListItemResponse(row.Id, row.Name, row.Key, row.Color)).ToList());
     }
 }

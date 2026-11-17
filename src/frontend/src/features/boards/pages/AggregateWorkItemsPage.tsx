@@ -4,7 +4,7 @@ import Box from '@mui/material/Box';
 import FilterListOffIcon from '@mui/icons-material/FilterListOff';
 import InboxOutlinedIcon from '@mui/icons-material/InboxOutlined';
 import { DataTable, FilterBar, InlineNotice } from '../../../shared/ui';
-import { StateFrame } from '../../../shared/ui/StateFrame';
+import { NotFound, StateFrame } from '../../../shared/ui/StateFrame';
 import {
   AssigneeFilter,
   KeywordFilter,
@@ -34,6 +34,7 @@ import {
 } from '../hooks/useAggregateView';
 import { useAnnouncement } from '../hooks/useAnnouncement';
 import { aggregateTexts, countText } from '../lib/aggregateTexts';
+import { goneSelectionLevel } from '../lib/goneSelection';
 import { groupIdOf } from '../lib/openGroups';
 
 const TITLE = 'Рабочие элементы';
@@ -98,6 +99,8 @@ function FlatList({
   const [page, setPage] = useState(0);
   const query = useOrganizationWorkItems(organizationId, page + 1, selectors, filter);
   const rows: readonly OrganizationWorkItem[] = query.data?.data ?? [];
+  const gone = goneSelectionLevel(query.error);
+  if (gone) return <NotFound level={gone} keepNavigation />;
   const empty = filtered
     ? {
         icon: FilterListOffIcon,
@@ -150,6 +153,7 @@ export function AggregateWorkItemsPage({ choice }: { choice?: GroupingChoice } =
   const groups = v.groups;
   const grouped = v.grouping !== 'none';
 
+  const gone = goneSelectionLevel(v.headers.error);
   let body;
   if (!grouped) {
     body = (
@@ -164,6 +168,8 @@ export function AggregateWorkItemsPage({ choice }: { choice?: GroupingChoice } =
     );
   } else if (v.headers.isPending) {
     body = <HeadersSkeleton />;
+  } else if (gone) {
+    body = <NotFound level={gone} keepNavigation />;
   } else if (v.headers.isError || groups === undefined) {
     body = (
       <InlineNotice

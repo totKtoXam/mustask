@@ -146,13 +146,49 @@ public sealed class AccessSetSightTests
     [Fact]
     public void CallerAccess_OfANonAdministrator_WithNoSight_Throws_AndOfTheAdministratorIsAll()
     {
-        var member = new CallerAccess(Guid.NewGuid(), "u", OrganizationRole.Member);
-        var administrator = new CallerAccess(Guid.NewGuid(), "u", OrganizationRole.Admin);
-        var withSight = new CallerAccess(Guid.NewGuid(), "u", OrganizationRole.Member, VisibleProjects.Only([Project]));
+        var member = new CallerAccess(Guid.NewGuid(), "u", OrganizationRole.Member, null);
+        var administrator = new CallerAccess(Guid.NewGuid(), "u", OrganizationRole.Admin, null);
+        var withSight = new CallerAccess(Guid.NewGuid(), "u", OrganizationRole.Member, new SightedIds(new HashSet<Guid> { Project }, new HashSet<Guid>(), new HashSet<Guid>()));
 
         Assert.Throws<InvalidOperationException>(() => member.Projects);
         Assert.True(administrator.Projects.IsAll);
         Assert.True(withSight.Projects.Sees(Project));
         Assert.False(withSight.Projects.Sees(Guid.NewGuid()));
+    }
+
+    // feat-061 · BR-TD-17: the id sets a list filters by are exactly what the Sees* answers say, for every kind.
+    [Theory]
+    [InlineData(false, false, false)]
+    [InlineData(true, false, false)]
+    [InlineData(false, true, false)]
+    [InlineData(false, false, true)]
+    public void Sighted_IsExactlyWhatTheSeesAnswersSay_ForEveryKind(bool flag, bool member, bool departmentGrant)
+    {
+        var set = Set(flag: flag, memberOf: member ? [Team] : null, areaGrants: departmentGrant ? Grant(OtherDepartment) : null);
+        var sighted = Assert.IsType<SightedIds>(set.Sighted());
+
+        Assert.Equal(set.SeesProject(Project), sighted.Projects.Contains(Project));
+        Assert.Equal(set.SeesTeam(Team), sighted.Teams.Contains(Team));
+        Assert.Equal(set.SeesTeam(OtherTeam), sighted.Teams.Contains(OtherTeam));
+        Assert.Equal(set.SeesArea(Department), sighted.Departments.Contains(Department));
+        Assert.Equal(set.SeesArea(OtherDepartment), sighted.Departments.Contains(OtherDepartment));
+        Assert.DoesNotContain(Node, sighted.Departments); // a project's node is not a department
+    }
+
+    [Fact]
+    public void Sighted_OfAnAdministrator_IsNull_NotNarrowed()
+    {
+        Assert.Null(new AccessSet(OrganizationRole.Admin, [], NoGrants, NoGrants, NoGrants).Sighted());
+    }
+
+    // BR-TD-13: seeing a team does not disclose its projects: a team grant shows the team and not its linked project.
+    [Fact]
+    public void Sighted_ATeamGrant_ShowsTheTeamAndItsDepartment_NotItsProject()
+    {
+        var sighted = Assert.IsType<SightedIds>(Set(teamGrants: Grant(Team)).Sighted());
+
+        Assert.Contains(Team, sighted.Teams);
+        Assert.Contains(Department, sighted.Departments);
+        Assert.Empty(sighted.Projects);
     }
 }

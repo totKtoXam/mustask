@@ -26,14 +26,20 @@ import { AreaTypeMark, commandIcon } from '../components/AreaTypeMark';
 import { DiagramLegend } from '../components/DiagramLines';
 import { ListFilter } from '../components/ListFilter';
 import { StructureDiagram } from '../components/StructureDiagram';
-import { useAreaTree, useWritableAreaIds } from '../hooks/queries';
+import {
+  useAreaTree,
+  useOrganizationTeams,
+  useProjects,
+  useWritableAreaIds,
+} from '../hooks/queries';
 import { useSelectorOffers } from '../hooks/navigationQueries';
 import { useAreaRowLink } from '../hooks/useAreaRowLink';
 import { useDiagramView } from '../hooks/useDiagramView';
 import { useStructureSettings, type StructureView } from '../hooks/useStructureSettings';
 import { commandKinds, commandLabel } from '../lib/areaCommands';
 import { areasPage, structureDiagram } from '../lib/areaTexts';
-import { expandableIds, filterTree, hasChildren, initialExpansion } from '../lib/areaTree';
+import { expandableIds, hasChildren, initialExpansion } from '../lib/areaTree';
+import { filterStructure } from '../lib/structureFilter';
 import { notFoundLevel } from '../lib/notFoundLevel';
 import { organizationsPermissions } from '../permissions';
 
@@ -74,6 +80,10 @@ export function AreasPage() {
   const [expanded, setExpanded] = useState<ReadonlySet<string> | null>(null);
   const [focusRequest, setFocusRequest] = useState<{ id: string } | null>(null);
   const [filter, setFilter] = useState('');
+  // The key and the teams are read only while the filter holds text (BR-TD-21); both reads are the caller's
+  // already narrowed lists, so the filter never meets a hidden object.
+  const projectsQuery = useProjects(organizationId, 'active', { enabled: filter.trim() !== '' });
+  const teamsQuery = useOrganizationTeams(organizationId, { enabled: filter.trim() !== '' });
 
   // Focus after a change (design § 12), once the dialog has handed focus back: the new, renamed
   // or moved row, or a deleted row's parent.
@@ -91,8 +101,11 @@ export function AreasPage() {
   }
 
   const areas = query.data ?? [];
-  const shown = filterTree(areas, filter);
   const filtering = filter.trim() !== '';
+  const shown = filterStructure(areas, filter, {
+    projects: projectsQuery.data,
+    teams: teamsQuery.data,
+  });
   const expandable = expandableIds(shown);
   // A search shows every match under its ancestors (design § 5.2).
   const expandedIds = filtering ? expandable : (expanded ?? initialExpansion(areas));
@@ -246,7 +259,13 @@ export function AreasPage() {
       ) : (
         <>
           {query.isSuccess && areas.length > 0 && (
-            <ListFilter label={areasPage.search} text={filter} onText={setFilter} />
+            <ListFilter
+              label={areasPage.search}
+              text={filter}
+              onText={setFilter}
+              fieldWidth={360}
+              escapeClears
+            />
           )}
           {nothingFound ? (
             <StateFrame
