@@ -8,8 +8,6 @@ import { createFrameStore } from './frameStore';
 import { DialogFrame, PublishFrame } from './KitFrames';
 import { findDescription, openCard, stored } from './testCard';
 
-vi.setConfig({ testTimeout: 60_000 });
-
 const TYPE_LINE = 'Пользовательская история MSK-US-2';
 
 /** The card in the dialog's frame with `html` stored as «Описание». */

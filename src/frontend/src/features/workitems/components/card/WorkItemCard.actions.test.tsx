@@ -8,9 +8,6 @@ import type { WorkItemsTestApi } from '../../testApi';
 import { WORK_ITEM_URL, ids, recordOf } from '../../testFixtures';
 import { fill, held, openCard, typeDescription, typeInto } from './testCard';
 
-// Each user action renders the kit's fields in jsdom; a test of several steps outlasts the default.
-vi.setConfig({ testTimeout: 60_000 });
-
 const title = held(() => screen.getByRole('textbox', { name: 'Заголовок' }));
 const description = held(() => screen.getByRole('textbox', { name: 'Описание' }));
 const save = held(() => screen.getByRole('button', { name: 'Сохранить' }));

@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it } from 'vitest';
 import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { HttpResponse, http } from 'msw';
@@ -23,8 +23,6 @@ import {
 // feat-060 (D-1): the aggregate board's status-category stripe and dot per column, the type stripe
 // per card, and «Новый рабочий элемент» with a required «Проект» among the projects of the view's
 // scope. The dialog's fields are the kit's, which are slow in jsdom.
-
-vi.setConfig({ testTimeout: 60_000 });
 
 afterEach(() => localStorage.clear());
 

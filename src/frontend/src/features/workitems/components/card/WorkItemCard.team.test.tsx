@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { HttpResponse, http } from 'msw';
@@ -18,8 +18,6 @@ import {
 import { held, openCard } from './testCard';
 
 // mod-017 US-1, design § 3: «Команда» in block B of the band, under «Область».
-
-vi.setConfig({ testTimeout: 60_000 });
 
 const team = held(() => screen.getByRole('combobox', { name: 'Команда' }));
 const save = held(() => screen.getByRole('button', { name: 'Сохранить' }));

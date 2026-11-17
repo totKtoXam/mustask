@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import { screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { HttpResponse, http } from 'msw';
@@ -14,9 +14,6 @@ import {
 } from '../testFixtures';
 import { held } from '../components/card/testCard';
 import { mskForm, renderWorkItems } from '../testRender';
-
-// Each user action draws the kit’s fields in jsdom; a test of several steps outlasts the default.
-vi.setConfig({ testTimeout: 120_000 });
 
 async function openForm(identifier: string, data: Dataset = exampleDataset()) {
   const api = serveWorkItems(data);

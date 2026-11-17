@@ -27,6 +27,8 @@
     <PackageReference Include="Gridify.EntityFramework" />
     <!-- feat-018 / ADR-0039: the HTML5 parser of the rich-text reduction (RichText/). -->
     <PackageReference Include="AngleSharp" />
+    <!-- mod-024: the import source workbooks are read (and the dry-run report is written) on the Open XML SDK (Imports/). -->
+    <PackageReference Include="DocumentFormat.OpenXml" />
   </ItemGroup>
 
   <!-- feat-018 / ADR-0039 decision 6: the closed vocabularies are shared with the panel, embedded like the dictionaries. -->

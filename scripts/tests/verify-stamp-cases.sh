@@ -24,6 +24,7 @@ mkdir -p "$sandbox/home"
 : > "$sandbox/gitconfig"
 export HOME="$sandbox/home" GIT_CONFIG_NOSYSTEM=1 GIT_CONFIG_GLOBAL="$sandbox/gitconfig"
 unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE XDG_CONFIG_HOME VERIFY_FULL VERIFY_FORCE VERIFY_TESTS BASE \
+    VERIFY_PART VERIFY_DOTNET_FILTER VERIFY_SHARD VERIFY_COVERAGE_OUT VERIFY_NEEDS_OUT \
     GIT_CONFIG_PARAMETERS GIT_CONFIG_COUNT 2>/dev/null || true
 repo="$sandbox/repo"
 
@@ -66,11 +67,30 @@ before=$(stamps); out=$(run); has "$out" 'Already verified green' && r=1 || r=0
 check 'a run without VERIFY_FULL does not take a stamp' $r
 [ "$(stamps)" = "$before" ]; check 'and writes none' $?
 
+# 4b. a part, a filter or a coverage-out dir is a slice of the tree (tech-074): it
+# neither takes the stamp the full run left nor writes or removes one
+before=$(stamps)
+out=$(VERIFY_FULL=1 VERIFY_PART=static run); has "$out" 'Already verified green' && r=1 || r=0
+check 'a part: the stamp is not taken' $r
+out=$(VERIFY_FULL=1 VERIFY_FORCE=1 VERIFY_PART=static run); has "$out" 'RESULT: green'; check 'a forced part is green' $?
+out=$(VERIFY_FULL=1 VERIFY_DOTNET_FILTER='FullyQualifiedName~Foo' run); has "$out" 'Already verified green' && r=1 || r=0
+check 'a filter: the stamp is not taken' $r
+out=$(VERIFY_FULL=1 VERIFY_COVERAGE_OUT="$sandbox/cov" run); has "$out" 'Already verified green' && r=1 || r=0
+check 'a coverage-out dir: the stamp is not taken' $r
+[ "$(stamps)" = "$before" ]; check 'and none of them wrote or removed a stamp' $?
+
 # 5. a new commit is a new tree
 printf '# two\n' > "$repo/docs/two.md"; g add -A && g commit -qm two
 out=$(VERIFY_FULL=1 run); has "$out" 'Already verified green' && r=1 || r=0
 check 'a commit makes a miss' $r
 [ "$(stamps)" = 2 ]; check 'and a second stamp' $?
+
+# 5b. a slice of a tree with no stamp writes none (tech-074)
+printf '# three\n' > "$repo/docs/three.md"; g add -A && g commit -qm three
+before=$(stamps)
+out=$(VERIFY_FULL=1 VERIFY_PART=static run); has "$out" 'RESULT: green'; check 'a part on a new tree is green' $?
+out=$(VERIFY_FULL=1 VERIFY_DOTNET_FILTER='FullyQualifiedName~Foo' run); has "$out" 'RESULT: green'; check 'a filtered run on a new tree is green' $?
+[ "$(stamps)" = "$before" ]; check 'and neither writes a stamp' $?
 
 # 6. a dirty tree neither takes nor writes a stamp
 printf '\nedit\n' >> "$repo/docs/two.md"

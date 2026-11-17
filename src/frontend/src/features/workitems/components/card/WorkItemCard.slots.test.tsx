@@ -1,12 +1,9 @@
-import { describe, expect, it, vi } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import { screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { cardTexts } from '../../lib/cardTexts';
 import type { WorkItemCardSlots } from './cardSlots';
 import { openCard } from './testCard';
-
-// Each user action draws the kit’s fields in jsdom; a test of several steps outlasts the default.
-vi.setConfig({ testTimeout: 60_000 });
 
 /** The words of the reference’s parts that the product does not have yet (BR-C-18). */
 const WORDS_OF_PLACES_KEPT = [

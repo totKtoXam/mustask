@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it } from 'vitest';
 import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { focusManager } from '@tanstack/react-query';
@@ -18,8 +18,6 @@ import { backlogAddress, renderBoards } from '../testRender';
 // feat-040 US-5 (BR-TS-9; design § 6): creating from a team's backlog, the project chosen first. «Платформа»
 // works on «Мастаск» and «Операции» (`acrossProjectsDataset`); «Аналитика» works on «Мастаск» alone,
 // «Операции» (the team) on «Операции» alone. The dialog's fields are the kit's, which are slow in jsdom.
-
-vi.setConfig({ testTimeout: 60_000 });
 
 afterEach(() => {
   focusManager.setFocused(undefined);

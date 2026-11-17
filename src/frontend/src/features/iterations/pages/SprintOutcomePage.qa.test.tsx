@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
@@ -10,8 +10,6 @@ import type { Participant, ParticipantsPage } from '../api/iterationsApi';
 import { LIST_PATH, SPRINTS_ROUTE, dynamicsOf, dynamicsRow, sprintId, sprintRow } from '../testApi';
 
 // mod-007 QA (frontend): the outcome's address fallbacks, empty states, «Итого», purged rows.
-
-vi.setConfig({ testTimeout: 120_000 });
 
 const SLOW = { timeout: 20_000 };
 const SPRINT = sprintId(5);

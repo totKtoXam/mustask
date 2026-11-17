@@ -11,8 +11,6 @@ import { LIST_PATH, SPRINTS_ROUTE, serveSprintList, sprintId, sprintRow } from '
 
 // mod-007 QA (frontend): paging, the Active edit, the close refusals, the reader's empty list.
 
-vi.setConfig({ testTimeout: 120_000 });
-
 beforeEach(() => {
   servedObjectCodes.current = ADMIN_CODES;
 });

@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import { screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { HttpResponse, http } from 'msw';
@@ -25,9 +25,6 @@ import { WorkItemFormPage } from './WorkItemFormPage';
 // from any scoped call — the card's read or its save — turns the page into row 3 of the gate
 // at once, the card goes with it and shows no `Alert` of its own, and focus is in the main
 // region. The user was removed from the organization, so the codes read again answer 404 too.
-
-// Each user action draws the kit’s fields in jsdom; a test of several steps outlasts the default.
-vi.setConfig({ testTimeout: 120_000 });
 
 const STORY = mskForm('MSK-US-2');
 const ACCESS_URL = `${API}/api/organizations/:organizationId/access`;

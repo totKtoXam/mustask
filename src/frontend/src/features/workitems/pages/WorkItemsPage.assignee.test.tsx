@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { HttpResponse, http } from 'msw';
@@ -19,8 +19,6 @@ import { MSK_LIST, renderWorkItems } from '../testRender';
 // feat-003 US-2, BR-WS-6..-8, design § 2.3, § 4, D-1 A, D-2 A, OQ-2 A: the «Исполнитель» filter —
 // the kit's multi-picker over the people assigned to the project's items, former members and
 // disabled accounts included, the marks in the options, the tags and the list's column.
-
-vi.setConfig({ testTimeout: 120_000 });
 
 const enc = encodeURIComponent;
 

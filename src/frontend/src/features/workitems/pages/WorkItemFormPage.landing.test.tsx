@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import { Route, useNavigate, useNavigationType } from 'react-router-dom';
 import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
@@ -22,8 +22,6 @@ import { WorkItemsPage } from './WorkItemsPage';
 // returns to that list under its filters, page 1, with mod-005's notice, by a replace; a card
 // reached any other way lands on the list unfiltered; the card's trail «Рабочие элементы» opens the
 // list unfiltered, and Back is the way back under the filters.
-
-vi.setConfig({ testTimeout: 120_000 });
 
 // A 50-row list is a heavy MUI render (about a second alone, several times that on a loaded box), and
 // the default findBy budget is 5 s. The waits that follow such a render get their own budget, still

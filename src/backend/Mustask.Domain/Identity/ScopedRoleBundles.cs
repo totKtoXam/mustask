@@ -43,7 +43,9 @@ public static class ScopedRoleBundles
         PermissionCatalog.OrganizationsProjectWrite,
         PermissionCatalog.OrganizationsProjectLink,
         PermissionCatalog.OrganizationsProjectGrant,
-        PermissionCatalog.OrganizationsVisibilityWrite);
+        PermissionCatalog.OrganizationsVisibilityWrite,
+        PermissionCatalog.ImportsTemplateWrite,
+        PermissionCatalog.ImportsImportRun);
 
     // The project's «Менеджер»: the project's own codes, and the area code on its node and sub-areas (OQ-3 B; the reach rule keeps it there).
     private static readonly IReadOnlySet<string> ProjectManager = Set(
@@ -57,7 +59,9 @@ public static class ScopedRoleBundles
         PermissionCatalog.OrganizationsProjectGrant,
         PermissionCatalog.BoardsProjectBacklogReorder,
         PermissionCatalog.OrganizationsAreaWrite,
-        PermissionCatalog.OrganizationsVisibilityWrite);
+        PermissionCatalog.OrganizationsVisibilityWrite,
+        PermissionCatalog.ImportsTemplateWrite,
+        PermissionCatalog.ImportsImportRun);
 
     private static readonly IReadOnlySet<string> None = Set();
 

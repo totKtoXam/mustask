@@ -22,8 +22,6 @@ import { WorkItemCardDialog } from './WorkItemCardDialog';
 // callback of BR-C-21), and a purge closes the dialog because nothing is left to look at. Each
 // user action draws the kit's fields in jsdom, which are slow.
 
-vi.setConfig({ testTimeout: 120_000 });
-
 const BACKLOG = `/organizations/${ids.example}/teams/t/backlogs/stories`;
 const OPEN = `${BACKLOG}?workitem=MSK-US-2`;
 const PAGE = workItemPath(ids.example, ids.msk, 'MSK-US-2');
