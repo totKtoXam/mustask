@@ -28,6 +28,7 @@ mkdir -p "$sandbox/home" "$sandbox/bin"
 : > "$sandbox/gitconfig"
 export HOME="$sandbox/home" GIT_CONFIG_NOSYSTEM=1 GIT_CONFIG_GLOBAL="$sandbox/gitconfig"
 unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE XDG_CONFIG_HOME VERIFY_FULL VERIFY_FORCE VERIFY_TESTS BASE \
+    VERIFY_PART VERIFY_DOTNET_FILTER VERIFY_SHARD VERIFY_COVERAGE_OUT VERIFY_NEEDS_OUT \
     GIT_CONFIG_PARAMETERS GIT_CONFIG_COUNT DOTNET_CLI_UI_LANGUAGE VSLANG \
     STUB_DOTNET_TEST STUB_DOCKER STUB_NPM_TEST 2>/dev/null || true
 export VERIFY_PYTHON=''
@@ -109,6 +110,7 @@ cat > "$sandbox/bin/dotnet" <<'STUB'
 case "$1" in
     build) exit 0 ;;
     test)
+        echo "stub: dotnet $*"
         if [ "${DOTNET_CLI_UI_LANGUAGE:-}" = en ]; then
             aborted='The active test run was aborted. Reason: Test host process crashed : Process terminated.'
             ended='Test Run Aborted.'
@@ -138,6 +140,7 @@ cat > "$sandbox/bin/npm" <<'STUB'
 case "$1" in
     run) exit 0 ;;
     test)
+        echo "stub: npm $*"
         case "${STUB_NPM_TEST:-ok}" in
             ok)        printf ' \033[2m Test Files \033[22m \033[1m\033[32m1 passed\033[39m\033[22m\033[90m (1)\033[39m\n'; exit 0 ;;
             nofiles)   echo 'No test files found, exiting with code 0'; exit 0 ;;
@@ -195,6 +198,24 @@ expect 'dotnet, VERIFY_TESTS=0: built, tests not run, green' \
     'green "$r" && has "$r" "ok: backend build" && has "$r" "backend tests: not run (VERIFY_TESTS=0)"'
 r=$(VERIFY_TESTS=0 VERIFY_FULL=1 STUB_DOTNET_TEST=fail1 run)
 expect 'dotnet, VERIFY_FULL=1 wins over VERIFY_TESTS=0: the tests run, red' 'red "$r" && has "$r" "FAIL: backend tests"'
+# Parts (tech-074): CI's backend jobs pass a filter and keep the coverage for the
+# merge; a part that has nothing to do with the change is green at once.
+r=$(VERIFY_PART=backend VERIFY_DOTNET_FILTER='FullyQualifiedName~Foo' run)
+expect 'part backend with a filter: the filter reaches dotnet test, green' \
+    'green "$r" && has "$r" "--filter FullyQualifiedName~Foo"'
+expect 'and a filtered run does not check the floors on its slice' \
+    'hasnt "$r" "ok: backend coverage floors" && has "$r" "a filtered run covers only part"'
+r=$(VERIFY_PART=backend VERIFY_COVERAGE_OUT="$sandbox/cov" run)
+expect 'part backend with VERIFY_COVERAGE_OUT: reports kept there, floors left to the merge' \
+    'green "$r" && has "$r" "reports kept in" && has "$r" "MustaskCoverageDir=.*cov/backend" && hasnt "$r" "stub floor"'
+r=$(VERIFY_PART=frontend-tests run)
+expect 'a part the change does not need: nothing to do, green' 'green "$r" && has "$r" "Nothing for these parts"'
+r=$(VERIFY_PART=bogus run)
+expect 'an unknown part: refused' '[ "$(code_of "$r")" = 2 ] && has "$r" "unknown part"'
+rm -f "$sandbox/needs"
+r=$(VERIFY_NEEDS_OUT="$sandbox/needs" run --list)
+expect 'VERIFY_NEEDS_OUT: the classification as need_<bucket> lines' \
+    'grep -qx need_dotnet=1 "$sandbox/needs" && grep -qx need_frontend=0 "$sandbox/needs"'
 
 g checkout -q main
 g checkout -q -b scn-frontend
@@ -213,6 +234,20 @@ expect 'vitest, no summary at exit code 0: red' 'red "$r" && has "$r" "no Vitest
 r=$(VERIFY_TESTS=0 STUB_NPM_TEST=fail1 run)
 expect 'vitest, VERIFY_TESTS=0: lint and build, tests not run, green' \
     'green "$r" && has "$r" "ok: build src/frontend" && has "$r" "tests src/frontend: not run (VERIFY_TESTS=0)"'
+# Shards (tech-074): one slice of the whole suite, its blob kept for the merge.
+r=$(VERIFY_FULL=1 VERIFY_PART=frontend-tests VERIFY_SHARD=2/6 VERIFY_COVERAGE_OUT="$sandbox/cov" run)
+expect 'a shard: --shard and the blob reporter reach vitest, green' \
+    'green "$r" && has "$r" "--shard=2/6" && has "$r" "blob-2-6.json" && has "$r" "ok: tests src/frontend (shard 2/6)"'
+expect 'and the shard does no lint, build or floor' 'hasnt "$r" "build src/frontend" && hasnt "$r" "stub floor"'
+r=$(VERIFY_FULL=1 VERIFY_PART=frontend-tests VERIFY_SHARD=1/6 STUB_NPM_TEST=fail1 run)
+expect 'a shard with a failing test: red' 'red "$r" && has "$r" "FAIL: tests src/frontend (shard 1/6)"'
+r=$(VERIFY_FULL=1 VERIFY_SHARD=7/6 run)
+expect 'a shard index above the count: refused' '[ "$(code_of "$r")" = 2 ] && has "$r" "above the count"'
+r=$(VERIFY_SHARD=1/6 run)
+expect 'a shard without VERIFY_FULL=1: refused' '[ "$(code_of "$r")" = 2 ] && has "$r" "needs VERIFY_FULL=1"'
+r=$(VERIFY_PART=frontend-static STUB_NPM_TEST=fail1 run)
+expect 'part frontend-static: lint and build, no tests' \
+    'green "$r" && has "$r" "ok: build src/frontend" && hasnt "$r" "stub: npm test"'
 
 g checkout -q main
 g checkout -q -b scn-keycloak

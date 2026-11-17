@@ -7,56 +7,69 @@ name: CI
 # previous version of this file kept its own matrix and had already drifted
 # from verify.sh).
 #
-# CI is the full run (tech-041): the Verify step sets VERIFY_FULL=1, so a
-# change that touches the frontend runs the whole Vitest suite here, not only
-# the tests that reach the diff. The pre-push hook runs the quick default (and
-# `VERIFY_FULL=1 git push` asks it for the full one), so the whole suite is paid
-# for once, on the runner, and this check is the one required on main.
+# CI is the full run (tech-041): every job sets VERIFY_FULL=1, so a change that
+# touches the frontend runs the whole Vitest suite here, not only the tests that
+# reach the diff. The pre-push hook runs the quick default (and `VERIFY_FULL=1
+# git push` asks it for the full one), so the whole suite is paid for once, on
+# the runners.
 #
-# The job name below is the status-check context main's branch protection
-# requires. It reads "change-proportionate" because the classification still
-# is (a docs-only PR finishes in seconds); the full run only widens the
-# frontend tests. Rename the job and the protection rule together or every PR
-# hangs waiting for a check that never reports.
+# One verification, several parallel jobs (tech-074). Until then one job ran
+# the backend tests and then the whole Vitest suite after them, ~65 minutes on
+# a full-stack PR. Now every job is verify.sh with a part of the checks
+# (VERIFY_PART, see the script's header):
+#   plan      classifies the change once (verify.sh --list) for the others
+#   static    prose, agent instructions, shell, CI YAML, CD cases, the
+#             KeycloakLive tests, the frontend lint and build
+#   backend   the .NET tests in three groups by test assembly, each with its
+#             own build (VERIFY_DOTNET_FILTER)
+#   frontend  the Vitest suite in shards (VERIFY_SHARD)
+#   verify    the required check: every job above went green or was not
+#             needed, and the coverage floors hold on the merged reports
+#             (scripts/ci-coverage-gate.sh)
+# The groups of `backend` are a split and its last one the complement: every
+# test runs in exactly one of them, a new test assembly falls into "rest".
 #
-# The job runs on every PR with no paths filters ON PURPOSE: a required
+# The job named "verify.sh (change-proportionate)" is the status-check context
+# main's branch protection requires; it is the last one, `if: always()`, so it
+# reports even when a job before it failed or was skipped. Rename it and the
+# protection rule together or every PR hangs waiting for a check that never
+# reports.
+#
+# The workflow runs on every PR with no paths filters ON PURPOSE: a required
 # check skipped via paths-ignore doesn't run at all — and the PR hangs
-# waiting. Instead, verify.sh itself finishes a docs-only run in seconds.
+# waiting. Instead, the plan skips the jobs a change does not need, and a
+# docs-only run finishes in about a minute.
 
 on:
   pull_request:
   push:
     branches: [main]
 
-jobs:
-  verify:
-    name: verify.sh (change-proportionate)
-    runs-on: ubuntu-latest
+# A new push to a PR's branch cancels the run of the previous one: its verdict
+# is about a commit nobody will merge. Runs on main are never cancelled.
+concurrency:
+  group: ci-${{ github.event.pull_request.number || github.sha }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
+env:
+  # The whole frontend suite, not only the tests the diff reaches.
+  VERIFY_FULL: "1"
+  VITE_API_BASE_URL: http://ci.invalid
+
+jobs:
+  plan:
+    name: plan
+    runs-on: ubuntu-latest
+    outputs:
+      base: ${{ steps.base.outputs.base }}
+      need_dotnet: ${{ steps.list.outputs.need_dotnet }}
+      need_frontend: ${{ steps.list.outputs.need_frontend }}
+      need_keycloak: ${{ steps.list.outputs.need_keycloak }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
         with:
           fetch-depth: 0 # verify.sh compares with a base via merge-base; the push to main needs HEAD^1
-
-      - name: Setup .NET
-        uses: actions/setup-dotnet@v4
-        with:
-          global-json-file: global.json
-
-      - name: Setup Node
-        if: hashFiles('src/frontend/package-lock.json') != ''
-        uses: actions/setup-node@v4
-        with:
-          # LTS
-          node-version: 22
-          cache: npm
-          cache-dependency-path: src/frontend/package-lock.json
-
-      - name: Install frontend deps
-        if: hashFiles('src/frontend/package-lock.json') != ''
-        working-directory: src/frontend
-        run: npm ci
 
       # What verify.sh compares HEAD with (tech-044). A pull request: origin/main
       # (HEAD is the PR merged into main, so the diff is the PR). A push to main:
@@ -86,11 +99,202 @@ jobs:
           echo "base=$base" >> "$GITHUB_OUTPUT"
           echo "verify.sh compares HEAD with $base ($(git rev-parse --short "$base"))"
 
-      - name: Verify
+      - name: Classify the change
+        id: list
         env:
           BASE: ${{ steps.base.outputs.base }}
-          # The whole frontend suite, not only the tests the diff reaches.
-          VERIFY_FULL: "1"
-          VITE_API_BASE_URL: http://ci.invalid
+        run: VERIFY_NEEDS_OUT="$GITHUB_OUTPUT" sh scripts/verify.sh --list
+
+  static:
+    name: static checks
+    needs: plan
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup .NET
+        if: needs.plan.outputs.need_keycloak == '1'
+        uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+
+      - name: Setup Node
+        if: needs.plan.outputs.need_frontend == '1'
+        uses: actions/setup-node@v4
+        with:
+          # LTS
+          node-version: 22
+          cache: npm
+          cache-dependency-path: src/frontend/package-lock.json
+
+      - name: Install frontend deps
+        if: needs.plan.outputs.need_frontend == '1'
+        working-directory: src/frontend
+        run: npm ci
+
+      - name: Verify
+        env:
+          BASE: ${{ needs.plan.outputs.base }}
+          VERIFY_PART: static keycloak frontend-static
+        # Docker is preinstalled on ubuntu-latest — the KeycloakLive tests run.
+        run: sh scripts/verify.sh
+
+  backend:
+    name: backend tests (${{ matrix.group }})
+    needs: plan
+    if: needs.plan.outputs.need_dotnet == '1'
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # The two slowest assemblies on their own runners (14.5 and 11.8
+          # minutes side by side in one job before the split), the rest
+          # together. The last filter is the complement of the others.
+          - group: infrastructure
+            filter: FullyQualifiedName~Mustask.Infrastructure.Tests
+          - group: api-integration
+            filter: FullyQualifiedName~Mustask.Api.IntegrationTests
+          - group: rest
+            filter: FullyQualifiedName!~Mustask.Infrastructure.Tests&FullyQualifiedName!~Mustask.Api.IntegrationTests
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+
+      - name: Verify
+        env:
+          BASE: ${{ needs.plan.outputs.base }}
+          VERIFY_PART: backend
+          VERIFY_DOTNET_FILTER: ${{ matrix.filter }}
+          VERIFY_COVERAGE_OUT: ${{ runner.temp }}/coverage
         # Docker is preinstalled on ubuntu-latest — Testcontainers work.
         run: sh scripts/verify.sh
+
+      - name: Keep the coverage reports
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: coverage-backend-${{ matrix.group }}
+          path: ${{ runner.temp }}/coverage/backend
+          if-no-files-found: error
+          retention-days: 3
+
+  frontend:
+    name: frontend tests (shard ${{ matrix.shard }}/6)
+    needs: plan
+    if: needs.plan.outputs.need_frontend == '1'
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3, 4, 5, 6]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: src/frontend/package-lock.json
+
+      - name: Install frontend deps
+        working-directory: src/frontend
+        run: npm ci
+
+      - name: Verify
+        env:
+          BASE: ${{ needs.plan.outputs.base }}
+          VERIFY_PART: frontend-tests
+          VERIFY_SHARD: ${{ matrix.shard }}/6
+          VERIFY_COVERAGE_OUT: ${{ runner.temp }}/coverage
+        run: sh scripts/verify.sh
+
+      - name: Keep the blob report
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: coverage-frontend-${{ matrix.shard }}
+          path: ${{ runner.temp }}/coverage/frontend
+          if-no-files-found: error
+          retention-days: 3
+
+  verify:
+    name: verify.sh (change-proportionate)
+    needs: [plan, static, backend, frontend]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      # A job the plan did not need is "skipped" and fine; one it needed must be
+      # green. A failed plan skips everything after it and fails here.
+      - name: Every needed job went green
+        env:
+          PLAN: ${{ needs.plan.result }}
+          STATIC: ${{ needs.static.result }}
+          BACKEND: ${{ needs.backend.result }}
+          FRONTEND: ${{ needs.frontend.result }}
+          NEED_DOTNET: ${{ needs.plan.outputs.need_dotnet }}
+          NEED_FRONTEND: ${{ needs.plan.outputs.need_frontend }}
+        run: |
+          bad=0
+          check() { # name result needed
+            if [ "$2" = success ] || { [ "$2" = skipped ] && [ "$3" != 1 ]; }; then
+              echo "ok: $1 ($2)"
+            else
+              echo "::error::$1: $2"
+              bad=1
+            fi
+          }
+          check plan "$PLAN" 1
+          check static "$STATIC" 1
+          check backend "$BACKEND" "$NEED_DOTNET"
+          check frontend "$FRONTEND" "$NEED_FRONTEND"
+          exit "$bad"
+
+      - name: Checkout
+        if: needs.backend.result == 'success' || needs.frontend.result == 'success'
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        if: needs.backend.result == 'success' || needs.frontend.result == 'success'
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: src/frontend/package-lock.json
+
+      - name: Install frontend deps
+        if: needs.frontend.result == 'success'
+        working-directory: src/frontend
+        run: npm ci
+
+      - name: Fetch the coverage reports
+        if: needs.backend.result == 'success' || needs.frontend.result == 'success'
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          pattern: coverage-*
+          path: ${{ runner.temp }}/coverage
+
+      # Each artifact lands in a folder of its own name: coverage-backend-<group>
+      # holds that group's per-project reports, coverage-frontend-<n> a blob.
+      - name: Backend coverage floors
+        if: needs.backend.result == 'success'
+        run: |
+          mkdir -p "$RUNNER_TEMP/backend"
+          mv "$RUNNER_TEMP"/coverage/coverage-backend-* "$RUNNER_TEMP/backend/"
+          sh scripts/ci-coverage-gate.sh backend "$RUNNER_TEMP/backend"
+
+      - name: Frontend coverage floor
+        if: needs.frontend.result == 'success'
+        run: sh scripts/ci-coverage-gate.sh frontend "$RUNNER_TEMP/coverage"
