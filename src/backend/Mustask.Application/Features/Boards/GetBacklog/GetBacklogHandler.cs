@@ -67,7 +67,7 @@ public sealed class GetBacklogHandler(
         // The project filter (BR-TS-8) narrows the tree set on the same statement: the tree is built over the matching items only,
         // and a parent outside it is read as any parent outside the set (its «Родитель» cell, unfiltered).
         var filter = WorkItemFilter.OfProjects(query.ProjectIds);
-        var caller = new CallerAccess(organizationId, currentUser.SubjectId, access.Role);
+        var caller = CallerAccess.NotNarrowed(organizationId, currentUser.SubjectId, access.Role);
 
         var rows = await backlogs.ReadTeamTreeAsync(TeamBacklogTreeScope.Of(teamId, treeTypes, filter), caller, cancellationToken);
 

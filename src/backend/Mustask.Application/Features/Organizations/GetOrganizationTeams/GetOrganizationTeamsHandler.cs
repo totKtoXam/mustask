@@ -28,14 +28,14 @@ public sealed class GetOrganizationTeamsHandler(ITeamReadModel teams, ICurrentUs
 
         var filtered = LinkableFor.IsRequested(query.LinkableFor);
         var rows = await teams.ListOrganizationTeamsAsync(organizationId, currentUser.SubjectId, cancellationToken);
-        var set = filtered ? await access.SetAsync(cancellationToken) : null;
+        var set = await access.SetAsync(cancellationToken);
 
         return new GetOrganizationTeamsResult(
-            rows.Where(row => set is null || set.Holds(PermissionCatalog.OrganizationsTeamLink, row.Id)).Select(row => new TeamListItemResponse(
+            rows.Where(row => set.SeesTeam(row.Id) && (!filtered || set.Holds(PermissionCatalog.OrganizationsTeamLink, row.Id))).Select(row => new TeamListItemResponse(
                     row.Id,
                     row.Name,
                     row.Description,
-                    row.Projects.Select(project => new TeamProjectResponse(project.Id, project.Name)).ToList(),
+                    row.Projects.Where(project => set.SeesProject(project.Id)).Select(project => new TeamProjectResponse(project.Id, project.Name)).ToList(),
                     row.IsMember,
                     row.DepartmentId,
                     row.DepartmentName,

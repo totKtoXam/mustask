@@ -32,6 +32,6 @@ public sealed class GetTeamProjectsHandler(ITeamReadModel teams, IOrganizationAc
         var rows = await teams.ListProjectsOfTeamAsync(organizationId, teamId, cancellationToken);
         var set = await access.SetAsync(cancellationToken);
 
-        return new GetTeamProjectsResult(rows.Select(row => new TeamProjectResponse(row.Id, row.Name, row.Key, LinkRules.CanUnlinkProjectTeam(set, row.Id, teamId), set.CodesInCatalogOrder(ResourceScope.Project, row.Id))).ToList());
+        return new GetTeamProjectsResult(rows.Where(row => set.SeesProject(row.Id)).Select(row => new TeamProjectResponse(row.Id, row.Name, row.Key, LinkRules.CanUnlinkProjectTeam(set, row.Id, teamId), set.CodesInCatalogOrder(ResourceScope.Project, row.Id))).ToList());
     }
 }

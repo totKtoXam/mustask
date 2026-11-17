@@ -1,3 +1,4 @@
+using Mustask.Domain.Identity;
 using Mustask.Application.Features.Organizations.GetDeactivatedProjects;
 using Mustask.Application.Tests.TestDoubles.Organizations;
 using Mustask.Domain.Organizations;
@@ -17,7 +18,7 @@ public sealed class GetDeactivatedProjectsHandlerTests
         public Fixture()
         {
             Organization = Store.AddOrganization();
-            Handler = new GetDeactivatedProjectsHandler(new FakeOrganizationReadModel(Store), new FakeProjectReadModel(Store));
+            Handler = new GetDeactivatedProjectsHandler(new FakeOrganizationReadModel(Store), new FakeProjectReadModel(Store), new FakeOrganizationAccess(OrganizationRole.Admin));
         }
 
         public InMemoryOrganizations Store { get; } = new();

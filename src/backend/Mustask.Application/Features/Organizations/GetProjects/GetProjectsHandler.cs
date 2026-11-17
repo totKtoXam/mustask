@@ -51,6 +51,7 @@ public sealed class GetProjectsHandler(IOrganizationReadModel organizations, IPr
         var set = await access.SetAsync(cancellationToken);
 
         return new GetProjectsResult(rows
+            .Where(row => set.SeesProject(row.Id))
             .Where(row => !filtered || set.Holds(PermissionCatalog.OrganizationsProjectLink, row.Id))
             .Select(row => new ProjectListItemResponse(row.Id, row.Name, row.Key, set.CodesInCatalogOrder(ResourceScope.Project, row.Id), row.Color))
             .ToList());

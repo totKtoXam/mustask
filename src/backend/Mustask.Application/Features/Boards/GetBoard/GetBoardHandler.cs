@@ -64,7 +64,7 @@ public sealed class GetBoardHandler(
 
         // The project filter (BR-TS-8) narrows the columns and their cards; a card's checklist below is not narrowed.
         var filter = WorkItemFilter.OfProjects(query.ProjectIds);
-        var caller = new CallerAccess(organizationId, currentUser.SubjectId, access.Role);
+        var caller = CallerAccess.NotNarrowed(organizationId, currentUser.SubjectId, access.Role);
 
         var rows = await backlogs.ReadTeamAsync(TeamBacklogScope.Of(teamId, resolved.Id, types, filter), caller, cancellationToken);
 

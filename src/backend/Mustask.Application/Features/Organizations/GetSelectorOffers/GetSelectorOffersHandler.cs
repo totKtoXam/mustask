@@ -20,7 +20,8 @@ public sealed class GetSelectorOffersHandler(INavigationReadModel navigation, IO
             throw new NotFoundException(OrganizationErrorCodes.OrganizationNotFound);
         }
 
-        var caller = new CallerAccess(organizationId, currentUser.SubjectId, access.Role);
+        var set = await access.SetAsync(cancellationToken);
+        var caller = new CallerAccess(organizationId, currentUser.SubjectId, access.Role, set.Sighted());
         var rows = await navigation.ReadSelectorOffersAsync(caller, cancellationToken);
 
         return new SelectorOffersResponse(

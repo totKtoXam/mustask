@@ -24,7 +24,7 @@ export const ORGANIZATION_PLACE = 'Верхний уровень';
 export const areasPage = {
   title: 'Структура',
   create: 'Создать департамент',
-  search: 'Найти область',
+  search: 'Найти департамент, команду или проект',
   nothingFound: 'Ничего не найдено',
   resetFilter: 'Сбросить фильтр',
   expandAll: 'Развернуть всё',
