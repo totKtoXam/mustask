@@ -45,6 +45,7 @@ public sealed class WorkItemWriteInventoryTests(MustaskApiFactory factory)
 
     private const string ReasonContainer = "acts on a container (organization, project) and names no work item; its items stay as they are";
     private const string ReasonStructure = "changes a team or an area and names no work item";
+    private const string ReasonImports = "writes the import module's own records (a template, an uploaded file, a stored dry run) and no work item";
     private const string ReasonMembership = "changes who belongs to the organization or a team, and names no work item";
 
     /// <summary>The table. A line that adds a write route adds its row here, with the test that proves it.</summary>
@@ -104,6 +105,17 @@ public sealed class WorkItemWriteInventoryTests(MustaskApiFactory factory)
         ["PUT " + Area + "/description"] = new(Kind.NamesNoWorkItem, ReasonStructure),
         ["PUT " + OrgTeam + "/department"] = new(Kind.NamesNoWorkItem, "moves a team to another department and moves no item (mod-021 BR-TD-4)"),
         ["DELETE " + Area] = new(Kind.NamesNoWorkItem, "names no work item; it counts the items in the area, deleted ones too (mod-003 BR-M3-24)"),
+
+        // mod-024: the import constructor. Templates and uploaded files are records of the module; a dry run only reads the work items
+        // and writes none (BR-IE-13), so no route here names or changes a work item.
+        ["POST " + Org + "/imports/templates"] = new(Kind.NamesNoWorkItem, ReasonImports),
+        ["PUT " + Org + "/imports/templates/{templateId}"] = new(Kind.NamesNoWorkItem, ReasonImports),
+        ["POST " + Org + "/imports/templates/{templateId}/copy"] = new(Kind.NamesNoWorkItem, ReasonImports),
+        ["DELETE " + Org + "/imports/templates/{templateId}"] = new(Kind.NamesNoWorkItem, ReasonImports),
+        ["POST " + Org + "/imports/files"] = new(Kind.NamesNoWorkItem, ReasonImports),
+        ["POST " + Org + "/imports/files/{fileId}/values"] = new(Kind.NamesNoWorkItem, ReasonImports),
+        ["POST " + Org + "/imports/files/{fileId}/chain-sample"] = new(Kind.NamesNoWorkItem, ReasonImports),
+        ["POST " + Org + "/imports/templates/{templateId}/dry-runs"] = new(Kind.NamesNoWorkItem, ReasonImports),
 
         // mod-016: membership.
         ["POST " + Org + "/members"] = new(Kind.NamesNoWorkItem, ReasonMembership),

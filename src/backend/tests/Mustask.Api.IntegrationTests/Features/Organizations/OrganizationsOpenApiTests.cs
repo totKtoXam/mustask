@@ -36,6 +36,7 @@ public sealed class OrganizationsOpenApiTests(MustaskApiFactory factory)
                 && !route.Template.Contains("/workitems", StringComparison.Ordinal)
                 && !route.Template.Contains("/backlogs/", StringComparison.Ordinal)
                 && !route.Template.Contains("/boards/", StringComparison.Ordinal)
+                && !route.Template.Contains("/imports/", StringComparison.Ordinal)
                 && !route.Template.Contains("/sprints", StringComparison.Ordinal))
             .Select(route => route.Key),
     ];

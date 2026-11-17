@@ -18,6 +18,7 @@ public static class OrganizationRoleBundles
         PermissionCatalog.OrganizationsAreaRead,
         PermissionCatalog.ProcessDefinitionRead,
         PermissionCatalog.WorkItemsWorkItemRead,
+        PermissionCatalog.ImportsTemplateRead,
     };
 
     private static readonly IReadOnlySet<string> Admin =

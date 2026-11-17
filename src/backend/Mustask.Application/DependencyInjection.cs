@@ -226,6 +226,23 @@ public static class DependencyInjection
         services.AddScoped<Mustask.Application.Features.WorkItems.GetOrganizationWorkItems.GetOrganizationWorkItemsHandler>();
         services.AddScoped<Mustask.Application.Features.WorkItems.GetOrganizationAssigneeOptions.GetOrganizationAssigneeOptionsHandler>();
 
+        // The import constructor (mod-024): templates, uploaded files, the dry run.
+        services.AddScoped<Features.Imports.GetCatalogue.GetCatalogueHandler>();
+        services.AddScoped<Features.Imports.ListTemplates.ListTemplatesHandler>();
+        services.AddScoped<Features.Imports.GetTemplate.GetTemplateHandler>();
+        services.AddScoped<Features.Imports.GetTemplateColumns.GetTemplateColumnsHandler>();
+        services.AddScoped<Features.Imports.CreateTemplate.CreateTemplateHandler>();
+        services.AddScoped<Features.Imports.UpdateTemplate.UpdateTemplateHandler>();
+        services.AddScoped<Features.Imports.CopyTemplate.CopyTemplateHandler>();
+        services.AddScoped<Features.Imports.DeleteTemplate.DeleteTemplateHandler>();
+        services.AddScoped<Features.Imports.UploadFile.UploadFileHandler>();
+        services.AddScoped<Features.Imports.ReadFile.ReadFileHandler>();
+        services.AddScoped<Features.Imports.GetFileValues.GetFileValuesHandler>();
+        services.AddScoped<Features.Imports.SampleChain.SampleChainHandler>();
+        services.AddScoped<Features.Imports.RunDryRun.RunDryRunHandler>();
+        services.AddScoped<Features.Imports.GetDryRun.GetDryRunHandler>();
+        services.AddScoped<Features.Imports.DownloadDryRunReport.DownloadDryRunReportHandler>();
+
         // Iterations (mod-007): one handler per route of IterationsEndpoints.cs.
         services.AddScoped<Mustask.Application.Features.Iterations.CreateSprint.CreateSprintHandler>();
         services.AddScoped<Mustask.Application.Features.Iterations.UpdateSprint.UpdateSprintHandler>();

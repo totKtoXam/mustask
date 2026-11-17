@@ -22,6 +22,9 @@
     "admin": [
       "boards.backlog.reorder",
       "boards.projectbacklog.reorder",
+      "imports.import.run",
+      "imports.template.read",
+      "imports.template.write",
       "iterations.sprint.manage",
       "organizations.area.create",
       "organizations.area.grant",
@@ -54,6 +57,7 @@
     "member": [
       "boards.backlog.reorder",
       "boards.projectbacklog.reorder",
+      "imports.template.read",
       "organizations.area.read",
       "organizations.membership.read",
       "organizations.organization.read",
@@ -66,6 +70,7 @@
       "workitems.workitem.write"
     ],
     "viewer": [
+      "imports.template.read",
       "organizations.area.read",
       "organizations.membership.read",
       "organizations.organization.read",
@@ -89,6 +94,8 @@
         "workitems.workitem.write"
       ],
       "manager": [
+        "imports.import.run",
+        "imports.template.write",
         "organizations.area.grant",
         "organizations.area.link",
         "organizations.area.write",
@@ -117,6 +124,8 @@
       ],
       "manager": [
         "boards.projectbacklog.reorder",
+        "imports.import.run",
+        "imports.template.write",
         "organizations.area.write",
         "organizations.project.grant",
         "organizations.project.link",
@@ -163,6 +172,21 @@
       "code": "dictionaries.languages.write",
       "source": "instance",
       "resourceScope": null
+    },
+    {
+      "code": "imports.import.run",
+      "source": "organization",
+      "resourceScope": "project"
+    },
+    {
+      "code": "imports.template.read",
+      "source": "organization",
+      "resourceScope": "organization"
+    },
+    {
+      "code": "imports.template.write",
+      "source": "organization",
+      "resourceScope": "project"
     },
     {
       "code": "iterations.sprint.manage",
