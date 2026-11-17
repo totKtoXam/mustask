@@ -3,7 +3,7 @@
 - type: feature
 - size: L
 - branch: feat/062-sight-in-work-views
-- stage: 5-backend-qa
+- stage: 8-review
 - epic: core/org-access
 - deps: feat-041
 - gates: gate-3
@@ -58,3 +58,4 @@ Verification: affected tests locally, the full verify.sh in CI.
 - 2026-11-18 [backend] stage 4 done: BR-TD-17 on feat-048 aggregates, the flat list, assignee options and the team backlog/board (incl. linked-projects list); mod-007 sprint reads (list, card, close preview, Closed outcome) narrowed by one VisibleProjects value taken from the feat-041 AccessSet (SeenProjects), applied as a predicate inside each statement, so no statement is added and the pins are unchanged (dynamics 8, participants 8, items 4, list 6, close 17); R-5 remainder: reorder item/anchor of a hidden project = 409 boards.backlog.reorder_stale like an unknown id; body ids closed: team in create/save (404, not 409 not_in_project), sprint in save and close destination of a hidden team (404 iterations.sprint.not_found). Audited with no gap: see api-contract section 6. Deviations: Overview and selector offers left to feat-061; AccessSet.SeesAsync still has no Area scope; no frontend change (no route or shape change); feat-041 and mod-007 statuses not edited (their owed clauses are met here, contract in api-contract.md). Tests: Api.IntegrationTests Boards+Iterations 457 and WorkItems+Organizations 2411 green, Infrastructure statement-count subset 34 green, Application.Tests 905 green; verify.sh not run (economy mode).
 - 2026-11-18 [orchestrator] the human decided feat-057 delivers the sight clauses on its own team sprint board (relayed by the feat-057 session); already out of this scope. Cross-reference notes added to feat-041 and mod-007 status.md.
 - 2026-11-18 [backend QA] pass: 12 sight tests green (3 added: sprint range, selector ids, grant/linked-team sight); 0 blocker/major, 1 minor (D-1 fail-open defaults) carried to gate-3; no frontend change needed; stage 6-frontend (skip). See qa.md.
+- 2026-11-18 [orchestrator] stages 6-7 skipped: no route, shape, status or copy changed (backend QA confirmed); stage: 8-review.
