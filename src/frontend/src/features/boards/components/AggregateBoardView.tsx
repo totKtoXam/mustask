@@ -28,6 +28,8 @@ import { useNarrowedTag, type AggregateViewState } from '../hooks/useAggregateVi
 import { useAnnouncement } from '../hooks/useAnnouncement';
 import { columnsOf, type AggregateColumn } from '../lib/aggregateColumns';
 import { aggregateTexts, countText, streamCountText } from '../lib/aggregateTexts';
+import { goneSelectionLevel } from '../lib/goneSelection';
+import { NotFound } from '../../../shared/ui/StateFrame';
 import { groupIdOf } from '../lib/openGroups';
 import { stateRefusalNotice } from '../lib/refusals';
 import { CategoryMarker } from '../../../shared/ui/WorkTrackingMarks';
@@ -334,9 +336,12 @@ export function AggregateBoardView({
   );
   const groups = v.groups;
 
+  const gone = goneSelectionLevel(v.headers.error);
   let body;
   if (v.headers.isPending) {
     body = <HeadersSkeleton />;
+  } else if (gone) {
+    body = <NotFound level={gone} keepNavigation />;
   } else if (v.headers.isError || groups === undefined) {
     body = (
       <InlineNotice

@@ -38,6 +38,6 @@ public sealed class GetProjectTeamLinksHandler(IOrganizationStructure structure,
         var teams = await structure.ListLinkedTeamsAsync(organizationId, projectId, cancellationToken);
         var set = await access.SetAsync(cancellationToken);
 
-        return new GetProjectTeamLinksResult(teams.Select(team => new ProjectTeamLinkResponse(team.Id, team.Name, LinkRules.CanUnlinkProjectTeam(set, projectId, team.Id))).ToList());
+        return new GetProjectTeamLinksResult(teams.Where(team => set.SeesTeam(team.Id)).Select(team => new ProjectTeamLinkResponse(team.Id, team.Name, LinkRules.CanUnlinkProjectTeam(set, projectId, team.Id))).ToList());
     }
 }

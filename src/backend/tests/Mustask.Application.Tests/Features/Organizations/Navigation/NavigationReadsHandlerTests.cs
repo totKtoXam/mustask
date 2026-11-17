@@ -60,7 +60,10 @@ public sealed class NavigationReadsHandlerTests
         Assert.Equal(["Логистика"], response.Departments.Select(row => row.Name));
         Assert.Equal(["ALF"], response.Projects.Select(row => row.Key));
         Assert.Equal(["VENUS"], response.MyTeams.Select(row => row.Name));
-        Assert.Equal(new CallerAccess(Organization, "u-olga", OrganizationRole.Viewer), Assert.Single(read.Callers));
+        var caller = Assert.Single(read.Callers);
+
+        Assert.Equal((Organization, "u-olga", OrganizationRole.Viewer), (caller.OrganizationId, caller.UserId, caller.Role));
+        Assert.NotNull(caller.Sight); // BR-TD-17: a non-administrator's read carries the sight, never an unrestricted caller
     }
 
     // US-8 · the selectors' offers: the links reach the panel, the read got the caller.
@@ -74,7 +77,10 @@ public sealed class NavigationReadsHandlerTests
 
         Assert.Equal(response.Teams[0].Id, Assert.Single(response.Projects[0].TeamIds));
         Assert.Null(response.Projects[0].DepartmentId);
-        Assert.Equal(new CallerAccess(Organization, "u-max", OrganizationRole.Member), Assert.Single(read.Callers));
+        var caller = Assert.Single(read.Callers);
+
+        Assert.Equal((Organization, "u-max", OrganizationRole.Member), (caller.OrganizationId, caller.UserId, caller.Role));
+        Assert.NotNull(caller.Sight);
     }
 
     // BR-M1-20 · a malformed organization id is the organization's not-found, and the read is not asked.

@@ -13,4 +13,12 @@ namespace Mustask.Application.Abstractions.Organizations;
 /// <param name="OrganizationId">The organization of the address, which the scoped check has already found the caller a member of.</param>
 /// <param name="UserId">The caller's subject (the token's <c>sub</c>), the key of their memberships.</param>
 /// <param name="Role">The caller's role in <paramref name="OrganizationId"/>.</param>
-public sealed record CallerAccess(Guid OrganizationId, string UserId, OrganizationRole Role);
+/// <param name="Sight">What the caller sees (feat-061, BR-TD-17): the ids of the visible projects, teams and departments; <c>null</c> for the administrator, who is not narrowed. <b>Required</b>, so a new read cannot forget it silently: the navigation reads apply it before paging and counting; the reads feat-062 has not reached yet say so with <see cref="NotNarrowed"/>.</param>
+public sealed record CallerAccess(Guid OrganizationId, string UserId, OrganizationRole Role, SightedIds? Sight)
+{
+    /// <summary>
+    /// A caller whose read does not narrow by sight yet: the multi-project Boards and WorkItems reads, which feat-062 brings under the rule.
+    /// Greppable on purpose; a read that names or counts departments, teams or projects takes <c>set.Sighted()</c> instead.
+    /// </summary>
+    public static CallerAccess NotNarrowed(Guid organizationId, string userId, OrganizationRole role) => new(organizationId, userId, role, null);
+}

@@ -18,7 +18,7 @@ public sealed record GetAreaDeletionResult(IReadOnlyList<AreaDeletionTeamRespons
 /// deletion would end, for the dialog's confirmation. A deleted team has no link left. The node must exist: one 404 for a malformed,
 /// unknown or foreign id. Any other type than a department has no link of this kind, so the list is empty.
 /// </summary>
-public sealed class GetAreaDeletionHandler(IAreaRepository areas, IAreaTreeReadModel readModel)
+public sealed class GetAreaDeletionHandler(IAreaRepository areas, IAreaTreeReadModel readModel, IOrganizationAccess access)
 {
     public async Task<GetAreaDeletionResult> Handle(GetAreaDeletionQuery query, CancellationToken cancellationToken)
     {
@@ -34,7 +34,8 @@ public sealed class GetAreaDeletionHandler(IAreaRepository areas, IAreaTreeReadM
         }
 
         var teams = await readModel.ListTeamsAsync(organizationId, areaId, cancellationToken);
+        var set = await access.SetAsync(cancellationToken);
 
-        return new GetAreaDeletionResult(teams.Select(row => new AreaDeletionTeamResponse(row.Id, row.Name)).ToList());
+        return new GetAreaDeletionResult(teams.Where(row => set.SeesTeam(row.Id)).Select(row => new AreaDeletionTeamResponse(row.Id, row.Name)).ToList());
     }
 }
