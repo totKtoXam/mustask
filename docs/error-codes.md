@@ -122,6 +122,10 @@ guarantees it exists and differs from the Russian, not its quality
 |organizations.team.not_found|404|Команда не найдена.|Команда табылмады.|organizations|—|needs review|
 |organizations.team.not_in_project|409|Команда не участвует в проекте.|Команда жобаға қатыспайды.|organizations|—|needs review|
 |organizations.validation_failed|400|Проверьте правильность заполнения полей.|Өрістердің дұрыс толтырылғанын тексеріңіз.|organizations|—|needs review|
+|search.invalid_group|400|Такой группы результатов нет.|Мұндай нәтиже тобы жоқ.|search|—|needs review|
+|search.query_too_long|400|Запрос не должен быть длиннее 100 символов.|Сұраныс 100 таңбадан ұзын болмауы керек.|search|—|needs review|
+|search.query_too_short|400|Введите не менее 2 символов.|Кемінде 2 таңба енгізіңіз.|search|—|needs review|
+|search.validation_failed|400|Проверьте правильность запроса.|Сұраныстың дұрыстығын тексеріңіз.|search|—|needs review|
 |session.anonymous|401|Вы не вошли в систему.|Сіз жүйеге кірмегенсіз.|session|—|needs review|
 |session.expired|401|Сессия истекла. Войдите заново.|Сессия мерзімі аяқталды. Қайта кіріңіз.|session|—|needs review|
 |session.invalid_return_url|400|Недопустимый адрес возврата после входа.|Кіргеннен кейінгі қайту мекенжайы жарамсыз.|session|—|needs review|
