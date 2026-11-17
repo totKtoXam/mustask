@@ -241,6 +241,8 @@ expect 'a shard: --shard and the blob reporter reach vitest, green' \
 expect 'and the shard does no lint, build or floor' 'hasnt "$r" "build src/frontend" && hasnt "$r" "stub floor"'
 r=$(VERIFY_FULL=1 VERIFY_PART=frontend-tests VERIFY_SHARD=1/6 STUB_NPM_TEST=fail1 run)
 expect 'a shard with a failing test: red' 'red "$r" && has "$r" "FAIL: tests src/frontend (shard 1/6)"'
+r=$(VERIFY_FULL=1 VERIFY_SHARD=7/6 run)
+expect 'a shard index above the count: refused' '[ "$(code_of "$r")" = 2 ] && has "$r" "above the count"'
 r=$(VERIFY_SHARD=1/6 run)
 expect 'a shard without VERIFY_FULL=1: refused' '[ "$(code_of "$r")" = 2 ] && has "$r" "needs VERIFY_FULL=1"'
 r=$(VERIFY_PART=frontend-static STUB_NPM_TEST=fail1 run)

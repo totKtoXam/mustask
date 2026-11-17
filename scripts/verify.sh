@@ -74,9 +74,10 @@
 #       (a dotnet test --filter expression; CI splits the solution by it)
 #   VERIFY_SHARD=<i>/<n>          one shard of the whole Vitest suite (needs
 #       VERIFY_FULL=1; vitest --shard)
-#   VERIFY_COVERAGE_OUT=<dir>     keep the raw coverage there instead of
-#       checking the floors: a part covers part of the tests, so the floors are
-#       checked on the merged reports (scripts/ci-coverage-gate.sh)
+#   VERIFY_COVERAGE_OUT=<dir>     keep the raw coverage of a backend run or of
+#       a Vitest shard there instead of checking the floors on it: a slice
+#       covers part of the tests, so the floors are checked on the merged
+#       reports (scripts/ci-coverage-gate.sh); a whole frontend run ignores it
 #   VERIFY_NEEDS_OUT=<file>       append the classification as need_<bucket>=0|1
 #       lines (CI's plan job writes them to $GITHUB_OUTPUT with --list)
 # A run that is a part, a filter or a shard leaves no green stamp and reads
@@ -115,6 +116,8 @@ done
 if [ -n "$VERIFY_SHARD" ]; then
     printf '%s' "$VERIFY_SHARD" | grep -Eq '^[1-9][0-9]*/[1-9][0-9]*$' || {
         printf "VERIFY_SHARD: '%s' is not <index>/<count>\n" "$VERIFY_SHARD" >&2; exit 2; }
+    [ "${VERIFY_SHARD%/*}" -le "${VERIFY_SHARD#*/}" ] || {
+        printf "VERIFY_SHARD: index %s is above the count %s\n" "${VERIFY_SHARD%/*}" "${VERIFY_SHARD#*/}" >&2; exit 2; }
     [ "$VERIFY_FULL" = 1 ] || { printf "VERIFY_SHARD needs VERIFY_FULL=1: a shard is a slice of the whole suite\n" >&2; exit 2; }
 fi
 # Absolute: the frontend tests run from src/frontend, dotnet from each project.

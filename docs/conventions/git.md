@@ -421,7 +421,8 @@ the settings also allow squash, which queue PRs use).
 What follows for the work:
 
 - The required check is the full gate: `ci.yml` runs `scripts/verify.sh` with
-  `VERIFY_FULL=1` on every pull request, against `origin/main`. It also runs
+  `VERIFY_FULL=1` on every pull request, against `origin/main`, as parallel
+  parts whose results and merged coverage the required check collects. It also runs
   on every push to `main` — after a merge — and there compares the merged
   commit with the commit `main` pointed at before the push, so the run shows
   what the merge brought rather than "No changes".

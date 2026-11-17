@@ -41,6 +41,7 @@ parallelism is agreed with tech-073 first.
 - 2026-11-16 [measure] full frontend runs (a temporary one-line touch of `main.tsx`, reverted): run 43922066342 11.3 min, run 43927683530 11.1 min end to end; shards 5.6-9.9 min (shard 3 the pole), 432 files = every test file of the branch; merged coverage 97.96 % lines, floor ok in the verify job's log. A docs/scripts-only PR: 37 s (run 43920631146). Estimate for a full-stack PR: max(backend ~11, frontend ~10) + plan/verify ~1.5 ≈ 12-13 min, from ~65.
 - 2026-11-16 [dev] done: verify.sh parts + 9 new cases (35 green locally), ci.yml parallel jobs, scripts/ci-coverage-gate.sh, git.md. tech-073 confirmed no change to shards or workers is needed for its fixes.
 - 2026-11-17 [qa] CI pass: case scripts green (35 + 32, 8 new stamp cases for slices); no blocker/major; minor D-1: the backend coverage merge was never exercised in CI; see qa-report.md
+- 2026-11-17 [review] round 1 (whole diff, one session): approve; 0 blocker/major open, 4 minor + 1 nit as debts (R1-1: record the 4e189aae run's green backend floors before reverting it); see review.md
 
 ## Notes
 

@@ -116,8 +116,9 @@ merge-base, and the next run is real. `pre-push` is not one of those gates:
 it runs the change-proportionate `scripts/verify.sh` without tests,
 `VERIFY_TESTS=0` — builds and lint only, tech-055 (`VERIFY_FULL=1
 git push` makes it a full one, and finds the stamp the same way), and CI runs
-`VERIFY_FULL=1 sh scripts/verify.sh` on every pull request — the required check
-on `main` — on its own machine, where no stamp exists. A QA or review session
+`VERIFY_FULL=1 sh scripts/verify.sh` on every pull request — split into
+parallel jobs, each a part of it (tech-074), whose results the required check
+on `main` collects — on its own machines, where no stamp exists. A QA or review session
 therefore never re-runs the suite by hand: it runs
 `VERIFY_FULL=1 bash scripts/verify.sh`, which is instant when the stamp exists,
 and adds targeted tests where its own judgement says. The stamp is a statement about the code on this machine, not
