@@ -1,0 +1,629 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Прототип: конструктор импорта (mod-024)</title>
+<style>
+:root{--bg:#F8F8F8;--nav:#EBEBEB;--paper:#fff;--text:#242424;--text2:#616161;--accent:#0F6CBD;--div:#E0E0E0;--head:#F3F3F3;--hover:#F0F0F0;--err:#C42B1C;--warn:#9D5D00;--ok:#107C10;--info:#01579B;--err-bg:#FDEDED;--warn-bg:#FFF4E5;--info-bg:#E5F6FD;--ok-bg:#EAF6EA}
+*{box-sizing:border-box}html,body{margin:0}
+body{font:14px/20px Roboto,"Segoe UI",system-ui,Arial,sans-serif;color:var(--text);background:var(--bg)}
+button,select,input,textarea{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.proto{background:#FFF8D6;border-bottom:1px solid #E5D58A;padding:6px 16px;display:flex;gap:16px;align-items:center;flex-wrap:wrap;font-size:12px}
+.proto b{font-weight:500}
+.top{height:48px;background:var(--paper);border-bottom:1px solid var(--div);display:flex;align-items:center;gap:12px;padding:0 16px}
+.top .mark{font-weight:500;font-size:16px}.top .sw{color:var(--text2)}
+.shell{display:flex;min-height:calc(100vh - 100px)}
+.snav{width:220px;flex:none;background:var(--nav);padding:12px 0}
+.snav p{margin:0 16px 8px;font-size:16px;font-weight:500}
+.snav h4{margin:12px 16px 4px;font-size:12px;color:var(--text2);font-weight:500}
+.snav a{display:block;padding:6px 16px 6px 24px;color:var(--text);text-decoration:none}
+.snav a.cur{background:#DCDCDC;font-weight:500}
+main{flex:1;min-width:0;padding:16px 24px 48px}
+.trail{color:var(--text2);font-size:12px;margin-bottom:4px}
+.ph{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:16px}
+.ph h1{font-size:24px;line-height:32px;font-weight:500;margin:0;flex:1 1 auto}
+.btn{border:1px solid transparent;background:none;border-radius:4px;padding:5px 12px;cursor:pointer;color:var(--text);display:inline-flex;gap:6px;align-items:center}
+.btn:hover{background:var(--hover)}
+.btn.p{background:var(--accent);color:#fff}.btn.p:hover{background:#0C5598}
+.btn.o{border-color:#8A8A8A}.btn.d{color:var(--err)}
+.btn[disabled]{opacity:.45;cursor:not-allowed}
+.ib{border:0;background:none;border-radius:50%;width:32px;height:32px;cursor:pointer;font-size:15px}.ib:hover{background:var(--hover)}
+.paper{background:var(--paper);border:1px solid var(--div);border-radius:4px}
+.fb{display:flex;gap:8px;align-items:center;padding:8px 12px;margin-bottom:12px;flex-wrap:wrap}
+.in,.sel{height:32px;border:1px solid #8A8A8A;border-radius:4px;padding:0 8px;background:#fff;max-width:100%}
+.in.err,.sel.err{border-color:var(--err)}
+.tw{overflow-x:auto}
+table{border-collapse:collapse;width:100%}
+th{background:var(--head);text-align:left;font-weight:500;padding:6px 12px;white-space:nowrap}
+td{padding:6px 12px;border-top:1px solid var(--div);vertical-align:middle}
+tr.click:hover td{background:var(--hover)}
+.pg{padding:8px 12px;text-align:right;color:var(--text2);border-top:1px solid var(--div)}
+.chip{display:inline-flex;align-items:center;gap:4px;border:1px solid #BDBDBD;border-radius:12px;padding:0 8px;font-size:12px;line-height:22px;background:#fff;white-space:nowrap}
+.chip.ok{border-color:var(--ok);color:var(--ok)}.chip.in2{border-color:var(--info);color:var(--info)}.chip.er{border-color:var(--err);color:var(--err)}.chip.wa{border-color:var(--warn);color:var(--warn)}.chip.gr{background:#EBEBEB}
+.al{border-radius:4px;padding:10px 14px;margin:0 0 12px;display:flex;gap:10px;align-items:flex-start}
+.al.error{background:var(--err-bg);color:#5F2120}.al.warning{background:var(--warn-bg);color:#663C00}.al.info{background:var(--info-bg);color:#014361}
+.al strong{display:block}.al .grow{flex:1}
+.frame{text-align:center;padding:48px 16px;color:var(--text2)}
+.frame h2{color:var(--text);font-size:20px;font-weight:500;margin:8px 0}
+.frame .ic{font-size:32px}
+.sk{background:linear-gradient(90deg,#eee,#f7f7f7,#eee);height:16px;border-radius:4px;margin:10px 12px}
+.tabs{display:flex;border-bottom:1px solid var(--div);margin:12px 0 16px;overflow-x:auto}
+.tabs button{border:0;background:none;padding:10px 16px;cursor:pointer;border-bottom:2px solid transparent;white-space:nowrap}
+.tabs button.cur{border-color:var(--accent);color:var(--accent);font-weight:500}
+.dot{display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--err);margin-left:6px}
+.f{display:flex;flex-direction:column;gap:2px;margin-bottom:12px;max-width:420px}
+.f label{font-size:12px;color:var(--text2)}
+.help{font-size:12px;color:var(--text2)}.help.err{color:var(--err)}
+.row{display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end}
+.drop{border:1px dashed #8A8A8A;border-radius:4px;padding:20px;text-align:center;margin-bottom:12px}
+.bar{height:4px;background:#D9E8F5;border-radius:2px;overflow:hidden;margin:8px 0}
+.bar i{display:block;height:100%;width:30%;background:var(--accent);animation:mv 1s linear infinite}
+@keyframes mv{from{margin-left:-30%}to{margin-left:100%}}
+.snack{position:fixed;left:24px;bottom:24px;background:#323232;color:#fff;padding:10px 16px;border-radius:4px;z-index:50;max-width:520px}
+.scrim{position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:40;display:flex;align-items:center;justify-content:center;padding:16px}
+.dlg{background:#fff;border-radius:4px;width:100%;max-width:560px;max-height:90vh;overflow:auto;box-shadow:0 11px 15px -7px rgba(0,0,0,.2),0 24px 38px 3px rgba(0,0,0,.14)}
+.dlg.md{max-width:880px}
+.dlg h3{margin:0;padding:16px 24px;font-size:18px;font-weight:500;display:flex;justify-content:space-between}
+.dlg .b{padding:0 24px 16px}.dlg .a{padding:8px 16px 16px;display:flex;justify-content:flex-end;gap:8px}
+.acc{border:1px solid var(--div);border-radius:4px;margin-bottom:8px;background:#fff}
+.acc>button{width:100%;text-align:left;border:0;background:none;padding:12px 16px;cursor:pointer;display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.acc .body{padding:0 16px 16px}
+.tg{display:inline-flex;border:1px solid #BDBDBD;border-radius:4px;overflow:hidden;flex-wrap:wrap}
+.tg button{border:0;background:#fff;padding:6px 12px;cursor:pointer;border-right:1px solid #BDBDBD}
+.tg button.cur{background:#E5F0FA;font-weight:500}
+.tg button:last-child{border-right:0}
+.pill{list-style:none;margin:0;padding:0}
+.pill li{display:flex;gap:8px;align-items:center;padding:6px 0;border-top:1px solid var(--div)}
+.vh{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
+.muted{color:var(--text2)}.cap{font-size:12px;color:var(--text2)}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+@media (max-width:1023px){.two{grid-template-columns:1fr}.snav{width:150px}}
+.det{background:#FAFAFA}
+code{background:#f0f0f0;padding:0 4px;border-radius:3px}
+.ann{border:1px dashed #9C9C9C;color:#616161;font-size:12px;padding:4px 8px;border-radius:4px;display:inline-block}
+</style>
+</head>
+<body>
+<div class="proto" id="proto"></div>
+<div class="top"><span class="mark">MUSTASK</span><span class="sw">Организация «Альфа» ▾</span><span class="grow muted">· Настройки / Импорт</span></div>
+<div class="shell">
+<nav class="snav" aria-label="Меню настроек"><p>Настройки</p><h4>Организация</h4><a href="#" data-act="go" data-v="list" id="navimp">Импорт</a><a href="#" data-act="noop">Процесс</a><h4>Справочники</h4><a href="#" data-act="noop">Языки</a></nav>
+<main id="app"></main>
+</div>
+<div id="layer"></div>
+<script>
+"use strict";
+(function () {
+  var HEADERS = ["Номер", "Проект", "Заголовок", "Вид", "Статус", "Ответственный", "Важность", "Срок", "Ссылка"];
+  var SAMPLE = [
+    ["T-1", "Платформа", " Отчёт по продажам ", "Story", "Открыта", "user.a@example.com", "1", "46023", "Документ"],
+    ["T-2", "Платформа", "Сбой формы входа", "Defect", "В работе", "Пользователь Б", "2", "46030", ""],
+    ["T-3", "Финансы", "Исследовать импорт", "Spike", "Проверено", "", "7", "", ""],
+    ["T-4", "Финансы", "Обновить справочник", "Задача", "В анализе", "user.a@example.com", "3", "46040", ""],
+    ["T-5", "Платформа", "Экран профиля", "Story", "На проверке", "Пользователь А", "2", "", ""]
+  ];
+  var FIELDS = {main: ["Проект", "Тип", "Заголовок", "Описание", "Статус", "Исполнитель", "Приоритет", "Команда-владелец", "Родитель", "Идентификатор MUSTASK"],
+    typed: ["Целевая дата (Эпик, Фича)", "Исходная оценка (Баг, Задача)", "Оценка в пунктах (Пользовательская история)", "Серьёзность (Баг)"]};
+  var REQ = ["Проект", "Тип", "Заголовок"];
+  var RECODE = {"Проект": 1, "Тип": 1, "Статус": 1, "Приоритет": 1, "Исполнитель": 1, "Команда-владелец": 1};
+  var NOEMPTY = {"Проект": 1, "Тип": 1, "Приоритет": 1};
+  var TARGETS = {
+    "Проект": ["Платформа", "Финансы", "Архив (неактивен)"], "Тип": ["Эпик", "Фича", "Пользовательская история", "Задача", "Баг"],
+    "Статус": ["Новая", "Активна", "Разрешена", "Закрыта"], "Приоритет": ["1", "2", "3", "4"],
+    "Исполнитель": ["Пользователь А (user.a@example.com)", "Пользователь Б (user.b@example.com)"], "Команда-владелец": ["Команда 1", "Команда 2"]
+  };
+  var CONV = {
+    "Текст": ["Обрезать пробелы", "Обрезать до длины"], "Числа": ["Число"],
+    "Даты": ["Дата из числа Excel", "Дата по формату", "Дата из ISO 8601"], "Списки": ["Разделить"], "Ссылки": ["URL из гиперссылки"],
+    "Таблицы значений": ["По таблице"], "Шаблоны": ["Извлечь по шаблону", "Объединить"], "Константы": ["Константа"]
+  };
+  var ME = "Менеджер В (вы)";
+  var state, uid = 100;
+
+  function init() {
+    state = {role: "admin", listState: "normal", view: "list", filterName: "", filterMine: false, snack: "", dlg: null,
+      templates: [
+        {id: 1, name: "Реестр — задачи", src: ".xlsx · лист «Задачи»", author: "Администратор Г", upd: "12.11.2026 10:15"},
+        {id: 2, name: "Трекер — CSV", src: ".csv · UTF-8, «;»", author: ME, upd: "10.11.2026 16:40"},
+        {id: 3, name: "План квартала", src: ".xlsx · лист «План»", author: "Пользователь Е", upd: "03.11.2026 09:02"}
+      ],
+      ed: null, chk: {tpl: 1, file: "Реестр.xlsx", phase: "idle", filter: "all", open: null, stale: false}};
+  }
+  function esc(s) { return String(s == null ? "" : s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;"); }
+  function isAdmin() { return state.role === "admin"; }
+  function isMgr() { return state.role === "manager"; }
+  function canCreate() { return isAdmin() || isMgr(); }
+  function canRun() { return isAdmin() || isMgr(); }
+  function canEdit(t) { return isAdmin() || (isMgr() && t.author === ME); }
+  function tpl(id) { for (var i = 0; i < state.templates.length; i++) { if (state.templates[i].id === id) { return state.templates[i]; } } return null; }
+
+  function sel(cls, name, opts, cur, extra) {
+    var h = '<select class="sel ' + cls + '" data-f="' + name + '" ' + (extra || "") + '>';
+    for (var i = 0; i < opts.length; i++) { h += '<option' + (opts[i] === cur ? " selected" : "") + '>' + esc(opts[i]) + '</option>'; }
+    return h + "</select>";
+  }
+  function alertBox(kind, title, text, act) {
+    return '<div class="al ' + kind + '" role="' + (kind === "error" ? "alert" : "status") + '"><div class="grow">' + (title ? "<strong>" + esc(title) + "</strong>" : "") + esc(text) + "</div>" + (act || "") + "</div>";
+  }
+  function frame(icon, h, hint, action) {
+    return '<div class="frame"><div class="ic" aria-hidden="true">' + icon + "</div><h2>" + esc(h) + "</h2><p>" + esc(hint) + "</p>" + (action || "") + "</div>";
+  }
+  function head(trail, title, cmds) { return '<div class="trail">' + esc(trail) + '</div><div class="ph"><h1>' + esc(title) + "</h1>" + (cmds || "") + "</div>"; }
+
+  /* ---------- S1 list ---------- */
+  function renderList() {
+    var h = head("Настройки / Импорт", "Импорт",
+      (canRun() ? '<button class="btn" data-act="chk">✔ Проверить файл</button>' : "") +
+      (canCreate() ? '<button class="btn p" data-act="new">+ Создать шаблон</button>' : ""));
+    h += '<div class="paper fb" role="group" aria-label="Фильтры"><span aria-hidden="true">⚲</span><input class="in" data-f="fname" placeholder="Название" aria-label="Название" value="' + esc(state.filterName) + '">' +
+      sel("", "fmine", ["Автор: все", "Только мои"], state.filterMine ? "Только мои" : "Автор: все") +
+      ((state.filterName || state.filterMine) ? '<button class="btn" data-act="clr">⊘ Очистить фильтры</button>' : "") + "</div>";
+    if (state.listState === "error") { return h + alertBox("error", "Не удалось загрузить шаблоны", "Сервер недоступен.", '<button class="btn" data-act="retry">Повторить</button>'); }
+    var head2 = "<thead><tr><th>Название ↑</th><th>Источник</th><th>Автор</th><th>Изменён</th><th><span class='vh'></span></th></tr></thead>";
+    if (state.listState === "loading") {
+      var s = ""; for (var k = 0; k < 5; k++) { s += '<div class="sk"></div>'; }
+      return h + '<div class="paper tw"><table>' + head2 + '</table><div role="status" aria-label="Загрузка данных">' + s + "</div></div>";
+    }
+    var rows = state.listState === "empty" ? [] : state.templates.filter(function (t) {
+      return (!state.filterName || t.name.toLowerCase().indexOf(state.filterName.toLowerCase()) >= 0) && (!state.filterMine || t.author === ME);
+    });
+    if (!rows.length) {
+      if (state.listState === "empty") {
+        return h + frame("▢", "Шаблонов пока нет", canCreate() ? "Шаблон описывает, как столбцы вашей таблицы попадают в поля рабочих элементов. Создайте первый." : "Шаблоны ещё не созданы. Их создаёт администратор организации или менеджер проекта.",
+          canCreate() ? '<button class="btn o" data-act="new">+ Создать шаблон</button>' : "");
+      }
+      return h + frame("⊘", "Ничего не найдено", "Ни один шаблон не подходит под заданные условия фильтра.", '<button class="btn o" data-act="clr">Сбросить фильтр</button>');
+    }
+    var b = "";
+    rows.forEach(function (t) {
+      var act = "";
+      if (state.role === "member" || state.role === "viewer") {
+        act = '<button class="btn" data-act="cols" data-id="' + t.id + '">Столбцы</button>';
+      } else {
+        act = (canEdit(t) ? '<button class="ib" title="Редактировать ' + esc(t.name) + '" aria-label="Редактировать ' + esc(t.name) + '" data-act="edit" data-id="' + t.id + '">✎</button>'
+          : '<button class="ib" title="Открыть ' + esc(t.name) + '" aria-label="Открыть ' + esc(t.name) + '" data-act="edit" data-id="' + t.id + '">👁</button>') +
+          '<button class="ib" title="Копировать ' + esc(t.name) + '" aria-label="Копировать ' + esc(t.name) + '" data-act="copy" data-id="' + t.id + '">⧉</button>' +
+          (canEdit(t) ? '<button class="ib" title="Удалить ' + esc(t.name) + '" aria-label="Удалить ' + esc(t.name) + '" data-act="del" data-id="' + t.id + '">🗑</button>' : "") +
+          '<button class="ib" title="Проверить файл по этому шаблону" aria-label="Проверить файл по шаблону ' + esc(t.name) + '" data-act="chk" data-id="' + t.id + '">✔</button>';
+      }
+      b += '<tr class="click"><td>' + esc(t.name) + "</td><td>" + esc(t.src) + "</td><td>" + esc(t.author) + "</td><td>" + esc(t.upd) + '</td><td style="text-align:right;white-space:nowrap">' + act + "</td></tr>";
+    });
+    var rn = state.role === "member" || state.role === "viewer";
+    return h + '<div class="paper tw"><table aria-label="Шаблоны импорта">' + head2 + "<tbody>" + b + '</tbody></table><div class="pg">1–' + rows.length + " из " + rows.length + "</div></div>" +
+      (rn ? '<p class="cap">Вы видите шаблоны организации. Создавать и менять их могут администратор организации и менеджеры проектов.</p>' : "") +
+      '<p><span class="ann">Прототип: здесь добавятся вкладка «Партии» и кнопка «Экспорт по шаблону» (feat-067, feat-069) — в этой задаче их нет.</span></p>';
+  }
+
+  /* ---------- S2 editor ---------- */
+  function newEditor() {
+    return {id: 0, name: "", tab: "src", file: null, fileErr: "", sheet: "Задачи", hdr: 2, first: 3, enc: "UTF-8", delim: ";", fmt: "xlsx", maps: [], recode: {}, openAcc: "", idCol: "Нет", idEmpty: "Создавать",
+      dirty: false, tried: false, errs: {}, readonly: false, author: ME, sampleLive: false};
+  }
+  function autoMaps() {
+    var m = [];
+    HEADERS.forEach(function (c) {
+      var f = "Не переносить";
+      if (c === "Проект" || c === "Заголовок" || c === "Статус") { f = c; }
+      m.push(mkMap("col", c, f));
+    });
+    return m;
+  }
+  function mkMap(type, col, field) { return {id: ++uid, type: type, col: col, value: "", field: field, chain: [], empty: "Не менять", typeless: "Ошибка строки"}; }
+  function openEditor(id, readonly) {
+    var e = newEditor();
+    if (id) {
+      var t = tpl(id); e.id = id; e.name = t.name; e.author = t.author; e.file = {name: "Реестр.xlsx"}; e.sampleLive = true;
+      e.maps = autoMaps();
+      e.maps[3].field = "Тип"; e.maps[6].field = "Приоритет"; e.maps[5].field = "Исполнитель"; e.maps[7].field = "Целевая дата (Эпик, Фича)";
+      e.maps[7].chain = [{k: "Дата из числа Excel", p: "1900"}]; e.maps[7].typeless = "Не переносить для типов без поля";
+      e.maps[2].chain = [{k: "Обрезать пробелы", p: ""}, {k: "Обрезать до длины", p: "255"}];
+      e.recode = {"Тип": {pol: "Ошибка строки", def: "", rows: [{v: "Story", n: 2, t: "Пользовательская история"}, {v: "Defect", n: 1, t: ""}, {v: "Задача", n: 1, t: "", sug: "Задача"}, {v: "Spike", n: 1, t: "", fresh: true}]}};
+      e.recodeFor = {};
+    }
+    e.readonly = !!readonly;
+    state.ed = e; state.view = "editor";
+  }
+  function recodeFields(e) {
+    var out = [];
+    e.maps.forEach(function (m) { if (RECODE[m.field] && out.indexOf(m.field) < 0) { out.push(m.field); } });
+    return out;
+  }
+  function ensureRecode(e) {
+    recodeFields(e).forEach(function (f) {
+      if (!e.recode[f]) {
+        var col = null; e.maps.forEach(function (m) { if (m.field === f) { col = m.col; } });
+        var idx = HEADERS.indexOf(col), seen = {}, rows = [];
+        SAMPLE.forEach(function (r) { var v = (r[idx] || "").trim(); if (v && !seen[v]) { seen[v] = 1; rows.push({v: v, n: 1, t: TARGETS[f] && TARGETS[f].indexOf(v) >= 0 ? "" : "", sug: TARGETS[f] && TARGETS[f].indexOf(v) >= 0 ? v : "", fresh: true}); } });
+        e.recode[f] = {pol: "Ошибка строки", def: "", rows: rows};
+      }
+    });
+  }
+  function validate(e) {
+    var er = {}, any = false;
+    if (!e.name.trim()) { er.name = "Укажите название."; }
+    else if (e.name.length > 100) { er.name = "Название — не больше 100 символов."; }
+    else { state.templates.forEach(function (t) { if (t.id !== e.id && t.name.toLowerCase() === e.name.trim().toLowerCase()) { er.name = "Шаблон с таким названием уже есть."; } }); }
+    if (e.fmt === "xlsx") {
+      if (!(e.hdr >= 1 && e.hdr <= 50)) { er.hdr = "Строка заголовков — число от 1 до 50."; }
+      else if (!(e.first > e.hdr)) { er.first = "Первая строка данных должна быть ниже строки заголовков."; }
+    }
+    REQ.forEach(function (f) {
+      var ok = e.maps.some(function (m) { return m.field === f && (m.type !== "col" || m.col); });
+      if (!ok) { er["req" + f] = "Укажите столбец или константу."; }
+    });
+    e.maps.forEach(function (m) {
+      if (m.chain.some(function (c) { return c.k === "Разделить"; }) && ["Исполнитель", "Тип", "Проект", "Статус", "Приоритет", "Заголовок"].indexOf(m.field) >= 0) {
+        er["list" + m.id] = "Поле «" + m.field + "» хранит одно значение: уберите «Разделить» из цепочки.";
+      }
+    });
+    for (var k in er) { if (er.hasOwnProperty(k)) { any = true; } }
+    e.errs = er; return !any;
+  }
+  function tabHasErr(e, tab) {
+    if (!e.tried) { return false; }
+    var k, hit = false;
+    for (k in e.errs) {
+      if (!e.errs.hasOwnProperty(k)) { continue; }
+      if (tab === "src" && (k === "name" || k === "hdr" || k === "first")) { hit = true; }
+      if (tab === "map" && (k.indexOf("req") === 0 || k.indexOf("list") === 0)) { hit = true; }
+    }
+    return hit;
+  }
+  function renderEditor() {
+    var e = state.ed, cmds = "";
+    if (!e.readonly) { cmds += '<button class="btn p" data-act="save">💾 Сохранить</button>'; }
+    cmds += '<button class="btn" data-act="chk" data-id="' + e.id + '"' + ((e.dirty || !e.id) ? ' disabled title="Сначала сохраните шаблон"' : "") + ">✔ Проверить файл</button>";
+    var h = head("Настройки / Импорт / " + (e.id ? e.name : "Новый шаблон"), e.id ? e.name : "Новый шаблон", cmds);
+    if (e.readonly) { h += alertBox("info", "", "Шаблон создал " + e.author + ". Вы можете проверять по нему файлы, но изменять его может только автор или администратор организации."); }
+    if (e.tried && Object.keys(e.errs).length) { h += alertBox("error", "", "Шаблон не сохранён: исправьте отмеченные поля."); }
+    h += '<div class="f"><label for="nm">Название</label><input id="nm" class="in' + (e.errs.name ? " err" : "") + '" data-f="ename" maxlength="120" value="' + esc(e.name) + '"' + (e.readonly ? " readonly" : "") + '>' + (e.errs.name ? '<span class="help err">' + esc(e.errs.name) + "</span>" : "") + "</div>";
+    var tabs = [["src", "Источник"], ["map", "Сопоставление"], ["val", "Значения"], ["idn", "Идентификатор"]];
+    h += '<div class="tabs" role="tablist" aria-label="Разделы шаблона">';
+    tabs.forEach(function (t) { h += '<button role="tab" aria-selected="' + (e.tab === t[0]) + '" class="' + (e.tab === t[0] ? "cur" : "") + '" data-act="tab" data-v="' + t[0] + '">' + t[1] + (tabHasErr(e, t[0]) ? '<span class="dot" aria-label="есть ошибки"></span>' : "") + "</button>"; });
+    h += "</div>";
+    if (e.tab !== "src" && !e.file) {
+      return h + frame("▢", "Сначала загрузите файл-образец", "Заголовки столбцов берутся из файла на вкладке «Источник».", '<button class="btn o" data-act="tab" data-v="src">К источнику</button>');
+    }
+    if (e.tab === "src") { return h + tabSrc(e); }
+    if (e.tab === "map") { return h + tabMap(e); }
+    if (e.tab === "val") { return h + tabVal(e); }
+    return h + tabId(e);
+  }
+  var PICKS = {"Реестр.xlsx": "", "Реестр.xls": "Поддерживаются файлы .xlsx и .csv.", "Большой.xlsx": "Файл больше 10 МБ.", "Много строк.xlsx": "В файле больше 5 000 строк данных. Разделите его на части.",
+    "Макросы.xlsx": "В файле есть макросы, такой файл не принят.", "Внешняя ссылка.xlsx": "Файл ссылается на другой файл и не принят.", "Тяжёлая книга.xlsx": "Файл слишком велик после распаковки и не принят.",
+    "Повреждён.xlsx": "Файл не удалось прочитать. Проверьте, что он не повреждён."};
+  function tabSrc(e) {
+    var ro = e.readonly ? " disabled" : "";
+    var h = '<div class="drop"><p class="muted">Файл .xlsx или .csv, до 10 МБ, до 5 000 строк данных. Файл хранится не дольше 24 часов и нужен только для образца.</p>' +
+      '<p><button class="btn o" data-act="pick"' + ro + '>⬆ Выбрать файл</button> <span class="cap">(прототип) какой файл выбрать: </span>' + sel("", "pickname", Object.keys(PICKS), e.pickname || "Реестр.xlsx") + "</p>" +
+      (e.file ? '<p>Файл: <b>' + esc(e.file.name) + '</b> <button class="ib" aria-label="Убрать файл" data-act="unpick"' + ro + ">✕</button></p>" : "") + "</div>";
+    if (e.fileErr) { h += alertBox("error", "Файл не принят", e.fileErr); }
+    if (!e.file) { return h; }
+    h += '<div class="row">';
+    h += '<div class="f"><label>Лист</label>' + sel("", "sheet", ["Задачи", "Архив", "Справка"], e.sheet, ro) + "</div>";
+    h += '<div class="f"><label>Строка заголовков</label><input type="number" class="in' + (e.errs.hdr ? " err" : "") + '" data-f="hdr" value="' + e.hdr + '"' + ro + '>' + (e.errs.hdr ? '<span class="help err">' + esc(e.errs.hdr) + "</span>" : "") + "</div>";
+    h += '<div class="f"><label>Первая строка данных</label><input type="number" class="in' + (e.errs.first ? " err" : "") + '" data-f="first" value="' + e.first + '"' + ro + '>' + (e.errs.first ? '<span class="help err">' + esc(e.errs.first) + "</span>" : "") + "</div></div>";
+    h += '<div class="row"><div class="f"><label>Кодировка (для .csv)</label>' + sel("", "enc", ["UTF-8", "Windows-1251"], e.enc, ro) + '<span class="help">Определено автоматически</span></div>' +
+      '<div class="f"><label>Разделитель (для .csv)</label>' + sel("", "delim", [";", ",", "Табуляция"], e.delim, ro) + "</div></div>";
+    h += '<div class="paper tw"><table aria-label="Образец файла"><thead><tr>' + HEADERS.map(function (c) { return "<th>" + esc(c) + "</th>"; }).join("") + "</tr></thead><tbody>";
+    SAMPLE.forEach(function (r) { h += "<tr>" + r.map(function (c) { return "<td>" + esc(c) + "</td>"; }).join("") + "</tr>"; });
+    return h + "</tbody></table></div>";
+  }
+  function srcCell(m, ro) {
+    var cols = ["— (пусто)"].concat(HEADERS).concat(["Константа", "Объединить"]);
+    var cur = m.type === "col" ? (m.col || "— (пусто)") : (m.type === "const" ? "Константа" : "Объединить");
+    var h = sel("", "msrc:" + m.id, cols, cur, ro);
+    if (m.type === "const") { h += '<br><input class="in" data-f="mval:' + m.id + '" placeholder="Значение" aria-label="Значение константы" value="' + esc(m.value) + '"' + ro + ">"; }
+    if (m.type === "compose") { h += '<br><input class="in" data-f="mval:' + m.id + '" placeholder="{Система} / {Модуль}" aria-label="Шаблон" value="' + esc(m.value) + '"' + ro + '><br><span class="help">Столбцы в фигурных скобках</span>'; }
+    return h;
+  }
+  function tabMap(e) {
+    var ro = e.readonly ? " disabled" : "";
+    var used = {}; e.maps.forEach(function (m) { if (m.field !== "Не переносить") { used[m.field] = 1; } });
+    var h = '<div class="ph"><span class="grow muted">Один столбец может питать несколько полей; у поля — один источник.</span>' + (e.readonly ? "" : '<button class="btn o" data-act="addmap">+ Добавить сопоставление</button>') + "</div>";
+    REQ.forEach(function (f) { if (e.errs["req" + f]) { h += alertBox("error", "", "Поле «" + f + "»: " + e.errs["req" + f]); } });
+    h += '<div class="paper tw"><table aria-label="Сопоставление столбцов"><thead><tr><th>Источник</th><th>Поле MUSTASK</th><th>Преобразования</th><th>Пустая ячейка</th><th>Тип без поля</th><th></th></tr></thead><tbody>';
+    e.maps.forEach(function (m) {
+      var opts = ["Не переносить"].concat(FIELDS.main).concat(FIELDS.typed);
+      var fh = '<select class="sel' + (e.errs["list" + m.id] ? " err" : "") + '" data-f="mfld:' + m.id + '"' + ro + ">";
+      opts.forEach(function (o) { var dis = used[o] && o !== m.field && o !== "Не переносить"; fh += "<option" + (o === m.field ? " selected" : "") + (dis ? " disabled" : "") + ">" + esc(o) + (dis ? " — уже сопоставлено" : "") + "</option>"; });
+      fh += "</select>" + (e.errs["list" + m.id] ? '<br><span class="help err">' + esc(e.errs["list" + m.id]) + "</span>" : "");
+      var ch = m.chain.map(function (c) { return '<span class="chip">' + esc(c.k) + "</span>"; }).join(" ");
+      var cl = m.field === "Не переносить" ? '<span class="muted">—</span>' : (ch || "") + ' <button class="btn" data-act="chain" data-id="' + m.id + '">⚙ ' + (m.chain.length ? "Изменить" : "Добавить") + "</button>" +
+        (RECODE[m.field] ? ' <button class="chip in2" data-act="tab" data-v="val" style="cursor:pointer">Значения: ' + (e.recode[m.field] ? e.recode[m.field].rows.length : "—") + "</button>" : "");
+      var typed = FIELDS.typed.indexOf(m.field) >= 0;
+      h += "<tr><td>" + srcCell(m, ro) + "</td><td>" + fh + "</td><td>" + cl + "</td><td>" +
+        (m.field === "Не переносить" ? "—" : sel("", "mempty:" + m.id, ["Не менять", "Очистить"], m.empty, ro)) + "</td><td>" +
+        (typed ? sel("", "mtl:" + m.id, ["Ошибка строки", "Не переносить для типов без поля"], m.typeless, ro) : "—") + "</td><td>" +
+        (e.readonly ? "" : '<button class="ib" aria-label="Удалить сопоставление" data-act="delmap" data-id="' + m.id + '">🗑</button>') + "</td></tr>";
+    });
+    return h + '</tbody></table></div><p class="cap">Столбцы файла, которые не указаны здесь, игнорируются.</p>';
+  }
+  function tabVal(e) {
+    var ro = e.readonly ? " disabled" : "";
+    ensureRecode(e);
+    var fl = recodeFields(e), h = "";
+    if (!fl.length) { return frame("▢", "Значения не нужно сопоставлять", "Поля, которым нужна таблица значений (тип, статус, исполнитель…), здесь появятся после сопоставления."); }
+    fl.forEach(function (f) {
+      var r = e.recode[f], open = e.openAcc === f, miss = 0, fresh = 0;
+      r.rows.forEach(function (x) { if (!x.t) { miss++; } if (x.fresh) { fresh++; } });
+      var col = ""; e.maps.forEach(function (m) { if (m.field === f) { col = m.col; } });
+      h += '<div class="acc"><button data-act="acc" data-v="' + esc(f) + '" aria-expanded="' + open + '"><b>' + (open ? "▾ " : "▸ ") + esc(f) + " ← «" + esc(col) + "»</b>" +
+        (miss ? '<span class="chip wa">Без значения: ' + miss + "</span>" : '<span class="chip ok">Все значения сопоставлены</span>') + (fresh ? '<span class="chip in2">Новых: ' + fresh + "</span>" : "") + "</button>";
+      if (open) {
+        h += '<div class="body"><fieldset style="border:0;padding:0;margin:0 0 8px"><legend class="cap">Если значения нет в таблице</legend>';
+        ["Ошибка строки", "Значение по умолчанию"].concat(NOEMPTY[f] ? [] : ["Оставить пустым"]).forEach(function (p) {
+          h += '<label style="margin-right:16px"><input type="radio" name="pol' + esc(f) + '" data-f="pol:' + esc(f) + '" value="' + p + '"' + (r.pol === p ? " checked" : "") + ro + "> " + p + "</label>";
+        });
+        h += "</fieldset>";
+        if (r.pol === "Значение по умолчанию") { h += '<div class="f">' + sel(r.def ? "" : "err", "def:" + f, ["—"].concat(TARGETS[f]), r.def || "—", ro) + (r.def ? "" : '<span class="help err">Выберите значение.</span>') + "</div>"; }
+        h += '<p><button class="btn" data-act="acceptall" data-v="' + esc(f) + '"' + ro + '>✔✔ Принять все предложенные</button> <button class="btn" data-act="refresh">↻ Обновить значения из файла</button></p>';
+        h += '<div class="tw"><table aria-label="Значения: ' + esc(f) + '"><thead><tr><th>Значение в файле</th><th>Строк</th>' + (f === "Статус" ? "<th>Для типа</th>" : "") + "<th>Значение MUSTASK</th><th>Статус</th></tr></thead><tbody>";
+        r.rows.forEach(function (x, i) {
+          h += "<tr><td>" + esc(x.v) + "</td><td>" + (e.sampleLive ? x.n : "—") + "</td>" + (f === "Статус" ? "<td>" + (x.type || "—") + "</td>" : "") + "<td>" +
+            sel("", "rv:" + esc(f) + ":" + i, ["—"].concat(TARGETS[f]), x.t || "—", ro) + (x.sug && !x.t ? '<br><span class="chip">Предложено: ' + esc(x.sug) + '</span> <button class="btn" data-act="accept" data-v="' + esc(f) + '" data-i="' + i + '"' + ro + ">Принять</button>" : "") +
+            (x.stale ? '<br><span class="help err">Значение больше недоступно. Выберите другое.</span>' : "") + "</td><td>" + (x.fresh ? '<span class="chip in2">Новое</span>' : "") + (x.stale ? ' <span class="chip er">Устарело</span>' : "") + "</td></tr>";
+        });
+        h += "</tbody></table></div>";
+        if (f === "Статус") { h += '<p><button class="btn" data-act="typeentry" data-v="' + esc(f) + '"' + ro + '>⊕ Значение для типа</button> <span class="cap">Действует только для строк этого типа.</span></p>'; }
+        h += "</div>";
+      }
+      h += "</div>";
+    });
+    return h;
+  }
+  function tabId(e) {
+    var ro = e.readonly ? " disabled" : "";
+    return '<div class="f"><label>Столбец с идентификатором MUSTASK</label>' + sel("", "idcol", ["Нет"].concat(HEADERS), e.idCol, ro) + "</div>" +
+      alertBox("info", "", "Если в таблице есть столбец «Идентификатор» (его добавляет экспорт) и он не сопоставлен, шаблон использует его для обновления. Без столбца идентификатора каждая строка создаёт новый элемент.") +
+      '<fieldset style="border:0;padding:0"><legend class="cap">Строки без идентификатора</legend>' +
+      ["Создавать", "Пропускать"].map(function (p) { return '<label style="margin-right:16px"><input type="radio" name="idempty" data-f="idempty" value="' + p + '"' + (e.idEmpty === p ? " checked" : "") + (e.idCol === "Нет" || e.readonly ? " disabled" : "") + "> " + p + "</label>"; }).join("") + "</fieldset>" +
+      (e.idCol === "Нет" ? '<p class="cap">Недоступно, пока не выбран столбец с идентификатором.</p>' : "");
+  }
+
+  /* ---------- S2a chain dialog ---------- */
+  function applyStep(c, v) {
+    if (v === null || v === undefined) { return null; }
+    if (c.k === "Обрезать пробелы") { return String(v).trim(); }
+    if (c.k === "Обрезать до длины") { return String(v).slice(0, parseInt(c.p, 10) || 255); }
+    if (c.k === "Число") { var n = parseFloat(String(v).replace(/\s/g, "").replace(",", ".")); return isNaN(n) ? null : String(n); }
+    if (c.k === "Разделить") { return String(v).split(c.p || ";").map(function (s) { return s.trim(); }).filter(Boolean).join(" | "); }
+    if (c.k === "Константа") { return c.p; }
+    if (c.k === "Дата из числа Excel") { var d = parseInt(v, 10); if (isNaN(d)) { return null; } var dt = new Date(Date.UTC(1899, 11, 30) + d * 86400000); if (dt.getUTCFullYear() < 2000 || dt.getUTCFullYear() > 2099) { return null; } return ("0" + dt.getUTCDate()).slice(-2) + "." + ("0" + (dt.getUTCMonth() + 1)).slice(-2) + "." + dt.getUTCFullYear(); }
+    return v;
+  }
+  function chainDialog(d) {
+    var e = state.ed, m = null; e.maps.forEach(function (x) { if (x.id === d.id) { m = x; } });
+    var ro = e.readonly ? " disabled" : "", idx = HEADERS.indexOf(m.col);
+    var items = d.chain.map(function (c, i) {
+      var p = "";
+      if (["Обрезать до длины", "Разделить", "Константа", "Извлечь по шаблону", "Объединить"].indexOf(c.k) >= 0) {
+        p = ' <input class="in" data-f="cp:' + i + '" aria-label="Параметр" value="' + esc(c.p) + '"' + (c.k === "Извлечь по шаблону" && c.p.length > 500 ? " " : "") + ro + ">";
+      }
+      if (c.k === "Дата по формату") { p = " " + sel("", "cpsel:" + i, ["ДД.ММ.ГГГГ", "ГГГГ-ММ-ДД", "ДД/ММ/ГГГГ", "ММ/ДД/ГГГГ"], c.p || "ДД.ММ.ГГГГ", ro); }
+      return "<li><span>" + (i + 1) + ".</span><b>" + esc(c.k) + "</b>" + p + '<span class="grow" style="flex:1"></span><button class="ib" aria-label="Выше" data-act="cup" data-i="' + i + '"' + ro + '>↑</button><button class="ib" aria-label="Ниже" data-act="cdn" data-i="' + i + '"' + ro + '>↓</button><button class="ib" aria-label="Убрать" data-act="cdel" data-i="' + i + '"' + ro + ">🗑</button></li>";
+    }).join("");
+    var menu = '<select class="sel" data-f="cadd"' + (d.chain.length >= 10 ? " disabled" : "") + ro + "><option>Добавить преобразование…</option>";
+    for (var g in CONV) { if (CONV.hasOwnProperty(g)) { menu += '<optgroup label="' + g + '">' + CONV[g].map(function (k) { return "<option>" + k + "</option>"; }).join("") + "</optgroup>"; } }
+    menu += "</select>" + (d.chain.length >= 10 ? '<br><span class="help err">В цепочке не больше 10 преобразований.</span>' : "");
+    var rows = "";
+    SAMPLE.slice(0, 5).forEach(function (r) {
+      var v = idx >= 0 ? r[idx] : "", cells = "<td>" + esc(v) + "</td>", bad = "", cur = v;
+      d.chain.forEach(function (c) { cur = cur === null ? null : applyStep(c, cur); cells += "<td>" + (cur === null ? '<span class="chip er">ошибка</span>' : esc(cur)) + "</td>"; });
+      rows += "<tr>" + cells + "</tr>" + bad;
+    });
+    var hdr = "<th>Исходное</th>" + d.chain.map(function (c, i) { return "<th>Шаг " + (i + 1) + "</th>"; }).join("");
+    return '<div class="scrim"><div class="dlg md" role="dialog" aria-modal="true" aria-label="Преобразования"><h3>Преобразования: ' + esc(m.field) + '<button class="ib" aria-label="Закрыть" data-act="dlgclose">✕</button></h3><div class="b"><div class="two"><div>' +
+      (items ? '<ul class="pill">' + items + "</ul>" : '<p class="muted">Цепочка пуста: значение ячейки переносится как есть.</p>') + "<p>" + menu + '</p><p class="cap">Цепочка идёт слева направо, не больше 10 шагов; значения (таблица) применяются после неё.</p></div><div><b>Образец</b><div class="tw"><table><thead><tr>' + hdr + "</tr></thead><tbody>" + rows + '</tbody></table></div></div></div></div><div class="a"><button class="btn" data-act="dlgclose">Отмена</button><button class="btn p" data-act="chainok"' + ro + ">Применить</button></div></div></div>";
+  }
+
+  /* ---------- S3 check ---------- */
+  var REPORT = [
+    {n: 3, res: "create", title: "Отчёт по продажам", id: "", prj: "Платформа", fields: [["Проект", "Платформа"], ["Тип", "Пользовательская история"], ["Заголовок", "Отчёт по продажам"], ["Статус", "Новая"]], reasons: []},
+    {n: 4, res: "create", title: "Экран профиля", id: "", prj: "Платформа", fields: [["Проект", "Платформа"], ["Тип", "Пользовательская история"], ["Заголовок", "Экран профиля"]], reasons: [], warn: ["Столбец «Срок», ячейка H4: поле недоступно для типа, значение не перенесено."]},
+    {n: 5, res: "update", title: "Новое название", id: "PLT-TASK-12", prj: "Платформа", ch: [["Заголовок", "Старое название", "Новое название"], ["Статус", "Новая", "Активна"]], reasons: []},
+    {n: 6, res: "same", title: "Сбой формы входа", id: "PLT-BUG-3", prj: "Платформа", reasons: []},
+    {n: 7, res: "skip", title: "—", id: "", prj: "—", reasons: ["Пустая строка"]},
+    {n: 12, res: "err", title: "Исследовать импорт", id: "", prj: "Платформа", reasons: ["Столбец «Важность», ячейка G12, значение «7»: значение не найдено в таблице «Приоритет»."]},
+    {n: 15, res: "err", title: "Обновить справочник", id: "PLT-TASK-999", prj: "—", reasons: ["Элемент не найден."]},
+    {n: 20, res: "err", title: "Задача А", id: "PLT-TASK-7", prj: "Платформа", reasons: ["Тот же идентификатор в строке 41."]},
+    {n: 22, res: "err", title: "Архивная задача", id: "PLT-TASK-9", prj: "Платформа", reasons: ["Элемент находится в корзине."]},
+    {n: 30, res: "err", title: "Бюджет на квартал", id: "", prj: "Финансы", reasons: ["Нет прав на импорт в этот проект."], mgr: true},
+    {n: 31, res: "err", title: "Закрыть год", id: "", prj: "Финансы", reasons: ["Нет прав на импорт в этот проект."], mgr: true},
+    {n: 33, res: "err", title: "Срок поставки", id: "", prj: "Платформа", reasons: ["Столбец «Срок», ячейка H33, значение «1»: Укажите дату с 2000 по 2099 год."]}
+  ];
+  var RES = {create: ["Будет создан", "ok", "⊕"], update: ["Будет обновлён", "in2", "✎"], same: ["Без изменений", "gr", "="], skip: ["Пропущен", "gr", "⤼"], err: ["Ошибка", "er", "⚠"]};
+  var TOT = {create: 120, update: 30, same: 40, skip: 2, err: 8};
+  function chkRows() { return REPORT.filter(function (r) { return !r.mgr || state.role === "manager"; }); }
+  function renderCheck() {
+    var c = state.chk, h = head("Настройки / Импорт / Проверка файла", "Проверка файла", "");
+    if (!canRun()) { return h + frame("🔒", "Доступ ограничен", "У вас нет прав для просмотра этого раздела. Обратитесь к администратору, чтобы запросить доступ."); }
+    var runnable = state.templates;
+    h += '<div class="paper" style="padding:12px 16px;margin-bottom:12px"><div class="row"><div class="f"><label>Шаблон</label>' +
+      '<select class="sel" data-f="ctpl">' + runnable.map(function (t) { return '<option value="' + t.id + '"' + (t.id === c.tpl ? " selected" : "") + ">" + esc(t.name) + "</option>"; }).join("") + "</select></div>" +
+      '<div class="f"><label>Файл (прототип: какой файл выбрать)</label>' + sel("", "cfile", ["Реестр.xlsx", "Реестр.xls", "Большой.xlsx", "Без столбца.xlsx", "Нет листа.xlsx", "Пустой.xlsx", "Одни ошибки.xlsx", "Макросы.xlsx"], c.file) + "</div>" +
+      '<div class="f"><button class="btn p" data-act="run"' + (c.phase === "running" ? " disabled" : "") + ">Проверить</button></div></div>";
+    if (c.phase === "running") { h += '<div role="status"><div class="bar"><i></i></div>Проверяем файл… Это может занять до минуты. <button class="btn" data-act="cancelrun">Отменить</button></div>'; }
+    h += "</div>";
+    if (c.stale && c.phase === "done") { h += alertBox("warning", "", "Шаблон изменён после проверки. Проверьте файл снова."); }
+    if (c.phase === "idle") { return h + frame("▢", "Выберите шаблон и файл", "После проверки здесь появится отчёт: что будет создано, обновлено и какие строки с ошибками. Ничего не записывается."); }
+    if (c.phase === "error") { return h + alertBox("error", "Не удалось проверить файл", "Превышено время ожидания.", '<button class="btn" data-act="run">Повторить</button>'); }
+    if (c.phase === "refused") { return h + alertBox("error", "Файл не принят", c.reason); }
+    if (c.phase === "empty") { return h + alertBox("warning", "", "В файле нет строк данных."); }
+    if (c.phase === "allerr") { return h + alertBox("warning", "", "Нет строк, которые можно импортировать. Исправьте файл или шаблон и проверьте снова.") + repTable(c, true); }
+    if (c.phase === "done") { return h + alertBox("info", "", "Без столбца идентификатора каждая строка создаёт новый элемент.") + repTable(c, false); }
+    return h;
+  }
+  function repTable(c, allerr) {
+    var order = ["create", "update", "same", "skip", "err"], tot = {}, i;
+    for (i = 0; i < order.length; i++) { tot[order[i]] = allerr ? (order[i] === "err" ? 12 : (order[i] === "skip" ? 3 : 0)) : TOT[order[i]]; }
+    var h = '<div class="row" style="margin-bottom:8px"><div class="tg" role="group" aria-label="Результат" aria-live="polite"><button class="' + (c.filter === "all" ? "cur" : "") + '" data-act="flt" data-v="all">Все</button>' +
+      order.map(function (k) { return '<button class="' + (c.filter === k ? "cur" : "") + '" data-act="flt" data-v="' + k + '">' + RES[k][0] + " " + tot[k] + "</button>"; }).join("") + '</div><span class="grow" style="flex:1"></span><button class="btn" data-act="dl">⬇ Скачать отчёт</button></div>';
+    var rows = chkRows().filter(function (r) { return (c.filter === "all" || r.res === c.filter) && (!allerr || r.res === "err"); });
+    if (!rows.length) { return h + frame("⊘", "Нет строк с таким результатом", ""); }
+    h += '<div class="paper tw"><table aria-label="Отчёт о проверке"><thead><tr><th>Строка</th><th>Результат</th><th>Элемент</th><th>Проект</th><th>Причины</th></tr></thead><tbody>';
+    rows.forEach(function (r) {
+      var rs = RES[r.res], open = c.open === r.n, why = r.reasons.length ? esc(r.reasons[0]) : (r.warn ? "Предупреждение: " + esc(r.warn[0]) : "");
+      h += '<tr class="click" data-act="row" data-v="' + r.n + '" style="cursor:pointer"><td>' + (open ? "▾ " : "▸ ") + r.n + '</td><td><span class="chip ' + rs[1] + '">' + rs[2] + " " + rs[0] + "</span></td><td>" + esc(r.title) + (r.id ? ' <span class="muted">' + esc(r.id) + "</span>" : "") + "</td><td>" + esc(r.prj) + "</td><td>" + why + (r.reasons.length > 1 ? ' <span class="muted">ещё ' + (r.reasons.length - 1) + "</span>" : "") + "</td></tr>";
+      if (open) {
+        h += '<tr class="det"><td colspan="5">';
+        if (r.fields) { h += "<b>Поле → значение</b><ul>" + r.fields.map(function (f) { return "<li>" + esc(f[0]) + ": " + esc(f[1]) + "</li>"; }).join("") + "</ul>"; }
+        if (r.ch) { h += "<b>Изменения</b><ul>" + r.ch.map(function (f) { return "<li>" + esc(f[0]) + ": " + esc(f[1]) + " → " + esc(f[2]) + "</li>"; }).join("") + "</ul>"; }
+        if (r.reasons.length) { h += "<b>Причины</b><ul>" + r.reasons.map(function (f) { return "<li>⚠ " + esc(f) + "</li>"; }).join("") + "</ul>"; }
+        if (r.warn) { h += "<b>Предупреждения</b><ul>" + r.warn.map(function (f) { return "<li>⚠ " + esc(f) + "</li>"; }).join("") + "</ul>"; }
+        if (!r.fields && !r.ch && !r.reasons.length) { h += "Изменений нет."; }
+        h += "</td></tr>";
+      }
+    });
+    return h + '</tbody></table><div class="pg">Показаны первые 50 строк. Полный отчёт — в файле.</div></div>' +
+      (allerr ? "" : '<p><span class="ann">Прототип: здесь будет «Импортировать» (feat-067) — в этой задаче его нет. Оно не появится и при устаревшей проверке, и когда все строки с ошибками.</span></p>');
+  }
+
+  /* ---------- dialogs & render ---------- */
+  function renderDlg() {
+    var d = state.dlg;
+    if (!d) { return ""; }
+    if (d.k === "chain") { return chainDialog(d); }
+    if (d.k === "del") {
+      return '<div class="scrim"><div class="dlg" role="alertdialog" aria-modal="true" aria-label="Удалить шаблон?"><h3>Удалить шаблон?</h3><div class="b">Шаблон «' + esc(tpl(d.id).name) + '» будет удалён безвозвратно. Уже выполненные по нему импорты не изменятся.</div><div class="a"><button class="btn" data-act="dlgclose">Отмена</button><button class="btn p d" style="background:var(--err);color:#fff" data-act="delok">Удалить</button></div></div></div>';
+    }
+    if (d.k === "cols") {
+      return '<div class="scrim"><div class="dlg" role="dialog" aria-modal="true" aria-label="Столбцы шаблона"><h3>Столбцы шаблона «' + esc(tpl(d.id).name) + '»<button class="ib" aria-label="Закрыть" data-act="dlgclose">✕</button></h3><div class="b"><ul>' +
+        ["Номер", "Проект", "Заголовок", "Тип", "Статус", "Исполнитель", "Приоритет", "Идентификатор"].map(function (x) { return "<li>" + x + "</li>"; }).join("") + '</ul><p class="cap">Эти столбцы попадут в файл при экспорте по шаблону.</p></div><div class="a"><button class="btn" data-act="dlgclose">Закрыть</button></div></div></div>';
+    }
+    return "";
+  }
+  function render() {
+    var h = "";
+    if (state.view === "list") { h = renderList(); } else if (state.view === "editor") { h = renderEditor(); } else { h = renderCheck(); }
+    document.getElementById("app").innerHTML = h;
+    document.getElementById("layer").innerHTML = renderDlg() + (state.snack ? '<div class="snack" role="status">' + esc(state.snack) + "</div>" : "");
+    var p = document.getElementById("proto");
+    p.innerHTML = "<b>Прототип · данные вымышленные</b><span>Роль: " + roleSel() + "</span><span>Список: " + sel("", "lstate", ["normal", "loading", "empty", "error"], state.listState) + '</span><button class="btn" data-act="reset">Сбросить прототип</button><span class="muted">Роли: администратор организации; менеджер проекта (автор шаблона «Трекер — CSV»); участник; читатель.</span>';
+  }
+  function roleSel() {
+    var L = {admin: "Администратор организации", manager: "Менеджер проекта", member: "Участник", viewer: "Читатель"}, h = '<select class="sel" data-f="role" aria-label="Роль">';
+    for (var k in L) { if (L.hasOwnProperty(k)) { h += '<option value="' + k + '"' + (state.role === k ? " selected" : "") + ">" + L[k] + "</option>"; } }
+    return h + "</select>";
+  }
+  function snack(t) { state.snack = t; render(); setTimeout(function () { if (state.snack === t) { state.snack = ""; render(); } }, 6000); }
+  function mapById(id) { var r = null; state.ed.maps.forEach(function (m) { if (String(m.id) === String(id)) { r = m; } }); return r; }
+
+  /* ---------- events ---------- */
+  document.addEventListener("click", function (ev) {
+    var t = ev.target.closest("[data-act]");
+    if (!t) { return; }
+    ev.preventDefault();
+    var a = t.getAttribute("data-act"), id = parseInt(t.getAttribute("data-id"), 10), v = t.getAttribute("data-v"), e = state.ed, i = parseInt(t.getAttribute("data-i"), 10);
+    if (a === "noop") { return; }
+    if (a === "go") { state.view = "list"; render(); return; }
+    if (a === "new") { state.ed = newEditor(); state.view = "editor"; render(); return; }
+    if (a === "edit") { var tt = tpl(id); openEditor(id, !canEdit(tt)); render(); return; }
+    if (a === "copy") { var src = tpl(id), nm = "Копия " + src.name, k = 1; while (state.templates.some(function (x) { return x.name === nm; })) { k++; nm = "Копия " + src.name + " " + k; } state.templates.push({id: ++uid, name: nm, src: src.src, author: state.role === "admin" ? "Администратор Г" : ME, upd: "13.11.2026 12:00"}); snack("Создан шаблон «" + nm + "»."); return; }
+    if (a === "del") { state.dlg = {k: "del", id: id}; render(); return; }
+    if (a === "delok") { state.templates = state.templates.filter(function (x) { return x.id !== state.dlg.id; }); state.dlg = null; snack("Шаблон удалён."); return; }
+    if (a === "cols") { state.dlg = {k: "cols", id: id}; render(); return; }
+    if (a === "dlgclose") { state.dlg = null; render(); return; }
+    if (a === "clr") { state.filterName = ""; state.filterMine = false; render(); return; }
+    if (a === "retry") { state.listState = "normal"; render(); return; }
+    if (a === "reset") { var r = state.role; init(); state.role = r; render(); return; }
+    if (a === "chk") { state.chk = {tpl: id || (state.ed && state.ed.id) || 1, file: "Реестр.xlsx", phase: "idle", filter: "all", open: null, stale: false}; state.view = "check"; render(); return; }
+    if (a === "tab") { e.tab = v; render(); return; }
+    if (a === "pick") {
+      var name = e.pickname || "Реестр.xlsx";
+      if (PICKS[name]) { e.file = null; e.fileErr = PICKS[name]; } else { e.file = {name: name}; e.fileErr = ""; e.sampleLive = true; if (!e.maps.length) { e.maps = autoMaps(); } }
+      e.dirty = true; render(); return;
+    }
+    if (a === "unpick") { e.file = null; e.fileErr = ""; render(); return; }
+    if (a === "addmap") { e.maps.push(mkMap("col", "", "Не переносить")); e.dirty = true; render(); return; }
+    if (a === "delmap") { e.maps = e.maps.filter(function (m) { return m.id !== id; }); e.dirty = true; render(); return; }
+    if (a === "chain") { var m = mapById(id); state.dlg = {k: "chain", id: id, chain: m.chain.map(function (c) { return {k: c.k, p: c.p}; })}; render(); return; }
+    if (a === "cup" && i > 0) { var c1 = state.dlg.chain; var tmp = c1[i - 1]; c1[i - 1] = c1[i]; c1[i] = tmp; render(); return; }
+    if (a === "cdn" && i < state.dlg.chain.length - 1) { var c2 = state.dlg.chain; var tm = c2[i + 1]; c2[i + 1] = c2[i]; c2[i] = tm; render(); return; }
+    if (a === "cdel") { state.dlg.chain.splice(i, 1); render(); return; }
+    if (a === "chainok") { mapById(state.dlg.id).chain = state.dlg.chain; state.dlg = null; e.dirty = true; render(); return; }
+    if (a === "acc") { e.openAcc = e.openAcc === v ? "" : v; render(); return; }
+    if (a === "accept") { var rr = e.recode[v].rows[i]; rr.t = rr.sug; e.dirty = true; render(); return; }
+    if (a === "acceptall") { e.recode[v].rows.forEach(function (x) { if (!x.t && x.sug) { x.t = x.sug; } }); e.dirty = true; render(); return; }
+    if (a === "refresh") { snack("Значения обновлены из файла."); return; }
+    if (a === "typeentry") { e.recode[v].rows.push({v: "Проверено", n: 1, t: "Закрыта", type: "Задача", fresh: false}); e.dirty = true; render(); return; }
+    if (a === "save") {
+      e.tried = true;
+      if (validate(e)) {
+        e.dirty = false;
+        if (!e.id) { e.id = ++uid; state.templates.push({id: e.id, name: e.name.trim(), src: ".xlsx · лист «" + e.sheet + "»", author: isAdmin() ? "Администратор Г" : ME, upd: "13.11.2026 12:00"}); }
+        else { tpl(e.id).name = e.name.trim(); tpl(e.id).upd = "13.11.2026 12:00"; }
+        state.chk.stale = true; snack("Шаблон сохранён.");
+      } else {
+        e.tab = Object.keys(e.errs).some(function (k) { return k === "name" || k === "hdr" || k === "first"; }) ? "src" : "map";
+        render();
+      }
+      return;
+    }
+    if (a === "run") {
+      var c = state.chk; c.phase = "running"; c.stale = false; c.open = null; c.filter = "all"; render();
+      c.timer = setTimeout(function () {
+        var f = c.file;
+        if (PICKS[f] && f !== "Реестр.xlsx") { c.phase = "refused"; c.reason = PICKS[f]; }
+        else if (f === "Без столбца.xlsx") { c.phase = "refused"; c.reason = "В файле нет столбцов, которые указаны в шаблоне: Ответственный."; }
+        else if (f === "Нет листа.xlsx") { c.phase = "refused"; c.reason = "В файле нет листа «Задачи», указанного в шаблоне."; }
+        else if (f === "Пустой.xlsx") { c.phase = "empty"; }
+        else if (f === "Одни ошибки.xlsx") { c.phase = "allerr"; }
+        else { c.phase = "done"; }
+        render();
+      }, 1200);
+      return;
+    }
+    if (a === "cancelrun") { clearTimeout(state.chk.timer); state.chk.phase = "idle"; render(); return; }
+    if (a === "flt") { state.chk.filter = v; state.chk.open = null; render(); return; }
+    if (a === "row") { state.chk.open = state.chk.open === parseInt(v, 10) ? null : parseInt(v, 10); render(); return; }
+    if (a === "dl") { snack("Отчёт скачивается (в прототипе — без файла)."); return; }
+  });
+  document.addEventListener("change", function (ev) {
+    var t = ev.target, f = t.getAttribute("data-f");
+    if (!f) { return; }
+    var e = state.ed, p = f.split(":"), m;
+    if (f === "role") { state.role = t.value; state.view = "list"; render(); return; }
+    if (f === "lstate") { state.listState = t.value; state.view = "list"; render(); return; }
+    if (f === "fname") { state.filterName = t.value; render(); var el = document.querySelector("[data-f=fname]"); if (el) { el.focus(); } return; }
+    if (f === "fmine") { state.filterMine = t.value === "Только мои"; render(); return; }
+    if (f === "ctpl") { state.chk.tpl = parseInt(t.value, 10); state.chk.phase = "idle"; render(); return; }
+    if (f === "cfile") { state.chk.file = t.value; state.chk.phase = "idle"; render(); return; }
+    if (f === "ename") { e.name = t.value; e.dirty = true; if (e.tried) { validate(e); } render(); return; }
+    if (f === "pickname") { e.pickname = t.value; return; }
+    if (f === "sheet") { e.sheet = t.value; e.dirty = true; return; }
+    if (f === "hdr") { e.hdr = parseInt(t.value, 10); e.dirty = true; validate(e); e.tried = true; render(); return; }
+    if (f === "first") { e.first = parseInt(t.value, 10); e.dirty = true; validate(e); e.tried = true; render(); return; }
+    if (f === "enc") { e.enc = t.value; e.dirty = true; snack("Столбцы прочитаны заново."); return; }
+    if (f === "delim") { e.delim = t.value; e.dirty = true; snack("Столбцы прочитаны заново."); return; }
+    if (f === "idcol") { e.idCol = t.value; e.dirty = true; render(); return; }
+    if (f === "idempty") { e.idEmpty = t.value; e.dirty = true; return; }
+    if (p[0] === "msrc") {
+      m = mapById(p[1]);
+      if (t.value === "Константа") { m.type = "const"; m.col = ""; } else if (t.value === "Объединить") { m.type = "compose"; m.col = ""; } else { m.type = "col"; m.col = t.value === "— (пусто)" ? "" : t.value; }
+      e.dirty = true; render(); return;
+    }
+    if (p[0] === "mval") { mapById(p[1]).value = t.value; e.dirty = true; return; }
+    if (p[0] === "mfld") { m = mapById(p[1]); m.field = t.value.replace(" — уже сопоставлено", ""); e.dirty = true; if (e.tried) { validate(e); } render(); return; }
+    if (p[0] === "mempty") { mapById(p[1]).empty = t.value; e.dirty = true; return; }
+    if (p[0] === "mtl") { mapById(p[1]).typeless = t.value; e.dirty = true; return; }
+    if (p[0] === "pol") { e.recode[p[1]].pol = t.value; e.dirty = true; render(); return; }
+    if (p[0] === "def") { e.recode[p[1]].def = t.value === "—" ? "" : t.value; e.dirty = true; render(); return; }
+    if (p[0] === "rv") { e.recode[p[1]].rows[parseInt(p[2], 10)].t = t.value === "—" ? "" : t.value; e.dirty = true; render(); return; }
+    if (f === "cadd") {
+      if (t.value.indexOf("Добавить") !== 0) { state.dlg.chain.push({k: t.value, p: t.value === "Обрезать до длины" ? "255" : (t.value === "Разделить" ? ";" : "")}); render(); }
+      return;
+    }
+    if (p[0] === "cp") { state.dlg.chain[parseInt(p[1], 10)].p = t.value; return; }
+    if (p[0] === "cpsel") { state.dlg.chain[parseInt(p[1], 10)].p = t.value; return; }
+  });
+  document.addEventListener("keydown", function (ev) { if (ev.key === "Escape" && state.dlg) { state.dlg = null; render(); } });
+
+  init();
+  render();
+})();
+</script>
+</body>
+</html>

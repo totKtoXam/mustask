@@ -1,0 +1,468 @@
+{
+  "module": "imports",
+  "origin": "slice",
+  "codes": {
+    "imports.access_forbidden": {
+      "statuses": [403],
+      "params": {},
+      "ru": "У вас нет прав на эту операцию.",
+      "kk": "Бұл әрекетке құқығыңыз жоқ.",
+      "kkNeedsReview": true
+    },
+    "imports.validation_failed": {
+      "statuses": [400],
+      "params": {},
+      "ru": "Проверьте правильность заполнения полей.",
+      "kk": "Өрістердің дұрыс толтырылғанын тексеріңіз.",
+      "kkNeedsReview": true
+    },
+    "imports.template.not_found": {
+      "statuses": [404],
+      "params": {},
+      "ru": "Шаблон не найден.",
+      "kk": "Үлгі табылмады.",
+      "kkNeedsReview": true
+    },
+    "imports.template.name_taken": {
+      "statuses": [409],
+      "params": {},
+      "ru": "Шаблон с таким названием уже есть.",
+      "kk": "Мұндай атаумен үлгі бар.",
+      "kkNeedsReview": true
+    },
+    "imports.template.limit_reached": {
+      "statuses": [409],
+      "params": {},
+      "ru": "В организации уже 100 шаблонов — это предел. Удалите ненужный шаблон.",
+      "kk": "Ұйымда 100 үлгі бар — бұл шектеу. Қажетсіз үлгіні жойыңыз.",
+      "kkNeedsReview": true
+    },
+    "imports.template.name_required": {
+      "statuses": [400],
+      "params": {},
+      "ru": "Укажите название.",
+      "kk": "Атауын көрсетіңіз.",
+      "kkNeedsReview": true
+    },
+    "imports.template.name_too_long": {
+      "statuses": [400],
+      "params": {},
+      "ru": "Название — не больше 100 символов.",
+      "kk": "Атау — 100 таңбадан көп емес.",
+      "kkNeedsReview": true
+    },
+    "imports.source.header_row_invalid": {
+      "statuses": [400],
+      "params": {},
+      "ru": "Строка заголовков — число от 1 до 50.",
+      "kk": "Тақырыптар жолы — 1-ден 50-ге дейінгі сан.",
+      "kkNeedsReview": true
+    },
+    "imports.source.first_data_row_invalid": {
+      "statuses": [400],
+      "params": {},
+      "ru": "Первая строка данных должна быть ниже строки заголовков.",
+      "kk": "Деректердің бірінші жолы тақырыптар жолынан төмен болуы керек.",
+      "kkNeedsReview": true
+    },
+    "imports.source.header_empty": {
+      "statuses": [400],
+      "params": {},
+      "ru": "В этой строке нет заголовков. Выберите другую строку.",
+      "kk": "Бұл жолда тақырыптар жоқ. Басқа жолды таңдаңыз.",
+      "kkNeedsReview": true
+    },
+    "imports.mapping.source_required": {
+      "statuses": [400],
+      "params": {},
+      "ru": "Укажите столбец или константу.",
+      "kk": "Бағанды немесе тұрақтыны көрсетіңіз.",
+      "kkNeedsReview": true
+    },
+    "imports.mapping.field_unknown": {
+      "statuses": [400],
+      "params": {},
+      "ru": "Это поле не поддерживается.",
+      "kk": "Бұл өріс қолдау көрсетілмейді.",
+      "kkNeedsReview": true
+    },
+    "imports.mapping.field_taken": {
+      "statuses": [400],
+      "params": {},
+      "ru": "Это поле уже сопоставлено.",
+      "kk": "Бұл өріс бұрын сәйкестендірілген.",
+      "kkNeedsReview": true
+    },
+    "imports.mapping.column_unknown": {
+      "statuses": [400],
+      "params": { "column": "string" },
+      "ru": "В файле нет столбца «{column}».",
+      "kk": "Файлда «{column}» бағаны жоқ.",
+      "kkNeedsReview": true
+    },
+    "imports.mapping.list_into_single": {
+      "statuses": [400],
+      "params": { "field": "string" },
+      "ru": "Поле «{field}» хранит одно значение: уберите «Разделить» из цепочки.",
+      "kk": "«{field}» өрісі бір мәнді сақтайды: тізбектен «Бөлу» әрекетін алып тастаңыз.",
+      "kkNeedsReview": true
+    },
+    "imports.mapping.chain_too_long": {
+      "statuses": [400],
+      "params": {},
+      "ru": "В цепочке не больше 10 преобразований.",
+      "kk": "Тізбекте 10-нан артық түрлендіру болмауы керек.",
+      "kkNeedsReview": true
+    },
+    "imports.mapping.converter_unknown": {
+      "statuses": [400],
+      "params": {},
+      "ru": "Неизвестное преобразование.",
+      "kk": "Белгісіз түрлендіру.",
+      "kkNeedsReview": true
+    },
+    "imports.mapping.converter_param_invalid": {
+      "statuses": [400],
+      "params": {},
+      "ru": "Укажите значение.",
+      "kk": "Мәнді көрсетіңіз.",
+      "kkNeedsReview": true
+    },
+    "imports.mapping.pattern_too_long": {
+      "statuses": [400],
+      "params": {},
+      "ru": "Шаблон — не больше 500 символов.",
+      "kk": "Үлгі — 500 таңбадан көп емес.",
+      "kkNeedsReview": true
+    },
+    "imports.mapping.pattern_invalid": {
+      "statuses": [400],
+      "params": {},
+      "ru": "Некорректное регулярное выражение.",
+      "kk": "Тұрақты өрнек дұрыс емес.",
+      "kkNeedsReview": true
+    },
+    "imports.mapping.clear_not_allowed": {
+      "statuses": [400],
+      "params": {},
+      "ru": "Для этого поля нельзя очищать значение.",
+      "kk": "Бұл өрістің мәнін тазалауға болмайды.",
+      "kkNeedsReview": true
+    },
+    "imports.recoding.default_required": {
+      "statuses": [400],
+      "params": {},
+      "ru": "Выберите значение.",
+      "kk": "Мәнді таңдаңыз.",
+      "kkNeedsReview": true
+    },
+    "imports.recoding.empty_not_allowed": {
+      "statuses": [400],
+      "params": {},
+      "ru": "Для этого поля нельзя оставить пустым.",
+      "kk": "Бұл өрісті бос қалдыруға болмайды.",
+      "kkNeedsReview": true
+    },
+    "imports.recoding.target_unknown": {
+      "statuses": [400],
+      "params": {},
+      "ru": "Значение больше недоступно. Выберите другое.",
+      "kk": "Мән енді қолжетімді емес. Басқасын таңдаңыз.",
+      "kkNeedsReview": true
+    },
+    "imports.recoding.too_many_entries": {
+      "statuses": [400],
+      "params": {},
+      "ru": "В таблице не больше 1 000 значений: столбец с большим числом разных значений — свободный текст.",
+      "kk": "Кестеде 1 000-нан артық мән болмауы керек: мәндері көп баған — еркін мәтін.",
+      "kkNeedsReview": true
+    },
+    "imports.recoding.too_many_tables": {
+      "statuses": [400],
+      "params": {},
+      "ru": "Для одного сопоставления — одна таблица перекодировки.",
+      "kk": "Бір сәйкестендіруге — бір қайта кодтау кестесі.",
+      "kkNeedsReview": true
+    },
+    "imports.mapping.id_taken": {
+      "statuses": [400],
+      "params": {},
+      "ru": "Идентификаторы сопоставлений в шаблоне должны быть разными.",
+      "kk": "Үлгідегі сәйкестендірулердің идентификаторлары әртүрлі болуы керек.",
+      "kkNeedsReview": true
+    },
+    "imports.template.too_many_headers": {
+      "statuses": [400],
+      "params": {},
+      "ru": "В шаблоне не больше 200 столбцов файла.",
+      "kk": "Үлгіде файлдың 200-ден артық бағаны болмауы керек.",
+      "kkNeedsReview": true
+    },
+    "imports.file.refused": {
+      "statuses": [400],
+      "params": {},
+      "ru": "Файл не принят.",
+      "kk": "Файл қабылданбады.",
+      "kkNeedsReview": true
+    },
+    "imports.file.unsupported_format": {
+      "statuses": [400],
+      "params": {},
+      "ru": "Поддерживаются файлы .xlsx и .csv.",
+      "kk": ".xlsx және .csv файлдарына қолдау көрсетіледі.",
+      "kkNeedsReview": true
+    },
+    "imports.file.too_large": {
+      "statuses": [400],
+      "params": {},
+      "ru": "Файл больше 10 МБ.",
+      "kk": "Файл 10 МБ-тан үлкен.",
+      "kkNeedsReview": true
+    },
+    "imports.file.too_many_rows": {
+      "statuses": [400],
+      "params": {},
+      "ru": "В файле больше 5 000 строк данных. Разделите его на части.",
+      "kk": "Файлда 5 000-нан астам деректер жолы бар. Оны бөліктерге бөліңіз.",
+      "kkNeedsReview": true
+    },
+    "imports.file.too_many_columns": {
+      "statuses": [400],
+      "params": {},
+      "ru": "В файле больше 200 столбцов.",
+      "kk": "Файлда 200-ден астам баған бар.",
+      "kkNeedsReview": true
+    },
+    "imports.file.too_many_sheets": {
+      "statuses": [400],
+      "params": {},
+      "ru": "В книге больше 50 листов.",
+      "kk": "Кітапта 50-ден астам парақ бар.",
+      "kkNeedsReview": true
+    },
+    "imports.file.expands_too_much": {
+      "statuses": [400],
+      "params": {},
+      "ru": "Файл слишком велик после распаковки и не принят.",
+      "kk": "Файл ашылғаннан кейін тым үлкен болып, қабылданбады.",
+      "kkNeedsReview": true
+    },
+    "imports.file.external_reference": {
+      "statuses": [400],
+      "params": {},
+      "ru": "Файл ссылается на другой файл и не принят.",
+      "kk": "Файл басқа файлға сілтейді, сондықтан қабылданбады.",
+      "kkNeedsReview": true
+    },
+    "imports.file.has_macros": {
+      "statuses": [400],
+      "params": {},
+      "ru": "В файле есть макросы, такой файл не принят.",
+      "kk": "Файлда макростар бар, мұндай файл қабылданбайды.",
+      "kkNeedsReview": true
+    },
+    "imports.file.unreadable": {
+      "statuses": [400],
+      "params": {},
+      "ru": "Файл не удалось прочитать. Проверьте, что он не повреждён.",
+      "kk": "Файлды оқу мүмкін болмады. Оның зақымдалмағанын тексеріңіз.",
+      "kkNeedsReview": true
+    },
+    "imports.file.columns_missing": {
+      "statuses": [400],
+      "params": { "columns": "string" },
+      "ru": "В файле нет столбцов, которые указаны в шаблоне: {columns}.",
+      "kk": "Файлда үлгіде көрсетілген бағандар жоқ: {columns}.",
+      "kkNeedsReview": true
+    },
+    "imports.file.sheet_missing": {
+      "statuses": [400],
+      "params": { "sheet": "string" },
+      "ru": "В файле нет листа «{sheet}», указанного в шаблоне.",
+      "kk": "Файлда үлгіде көрсетілген «{sheet}» парағы жоқ.",
+      "kkNeedsReview": true
+    },
+    "imports.file.not_found": {
+      "statuses": [404],
+      "params": {},
+      "ru": "Файл не найден или срок его хранения истёк. Загрузите его снова.",
+      "kk": "Файл табылмады немесе сақтау мерзімі аяқталды. Оны қайта жүктеңіз.",
+      "kkNeedsReview": true
+    },
+    "imports.dry_run.not_found": {
+      "statuses": [404],
+      "params": {},
+      "ru": "Результат проверки не найден или устарел. Проверьте файл снова.",
+      "kk": "Тексеру нәтижесі табылмады немесе ескірді. Файлды қайта тексеріңіз.",
+      "kkNeedsReview": true
+    },
+    "imports.row.empty": {
+      "statuses": [],
+      "params": {},
+      "ru": "Пустая строка.",
+      "kk": "Бос жол.",
+      "kkNeedsReview": true
+    },
+    "imports.row.convert_failed": {
+      "statuses": [],
+      "params": { "column": "string", "cell": "string", "value": "string", "converter": "string" },
+      "ru": "Не удалось преобразовать: столбец «{column}», ячейка {cell}, значение «{value}», преобразование «{converter}».",
+      "kk": "Түрлендіру мүмкін болмады: «{column}» бағаны, {cell} ұяшығы, «{value}» мәні, «{converter}» түрлендіруі.",
+      "kkNeedsReview": true
+    },
+    "imports.row.value_not_recoded": {
+      "statuses": [],
+      "params": { "value": "string" },
+      "ru": "Значение «{value}» не сопоставлено ни с одним значением MUSTASK.",
+      "kk": "«{value}» мәні MUSTASK-тың ешбір мәнімен сәйкестендірілмеген.",
+      "kkNeedsReview": true
+    },
+    "imports.row.recoding_outdated": {
+      "statuses": [],
+      "params": { "value": "string" },
+      "ru": "Значение MUSTASK, выбранное для «{value}», больше недоступно.",
+      "kk": "«{value}» үшін таңдалған MUSTASK мәні енді қолжетімді емес.",
+      "kkNeedsReview": true
+    },
+    "imports.row.project_forbidden": {
+      "statuses": [],
+      "params": {},
+      "ru": "Нет прав на импорт в этот проект.",
+      "kk": "Бұл жобаға импорттауға құқық жоқ.",
+      "kkNeedsReview": true
+    },
+    "imports.row.project_not_found": {
+      "statuses": [],
+      "params": {},
+      "ru": "Проект не найден.",
+      "kk": "Жоба табылмады.",
+      "kkNeedsReview": true
+    },
+    "imports.row.type_not_found": {
+      "statuses": [],
+      "params": {},
+      "ru": "Тип рабочего элемента не найден.",
+      "kk": "Жұмыс элементінің түрі табылмады.",
+      "kkNeedsReview": true
+    },
+    "imports.row.state_not_found": {
+      "statuses": [],
+      "params": {},
+      "ru": "Состояние не найдено среди состояний этого типа.",
+      "kk": "Күй осы түрдің күйлері арасында табылмады.",
+      "kkNeedsReview": true
+    },
+    "imports.row.assignee_not_found": {
+      "statuses": [],
+      "params": {},
+      "ru": "Исполнитель не найден или не имеет доступа к проекту.",
+      "kk": "Орындаушы табылмады немесе жобаға қолжетімділігі жоқ.",
+      "kkNeedsReview": true
+    },
+    "imports.row.team_not_linked": {
+      "statuses": [],
+      "params": {},
+      "ru": "Команда не участвует в проекте.",
+      "kk": "Команда жобаға қатыспайды.",
+      "kkNeedsReview": true
+    },
+    "imports.row.field_not_on_type": {
+      "statuses": [],
+      "params": {},
+      "ru": "Это поле недоступно для рабочего элемента этого типа.",
+      "kk": "Бұл өріс осы түрдегі жұмыс элементі үшін қолжетімсіз.",
+      "kkNeedsReview": true
+    },
+    "imports.row.date_out_of_range": {
+      "statuses": [],
+      "params": {},
+      "ru": "Укажите дату с 2000 по 2099 год.",
+      "kk": "2000 жылдан 2099 жылға дейінгі күнді көрсетіңіз.",
+      "kkNeedsReview": true
+    },
+    "imports.row.regex_timeout": {
+      "statuses": [],
+      "params": {},
+      "ru": "Шаблон выполняется слишком долго.",
+      "kk": "Үлгі тым ұзақ орындалады.",
+      "kkNeedsReview": true
+    },
+    "imports.row.identifier_not_found": {
+      "statuses": [],
+      "params": {},
+      "ru": "Элемент не найден.",
+      "kk": "Элемент табылмады.",
+      "kkNeedsReview": true
+    },
+    "imports.row.identifier_deleted": {
+      "statuses": [],
+      "params": {},
+      "ru": "Элемент находится в корзине.",
+      "kk": "Элемент себетте.",
+      "kkNeedsReview": true
+    },
+    "imports.row.identifier_skipped": {
+      "statuses": [],
+      "params": {},
+      "ru": "Строка без идентификатора пропущена по настройке шаблона.",
+      "kk": "Сәйкестендіргіші жоқ жол үлгі параметрі бойынша өткізілді.",
+      "kkNeedsReview": true
+    },
+    "imports.row.identifier_duplicate": {
+      "statuses": [],
+      "params": { "row": "number" },
+      "ru": "Тот же идентификатор в строке {row}.",
+      "kk": "Дәл сол сәйкестендіргіш {row}-жолда.",
+      "kkNeedsReview": true
+    },
+    "imports.row.project_changed": {
+      "statuses": [],
+      "params": {},
+      "ru": "Проект элемента нельзя изменить импортом.",
+      "kk": "Элементтің жобасын импортпен өзгертуге болмайды.",
+      "kkNeedsReview": true
+    },
+    "imports.row.type_changed": {
+      "statuses": [],
+      "params": {},
+      "ru": "Тип элемента нельзя изменить импортом.",
+      "kk": "Элементтің түрін импортпен өзгертуге болмайды.",
+      "kkNeedsReview": true
+    },
+    "imports.row.value_invalid": {
+      "statuses": [],
+      "params": { "field": "string" },
+      "ru": "Недопустимое значение поля «{field}».",
+      "kk": "«{field}» өрісінің мәні жарамсыз.",
+      "kkNeedsReview": true
+    },
+    "imports.row.value_truncated": {
+      "statuses": [],
+      "params": { "field": "string" },
+      "ru": "Значение поля «{field}» обрезано до допустимой длины.",
+      "kk": "«{field}» өрісінің мәні рұқсат етілген ұзындыққа дейін қысқартылды.",
+      "kkNeedsReview": true
+    },
+    "imports.row.required_missing": {
+      "statuses": [],
+      "params": { "field": "string" },
+      "ru": "Не заполнено обязательное поле «{field}».",
+      "kk": "«{field}» міндетті өрісі толтырылмаған.",
+      "kkNeedsReview": true
+    },
+    "imports.dry_run.no_identifier_column": {
+      "statuses": [],
+      "params": {},
+      "ru": "Без столбца идентификатора каждая строка создаёт новый элемент.",
+      "kk": "Сәйкестендіргіш бағаны болмаса, әр жол жаңа элемент жасайды.",
+      "kkNeedsReview": true
+    },
+    "imports.dry_run.empty_file": {
+      "statuses": [],
+      "params": {},
+      "ru": "В файле нет строк данных.",
+      "kk": "Файлда деректер жолдары жоқ.",
+      "kkNeedsReview": true
+    }
+  }
+}

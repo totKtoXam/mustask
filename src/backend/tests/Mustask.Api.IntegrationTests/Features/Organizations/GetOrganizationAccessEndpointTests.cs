@@ -27,6 +27,7 @@ public sealed class GetOrganizationAccessEndpointTests(MustaskApiFactory factory
         "organizations.team.read",
         "organizations.area.read",
         "process.definition.read",
+        "imports.template.read",
     ];
 
     private static readonly string[] AdminServed =
@@ -43,6 +44,7 @@ public sealed class GetOrganizationAccessEndpointTests(MustaskApiFactory factory
         "organizations.area.read",
         "organizations.area.create",
         "process.definition.read",
+        "imports.template.read",
     ];
 
     // BR-SA-11 · the answer holds the role and the codes of its bundle decided at the organization, in catalog order — for each role.

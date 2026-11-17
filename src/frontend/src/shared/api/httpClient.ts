@@ -77,7 +77,8 @@ async function attempt(
   if (token) {
     requestHeaders.set('Authorization', `Bearer ${token}`);
   }
-  if (body !== undefined) {
+  // A multipart body (a file upload) carries its own boundary: the browser sets the content type.
+  if (body !== undefined && !(body instanceof FormData)) {
     requestHeaders.set('Content-Type', 'application/json');
   }
   return fetch(`${env.apiBaseUrl}${path}`, {
@@ -87,7 +88,8 @@ async function attempt(
     // заголовок Cookie без всякой пользы.
     credentials: 'omit',
     headers: requestHeaders,
-    body: body !== undefined ? JSON.stringify(body) : undefined,
+    body:
+      body === undefined ? undefined : body instanceof FormData ? body : JSON.stringify(body),
   });
 }
 
@@ -142,4 +144,27 @@ export async function apiFetch<T>(path: string, options: SendOptions = {}): Prom
     return undefined as T;
   }
   return (await response.json()) as T;
+}
+
+/** The file name of a Content-Disposition (filename*=UTF-8'' first, then filename=), or null. */
+function fileNameOf(response: Response): string | null {
+  const header = response.headers.get('Content-Disposition') ?? '';
+  const encoded = /filename\*=UTF-8''([^;]+)/i.exec(header)?.[1];
+  if (encoded) {
+    try {
+      return decodeURIComponent(encoded);
+    } catch {
+      return encoded;
+    }
+  }
+  return /filename="?([^";]+)"?/i.exec(header)?.[1] ?? null;
+}
+
+/** A file answer (a report): the bytes and the name the server gave them. Errors are ApiErrors as everywhere. */
+export async function apiFetchBlob(
+  path: string,
+  options: SendOptions = {},
+): Promise<{ blob: Blob; fileName: string | null }> {
+  const response = await send(path, options);
+  return { blob: await response.blob(), fileName: fileNameOf(response) };
 }
