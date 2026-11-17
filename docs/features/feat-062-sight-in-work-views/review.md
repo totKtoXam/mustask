@@ -98,3 +98,49 @@ Direction 2 (behaviour changed: refusals of hidden team/sprint ids; sight on spr
 (generic text, holds), feat-028 and feat-040 contracts (link/unlink, no hidden case, consistent with R-1), mod-017 contract :73 and
 mod-007 contract :81, :129 and the stories, all covered by R-6. Not swept: the frontend's handling of 409 vs 404 on these routes;
 the contract states no shape or copy change, so the panel shows the existing not-found copy.
+
+## Round 2 (delta)
+
+Delta `eb0ed643..5629996e` against the Round 1 findings. No tests run: the developer's run of the affected classes is in the Log.
+
+**Verdict: approved** — blockers 0 · majors 0 · minors open 0. Every Round 1 finding is closed.
+
+- **R-1 · closed.** `SetDefaultTeamHandler.cs:71-75` checks `SeesAsync(Team)` after the id parses and before the link lock; an unknown
+  id fails the same check (`AccessSet.SeesTeam` is false for a team not in the organization), so both answer the same 404.
+  `UnlinkTeamHandler.cs:127-131` does the same after the destination's existence check, so a hidden destination is 404 before the
+  linked-pair branch, as an unknown one already was. The administrator passes through (`SeesAsync` is true). The test
+  `SightInSprintsTests.ADefaultTeamOrAnUnlinkDestination_…` uses a non-admin project «Менеджер» of «Альфа» plus team «Менеджер»
+  of MARS, and a hidden team linked to «Гамма» only. Before the fix that hidden team answered 409, so the comparison with an unknown
+  id can fail. The visible, unlinked JUPITER stays 409 on both routes as the control.
+- **R-2 · closed.** Contract § 4 has both rows, § 6 keeps only `MoveTeam` as admin-only and narrows the link-routes bullet to the
+  routes feat-041 fixed. `SetDefaultTeamHandler.cs:21-23` now names the managers as holders.
+- **R-3 · closed.** `IOrganizationAccess.VisibleProjectsAsync` has no default (`IOrganizationAccess.cs:62`), so a new implementation
+  must state its sight; the one production implementation already did. `BacklogMembership.Members/TreeMembers` take a required
+  non-null `visible` (`:50,77`). The test doubles state `All` explicitly.
+- **R-4 · closed.** The removal twin now removes the Planned `Next` sprint, holding a visible item in both worlds and a hidden one
+  in the real world, as a team «Менеджер». It asserts the twin's 409 (refused for items, not for state or rights) and equal
+  refusals.
+- **R-5 · closed.** Contract § 2 says "selects nothing, as an unknown id does (200)", and `VisibleProjects.cs:5` cites
+  `AccessSet.SeenProjects`.
+- **R-6 · closed.** There are pointer lines under mod-007 api-contract (close destination, sprint in a save) and mod-017
+  api-contract (the owning-team table, plus default team and unlink), each with a status note. The five story markers say "delivered
+  by feat-062", US-6 says feat-057 and US-7 says feat-058. Left as is: mod-007 `spec.md:46-50` still says the clauses are "owed by
+  feat-041". That is a planning statement, not a behavioural claim, and the mod-007 status note records the delivery.
+
+New leaks: none. Both new checks only turn a 409 into the unknown id's 404, and neither runs when no team is named (clearing the
+default, «Без команды»).
+
+### Behavioural claims checked (delta)
+
+Direction 1:
+- contract § 4 new rows → `SetDefaultTeamHandler.cs:71-75`, `UnlinkTeamHandler.cs:127-131`; test above; holds.
+- contract § 6 `MoveTeam` admin-only → `OrganizationEndpoints.cs:425-426` (`team.create`); holds.
+- contract § 2 selector sentence → `AggregateViewReadModel.cs:241-245`; holds.
+- `IOrganizationAccess.cs:59-60` "no default … fails closed" → the member has no body; a new implementation does not compile without it; holds.
+- mod-007/mod-017 pointer lines → feat-062 § 4 rows and the handlers above; hold.
+- status Log `[backend]` line → matches the diff (13 doubles: 13 added `VisibleProjectsAsync` bodies); holds.
+
+Direction 2: behaviour changed is the default-team and unlink-destination refusal for a hidden team. I searched `docs/` for
+`default-team` and `not_in_project`. feat-028 api-contract and spec describe 409 for "an active team not linked", with no hidden
+case; they remain true for a visible team, and the mod-017 pointer covers the general rule. Not swept: the frontend's copy for
+these two routes, since the 404 copy already exists.
