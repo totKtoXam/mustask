@@ -42,6 +42,12 @@ Only «Обзор» cuts a list (the first five by name) and counts: its counts 
 over an array parameter), so no total, no `ещё` threshold and no row is ever taken from a hidden object. The other lists have no paging;
 they are narrowed before they are returned, so their `length` is the count.
 
+Deliberate deviation from `docs/conventions/backend.md` (no client-side filtering after `ToListAsync()`): the handler-side lists
+(projects, teams, areas tree, area teams/deletion, team projects, project teams/team-links, writable ids, deactivated projects) apply
+`AccessSet.Sees*` in memory after the read. Allowed because these lists are unpaged whole-organization lists, the rows read are those read
+before, the statement count is fixed, and sight is decided by the one rule (mod-019 `linkableFor` `Holds` set the precedent). Rule: a
+list that gains paging moves the filter into SQL through `AccessSet.Sighted()` ids (as «Обзор» and selector-offers already do).
+
 ## «Структура» filter (BR-TD-21)
 
 Client-side over the already narrowed tree: the page reads `GET areas` (and the team and project lists), which now carry only visible

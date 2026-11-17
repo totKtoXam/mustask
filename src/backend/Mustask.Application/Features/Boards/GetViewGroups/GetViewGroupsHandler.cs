@@ -29,7 +29,7 @@ public sealed class GetViewGroupsHandler(
             ? null
             : AggregateSupport.LevelOf(await processes.FindByOrganizationAsync(organizationId, cancellationToken), query.Request.Level);
 
-        var caller = new CallerAccess(organizationId, currentUser.SubjectId, access.Role);
+        var caller = CallerAccess.NotNarrowed(organizationId, currentUser.SubjectId, access.Role);
         var scope = AggregateSupport.ScopeOf(query.View, level, parsed);
 
         var narrowed = await views.ReadCountsAsync(caller, scope, narrowed: true, cancellationToken);

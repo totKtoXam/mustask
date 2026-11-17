@@ -81,10 +81,10 @@ public sealed class StructureListsSightTests(MustaskApiFactory factory)
             return created;
         });
 
-    private async Task GrantAsync(ResourceScope scope, World w, Guid objectId, string userId) =>
+    private async Task GrantAsync(ResourceScope scope, World w, Guid objectId, string userId, GrantRole role = GrantRole.Reader) =>
         await OrganizationsTestData.InUnitOfWorkAsync(factory, async (services, ct) =>
         {
-            await services.GetRequiredService<IGrantRepository>().AddAsync(scope, w.OrganizationId, objectId, userId, GrantRole.Reader, "seed", OrganizationsTestData.Now, ct);
+            await services.GetRequiredService<IGrantRepository>().AddAsync(scope, w.OrganizationId, objectId, userId, role, "seed", OrganizationsTestData.Now, ct);
 
             return true;
         });
@@ -372,7 +372,7 @@ public sealed class StructureListsSightTests(MustaskApiFactory factory)
         Assert.Equal((HttpStatusCode.NotFound, "organizations.team.not_found"), (team.Status, team.ErrorCode));
     }
 
-    // QA (backend): a deactivated project leaves the offers and counts of the caller who saw it; its teams stay visible by membership.
+    // QA (backend): a deactivated project leaves the offers and counts of the caller who saw it; its teams stay visible: VENUS by membership, MARS through the deactivated A (m-1).
     [Fact]
     public async Task ADeactivatedVisibleProject_LeavesOffersAndCounts_WithoutHidingOrRevealingAnythingElse()
     {
@@ -393,21 +393,26 @@ public sealed class StructureListsSightTests(MustaskApiFactory factory)
     }
 
     // BR-TD-17 · a picker: the «linkable» filter of the pickers runs over the sight-narrowed set, never offering a hidden object.
+    // The caller holds the link codes by grants (Manager on «Логистика», VENUS and MARS), so the lists are not empty; the filler,
+    // «Финансы», C, D and JUPITER are hidden from her and absent from every picker.
     [Fact]
-    public async Task TheLinkPickers_NeverOfferAHiddenObject_EvenToAHolderOfTheLinkCode()
+    public async Task TheLinkPickers_OfferExactlyTheVisibleLinkableObjects_ToAHolderOfTheLinkCodes()
     {
         var w = await WorldAsync();
-        var olga = await OlgaAsync(w);
+        var manager = await MembershipTestData.NewMemberAsync(factory, w.OrganizationId, OrganizationRole.Member);
+        await GrantAsync(ResourceScope.Area, w, w.Logistics.Id, manager.Id, GrantRole.Manager);
+        await GrantAsync(ResourceScope.Team, w, w.Venus.Id, manager.Id, GrantRole.Manager);
+        await GrantAsync(ResourceScope.Team, w, w.Mars.Id, manager.Id, GrantRole.Manager);
 
-        var projects = await GetAsync(w, "projects?linkableFor=team", olga.Token);
-        var teams = await GetAsync(w, "teams?linkableFor=project", olga.Token);
-        var tree = await GetAsync(w, "areas?linkableFor=team", olga.Token);
+        var projects = await GetAsync(w, "projects?linkableFor=team", manager.Token);
+        var teams = await GetAsync(w, "teams?linkableFor=project", manager.Token);
+        var tree = await GetAsync(w, "areas?linkableFor=team", manager.Token);
 
         Assert.Equal(HttpStatusCode.OK, projects.Status);
         Assert.Equal(HttpStatusCode.OK, teams.Status);
         Assert.Equal(HttpStatusCode.OK, tree.Status);
-        Assert.All(Ids(projects.Body), id => Assert.Equal(w.A.Id, id));
-        Assert.All(Ids(teams.Body), id => Assert.Contains(id, Of(w.Venus.Id, w.Mars.Id)));
-        Assert.All(Ids(tree.Body), id => Assert.Equal(w.Logistics.Id, id));
+        Assert.Equal(Of(w.A.Id, w.B.Id), Ids(projects.Body));
+        Assert.Equal(Of(w.Venus.Id, w.Mars.Id), Ids(teams.Body));
+        Assert.Equal(Of(w.Logistics.Id), Ids(tree.Body));
     }
 }

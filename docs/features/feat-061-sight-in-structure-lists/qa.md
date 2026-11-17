@@ -15,7 +15,7 @@ Plan written from doc-016 spec (BR-TD-12..-17, BR-TD-21, US-6) and api-contract 
 | Visible department shows only visible children | area page, `areas/{a}/teams`, `teams/{t}/projects`, `projects/{p}/team-links`, `/teams` | `ADepartmentsPage...` | pass |
 | Flag on D | lists, tree | `TheFlagOnD...` | pass |
 | Sight changes on next request | add/remove team member | `SightChanges...` | pass |
-| Pickers (`linkableFor`) | narrowed before link filter | `TheLinkPickers...` | pass |
+| Pickers (`linkableFor`) | a caller holding the link codes by grants (Manager on «Логистика», VENUS, MARS) gets exactly the visible linkable objects, no hidden one | `TheLinkPickers_OfferExactlyTheVisibleLinkableObjects...` | pass (non-empty exact sets, after review R-1) |
 | Hidden area / project / team addresses | 404 with own code on areas/{a}, /teams, /deletion, node, projects/{p}/teams, /team-links, /areas, teams/{t}/projects | added `HiddenObjectsListRoutes_AnswerNotFound...` | pass |
 | Deactivated project | leaves offers, counts, projects | added `ADeactivatedVisibleProject...` | pass |
 | Fail closed | read model throws for non-admin without sight; statement counts 7/4 | `NavigationReadModelTests` (developer) | pass |

@@ -118,3 +118,11 @@ Direction 2 (prose outside the diff on changed behaviour): grepped «Найти 
 review R-4, status (all say "until feat-061" — historical, now true); feat-043 design § 5.2 and feat-049 artifacts («Найти область») —
 merged features' design records, superseded by doc-016 BR-TD-21, no living doc repeats them. `docs/backlog.md:94` line matches scope.
 Not swept: the Boards/WorkItems prose on aggregate headers (feat-062's behaviour, unchanged here).
+
+## Fixes (backend, after round 1; the verdict stays the reviewer's)
+
+- R-1 fixed: the link-pickers test now gives the caller Manager grants (area «Логистика», teams VENUS and MARS) and asserts the exact non-empty sets for the three `linkableFor` lists; qa.md's row reworded.
+- R-2 fixed: `CallerAccess.Sight` is required; the Boards/WorkItems sites call `CallerAccess.NotNarrowed(...)` (null, behaviour unchanged, feat-062 brings them under the rule); the doc says so.
+- R-3 fixed: plan-backend § Paging and counts records the deviation and the rule (a list that gains paging moves the filter into SQL via `Sighted()`).
+- R-4 fixed: `filterTree` and its test removed from `areaTree.ts` / `areaTree.test.ts`.
+- R-5 fixed: the test comment now says MARS stays through the deactivated A (m-1).

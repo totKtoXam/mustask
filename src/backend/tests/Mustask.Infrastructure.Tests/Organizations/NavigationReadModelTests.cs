@@ -178,7 +178,7 @@ public sealed class NavigationReadModelTests(OrganizationsDatabaseFixture databa
         await using var provider = interceptor is null ? database.BuildServices() : database.BuildServices(interceptor);
         await using var scope = provider.CreateAsyncScope();
 
-        return await read(scope.ServiceProvider.GetRequiredService<INavigationReadModel>(), new CallerAccess(organizationId, userId, OrganizationRole.Admin));
+        return await read(scope.ServiceProvider.GetRequiredService<INavigationReadModel>(), new CallerAccess(organizationId, userId, OrganizationRole.Admin, null));
     }
 
 
