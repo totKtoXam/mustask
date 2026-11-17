@@ -72,6 +72,40 @@ public sealed class MigrationsTests : IAsyncLifetime
         Assert.Equal(context.Database.GetMigrations().Count(), (await context.Database.GetAppliedMigrationsAsync()).Count());
     }
 
+    // feat-071 review F2: pg_trgm's word classification follows the database's ctype, so the search migration refuses a C/POSIX one
+    // with a message that says what to do, instead of building indexes that cannot find Cyrillic.
+    [Fact]
+    public async Task SearchTrigramMigration_RefusesACTypeDatabase_WithAClearMessage()
+    {
+        var admin = Environment.GetEnvironmentVariable(ConnectionStringEnvVar)!;
+        var cName = $"ctype_c_{Guid.NewGuid():N}";
+
+        await using (var connection = new Npgsql.NpgsqlConnection(admin))
+        {
+            await connection.OpenAsync();
+            await using var create = connection.CreateCommand();
+            create.CommandText = $"CREATE DATABASE \"{cName}\" TEMPLATE template0 ENCODING 'UTF8' LC_COLLATE 'C' LC_CTYPE 'C'";
+            await create.ExecuteNonQueryAsync();
+        }
+
+        var cString = new Npgsql.NpgsqlConnectionStringBuilder(admin) { Database = cName }.ConnectionString;
+        Environment.SetEnvironmentVariable(ConnectionStringEnvVar, cString);
+
+        try
+        {
+            using var context = CreateContext();
+
+            var exception = await Assert.ThrowsAnyAsync<Exception>(() => context.Database.MigrateAsync());
+
+            Assert.Contains("C/POSIX ctype", exception.ToString(), StringComparison.Ordinal);
+        }
+        finally
+        {
+            Environment.SetEnvironmentVariable(ConnectionStringEnvVar, admin);
+            await SharedPostgres.DropDatabaseAsync(cString);
+        }
+    }
+
     private static readonly string[] DictionaryTables = ["languages"];
 
     /// <summary>

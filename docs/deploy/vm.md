@@ -232,6 +232,24 @@ CREATE ROLE mustask LOGIN PASSWORD '<strong password>';
 CREATE DATABASE mustask OWNER mustask;
 ```
 
+The database must have a UTF-8 locale that knows Cyrillic (for example
+`en_US.UTF-8` or `ru_RU.UTF-8`), not `C`/`POSIX`: the quick search
+(`pg_trgm`, [ADR-0044](../adr/0044-trigram-quick-search-full-text-page-and-search-limiter.md))
+classifies word characters by the database's `LC_CTYPE`, and on a `C` database
+Cyrillic letters are separators, so the typo-tolerant match finds nothing. The
+search migration refuses such a database with a message. Check it with
+`SELECT datname, datctype, datcollate FROM pg_database WHERE datname = 'mustask';`;
+`CREATE DATABASE` takes the locale of the cluster's template, so create the
+database with an explicit locale if the cluster was initialised with `C`:
+
+```sql
+CREATE DATABASE mustask OWNER mustask TEMPLATE template0 ENCODING 'UTF8' LC_COLLATE 'en_US.UTF-8' LC_CTYPE 'en_US.UTF-8';
+```
+
+The role that applies the migrations must also be able to run
+`CREATE EXTENSION pg_trgm` (a trusted extension for the database owner since
+PostgreSQL 13), or a DBA creates the extension once beforehand.
+
 The API reads the connection string `ConnectionStrings__mustask` (a Npgsql
 string), for example
 `Host=127.0.0.1;Port=5432;Database=mustask;Username=mustask;Password=<…>`.

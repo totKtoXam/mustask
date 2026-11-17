@@ -232,6 +232,24 @@ CREATE ROLE mustask LOGIN PASSWORD '<надёжный пароль>';
 CREATE DATABASE mustask OWNER mustask;
 ```
 
+У базы должна быть UTF-8 локаль, знающая кириллицу (например `en_US.UTF-8`
+или `ru_RU.UTF-8`), а не `C`/`POSIX`: быстрый поиск (`pg_trgm`,
+[ADR-0044](../adr/0044-trigram-quick-search-full-text-page-and-search-limiter.md))
+определяет символы слов по `LC_CTYPE` базы, а в базе `C` кириллические буквы
+считаются разделителями, и поиск с опечатками ничего не находит. Миграция
+поиска отказывается работать с такой базой и говорит об этом. Проверка:
+`SELECT datname, datctype, datcollate FROM pg_database WHERE datname = 'mustask';`;
+`CREATE DATABASE` берёт локаль шаблона кластера, поэтому, если кластер
+инициализирован с `C`, создайте базу с явной локалью:
+
+```sql
+CREATE DATABASE mustask OWNER mustask TEMPLATE template0 ENCODING 'UTF8' LC_COLLATE 'en_US.UTF-8' LC_CTYPE 'en_US.UTF-8';
+```
+
+Роль, которая применяет миграции, должна уметь выполнять
+`CREATE EXTENSION pg_trgm` (доверенное расширение для владельца базы начиная
+с PostgreSQL 13), либо администратор БД один раз создаёт расширение заранее.
+
 API читает строку подключения `ConnectionStrings__mustask` (строка Npgsql),
 например
 `Host=127.0.0.1;Port=5432;Database=mustask;Username=mustask;Password=<…>`.
