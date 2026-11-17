@@ -61,9 +61,14 @@ public sealed class AccessSet
             return false;
         }
 
+        if (_seenProjects.TryGetValue(projectId, out var known))
+        {
+            return known;
+        }
+
         var memberOfLinkedTeam = _sight.TeamsOfProject.TryGetValue(projectId, out var teams) && teams.Any(_sight.MemberOfTeams.Contains);
 
-        return SightRules.SeesProject(Role, visibleToOrganization, Reaching(ResourceScope.Project, projectId).Count > 0, memberOfLinkedTeam);
+        return _seenProjects[projectId] = SightRules.SeesProject(Role, visibleToOrganization, Reaching(ResourceScope.Project, projectId).Count > 0, memberOfLinkedTeam);
     }
 
     /// <summary>Whether the caller sees the team (BR-TD-13); <c>false</c> for a team not in the organization.</summary>
@@ -79,10 +84,15 @@ public sealed class AccessSet
             return false;
         }
 
-        var grantOnDepartment = department is { } d && _areaGrants.ContainsKey(d);
-        var seesLinkedProject = _sight.TeamsOfProject.Any(pair => pair.Value.Contains(teamId) && SeesProject(pair.Key));
+        if (_seenTeams.TryGetValue(teamId, out var known))
+        {
+            return known;
+        }
 
-        return SightRules.SeesTeam(Role, _sight.MemberOfTeams.Contains(teamId), _teamGrants.ContainsKey(teamId) || grantOnDepartment, seesLinkedProject);
+        var grantOnDepartment = department is { } d && _areaGrants.ContainsKey(d);
+        var seesLinkedProject = ProjectsOfTeam[teamId].Any(SeesProject);
+
+        return _seenTeams[teamId] = SightRules.SeesTeam(Role, _sight.MemberOfTeams.Contains(teamId), _teamGrants.ContainsKey(teamId) || grantOnDepartment, seesLinkedProject);
     }
 
     /// <summary>
@@ -106,11 +116,44 @@ public sealed class AccessSet
             return node.ProjectId is { } projectId && SeesProject(projectId);
         }
 
-        var seesTeamInside = _sight.Teams.Any(pair => pair.Value == areaId && SeesTeam(pair.Key));
-        var seesProjectInside = _projectNodes.Values.Any(projectNode => projectNode.ParentId == areaId && SeesProject(projectNode.ProjectId!.Value));
+        var seesTeamInside = TeamsOfDepartment[areaId].Any(SeesTeam);
+        var seesProjectInside = ProjectsOfDepartment[areaId].Any(SeesProject);
 
         return SightRules.SeesDepartment(Role, _areaGrants.ContainsKey(areaId), seesTeamInside, seesProjectInside);
     }
+
+    /// <summary>
+    /// The ids of the projects, teams and departments the caller sees, for a read that filters, counts or pages in the database
+    /// (BR-TD-17): decided by <see cref="SeesProject"/>, <see cref="SeesTeam"/> and <see cref="SeesArea"/>, the one rule, over the
+    /// one set. <c>null</c> for the administrator, who sees everything and is not narrowed.
+    /// </summary>
+    public SightedIds? Sighted()
+    {
+        if (Role == OrganizationRole.Admin)
+        {
+            return null;
+        }
+
+        return new SightedIds(
+            _sight.Projects.Keys.Where(SeesProject).ToHashSet(),
+            _sight.Teams.Keys.Where(SeesTeam).ToHashSet(),
+            _nodes.Values.Where(node => node.Type == AreaType.Department && SeesArea(node.Id)).Select(node => node.Id).ToHashSet());
+    }
+
+    private readonly Dictionary<Guid, bool> _seenProjects = [];
+    private readonly Dictionary<Guid, bool> _seenTeams = [];
+    private ILookup<Guid, Guid>? _projectsOfTeam;
+    private ILookup<Guid, Guid>? _teamsOfDepartment;
+    private ILookup<Guid, Guid>? _projectsOfDepartment;
+
+    private ILookup<Guid, Guid> ProjectsOfTeam =>
+        _projectsOfTeam ??= _sight.TeamsOfProject.SelectMany(pair => pair.Value.Select(team => (team, project: pair.Key))).ToLookup(pair => pair.team, pair => pair.project);
+
+    private ILookup<Guid, Guid> TeamsOfDepartment =>
+        _teamsOfDepartment ??= _sight.Teams.Where(pair => pair.Value is not null).ToLookup(pair => pair.Value!.Value, pair => pair.Key);
+
+    private ILookup<Guid, Guid> ProjectsOfDepartment =>
+        _projectsOfDepartment ??= _projectNodes.Values.Where(node => node.ParentId is not null).ToLookup(node => node.ParentId!.Value, node => node.ProjectId!.Value);
 
     /// <summary>The caller's codes on one object of <paramref name="scope"/>; an unknown object is judged by the role alone.</summary>
     public IReadOnlySet<string> CodesOn(ResourceScope scope, Guid objectId)
@@ -200,3 +243,6 @@ public sealed class AccessSet
         }
     }
 }
+
+/// <summary>The projects, teams and departments a non-administrator sees (BR-TD-12..-14), as sets of ids.</summary>
+public sealed record SightedIds(IReadOnlySet<Guid> Projects, IReadOnlySet<Guid> Teams, IReadOnlySet<Guid> Departments);

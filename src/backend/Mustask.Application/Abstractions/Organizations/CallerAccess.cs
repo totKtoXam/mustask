@@ -13,4 +13,5 @@ namespace Mustask.Application.Abstractions.Organizations;
 /// <param name="OrganizationId">The organization of the address, which the scoped check has already found the caller a member of.</param>
 /// <param name="UserId">The caller's subject (the token's <c>sub</c>), the key of their memberships.</param>
 /// <param name="Role">The caller's role in <paramref name="OrganizationId"/>.</param>
-public sealed record CallerAccess(Guid OrganizationId, string UserId, OrganizationRole Role);
+/// <param name="Sight">What the caller sees (feat-061, BR-TD-17): the ids of the visible projects, teams and departments; <c>null</c> for the administrator, who is not narrowed. A read that names or counts them applies it before paging and counting.</param>
+public sealed record CallerAccess(Guid OrganizationId, string UserId, OrganizationRole Role, SightedIds? Sight = null);

@@ -71,10 +71,11 @@ public sealed class NavigationReadsQaTests(MustaskApiFactory factory)
         await MembershipTestData.AddTeamMemberAsync(factory, o, venus.Id, olga.Id);
 
         var overview = (await GetAsync(o, "overview", olga.Token)).Body;
-        Assert.Equal((2, 4, 3), (overview.GetProperty("departmentCount").GetInt32(), overview.GetProperty("projectCount").GetInt32(), overview.GetProperty("teamCount").GetInt32()));
+        // feat-061 (BR-TD-17): Olga is a member of VENUS only; JUPITER is linked to nothing she sees, so it is hidden from every count and list.
+        Assert.Equal((2, 4, 2), (overview.GetProperty("departmentCount").GetInt32(), overview.GetProperty("projectCount").GetInt32(), overview.GetProperty("teamCount").GetInt32()));
         Assert.Equal(["Логистика", "Финансы"], Names(overview.GetProperty("departments")));
         Assert.Equal(["A", "B", "C", "D"], Names(overview.GetProperty("projects")));
-        Assert.Equal(["JUPITER", "MARS", "VENUS"], Names(overview.GetProperty("teams")));
+        Assert.Equal(["MARS", "VENUS"], Names(overview.GetProperty("teams")));
         Assert.Equal(["VENUS"], Names(overview.GetProperty("myTeams")));
 
         var offers = (await GetAsync(o, "selector-offers", olga.Token)).Body;
@@ -92,7 +93,7 @@ public sealed class NavigationReadsQaTests(MustaskApiFactory factory)
         Assert.True(Row(teams, "VENUS").GetProperty("isMember").GetBoolean());
         Assert.False(Row(teams, "MARS").GetProperty("isMember").GetBoolean());
         Assert.Equal(logistics.Id, Row(teams, "MARS").GetProperty("departmentId").GetGuid());
-        Assert.Equal(logistics.Id, Row(teams, "JUPITER").GetProperty("departmentId").GetGuid());
+        Assert.DoesNotContain("JUPITER", Names(teams));
     }
 
     // BR-NV-17 / US-7 · the offers follow the writes: a project moved to the top level loses its place, a deleted team vanishes everywhere.

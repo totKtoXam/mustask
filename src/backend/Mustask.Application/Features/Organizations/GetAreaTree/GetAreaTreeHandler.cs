@@ -47,6 +47,7 @@ public sealed class GetAreaTreeHandler(IAreaTreeReadModel readModel, IOrganizati
         var set = await access.SetAsync(cancellationToken);
 
         var items = tree.PreOrder()
+            .Where(node => set.SeesArea(node.Id))
             .Where(node => !filtered || (node.Type == AreaType.Department && set.Holds(PermissionCatalog.OrganizationsAreaLink, node.Id)))
             .Select(node => new AreaNodeResponse(
                 node.Id,

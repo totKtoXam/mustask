@@ -178,7 +178,58 @@ public sealed class NavigationReadModelTests(OrganizationsDatabaseFixture databa
         await using var provider = interceptor is null ? database.BuildServices() : database.BuildServices(interceptor);
         await using var scope = provider.CreateAsyncScope();
 
-        return await read(scope.ServiceProvider.GetRequiredService<INavigationReadModel>(), new CallerAccess(organizationId, userId, OrganizationRole.Member));
+        return await read(scope.ServiceProvider.GetRequiredService<INavigationReadModel>(), new CallerAccess(organizationId, userId, OrganizationRole.Admin));
+    }
+
+
+    // feat-061 BR-TD-17 · a caller's sight narrows the counts, the cut rows and the offers inside the same statements, and the cut is taken
+    // among the visible: the visible objects sort last, after six hidden ones.
+    [Fact]
+    public async Task ASight_NarrowsCountsRowsAndOffers_BeforeTheCut_InTheSameStatements()
+    {
+        var world = await SeedAsync(projects: 8, teams: 7, departments: 6);
+        await using var context = database.NewContext();
+        var projects = await context.Projects.Where(project => project.OrganizationId == world.Organization).OrderByDescending(project => project.Key).Take(2).Select(project => project.Id).ToListAsync();
+        var departments = await context.Areas.Where(area => area.OrganizationId == world.Organization && area.Type == AreaType.Department).OrderByDescending(area => area.Name).Take(1).Select(area => area.Id).ToListAsync();
+        var teams = world.Teams.Skip(world.Teams.Count - 1).ToList();
+        var sight = new SightedIds(projects.ToHashSet(), teams.ToHashSet(), departments.ToHashSet());
+
+        var overviewCounter = new CommandCountingInterceptor();
+        var overview = await ReadAsync(overviewCounter, world.Organization, "u-x", OrganizationRole.Member, sight, (model, caller) => model.ReadOverviewAsync(caller, CancellationToken.None));
+        var offersCounter = new CommandCountingInterceptor();
+        var offers = await ReadAsync(offersCounter, world.Organization, "u-x", OrganizationRole.Member, sight, (model, caller) => model.ReadSelectorOffersAsync(caller, CancellationToken.None));
+
+        Assert.Equal(OverviewStatements, overviewCounter.Commands.Count);
+        Assert.Equal(OffersStatements, offersCounter.Commands.Count);
+        Assert.Equal((1, 2, 1), (overview.DepartmentCount, overview.ProjectCount, overview.TeamCount));
+        Assert.Equal(projects.Order(), overview.Projects.Select(row => row.Id).Order());
+        Assert.Equal(departments, overview.Departments.Select(row => row.Id));
+        Assert.Equal(teams, overview.Teams.Select(row => row.Id));
+        Assert.Equal(projects.Order(), offers.Projects.Select(row => row.Id).Order());
+        Assert.Equal(departments, offers.Departments.Select(row => row.Id));
+        Assert.Equal(teams, offers.Teams.Select(row => row.Id));
+        Assert.All(offers.Projects, project => Assert.All(project.TeamIds, id => Assert.Contains(id, teams)));
+    }
+
+    // feat-061 · fail closed: a non-administrator caller with no sight is a programming error, never the whole organization.
+    [Fact]
+    public async Task ANonAdministratorWithoutASight_IsRefused_NotServedTheWholeOrganization()
+    {
+        var world = await SeedAsync(projects: 1, teams: 1, departments: 1);
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            ReadAsync(null, world.Organization, "u-x", OrganizationRole.Member, null, (model, caller) => model.ReadOverviewAsync(caller, CancellationToken.None)));
+        await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            ReadAsync(null, world.Organization, "u-x", OrganizationRole.Viewer, null, (model, caller) => model.ReadSelectorOffersAsync(caller, CancellationToken.None)));
+    }
+
+    private async Task<TResult> ReadAsync<TResult>(
+        IInterceptor? interceptor, Guid organizationId, string userId, OrganizationRole role, SightedIds? sight, Func<INavigationReadModel, CallerAccess, Task<TResult>> read)
+    {
+        await using var provider = interceptor is null ? database.BuildServices() : database.BuildServices(interceptor);
+        await using var scope = provider.CreateAsyncScope();
+
+        return await read(scope.ServiceProvider.GetRequiredService<INavigationReadModel>(), new CallerAccess(organizationId, userId, role, sight));
     }
 
     private sealed record World(Guid Organization, IReadOnlyList<Guid> Teams);

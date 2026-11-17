@@ -25,6 +25,6 @@ public sealed class GetWritableAreaIdsHandler(IAreaTreeReadModel readModel, IOrg
         var rows = await readModel.GetRowsAsync(organizationId, cancellationToken);
         var set = await access.SetAsync(cancellationToken);
 
-        return rows.Where(row => set.Holds(PermissionCatalog.OrganizationsAreaWrite, row.Id)).Select(row => row.Id).ToList();
+        return rows.Where(row => set.SeesArea(row.Id) && set.Holds(PermissionCatalog.OrganizationsAreaWrite, row.Id)).Select(row => row.Id).ToList();
     }
 }
