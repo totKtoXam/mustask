@@ -529,4 +529,40 @@ describe('doc-016 BR-TD-21 (feat-061): the «Структура» filter field',
     await userEvent.type(screen.getByPlaceholderText(FIELD), 'нет такого');
     expect(await screen.findByText('Ничего не найдено')).toBeInTheDocument();
   });
+
+  it('a team name finds its department, and keeps nothing else', async () => {
+    serveOrganizations();
+    renderPage({ path: AREAS });
+    await treegrid();
+
+    await userEvent.type(screen.getByPlaceholderText(FIELD), 'СТАРЫЙ');
+    await waitFor(() => expect(screen.queryByText('Аналитика')).not.toBeInTheDocument());
+    expect(row('Платформа')).toBeInTheDocument();
+  });
+
+  it('«Очистить фильтры» empties it, and the diagram tab has no such field', async () => {
+    serveOrganizations();
+    renderPage({ path: AREAS });
+    await treegrid();
+
+    const field = screen.getByPlaceholderText(FIELD);
+    await userEvent.type(field, 'prm');
+    await userEvent.click(await screen.findByRole('button', { name: 'Очистить фильтры' }));
+    expect(field).toHaveValue('');
+
+    await userEvent.click(screen.getByRole('tab', { name: 'Диаграмма' }));
+    expect(screen.queryByPlaceholderText(FIELD)).not.toBeInTheDocument();
+  });
+
+  it('is not remembered: a fresh visit starts with an empty field', async () => {
+    serveOrganizations();
+    const first = renderPage({ path: AREAS });
+    await treegrid();
+    await userEvent.type(screen.getByPlaceholderText(FIELD), 'prm');
+    first.unmount();
+
+    renderPage({ path: AREAS });
+    await treegrid();
+    expect(screen.getByPlaceholderText(FIELD)).toHaveValue('');
+  });
 });

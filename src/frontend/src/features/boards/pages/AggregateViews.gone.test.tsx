@@ -42,6 +42,16 @@ describe('feat-061: a hidden selection on the aggregate views', () => {
     expect(screen.queryByRole('button', { name: 'Повторить' })).not.toBeInTheDocument();
   });
 
+  it('the board shows the frame when the groups read is a 404', async () => {
+    serveAggregate({
+      groups: { project: [header('project', 'p-1', 'Мастаск', 1, { key: 'MSK' })] },
+      fail: (request) => (request.kind === 'groups' ? GONE() : undefined),
+    });
+    renderAggregate(orgAddress('boards'));
+    expect(await screen.findByText('Область не найдена')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Повторить' })).not.toBeInTheDocument();
+  });
+
   it('keeps the generic error for any other failure', async () => {
     serveAggregate({
       groups: { project: [] },

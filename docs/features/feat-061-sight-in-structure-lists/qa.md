@@ -47,3 +47,59 @@ No blocker or major found.
 ### Verdict
 
 Backend QA passed: no blocker, no major, one minor. E2E: not asked (standing answer NO).
+
+## Frontend
+
+Plan written from doc-016 spec (BR-TD-17, BR-TD-21, US-6), design.md § 3.1 and § 7.2, and feat-041 review R-4, before the code was read. Sight itself is the server's (backend QA); the frontend must not add a hidden object back and must not invent a second match.
+
+### Coverage matrix
+
+| Criterion | Check | Test | Status |
+|---|---|---|---|
+| BR-TD-21 label | placeholder «Найти департамент, команду или проект» exact (design § 7.2) | `AreasPage.test.tsx` (field) | pass |
+| ~360 px, under the title | `fieldWidth={360}` in the filter band under the title | code read | pass |
+| From the first character, case-insensitive | «prm» hits at 3 chars; «СТАРЫЙ» upper case finds a team | AreasPage, `structureFilter.test.ts` | pass |
+| Name and project key | key `WH`/`BUD` via `GET projects`; no key given, no match | `structureFilter.test.ts` | pass |
+| Hides non-matches, a department stays while a child matches | ancestors kept; matching department keeps its descendants (design § 7.2) | `structureFilter.test.ts` | pass |
+| Not remembered, never navigates | plain `useState`; a fresh mount starts empty; the filter only narrows rows | added `is not remembered` | pass |
+| «Ничего не найдено» | frame text | AreasPage | pass |
+| Esc / × clears | Esc and «Очистить фильтры» | AreasPage, added | pass |
+| Sight-scoped | candidates are the server-narrowed tree, projects and teams reads (both narrowed by backend QA); no client list of hidden objects | code read + backend `StructureListsSightTests` | pass |
+| R-4 selectors never offer a hidden object | offers, remembered-selection repair, «Остальные» read only server offers | unchanged code, backend offers tests | pass |
+| R-4 gone selection: no generic error, no «Повторить» | backlog, flat «Рабочие элементы», board answer the not-found frame, generic error kept for other failures | `AggregateViews.gone.test.tsx` (backlog, flat, board added, 500) | pass |
+
+Copy checked exactly against design.md: label, «Ничего не найдено», «Очистить фильтры» (existing FilterBar). Not checked in a browser (no dev server, economy).
+
+### Deviations judged
+
+| Developer deviation | Verdict |
+|---|---|
+| Filter acts on the existing «Дерево» tab; «Список»/«Дерево» redesign is not in this branch | Acceptable. The design's views do not exist here; the tree view the page has is the one design § 7.2 describes for «Дерево». Nothing hidden can show on it. |
+| Diagram's own search («Найти узел») not narrowed; the field is absent on the diagram tab | Acceptable, minor (m-2): BR-TD-21 says the field filters "whichever view is open", but the diagram has its own search and, like all views, is built from the server-narrowed tree, so no leak. |
+| A team match keeps only its department | Acceptable, minor (m-3): the tree has no team rows, so the user finds a department with no visible reason; the design's list cards show team chips. Closes with the «Список» redesign. |
+| Stale-offers 404 shows the object's not-found frame, not the ADR-0032 § 6 repair notice | Acceptable. R-4 asks for no generic error and no «Повторить»; the frame with navigation kept ends that. The remembered-selection repair stays the path for the stored selection. |
+
+### Tests added
+
+- `AreasPage.test.tsx` +3: a team name finds its department and keeps nothing else; «Очистить фильтры» empties the field and the diagram tab has no field; not remembered across a fresh visit.
+- `AggregateViews.gone.test.tsx` +1: the board shows «Область не найдена» without «Повторить».
+
+### Runs
+
+| Date | What was run | Result |
+|---|---|---|
+| 2026-11-17 | `vitest run` structureFilter.test.ts, AreasPage.test.tsx, AggregateViews.gone.test.tsx | 6, 32, 4 passed |
+| 2026-11-17 | ESLint, Prettier on the two touched test files | clean (after `prettier --write`) |
+
+Developer's other runs (6 `AggregateViews*` files, `tsc -b`) not repeated. E2E: not asked, standing answer NO.
+
+### Defects
+
+- m-2 (minor): the diagram tab has no «Структура» filter field; "whichever view is open" is only half met. Debt to gate-3, with the «Список»/«Дерево» redesign.
+- m-3 (minor): a team match highlights only its department; a sub-area (type `area`) name also matches though the spec names only departments, teams, projects and keys. Debt to gate-3.
+
+No blocker or major found.
+
+### Verdict
+
+Frontend QA passed: no blocker, no major, two minors. Stage: 8-review.
