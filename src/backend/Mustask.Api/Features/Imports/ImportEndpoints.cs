@@ -212,12 +212,17 @@ public static class ImportEndpoints
 
         var options = new FileSourceBody(
             form["sheet"].ToString(), IntOf(form["headerRow"]), IntOf(form["firstDataRow"]), form["encoding"].ToString(), form["delimiter"].ToString());
-        var uploaded = await handler.Handle(new UploadFileCommand(organizationId, Path.GetFileName(file.FileName), buffer.ToArray(), options), cancellationToken);
+        var uploaded = await handler.Handle(new UploadFileCommand(organizationId, BaseNameOf(file.FileName),buffer.ToArray(), options), cancellationToken);
 
         return Results.Created($"/api/organizations/{organizationId}/imports/files/{uploaded.FileId}/columns", uploaded);
     }
 
     private static int? IntOf(string? text) => int.TryParse(text, out var value) ? value : null;
+
+    // A browser may send a full client path, Windows-style even to a Linux server, where
+    // Path.GetFileName splits only on '/' — so both separators are cut here.
+    private static string BaseNameOf(string clientName) =>
+        clientName[(clientName.LastIndexOfAny(['/', '\\']) + 1)..];
 }
 
 /// <summary>The body of `POST /imports/templates/{id}/dry-runs` (§ 4.1).</summary>
