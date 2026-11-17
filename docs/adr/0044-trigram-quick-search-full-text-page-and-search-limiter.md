@@ -1,6 +1,6 @@
 # ADR-0044: Match the quick search by pg_trgm substring with a similarity tier, build the full search page on Postgres full-text, and limit searches per user and per process
 
-- Status: proposed
+- Status: accepted (accepted 2026-11-17)
 - Date: 2026-11-17
 - Context: `feat-071-search-structure-users-read` ([plan](../features/feat-071-search-structure-users-read/plan-backend.md)), owed by `feat-065-global-search` (OQ-2, decided at its gate-1 2026-11-13: "one ADR covers both"; [spec](../features/feat-065-global-search/spec.md) BR-GS-3, -7, -17, -18; [design](../features/feat-065-global-search/design.md) D-7). **Departs from ADR-0015's note** that "full-text search … a new ADR" is owed; **does not amend ADR-0036** (its limiter is kept, this one is added beside it). Accepted only by the human (`docs/adr/README.md`, rule 2).
 

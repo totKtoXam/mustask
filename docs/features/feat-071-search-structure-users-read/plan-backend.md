@@ -97,7 +97,7 @@ ADR-0005 (error codes), ADR-0007 (error envelope), ADR-0009/-0012 (EF Core reads
 
 Migration → Domain rules and tests → `ISearchReadModel` + read model with the statement-count and hidden-object tests → handler/validator → endpoint, limiter, catalogue → volume test → `qa.md` input. Small commits per step, green after each.
 
-## Open questions for gate-1
+## Open questions for gate-1 (decided by the human 2026-11-17: all as recommended; Q-4 the human confirmed `pg_trgm` is available on the production host)
 
 - **Q-1 Separate limiter instance or share ADR-0036's permits?** Recommendation: **separate** (§ 5). Shared would let group reads starve the palette; the cost is 24 more connections at the extreme (64 of 100).
 - **Q-2 Sight sets as id arrays from the in-memory `AccessSet`, or re-express sight as SQL joins?** Recommendation: **arrays** (§ 2.2): ADR-0040's set form is the single source, parity-tested; a second SQL expression of the sight rule would be a second place to get it wrong. Revisit only if the volume test fails for the restricted user.

@@ -10,7 +10,7 @@
 
 ## Gates
 
-gate-1: pending
+gate-1: approved (by the human in chat, 2026-11-17)
 gate-3: pending
 
 ## Plan
