@@ -59,3 +59,4 @@ Verification: affected tests locally, the full verify.sh in CI.
 - 2026-11-18 [orchestrator] the human decided feat-057 delivers the sight clauses on its own team sprint board (relayed by the feat-057 session); already out of this scope. Cross-reference notes added to feat-041 and mod-007 status.md.
 - 2026-11-18 [backend QA] pass: 12 sight tests green (3 added: sprint range, selector ids, grant/linked-team sight); 0 blocker/major, 1 minor (D-1 fail-open defaults) carried to gate-3; no frontend change needed; stage 6-frontend (skip). See qa.md.
 - 2026-11-18 [orchestrator] stages 6-7 skipped: no route, shape, status or copy changed (backend QA confirmed); stage: 8-review.
+- 2026-11-18 [code-reviewer] round 1 (general + L security pass) over 41a017f4..04e099f9: changes-requested; open: 2 major (R-1 hidden team in default-team/unlink-destination bodies answers 409, R-2 contract § 6 audit claim), 4 minor (R-3..R-6). See review.md.
