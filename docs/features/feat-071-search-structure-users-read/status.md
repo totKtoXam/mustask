@@ -15,13 +15,16 @@ gate-3: pending
 
 ## Plan
 
-<!-- L: see plan-backend.md -->
+Backend plan: [plan-backend.md](plan-backend.md); contract: [api-contract.md](api-contract.md).
+One new `Search` module, one `POST /api/organizations/{id}/search`, sight sets first, one statement per group; pg_trgm migration.
+Decision record: ADR-0044 (proposed), accepted with the plan at gate-1; open questions Q-1..Q-5 at the end of the plan.
 
 ## Log
 
 - 2026-11-17 [new-task] task started; session bound to worktree .claude/worktrees/objective-torvalds-200108, branch cut from feat/041-project-visibility (PR #203 not merged yet; origin/main is merged in once it lands). Queue line taken by PR #210.
 - 2026-11-17 [new-task] size mismatch: queue has size:M, human confirmed L
 - 2026-11-17 [orchestrator] route confirmed by the human in chat: L (thresholds: an ADR for the match technique and the limiter; a new Search slice; pg_trgm and indexes on other modules' tables). Requirements and design are feat-065's (gate-1 and gate-2 approved there 2026-11-13). Route: plan-backend + api-contract + ADR (proposed) → gate-1 here (the human accepts the ADR and the plan) → backend dev → QA → code review → gate-3 → PR. gate-2 has no subject (no UI). Economy mode: one agent per stage, one Opus review; E2E: no (standing answer).
+- 2026-11-17 [backend-developer] plan-backend.md, api-contract.md, ADR-0044 (proposed) written; questions Q-1..Q-5 (limiter separate, sight arrays, raw-SQL indexes, pg_trgm on prod host, CI volume margin)
 
 ## Notes
 
