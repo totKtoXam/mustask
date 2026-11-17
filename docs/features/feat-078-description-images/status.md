@@ -3,7 +3,7 @@
 - type: feature
 - size: L
 - branch: feat/078-description-images
-- stage: 02-requirements-review
+- stage: 03-ux-design
 - epic: core/work-items
 - deps: feat-018
 - gates: gate-1, gate-2, gate-3
@@ -11,7 +11,7 @@
 ## Gates
 
 requirements-review: needs-human-decision (review.md Round 1: R-1..R-15, 14 resolved in the spec, R-14 accepted-risk; OQ-1..OQ-7 for the human)
-gate-1: pending
+gate-1: approved (the human, 2026-11-17)
 gate-2: pending
 gate-3: pending
 
@@ -28,6 +28,7 @@ gate-3: pending
 - 2026-11-16 [business-analyst] stage 1 done: spec.md + US-1..US-5 (insert; upload checks and compression; stored form and reference rules; reads; sweep and purge). D-4: feat-078 ships the store, the unbound-upload model with a purpose slot, opaque addresses, the 2 h hourly sweep and the image-only description; feat-059 ships the feedback upload operation and binding (BR-IM-19). D-5: crop spun out as feat-NNN-description-image-crop (S). mod-004 is not a dependency (D-1). OQ-1..OQ-7 open for the human (formats, caps, compression, removed images, the 2 h window for items, crop split, animation), each with a recommendation. feat-059's files were read from its worktree on disk
 - 2026-11-16 [requirements-reviewer] stage 2 round 1: verdict needs-human-decision. 15 findings (6 major, 9 minor), all but R-14 (no quotas, accepted-risk) fixed directly in spec.md and US-1..US-5: the feat-059 seam completed (editor takes upload and address from its host, per-purpose binding/reading, stored reference is an identifier), sweep timing in US-5 fixed to BR-IM-16, bind/sweep race ruled out, cap boundary row fixed, animation frame caps added (1 000 frames, 600 MP total), "without visible loss" made measurable (SSIM reference and method, colour profile, orientation), placement rules, no shared caching. OQ-1..OQ-7 remain for gate-1
 - 2026-11-16 [business-analyst] the human's gate-1 answers applied: OQ-1, -3..-7 as recommended, now D-6, D-8, D-9, D-3, D-5, D-10; OQ-2 changed (D-7): stored images at most 5 MB, a still image over 5 MB is reduced in the system on the member's request and inserted only after they accept the shown result. New BR-IM-20 and story US-6 (the offer, before → after with a preview, cancel paths, cannot-reduce, no offer for animations) with its Russian copy; BR-IM-3 split into the stored cap (5 MB) and the intake for a reduction (20 MB); US-1/US-2 caps, notices and figures updated; NFR speeds re-based. Other caps unchanged, still consistent. New OQ-8 (20 MB intake) and OQ-9 (reduction floors: similarity 0.95, half size, format kept, so a PNG photo may still be refused) for the human. Gate values untouched
+- 2026-11-17 [orchestrator] gate-1: the human answered OQ-8 (20 MB intake) and OQ-9 (half size, similarity 0.95, format kept) as recommended and approved the requirements (6 stories, the feat-059 split, crop as its own S line, R-14 no-quota risk accepted); US-6 was not re-reviewed, the human chose approve over a delta review. Stage 3 started
 
 ## Notes
 

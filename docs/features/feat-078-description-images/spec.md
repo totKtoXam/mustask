@@ -182,16 +182,17 @@ D-8 and D-9: a large photographic PNG within 5 MB is only re-compressed
 losslessly; an image taken out of the text by mistake stays readable by the
 item's readers until the purge.
 
-D-7 leaves two choices the spec is written to; each is the recommendation.
+D-7 left two choices; the human took the recommendation on both at gate-1
+(2026-11-17).
 
-- [ ] **OQ-8. How big a file the system takes in to reduce.** Recommended:
+- [x] **OQ-8. How big a file the system takes in to reduce.** Recommended:
       20 MB (BR-IM-3 (b)). A 5 MB ceiling on what is sent would make "reduce
       in the system" impossible, so the over-5-MB file has to travel, and the
       ceiling bounds that transfer and the decoding work. 20 MB covers phone
       photos (48-50 MP JPEGs are 10-20 MB) and 4K-5K screenshots; above it
       the member reduces the file elsewhere. Alternative: 50 MB (camera
       originals), at more server memory per reduction.
-- [ ] **OQ-9. How far the reduction may go, and a PNG photo.** Recommended
+- [x] **OQ-9. How far the reduction may go, and a PNG photo.** Recommended
       (BR-IM-20 (2)): quality never below similarity 0.95, size never below
       half the width and height, and the format kept, so a PNG stays lossless
       and is only scaled. The member sees the result before accepting, so
