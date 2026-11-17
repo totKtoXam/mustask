@@ -4,6 +4,7 @@ using Mustask.Application.Abstractions.Dictionaries;
 using Mustask.Application.Abstractions.Iterations;
 using Mustask.Application.Abstractions.Organizations;
 using Mustask.Application.Abstractions.Process;
+using Mustask.Application.Abstractions.Search;
 using Mustask.Application.Abstractions.RichText;
 using Mustask.Application.Features.Boards;
 using Mustask.Application.Features.Organizations;
@@ -14,6 +15,7 @@ using Mustask.Infrastructure.Dictionaries.Seeding;
 using Mustask.Infrastructure.Iterations;
 using Mustask.Infrastructure.Organizations;
 using Mustask.Infrastructure.Process;
+using Mustask.Infrastructure.Search;
 using Mustask.Infrastructure.RichText;
 using Mustask.Application.Abstractions.UserDirectory;
 using Mustask.Application.Abstractions.WorkItems;
@@ -88,6 +90,9 @@ public static class DependencyInjection
         // Boards and backlogs (mod-006): M4's backlog read model and the order's repository.
         builder.Services.AddBoardsInfrastructure();
 
+        // The quick search (feat-071): its read model, over the other modules' tables.
+        builder.Services.AddSearchInfrastructure();
+
         // Iterations (mod-007): team sprints, their repository and read model.
         builder.Services.AddIterationsInfrastructure();
 
@@ -114,6 +119,14 @@ public static class DependencyInjection
 
             return new HtmlRichTextReducer(RichTextVocabulary.LoadEmbedded(), options);
         });
+
+        return services;
+    }
+
+    /// <summary>The quick search's read model (feat-071), scoped. Public for the test hosts.</summary>
+    public static IServiceCollection AddSearchInfrastructure(this IServiceCollection services)
+    {
+        services.AddScoped<ISearchReadModel, SearchReadModel>();
 
         return services;
     }

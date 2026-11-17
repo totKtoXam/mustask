@@ -228,6 +228,9 @@ public static class DependencyInjection
         services.AddScoped<Mustask.Application.Features.WorkItems.GetOrganizationWorkItems.GetOrganizationWorkItemsHandler>();
         services.AddScoped<Mustask.Application.Features.WorkItems.GetOrganizationAssigneeOptions.GetOrganizationAssigneeOptionsHandler>();
 
+        // The quick search (feat-071): the one route of SearchEndpoints.cs.
+        services.AddScoped<Mustask.Application.Features.Search.SearchStructure.SearchStructureHandler>();
+
         // Iterations (mod-007): one handler per route of IterationsEndpoints.cs.
         services.AddScoped<Mustask.Application.Features.Iterations.CreateSprint.CreateSprintHandler>();
         services.AddScoped<Mustask.Application.Features.Iterations.UpdateSprint.UpdateSprintHandler>();
