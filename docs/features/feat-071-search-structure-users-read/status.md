@@ -3,7 +3,7 @@
 - type: feature
 - size: L
 - branch: feat/071-search-structure-users-read
-- stage: 07-mr
+- stage: complete
 - epic: platform/ui
 - deps: feat-041
 - gates: gate-1, gate-3
