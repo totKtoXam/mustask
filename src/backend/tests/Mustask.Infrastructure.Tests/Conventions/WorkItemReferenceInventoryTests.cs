@@ -53,13 +53,15 @@ public sealed class WorkItemReferenceInventoryTests
         Assert.True(failures.Count == 0, string.Join(Environment.NewLine, failures));
     }
 
-    // The guard against passing vacuously: today's four references must be found, with the keys they have.
+    // The guard against passing vacuously: today's five references must be found, with the keys they have.
     [Fact]
-    public void TheInventory_FindsTodaysFourReferences()
+    public void TheInventory_FindsTodaysFiveReferences()
     {
         var references = ReferencesOfTheModel();
 
-        Assert.Equal(["BacklogPlace.WorkItemId", "ProjectBacklogPlace.WorkItemId", "SprintSnapshotItem.WorkItemId", "WorkItem.ParentId"], references.Select(reference => reference.Name).Order());
+        Assert.Equal(["BacklogPlace.WorkItemId", "Image.WorkItemId", "ProjectBacklogPlace.WorkItemId", "SprintSnapshotItem.WorkItemId", "WorkItem.ParentId"], references.Select(reference => reference.Name).Order());
+        // feat-078: an image goes with its item (ADR-0045 decision 1).
+        Assert.Equal(DeleteBehavior.Cascade, references.Single(reference => reference.Name == "Image.WorkItemId").Behavior);
         Assert.Equal(DeleteBehavior.Cascade, references.Single(reference => reference.Name == "BacklogPlace.WorkItemId").Behavior);
         Assert.Equal(DeleteBehavior.Cascade, references.Single(reference => reference.Name == "ProjectBacklogPlace.WorkItemId").Behavior);
         Assert.Equal(DeleteBehavior.Restrict, references.Single(reference => reference.Name == "WorkItem.ParentId").Behavior);

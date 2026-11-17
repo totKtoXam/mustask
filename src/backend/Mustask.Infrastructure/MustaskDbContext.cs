@@ -1,4 +1,5 @@
 using Mustask.Domain.Dictionaries;
+using Mustask.Domain.Images;
 using Mustask.Domain.Iterations;
 using Mustask.Domain.Organizations;
 using Mustask.Domain.Process;
@@ -78,6 +79,11 @@ public sealed class MustaskDbContext(DbContextOptions<MustaskDbContext> options)
     public DbSet<Domain.Imports.ImportFile> ImportFiles => Set<Domain.Imports.ImportFile>();
 
     public DbSet<Domain.Imports.ImportDryRun> ImportDryRuns => Set<Domain.Imports.ImportDryRun>();
+
+    /// <summary>feat-078 (ADR-0045): the image store, in the schema images.</summary>
+    public DbSet<Image> Images => Set<Image>();
+
+    public DbSet<ImageContent> ImageContents => Set<ImageContent>();
 
     /// <summary>M5 (mod-007): a team's sprints. The number counter and the close snapshot are mapped with no DbSet (raw SQL and Set<T>).</summary>
     public DbSet<Sprint> Sprints => Set<Sprint>();
