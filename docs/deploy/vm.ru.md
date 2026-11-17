@@ -414,6 +414,10 @@ sudo bash mustask-v0.1.0/kit/install.sh nginx --host mustask.example.com \
   cookie сессии (~3.5 КБ на пустом realm и больше с каждым claim общего realm)
   плюс очищаемыми OIDC-cookie; со стандартным буфером заголовков nginx
   4–8 КБ каждый вход получает 502.
+- `client_max_body_size 21m` (в `location /api/`): загрузка картинки — это байты файла в теле
+  запроса, а сжатие картинки больше 5 МБ принимает до 20 МБ (20 971 520 байт). Стандартный 1 МБ nginx
+  ответил бы 413 раньше, чем запрос дойдёт до API; 21 МБ — собственный предел API с небольшим запасом,
+  всё, что больше, API отклоняет своим ответом. Прокси перед этим nginx нужен тот же предел.
 
 ### 7.2 Путь на общем хосте
 
@@ -423,8 +427,8 @@ location-блоки из
 [`deploy/vm/nginx-mustask-locations.conf`](../../deploy/vm/nginx-mustask-locations.conf):
 
 - `location /mustask/api/` уходит на `127.0.0.1:5000` с forwarded-заголовками
-  и теми же тремя настройками буферов прокси, что и в 7.1 (причина та же: без
-  них каждый вход получает 502);
+  теми же тремя настройками буферов прокси, что и в 7.1 (причина та же: без
+  них каждый вход получает 502) и тем же `client_max_body_size 21m` (картинки, см. 7.1);
 - `location /mustask/` отдаёт панель из `/opt/mustask/current/panel/` через
   `alias`, а неизвестный путь возвращается к `/mustask/index.html`; `/mustask`
   без слеша перенаправляет на `/mustask/`;
@@ -586,6 +590,7 @@ sudo bash mustask-v0.2.0/kit/install.sh status      # активный VERSION �
 | API падает на старте, называя ключ `Keycloak:*` или `Session:PanelUrl` | В `mustask.env` нет переменной. |
 | API падает на старте из-за секрета «known placeholder or shorter than 32» | `Keycloak__ClientSecret` — не настоящий секрет `mustask-panel`. |
 | `nginx -t`: `unknown directive "http2"` | nginx старше 1.25.1 и сайт правили вручную: оставьте `listen 443 ssl http2;` (раздел 7). |
+| Вставка или загрузка картинки в описание отвечает **413** от nginx (HTML-страница, а не JSON API) | В `location /api/` нет `client_max_body_size 21m` (раздел 7) или у прокси перед этим nginx предел меньше. |
 | После логина в Keycloak браузер получает **502** на `/api/session/callback`; в error-логе nginx «upstream sent too big header» | Нет буферов прокси из раздела 7: cookie сессии не помещается в стандартный буфер заголовков nginx. |
 | `/health` нездоров и называет realm; в логе ошибка TLS / сертификата | VM не доверяет CA сертификата Keycloak (раздел 2). |
 | `dotnet ef` падает с `NETSDK1004` (без кита) | Сначала выполните `dotnet restore src/backend/Mustask.Infrastructure` (раздел 3). |
