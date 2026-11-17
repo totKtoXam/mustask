@@ -126,3 +126,29 @@ Not swept: the Boards/WorkItems prose on aggregate headers (feat-062's behaviour
 - R-3 fixed: plan-backend § Paging and counts records the deviation and the rule (a list that gains paging moves the filter into SQL via `Sighted()`).
 - R-4 fixed: `filterTree` and its test removed from `areaTree.ts` / `areaTree.test.ts`.
 - R-5 fixed: the test comment now says MARS stays through the deactivated A (m-1).
+
+## Round 2 (delta)
+
+Delta read of b738187a against Round 1's open findings (the merge of origin/main, 1c029e6d, not reviewed). Run, in the foreground:
+`StructureListsSightTests` 12 passed. That build compiled Application, Infrastructure and Api with the now-required parameter.
+
+**Verdict: approved** — blockers 0 · majors 0 · Round 1 minors R-1..R-5 closed, no new finding. QA's m-1..m-3 stay open as gate-3 debts.
+
+- **R-1 · closed.** `StructureListsSightTests.cs:395-417`: the caller holds Manager grants on «Логистика», VENUS and MARS, and the three
+  `linkableFor` reads assert exact non-empty sets ({A, B}, {VENUS, MARS}, {«Логистика»}); the name now says what it checks; qa.md row
+  reworded. Note, not a finding: for a non-administrator a link code comes only from a grant that also gives sight, so no test can
+  separate the sight filter from the link filter here; the test pins the result, which is what the name claims.
+- **R-2 · closed, behaviour unchanged.** `CallerAccess.cs:17` has no default; the eight Boards/WorkItems sites call
+  `CallerAccess.NotNarrowed(...)`, which passes `null` exactly as the old default did. The only reader of `Sight` in production is
+  `NavigationReadModel.cs:134`; the Boards/WorkItems read models and their test fake (`TeamViewDeletionRaceTests.cs:143,160`) never read
+  it, so their results do not change. The doc no longer claims more than the navigation reads do.
+- **R-3 · closed.** plan-backend § Paging and counts records the deviation from `backend.md:199-210`, its grounds, and when it ends (a
+  list gaining paging moves to `Sighted()` ids in SQL).
+- **R-4 · closed.** `filterTree` and its test removed; `grep filterTree src/frontend/src` has no hit; the stale «Найти область» comment
+  went with it.
+- **R-5 · closed.** `StructureListsSightTests.cs:375` now says VENUS by membership, MARS through the deactivated A (m-1).
+
+Claims in the fix's prose: plan-backend's deviation paragraph → the handler lines listed under R-3 in Round 1, `NavigationReadModel.cs:111-131`
+for «Обзор» and selector-offers. OK. The `CallerAccess` doc → `NavigationReadModel.cs:133-136` and the eight `NotNarrowed` sites. OK.
+The qa.md row → the test above. OK. Status Log [backend] "`StructureListsSightTests` 12 passed" → reproduced here. Direction 2:
+`NotNarrowed` and `CallerAccess` grepped over `docs/`, `.claude/`, `src/**/AGENTS.md` — no other prose describes them.
