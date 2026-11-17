@@ -3,14 +3,14 @@
 - type: feature
 - size: L
 - branch: feat/062-sight-in-work-views
-- stage: 8-review
+- stage: complete
 - epic: core/org-access
 - deps: feat-041
 - gates: gate-3
 
 ## Gates
 
-gate-3: pending
+gate-3: approved (2026-11-18, by the human in chat, after the gate-3 package; no debts)
 
 ## Plan
 
@@ -62,3 +62,4 @@ Verification: affected tests locally, the full verify.sh in CI.
 - 2026-11-18 [code-reviewer] round 1 (general + L security pass) over 41a017f4..04e099f9: changes-requested; open: 2 major (R-1 hidden team in default-team/unlink-destination bodies answers 409, R-2 contract § 6 audit claim), 4 minor (R-3..R-6). See review.md.
 - 2026-11-18 [backend] review round 1 fixed: R-1 SetDefaultTeam and the unlink destination answer a hidden team as an unknown one (404, IOrganizationAccess.SeesAsync), one twin test for both routes; R-2/R-5 contract §§ 2, 4, 6 and the handler remark corrected; R-3 `visible` required on BacklogMembership.Members/TreeMembers and the IOrganizationAccess.VisibleProjectsAsync default dropped (13 test doubles say All explicitly); R-4 the removal twin now removes the Planned sprint holding items; R-6 pointers in mod-007/mod-017 contracts and the story markers. Tests: Application 51, Api.IntegrationTests 247, Infrastructure 79, Contracts 31, Architecture 82 green (affected classes; verify.sh not run, economy mode).
 - 2026-11-18 [code-reviewer] round 2 (delta eb0ed643..5629996e): approved; R-1..R-6 closed, 0 findings open. See review.md.
+- 2026-11-18 [orchestrator] gate-3 approved by the human in chat after the gate-3 package (QA pass, Opus review with the security pass approved in round 2, no open findings, no debts).
