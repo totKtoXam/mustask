@@ -2,7 +2,7 @@ namespace Mustask.Application.Abstractions.Organizations;
 
 /// <summary>
 /// The projects of the organization the caller sees (doc-016 BR-TD-12, BR-TD-17), as a read of several projects' rows takes them:
-/// every project for the administrator (<see cref="All"/>, no predicate), else the ids <see cref="AccessSet.VisibleProjects"/>
+/// every project for the administrator (<see cref="All"/>, no predicate), else the ids <see cref="AccessSet.SeenProjects"/>
 /// computed, from the one set form of the sight rule (feat-041). A read narrows by it <b>in the statement</b>, before any paging,
 /// so no count, total, page, cursor or «ещё» is ever computed over a hidden project (feat-062).
 /// </summary>

@@ -61,6 +61,7 @@ public sealed class TemplateHandlersTests
     /// <summary>An access that holds the import codes of a role bundle plus, for a manager, a grant on <see cref="ProjectId"/>.</summary>
     private sealed class Access(OrganizationRole role, bool projectManager) : IOrganizationAccess
     {
+        public Task<VisibleProjects> VisibleProjectsAsync(CancellationToken cancellationToken) => Task.FromResult(VisibleProjects.All);
         public OrganizationRole Role => role;
 
         public bool Holds(string code) => OrganizationRoleBundles.Holds(role, code);

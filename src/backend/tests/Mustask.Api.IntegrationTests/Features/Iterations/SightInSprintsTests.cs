@@ -2,6 +2,8 @@ using System.Net;
 using Mustask.Api.IntegrationTests.Features.Boards;
 using Mustask.Api.IntegrationTests.Features.Organizations;
 using Mustask.Api.IntegrationTests.Features.WorkItems;
+using Microsoft.Extensions.DependencyInjection;
+using Mustask.Application.Abstractions.Organizations;
 using Mustask.Domain.Identity;
 using static Mustask.Api.IntegrationTests.Features.Boards.TeamAcrossProjectsTestData;
 using static Mustask.Api.IntegrationTests.Features.Iterations.IterationsTestData;
@@ -178,17 +180,34 @@ public sealed class SightInSprintsTests(MustaskApiFactory factory)
         Assert.Contains("visible-person", seen["/participants"]);
     }
 
-    // mod-007 · the refusal to remove a sprint that holds items says the same whether or not a hidden item is among them.
+    // mod-007 · the refusal to remove a Planned sprint that holds items says the same whether or not a hidden item is among them.
     [Fact]
     public async Task RemovingASprint_HoldingHiddenItems_RefusesAsTheTwinDoes()
     {
         var real = await BuildAsync(withHidden: true);
         var twin = await BuildAsync(withHidden: false);
 
-        var refusedReal = await SendAsync(factory, HttpMethod.Delete, Sprint(real.Cast.Alpha, real.Cast.Mars, real.Active), null, real.Viewer);
-        var refusedTwin = await SendAsync(factory, HttpMethod.Delete, Sprint(twin.Cast.Alpha, twin.Cast.Mars, twin.Active), null, twin.Viewer);
+        async Task<Answer> RemoveNextAsync(World world, bool withHidden)
+        {
+            var cast = world.Cast;
+            var manager = await HolderAsync(factory, cast.Alpha, cast.Mars, GrantRole.Manager, OrganizationRole.Member);
+            var visible = await StoryAsync(factory, cast.Alpha, "N1", cast.Mars);
+            Assert.Equal(HttpStatusCode.OK, (await SetSprintAsync(factory, cast.Alpha, visible, world.Next)).Status);
 
-        Assert.True(refusedTwin.Status != HttpStatusCode.NoContent, $"{refusedTwin.Status}");
+            if (withHidden)
+            {
+                var hidden = await StoryAsync(factory, cast.Gamma, "N2", cast.Mars);
+                Assert.Equal(HttpStatusCode.OK, (await SetSprintAsync(factory, cast.Gamma, hidden, world.Next)).Status);
+            }
+
+            return await SendAsync(factory, HttpMethod.Delete, Sprint(cast.Alpha, cast.Mars, world.Next), null, manager.Token);
+        }
+
+        var refusedReal = await RemoveNextAsync(real, withHidden: true);
+        var refusedTwin = await RemoveNextAsync(twin, withHidden: false);
+
+        // The Planned sprint is refused for its items, not for its state or the caller's rights.
+        Assert.Equal(HttpStatusCode.Conflict, refusedTwin.Status);
         Assert.Equal(SightTwin.Refusal(refusedTwin), SightTwin.Refusal(refusedReal));
     }
 
@@ -275,5 +294,47 @@ public sealed class SightInSprintsTests(MustaskApiFactory factory)
         Assert.NotEqual(HttpStatusCode.OK, closedMissing.Status);
         Assert.Equal(SightTwin.Refusal(closedMissing), SightTwin.Refusal(closedHidden));
         _ = token;
+    }
+
+    // BR-TD-17 · the default team and the destination of an unlink: a team the caller cannot see answers as an unknown one (404), not 409.
+    [Fact]
+    public async Task ADefaultTeamOrAnUnlinkDestination_ThatTheCallerCannotSee_AnswersAsAnUnknownOne_NotAs409()
+    {
+        var (world, _, hiddenTeam, _, _) = await HiddenTeamAsync();
+        var cast = world.Cast;
+        var manager = await MembershipTestData.NewMemberAsync(factory, cast.OrganizationId, OrganizationRole.Member);
+
+        // A project manager of «Альфа» (project.write, project.link) who also manages MARS (team.link); «Гамма» and its team stay hidden.
+        await OrganizationsTestData.InUnitOfWorkAsync(factory, async (services, ct) =>
+        {
+            var grants = services.GetRequiredService<IGrantRepository>();
+            await grants.AddAsync(ResourceScope.Project, cast.OrganizationId, cast.Alpha.ProjectId, manager.Id, GrantRole.Manager, "seed", OrganizationsTestData.Now, ct);
+            await grants.AddAsync(ResourceScope.Team, cast.OrganizationId, cast.Mars, manager.Id, GrantRole.Manager, "seed", OrganizationsTestData.Now, ct);
+
+            return true;
+        });
+
+        var project = OrganizationsApi.Project(cast.OrganizationId, cast.Alpha.ProjectId);
+
+        Task<Answer> SetDefault(Guid team) =>
+            OrganizationsApi.SendAsync(factory, HttpMethod.Put, $"{project}/default-team", new { teamId = team.ToString() }, manager.Token);
+
+        Task<Answer> Unlink(Guid destination) => OrganizationsApi.SendAsync(
+            factory, HttpMethod.Post, $"{project}/teams/{cast.Mars}/unlink", new { destination = new { teamId = destination.ToString() } }, manager.Token);
+
+        var unknown = Guid.CreateVersion7();
+
+        foreach (var send in new Func<Guid, Task<Answer>>[] { SetDefault, Unlink })
+        {
+            var hidden = await send(hiddenTeam);
+            var missing = await send(unknown);
+
+            Assert.Equal(HttpStatusCode.NotFound, missing.Status);
+            Assert.Equal(SightTwin.Refusal(missing), SightTwin.Refusal(hidden));
+        }
+
+        // The control: a team the caller sees that is not linked to the project is still the 409 of feat-028.
+        Assert.Equal(HttpStatusCode.Conflict, (await SetDefault(cast.Jupiter)).Status);
+        Assert.Equal(HttpStatusCode.Conflict, (await Unlink(cast.Jupiter)).Status);
     }
 }

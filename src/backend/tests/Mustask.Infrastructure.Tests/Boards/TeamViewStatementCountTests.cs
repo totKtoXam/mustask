@@ -153,6 +153,7 @@ public sealed class TeamViewStatementCountTests(OrganizationsDatabaseFixture dat
     /// <summary>The caller as an administrator of the organization (the scoped check's result for the handlers that read the role).</summary>
     private sealed class AdministratorAccess : IOrganizationAccess
     {
+        public Task<VisibleProjects> VisibleProjectsAsync(CancellationToken cancellationToken) => Task.FromResult(VisibleProjects.All);
         public OrganizationRole Role => OrganizationRole.Admin;
 
         public bool Holds(string code) => OrganizationRoleBundles.Holds(Role, code);

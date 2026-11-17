@@ -9,6 +9,7 @@ using Mustask.Domain.Process;
 using Mustask.Domain.WorkItems;
 using Mustask.Infrastructure.Boards;
 using Mustask.Infrastructure.Process;
+using Mustask.Application.Abstractions.Organizations;
 using Mustask.Infrastructure.Tests.Organizations;
 using Mustask.Infrastructure.UserDirectory;
 using Mustask.Infrastructure.WorkItems;
@@ -215,7 +216,7 @@ public sealed class DeletedStateParityTests(OrganizationsDatabaseFixture databas
             var types = world.Process.WorkItemTypes.Where(type => type.BacklogLevelId == level.Id).ToList();
             var expected = world.LiveOfTypes(types).ToHashSet();
 
-            var team = await BacklogMembership.Members(context, TeamBacklogScope.Of(world.TeamId, level.Id, types), world.OrganizationId)
+            var team = await BacklogMembership.Members(context, TeamBacklogScope.Of(world.TeamId, level.Id, types), world.OrganizationId, VisibleProjects.All)
                 .Select(member => member.Item.Id).ToListAsync();
             var project = await ProjectBacklogMembership.Members(context, ProjectBacklogScope.Of(world.ProjectId, level.Id, types))
                 .Select(member => member.Item.Id).ToListAsync();
@@ -227,7 +228,7 @@ public sealed class DeletedStateParityTests(OrganizationsDatabaseFixture databas
         }
 
         var every = world.Process.WorkItemTypes;
-        var teamTree = await BacklogMembership.TreeMembers(context, TeamBacklogTreeScope.Of(world.TeamId, every), world.OrganizationId)
+        var teamTree = await BacklogMembership.TreeMembers(context, TeamBacklogTreeScope.Of(world.TeamId, every), world.OrganizationId, VisibleProjects.All)
             .Select(member => member.Item.Id).ToListAsync();
         var projectTree = await ProjectBacklogMembership.TreeMembers(context, ProjectBacklogTreeScope.Of(world.ProjectId, every))
             .Select(member => member.Item.Id).ToListAsync();
@@ -320,7 +321,7 @@ public sealed class DeletedStateParityTests(OrganizationsDatabaseFixture databas
                 .ToHashSet();
             var scope = TeamBacklogScope.Of(world.TeamId, level.Id, types);
 
-            var members = await BacklogMembership.Members(context, scope, world.OrganizationId).Select(member => member.Item.Id).ToListAsync();
+            var members = await BacklogMembership.Members(context, scope, world.OrganizationId, VisibleProjects.All).Select(member => member.Item.Id).ToListAsync();
             var entries = await repository.ReadEntriesAsync(world.OrganizationId, scope, CancellationToken.None);
 
             Assert.NotEmpty(expected);
@@ -328,12 +329,12 @@ public sealed class DeletedStateParityTests(OrganizationsDatabaseFixture databas
             Assert.Equal(expected.Count, members.Count);
             Assert.Equal(expected, entries.Select(entry => entry.ItemId).ToHashSet());
             Assert.Empty(members.Intersect(sleepingIds));
-            Assert.Empty(await BacklogMembership.Members(context, scope, Guid.CreateVersion7()).Select(member => member.Item.Id).ToListAsync());
+            Assert.Empty(await BacklogMembership.Members(context, scope, Guid.CreateVersion7(), VisibleProjects.All).Select(member => member.Item.Id).ToListAsync());
             Assert.Empty(await repository.ReadEntriesAsync(Guid.CreateVersion7(), scope, CancellationToken.None));
         }
 
         var every = world.Process.WorkItemTypes;
-        var tree = await BacklogMembership.TreeMembers(context, TeamBacklogTreeScope.Of(world.TeamId, every), world.OrganizationId)
+        var tree = await BacklogMembership.TreeMembers(context, TeamBacklogTreeScope.Of(world.TeamId, every), world.OrganizationId, VisibleProjects.All)
             .Select(member => member.Item.Id)
             .ToListAsync();
 

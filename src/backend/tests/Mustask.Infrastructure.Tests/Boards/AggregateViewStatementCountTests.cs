@@ -211,6 +211,7 @@ public sealed class AggregateViewStatementCountTests(OrganizationsDatabaseFixtur
 
     private sealed class AdministratorAccess : IOrganizationAccess
     {
+        public Task<VisibleProjects> VisibleProjectsAsync(CancellationToken cancellationToken) => Task.FromResult(VisibleProjects.All);
         public OrganizationRole Role => OrganizationRole.Admin;
 
         public bool Holds(string code) => OrganizationRoleBundles.Holds(Role, code);

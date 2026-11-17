@@ -284,6 +284,7 @@ public sealed class OwningTeamStatementCountTests(OrganizationsDatabaseFixture d
     /// <summary>The caller as an administrator of the organization: the handlers ask for their second codes.</summary>
     private sealed class AdministratorAccess : IOrganizationAccess
     {
+        public Task<VisibleProjects> VisibleProjectsAsync(CancellationToken cancellationToken) => Task.FromResult(VisibleProjects.All);
         public OrganizationRole Role => OrganizationRole.Admin;
 
         public bool Holds(string code) => OrganizationRoleBundles.Holds(Role, code);

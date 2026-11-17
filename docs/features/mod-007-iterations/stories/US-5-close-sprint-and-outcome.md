@@ -46,7 +46,7 @@ Scenario: A Closed sprint shows its outcome
   When Vera opens «Спринт 12» from MARS's «Спринты»
   Then it shows its dates, «Завершён» and its outcome: API of A at 5 SP and notifications of C at 3 SP, 2 items and 8 SP
   And it offers a planner only the rename
-  When C becomes «Ограниченный» with no grant for Vera (owed by feat-041)
+  When C becomes «Ограниченный» with no grant for Vera (delivered by feat-062)
   Then the outcome shows API alone, 1 item and 5 SP
 
 Scenario: A later close never moves an item that kept a Closed sprint
@@ -78,7 +78,7 @@ Scenario: The snapshot holds hidden and deactivated projects' items, which no re
   Then the record holds both; reads of the outcome, the participant figures and the dynamics count API alone until B is restored
   And once B is restored they count integration too, as recorded
 
-Scenario: Closing moves items the closer cannot see, without disclosing them (owed by feat-041)
+Scenario: Closing moves items the closer cannot see, without disclosing them (delivered by feat-062)
   Given C is «Ограниченный» with no grant for Pavel, and the Active «Спринт 12» holds integration and notifications in «Активна»
   When Pavel closes «Спринт 12» towards «Спринт 13»
   Then both items move to «Спринт 13»

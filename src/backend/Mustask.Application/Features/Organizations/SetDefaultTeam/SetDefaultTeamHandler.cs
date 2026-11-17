@@ -1,5 +1,6 @@
 using Mustask.Application.Abstractions;
 using Mustask.Application.Abstractions.Organizations;
+using Mustask.Domain.Identity;
 using Mustask.Domain.Organizations;
 using Mustask.Shared.Exceptions;
 
@@ -17,8 +18,9 @@ namespace Mustask.Application.Features.Organizations.SetDefaultTeam;
 /// (<see cref="ProjectTeams.EnsureBindable"/>, api-contract § 0.3): an unknown, malformed, foreign or deleted team is
 /// <see cref="OrganizationErrorCodes.TeamNotFound"/>, an active team of the organization that is not linked to the project
 /// <see cref="OrganizationErrorCodes.TeamNotInProject"/>; clearing names no team and is never refused. The scoped check has
-/// answered 401/404/403 before the handler runs (<c>organizations.project.write</c>: only an administrator; mod-017 declared
-/// <c>team.write</c>, feat-028 moved the setting to the project's own code).
+/// answered 401/404/403 before the handler runs (<c>organizations.project.write</c>, held by the project's and the department's manager as
+/// well as the administrator; mod-017 declared <c>team.write</c>, feat-028 moved the setting to the project's own code). A team the
+/// caller does not see is answered as an unknown one (feat-062 api-contract § 4), before the link is read.
 /// </para>
 /// <para>
 /// <b>Locks</b> (plan-backend § 7, ADR-0028 rule 8): the <b>link</b> <c>FOR SHARE</c> — an item binder — then the project row
@@ -34,6 +36,7 @@ public sealed class SetDefaultTeamHandler(
     IOrganizationStructure structure,
     IProjectRepository projects,
     IProjectTeamRepository links,
+    IOrganizationAccess access,
     IUnitOfWork unitOfWork)
 {
     public async Task Handle(SetDefaultTeamCommand command, CancellationToken cancellationToken)
@@ -61,6 +64,12 @@ public sealed class SetDefaultTeamHandler(
                 if (command.TeamId is not null)
                 {
                     if (!AddressedId.TryParse(command.TeamId, out var parsed))
+                    {
+                        throw new NotFoundException(OrganizationErrorCodes.TeamNotFound);
+                    }
+
+                    // feat-062 (feat-041 R-5): a team the caller does not see names nothing: 404, never the 409 of an unlinked team.
+                    if (!await access.SeesAsync(ResourceScope.Team, parsed, ct))
                     {
                         throw new NotFoundException(OrganizationErrorCodes.TeamNotFound);
                     }

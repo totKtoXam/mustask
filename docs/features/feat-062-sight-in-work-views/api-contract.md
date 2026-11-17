@@ -39,7 +39,7 @@ them).
 
 `rows`/`cells` with `grouping=project&group=<hidden project id>` answer exactly what an
 unknown project id answers: 404 `organizations.project.not_found`. A selector query id
-that names a hidden project is gated the same way (feat-041 R-5).
+that names a hidden project selects nothing, as an unknown id does (200; feat-041 R-5).
 
 ## 3. Team backlog reorder (feat-041 R-5 remainder)
 
@@ -57,6 +57,8 @@ who sees them (the administrator) moves them as before. Visible reorders are unc
 | `PATCH .../workitems/{id}` | `team.teamId` | same | same 404 |
 | `PATCH .../workitems/{id}` | `sprint.sprintId` of a hidden team | 409 other-team | 404 `iterations.sprint.not_found`, equal to an unknown sprint |
 | `POST .../sprints/{s}/close` | `destinationSprintId` of a hidden team | 409 `iterations.sprint.close_destination_invalid` | 404 `iterations.sprint.not_found` |
+| `PUT .../projects/{p}/default-team` | `teamId` of a team the caller does not see | 409 `organizations.team.not_in_project` (unlinked), against 404 for an unknown team | 404 `organizations.team.not_found`, equal to an unknown team; reachable by the project and department managers (`project.write`) |
+| `POST .../projects/{p}/teams/{t}/unlink` | `destination.teamId` of a team the caller does not see | 409 `organizations.team.not_in_project` | 404 `organizations.team.not_found`, equal to an unknown team; reachable by the managers (`project.link`, `team.link`) |
 
 A visible team that is simply not linked to the project still answers 409 (control).
 
@@ -69,14 +71,14 @@ item is among them (no counts in the answer). Both only gained tests.
 
 ## 6. Body ids audited and found to need no change
 
-- Default team (`SetDefaultTeam`), `MoveTeam`: admin-only organization codes.
+- `MoveTeam`: admin-only organization code (`team.create`, `OrganizationEndpoints.cs`); the default team moved to § 4 (the code is not admin-only).
 - `MoveArea`, `CreateArea`, `CreateProject` place and body teams/projects: the 403 is
   identical for a hidden and an unknown id (role alone, link codes are admin-only).
 - Parent ids (`SetWorkItemParent`, save, create): looked up inside the visible path
   project, so a hidden-project item is the same not-found as an unknown one.
 - Assignee/user ids: values, not objects.
 - Grants: the object is in the path and gated by feat-041.
-- Link routes: done in feat-041 R-5.
+- Link routes: `LinkProjectsToTeam`/`LinkTeamsToProject` done in feat-041 R-5; the default team and the unlink destination in § 4 of this contract.
 - Item, sprint and team path ids: gated by feat-041's gate order.
 
 ## 7. Query shape
