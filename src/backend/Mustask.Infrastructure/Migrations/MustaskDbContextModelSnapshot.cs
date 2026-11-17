@@ -971,6 +971,11 @@ namespace Mustask.Infrastructure.Migrations
                         .HasMaxLength(16)
                         .HasColumnType("character varying(16)");
 
+                    b.Property<bool>("VisibleToOrganization")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(false);
+
                     b.Property<uint>("xmin")
                         .IsConcurrencyToken()
                         .ValueGeneratedOnAddOrUpdate()
@@ -1038,6 +1043,9 @@ namespace Mustask.Infrastructure.Migrations
 
                             t.Property("Status")
                                 .HasColumnName("status");
+
+                            t.Property("VisibleToOrganization")
+                                .HasColumnName("visible_to_organization");
 
                             t.Property("xmin")
                                 .HasColumnName("xmin");

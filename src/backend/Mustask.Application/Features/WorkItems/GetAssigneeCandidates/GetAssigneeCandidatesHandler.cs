@@ -18,7 +18,8 @@ namespace Mustask.Application.Features.WorkItems.GetAssigneeCandidates;
 /// batches and merged (<see cref="UserDirectoryBatches"/>, BR-UP-17): an organization of 501 members still answers. It
 /// reads the memberships and the projection only, so it works with Keycloak stopped.
 /// </remarks>
-public sealed class GetAssigneeCandidatesHandler(IUserDirectory directory, IMemberReadModel members, IOrganizationAccess access)
+public sealed class GetAssigneeCandidatesHandler(
+    IUserDirectory directory, IMemberReadModel members, IOrganizationAccess access, IScopedAccessReadModel sight)
 {
     public async Task<AssigneeCandidatesResponse> Handle(GetAssigneeCandidatesQuery query, CancellationToken cancellationToken)
     {
@@ -40,6 +41,13 @@ public sealed class GetAssigneeCandidatesHandler(IUserDirectory directory, IMemb
         }
 
         var memberIds = await members.ListMemberIdsAsync(organizationId, cancellationToken);
+
+        // feat-041 (ADR-0029 § 11 as ADR-0040 § 4 reads it): with a project named, only those who see it are offered.
+        if (AddressedId.TryParse(query.ProjectId, out var seenProjectId))
+        {
+            var seeing = await sight.UsersSeeingProjectAsync(organizationId, seenProjectId, cancellationToken);
+            memberIds = memberIds.Where(seeing.Contains).ToList();
+        }
         var result = await UserDirectoryBatches.SearchAmongAsync(directory, query.Text ?? string.Empty, memberIds, cancellationToken);
 
         return new AssigneeCandidatesResponse(

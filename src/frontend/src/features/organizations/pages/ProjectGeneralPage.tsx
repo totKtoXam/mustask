@@ -19,6 +19,7 @@ import { DescriptionDialog } from '../components/DescriptionDialog';
 import { AreaNodeDialogs } from '../components/AreaNodeDialogs';
 import { FactsPanel } from '../components/FactsPanel';
 import { NameDialog } from '../components/NameDialog';
+import { ProjectVisibilityControl } from '../components/ProjectVisibilityControl';
 import { useNotify } from '../components/notice';
 import { useDescribeProject, useRenameProject, useSetDefaultTeam } from '../hooks/mutations';
 import { useArea, useProject, useProjectAreaTree, useTeams } from '../hooks/queries';
@@ -164,6 +165,16 @@ export function ProjectGeneralPage() {
               <InlineEmpty>{defaultTeam?.name ?? projectTexts.noDefaultTeam}</InlineEmpty>
             </Section>
           </Box>
+          {access(organizationsPermissions.visibilityWrite, 'organization') && (
+            <Box sx={{ mt: 4 }}>
+              <ProjectVisibilityControl
+                organizationId={organizationId}
+                projectId={projectId}
+                projectName={query.data.name}
+                value={query.data.visibleToOrganization ?? false}
+              />
+            </Box>
+          )}
         </>
       ) : (
         <>

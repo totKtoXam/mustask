@@ -71,4 +71,11 @@ public interface IScopedAccessReadModel
 
     /// <summary>The caller's grants and the organization's tree, read once, for the set form (lists, per-row flags, the tree's writable ids).</summary>
     Task<AccessSet> LoadSetAsync(Guid organizationId, string userId, OrganizationRole role, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// The inverse form of the sight rule (feat-041, ADR-0029 § 11 as ADR-0040 § 4 reads it): the ids of the organization members who see the
+    /// project — administrators, grantees that reach it, members of its linked teams, and every member when its «Видим всей организации» is on.
+    /// Empty when the project is not in the organization.
+    /// </summary>
+    Task<IReadOnlySet<string>> UsersSeeingProjectAsync(Guid organizationId, Guid projectId, CancellationToken cancellationToken);
 }

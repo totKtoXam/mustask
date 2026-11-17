@@ -74,6 +74,8 @@ export interface ProjectRecord {
   description?: string | null;
   /** mod-021: the stored palette key; absent: `blue`. */
   color?: string;
+  /** feat-041: «Видим всей организации»; absent: off. */
+  visibleToOrganization?: boolean;
 }
 
 /** A team is the organization's (feat-028 BR-OL-1); the projects it works on are `Dataset.links`. */

@@ -1,6 +1,7 @@
 using Mustask.Application.Abstractions;
 using Mustask.Application.Abstractions.Organizations;
 using Mustask.Application.Features.Process;
+using Mustask.Domain.Identity;
 using Mustask.Domain.Organizations;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
@@ -74,10 +75,12 @@ public static class OrganizationsTestData
         string name = "Пример проекта",
         string key = "PRM",
         ProjectStatus status = ProjectStatus.Active,
-        bool creatorJoinsFirstTeam = true) =>
+        bool creatorJoinsFirstTeam = true,
+        bool visibleToOrganization = true) =>
         InUnitOfWorkAsync(factory, async (services, ct) =>
         {
             var project = Project.Create(organizationId, Name(name), key, Now, Creator, "blue");
+            project.Project.SetVisibleToOrganization(visibleToOrganization);
             var team = Team.Create(organizationId, await TeamDepartmentAsync(services, organizationId, ct), "blue", Name(name));
 
             if (status == ProjectStatus.Deactivated)
@@ -106,10 +109,12 @@ public static class OrganizationsTestData
         Guid organizationId,
         string name = "Пример проекта",
         string key = "PRM",
-        ProjectStatus status = ProjectStatus.Active) =>
+        ProjectStatus status = ProjectStatus.Active,
+        bool visibleToOrganization = true) =>
         InUnitOfWorkAsync(factory, async (services, ct) =>
         {
             var project = Project.Create(organizationId, Name(name), key, Now, Creator, "blue");
+            project.Project.SetVisibleToOrganization(visibleToOrganization);
 
             if (status == ProjectStatus.Deactivated)
             {
@@ -397,6 +402,18 @@ public static class OrganizationsTestData
 
         return new ProjectAreaTree(await ReadOrganizationTreeAsync(factory, organizationId), projectId);
     }
+
+    /// <summary>
+    /// A grant seeded directly (feat-041): the legacy tests that arrange an object nobody links or takes part in give the caller sight
+    /// of it with a «Читатель» grant, which adds no code that decides their 403s.
+    /// </summary>
+    public static Task GrantAsync(MustaskApiFactory factory, ResourceScope scope, Guid organizationId, Guid objectId, string userId, GrantRole role = GrantRole.Reader) =>
+        InUnitOfWorkAsync(factory, async (services, ct) =>
+        {
+            await services.GetRequiredService<IGrantRepository>().AddAsync(scope, organizationId, objectId, userId, role, "seed", Now, ct);
+
+            return true;
+        });
 
     /// <summary>Runs <paramref name="work"/> in a unit of work of its own, in a scope of the shared host.</summary>
     public static async Task<T> InUnitOfWorkAsync<T>(MustaskApiFactory factory, Func<IServiceProvider, CancellationToken, Task<T>> work)

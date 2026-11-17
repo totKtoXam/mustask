@@ -195,6 +195,7 @@ public sealed class GrantsQaTests(MustaskApiFactory factory)
         {
             var projects = services.GetRequiredService<IProjectRepository>();
             var project = Project.Create(s.OrganizationId, OrganizationsTestData.Name("Под отделом"), "DPT", OrganizationsTestData.Now, "seed", "blue", parentAreaId: department.Id);
+            project.Project.SetVisibleToOrganization(true);
             projects.Add(project);
             await projects.SaveAsync(ct);
 
@@ -234,6 +235,7 @@ public sealed class GrantsQaTests(MustaskApiFactory factory)
         {
             var projects = services.GetRequiredService<IProjectRepository>();
             var project = Project.Create(s.OrganizationId, OrganizationsTestData.Name("Под отделом"), "DPT", OrganizationsTestData.Now, "seed", "blue", parentAreaId: department.Id);
+            project.Project.SetVisibleToOrganization(true);
             projects.Add(project);
             await projects.SaveAsync(ct);
 
@@ -264,6 +266,7 @@ public sealed class GrantsQaTests(MustaskApiFactory factory)
         {
             var projects = services.GetRequiredService<IProjectRepository>();
             var project = Project.Create(s.OrganizationId, OrganizationsTestData.Name("Под отделом"), "DPT", OrganizationsTestData.Now, "seed", "blue", parentAreaId: department.Id);
+            project.Project.SetVisibleToOrganization(true);
             projects.Add(project);
             await projects.SaveAsync(ct);
 

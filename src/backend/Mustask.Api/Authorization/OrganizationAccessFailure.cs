@@ -14,6 +14,12 @@ public enum OrganizationAccessFailureKind
 
     /// <summary>The caller is a member whose role bundle lacks the route's code: <c>403 organizations.access.forbidden</c>.</summary>
     RoleLacksCode,
+
+    /// <summary>
+    /// A project, team or area the address (or a <c>teamId</c>/<c>departmentId</c> of its query) names is missing or hidden from the caller
+    /// (doc-016 BR-TD-12..-14, ADR-0029 § 8 items 3-4): the business 404 of that object, before any 403, the same bytes for a hidden and a missing one.
+    /// </summary>
+    ObjectNotFound,
 }
 
 /// <summary>
@@ -24,13 +30,14 @@ public enum OrganizationAccessFailureKind
 public sealed class OrganizationAccessFailure : AuthorizationFailureReason
 {
     public OrganizationAccessFailure(
-        IAuthorizationHandler handler, OrganizationAccessFailureKind kind, string organizationId, string code, ResourceScope scope = ResourceScope.Organization)
+        IAuthorizationHandler handler, OrganizationAccessFailureKind kind, string organizationId, string code, ResourceScope scope = ResourceScope.Organization, string? errorCode = null)
         : base(handler, kind.ToString())
     {
         Kind = kind;
         OrganizationId = organizationId;
         Code = code;
         Scope = scope;
+        ErrorCode = errorCode;
     }
 
     public OrganizationAccessFailureKind Kind { get; }
@@ -43,4 +50,7 @@ public sealed class OrganizationAccessFailure : AuthorizationFailureReason
 
     /// <summary>The kind of object the route addresses, for the log.</summary>
     public ResourceScope Scope { get; }
+
+    /// <summary>The business error code of an <see cref="OrganizationAccessFailureKind.ObjectNotFound"/> failure.</summary>
+    public string? ErrorCode { get; }
 }

@@ -245,7 +245,10 @@ public sealed class SaveOwningTeamEndpointTests(MustaskApiFactory factory)
         Assert.Equal((HttpStatusCode.NotFound, "workitems.workitem.not_found"), (noItem.Status, noItem.ErrorCode));
 
         var readerNoItem = await SaveAsync(world, "ALP-US-9999", otherProjectTeam, reader.Token);
-        Assert.Equal((HttpStatusCode.Forbidden, "organizations.access.forbidden"), (readerNoItem.Status, readerNoItem.ErrorCode));
+        // feat-041 (ADR-0029 § 8 item 4): the item that does not exist is 404 before the viewer's 403.
+        Assert.Equal((HttpStatusCode.NotFound, "workitems.workitem.not_found"), (readerNoItem.Status, readerNoItem.ErrorCode));
+        var readerOnItem = await SaveAsync(world, story.Identifier, otherProjectTeam, reader.Token);
+        Assert.Equal((HttpStatusCode.Forbidden, "organizations.access.forbidden"), (readerOnItem.Status, readerOnItem.ErrorCode));
 
         var badTitle = await SaveAsync(world, story.Identifier, new { title = string.Empty, team = new { teamId = world.OtherProjectTeam.ToString() } });
         Assert.Equal((HttpStatusCode.BadRequest, "workitems.validation_failed"), (badTitle.Status, badTitle.ErrorCode));

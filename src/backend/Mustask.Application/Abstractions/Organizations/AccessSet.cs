@@ -27,8 +27,10 @@ public sealed class AccessSet
         IEnumerable<AccessNode> nodes,
         IReadOnlyDictionary<Guid, IReadOnlyList<GrantRole>> areaGrants,
         IReadOnlyDictionary<Guid, IReadOnlyList<GrantRole>> projectGrants,
-        IReadOnlyDictionary<Guid, IReadOnlyList<GrantRole>> teamGrants)
+        IReadOnlyDictionary<Guid, IReadOnlyList<GrantRole>> teamGrants,
+        SightData? sight = null)
     {
+        _sight = sight ?? SightData.None;
         Role = role;
         _nodes = nodes.ToDictionary(node => node.Id);
         _projectNodes = _nodes.Values.Where(node => node.Type == AreaType.Project && node.ProjectId is not null)
@@ -38,7 +40,77 @@ public sealed class AccessSet
         _teamGrants = teamGrants;
     }
 
+    private readonly SightData _sight;
+
     public OrganizationRole Role { get; }
+
+    /// <summary>
+    /// Whether the caller sees the project (doc-016 BR-TD-12): a reaching grant, a linked team's membership or the flag; the
+    /// administrator sees every project. <c>false</c> for a project that is not in the organization: a hidden and a missing
+    /// project answer alike. The administrator's set holds no rows and is not asked (the caller keeps its own existence answers).
+    /// </summary>
+    public bool SeesProject(Guid projectId)
+    {
+        if (Role == OrganizationRole.Admin)
+        {
+            return true;
+        }
+
+        if (!_sight.Projects.TryGetValue(projectId, out var visibleToOrganization))
+        {
+            return false;
+        }
+
+        var memberOfLinkedTeam = _sight.TeamsOfProject.TryGetValue(projectId, out var teams) && teams.Any(_sight.MemberOfTeams.Contains);
+
+        return SightRules.SeesProject(Role, visibleToOrganization, Reaching(ResourceScope.Project, projectId).Count > 0, memberOfLinkedTeam);
+    }
+
+    /// <summary>Whether the caller sees the team (BR-TD-13); <c>false</c> for a team not in the organization.</summary>
+    public bool SeesTeam(Guid teamId)
+    {
+        if (Role == OrganizationRole.Admin)
+        {
+            return true;
+        }
+
+        if (!_sight.Teams.TryGetValue(teamId, out var department))
+        {
+            return false;
+        }
+
+        var grantOnDepartment = department is { } d && _areaGrants.ContainsKey(d);
+        var seesLinkedProject = _sight.TeamsOfProject.Any(pair => pair.Value.Contains(teamId) && SeesProject(pair.Key));
+
+        return SightRules.SeesTeam(Role, _sight.MemberOfTeams.Contains(teamId), _teamGrants.ContainsKey(teamId) || grantOnDepartment, seesLinkedProject);
+    }
+
+    /// <summary>
+    /// Whether the caller sees the area (BR-TD-14): a department by a grant on it or a team or project standing in it; a project's
+    /// node and its sub-areas exactly when their project is seen. <c>false</c> for an area not in the organization.
+    /// </summary>
+    public bool SeesArea(Guid areaId)
+    {
+        if (Role == OrganizationRole.Admin)
+        {
+            return true;
+        }
+
+        if (!_nodes.TryGetValue(areaId, out var node))
+        {
+            return false;
+        }
+
+        if (node.Type != AreaType.Department)
+        {
+            return node.ProjectId is { } projectId && SeesProject(projectId);
+        }
+
+        var seesTeamInside = _sight.Teams.Any(pair => pair.Value == areaId && SeesTeam(pair.Key));
+        var seesProjectInside = _projectNodes.Values.Any(projectNode => projectNode.ParentId == areaId && SeesProject(projectNode.ProjectId!.Value));
+
+        return SightRules.SeesDepartment(Role, _areaGrants.ContainsKey(areaId), seesTeamInside, seesProjectInside);
+    }
 
     /// <summary>The caller's codes on one object of <paramref name="scope"/>; an unknown object is judged by the role alone.</summary>
     public IReadOnlySet<string> CodesOn(ResourceScope scope, Guid objectId)

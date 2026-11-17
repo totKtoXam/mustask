@@ -470,6 +470,7 @@ public sealed class AreaWorkspaceEndpointTests(MustaskApiFactory factory)
         var organization = structure.OrganizationId;
         var area = await OrganizationsTestData.AddDepartmentAsync(factory, organization, "Отчёты");
         var user = await MembershipTestData.NewMemberAsync(factory, organization, role);
+        await OrganizationsTestData.GrantAsync(factory, ResourceScope.Area, organization, area.Id, user.Id); // feat-041: sight of the empty department
 
         foreach (var (method, path, body) in Routes(organization, area.Id, structure.ProjectId, structure.Platform.Id))
         {
@@ -522,7 +523,15 @@ public sealed class AreaWorkspaceEndpointTests(MustaskApiFactory factory)
             (HttpMethod.Post, OrganizationsApi.Areas(organization), new { name = "Дочерняя", parentId = Guid.CreateVersion7().ToString() }),
         })
         {
-            LinksTestData.AssertRefused(await SendAsync(method, path, body, viewer.Token), HttpStatusCode.Forbidden, "organizations.access.forbidden");
+            // feat-041: a path area the viewer cannot see answers «Область не найдена» before the 403; the body parent of a creation keeps the 403.
+            if (method == HttpMethod.Post)
+            {
+                LinksTestData.AssertRefused(await SendAsync(method, path, body, viewer.Token), HttpStatusCode.Forbidden, "organizations.access.forbidden");
+            }
+            else
+            {
+                LinksTestData.AssertRefused(await SendAsync(method, path, body, viewer.Token), HttpStatusCode.NotFound, "organizations.area.not_found");
+            }
         }
 
         LinksTestData.AssertRefused(await SendAsync(HttpMethod.Delete, missing), HttpStatusCode.NotFound, "organizations.area.not_found");

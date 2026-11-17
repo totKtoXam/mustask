@@ -1,5 +1,10 @@
 using Mustask.Application.Abstractions;
+using Mustask.Application.Abstractions.Iterations;
 using Mustask.Application.Abstractions.Organizations;
+using Mustask.Application.Abstractions.WorkItems;
+using Mustask.Application.Features.Organizations;
+using Mustask.Domain.Iterations;
+using Mustask.Domain.WorkItems;
 using Mustask.Domain.Identity;
 using Mustask.Domain.Organizations;
 using Microsoft.AspNetCore.Authorization;
@@ -30,7 +35,10 @@ namespace Mustask.Api.Authorization;
 public sealed class OrganizationPermissionHandler(
     IOrganizationAccessReadModel accessReadModel,
     IScopedAccessReadModel scopedAccess,
-    ICurrentUser currentUser) : AuthorizationHandler<OrganizationPermissionRequirement>
+    ICurrentUser currentUser,
+    IOrganizationStructure structure,
+    ISprintReadModel sprints,
+    IWorkItemReadModel workItems) : AuthorizationHandler<OrganizationPermissionRequirement>
 {
     /// <summary>The route parameter every organization-addressed route names (mod-015 BR-18).</summary>
     public const string RouteParameter = "organizationId";
@@ -61,6 +69,102 @@ public sealed class OrganizationPermissionHandler(
 
         return EffectivePermissions.Holds(role, requirement.Scope, reaching, requirement.Code);
     }
+
+    /// <summary>
+    /// The sight gate (doc-016 BR-TD-12..-14, feat-041; ADR-0029 § 8 items 3-4): for a non-administrator, a project, then a team or area
+    /// the address names, outside in, that is missing or hidden answers its own 404 before any 403. A <c>teamId</c>, <c>departmentId</c>
+    /// or <c>projectId</c> of the query that names an object the caller does not see answers the same. Nothing is asked when the
+    /// address names none of them. The set read here is kept for the request, so the handler's own reads do not load it twice.
+    /// </summary>
+    private async Task<OrganizationAccessFailure?> HiddenObjectAsync(
+        HttpContext httpContext, Guid organizationId, OrganizationRole role, OrganizationPermissionRequirement requirement)
+    {
+        var routeValues = httpContext.Request.RouteValues;
+        var query = httpContext.Request.Query;
+
+        if (!routeValues.ContainsKey("projectId") && !routeValues.ContainsKey("teamId") && !routeValues.ContainsKey("areaId")
+            && !query.ContainsKey("teamId") && !query.ContainsKey("departmentId") && !query.ContainsKey("projectId"))
+        {
+            return null;
+        }
+
+        var set = await scopedAccess.LoadSetAsync(organizationId, currentUser.SubjectId, role, httpContext.RequestAborted);
+        httpContext.Items[HttpContextOrganizationAccess.SetKey] = set;
+
+        OrganizationAccessFailure Hidden(string errorCode) => new(
+            this, OrganizationAccessFailureKind.ObjectNotFound, organizationId.ToString(), requirement.Code, requirement.Scope, errorCode);
+
+        // Path ids, outside in: the project, then the team or area. A malformed or unknown id is as hidden as a hidden one.
+        if (routeValues["projectId"] is string project
+            && !(AddressedId.TryParse(project, out var projectId) && set.SeesProject(projectId)))
+        {
+            return Hidden(OrganizationErrorCodes.ProjectNotFound);
+        }
+
+        if (routeValues["teamId"] is string team && !(AddressedId.TryParse(team, out var teamId) && set.SeesTeam(teamId)))
+        {
+            return Hidden(OrganizationErrorCodes.TeamNotFound);
+        }
+
+        if (routeValues["areaId"] is string area && !(AddressedId.TryParse(area, out var areaId) && set.SeesArea(areaId)))
+        {
+            return Hidden(OrganizationErrorCodes.AreaNotFound);
+        }
+
+        // Then the nested ids, outside in (ADR-0029 section 8 item 4, mod-019 BR-SA-9): the sprint inside its team, the item inside its project.
+        // The container is visible by now, so answering these discloses nothing; a missing one is its not-found before any 403.
+        if (routeValues["sprintId"] is string sprint
+            && !(AddressedId.TryParse(sprint, out var sprintId) && AddressedId.TryParse(routeValues["teamId"] as string, out var sprintTeam)
+                && await sprints.FindAsync(sprintTeam, sprintId, httpContext.RequestAborted) is not null))
+        {
+            return Hidden(SprintErrorCodes.NotFound);
+        }
+
+        if (routeValues["identifier"] is string identifier && routeValues["projectId"] is string itemProject)
+        {
+            var found = WorkItemIdentifier.TryParse(identifier, out var address)
+                && AddressedId.TryParse(itemProject, out var addressedProject)
+                && await structure.FindProjectAsync(organizationId, addressedProject, httpContext.RequestAborted) is { } itemProjectRow
+                && string.Equals(address.ProjectKey, itemProjectRow.Key, StringComparison.Ordinal)
+                && await workItems.FindHeadAsync(addressedProject, address.Number, httpContext.RequestAborted) is not null;
+
+            if (!found)
+            {
+                return Hidden(WorkItemErrorCodes.WorkItemNotFound);
+            }
+        }
+
+        // Query ids (the filters of the lists and boards): one that is not a visible object of the organization (unknown, foreign, malformed
+        // or hidden: indistinguishable) answers its not-found; the word `none` and an empty value are not ids.
+        foreach (var value in Ids(query["projectId"]))
+        {
+            if (!(AddressedId.TryParse(value, out var id) && set.SeesProject(id)))
+            {
+                return Hidden(OrganizationErrorCodes.ProjectNotFound);
+            }
+        }
+
+        foreach (var value in Ids(query["teamId"]))
+        {
+            if (!(AddressedId.TryParse(value, out var id) && set.SeesTeam(id)))
+            {
+                return Hidden(OrganizationErrorCodes.TeamNotFound);
+            }
+        }
+
+        foreach (var value in Ids(query["departmentId"]))
+        {
+            if (!(AddressedId.TryParse(value, out var id) && set.SeesArea(id)))
+            {
+                return Hidden(OrganizationErrorCodes.AreaNotFound);
+            }
+        }
+
+        return null;
+    }
+
+    private static IEnumerable<string> Ids(Microsoft.Extensions.Primitives.StringValues values) =>
+        values.OfType<string>().Where(value => value.Length > 0 && !string.Equals(value, "none", StringComparison.OrdinalIgnoreCase));
 
     protected override async Task HandleRequirementAsync(AuthorizationHandlerContext context, OrganizationPermissionRequirement requirement)
     {
@@ -94,6 +198,13 @@ public sealed class OrganizationPermissionHandler(
         {
             context.Fail(new OrganizationAccessFailure(
                 this, OrganizationAccessFailureKind.OrganizationNotFound, organizationId.ToString(), requirement.Code, requirement.Scope));
+
+            return;
+        }
+
+        if (role != OrganizationRole.Admin && await HiddenObjectAsync(httpContext, organizationId, role, requirement) is { } hidden)
+        {
+            context.Fail(hidden);
 
             return;
         }

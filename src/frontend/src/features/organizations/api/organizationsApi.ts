@@ -50,6 +50,8 @@ export interface Project {
   inheritsAccess?: boolean | null;
   /** mod-021 api-contract § 3: the stored palette key (doc-016 BR-TD-20). */
   color?: string;
+  /** feat-041 api-contract § 3: «Видим всей организации» (BR-TD-12 (c)); off at creation and at the upgrade. */
+  visibleToOrganization?: boolean;
 }
 
 /**
@@ -362,6 +364,18 @@ export function renameProject(
   return apiFetch(`${projectApiPath(organizationId, projectId)}/name`, {
     method: 'PUT',
     body: { name },
+  });
+}
+
+/** feat-041 api-contract § 2.1: sets «Видим всей организации»; answers `id`, `organizationId` and the value. */
+export function setProjectVisibility(
+  organizationId: string,
+  projectId: string,
+  visibleToOrganization: boolean,
+): Promise<{ id: string; organizationId: string; visibleToOrganization: boolean }> {
+  return apiFetch(`${projectApiPath(organizationId, projectId)}/visibility`, {
+    method: 'PUT',
+    body: { visibleToOrganization },
   });
 }
 

@@ -102,6 +102,7 @@ describe('mod-002 US-1 Scenario: No screen grants the right to create organizati
       'organizations.area.grant',
       'organizations.project.grant',
       'organizations.team.grant',
+      'organizations.visibility.write',
       'organizations.organization.create',
       'organizations.organization.rescue',
     ]);

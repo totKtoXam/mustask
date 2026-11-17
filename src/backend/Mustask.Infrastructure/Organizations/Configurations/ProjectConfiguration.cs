@@ -26,6 +26,7 @@ internal sealed class ProjectConfiguration : IEntityTypeConfiguration<Project>
         builder.Property(project => project.NormalizedName).HasMaxLength(OrganizationLimits.NameMaxLength).IsRequired();
         builder.Property(project => project.Key).HasMaxLength(OrganizationLimits.KeyMaxLength).IsRequired();
         builder.Property(project => project.Color).HasMaxLength(OrganizationLimits.ColorMaxLength).IsRequired();
+        builder.Property(project => project.VisibleToOrganization).HasDefaultValue(false).IsRequired();
         builder.Property(project => project.Status)
             .HasConversion<string>()
             .HasMaxLength(OrganizationLimits.StatusMaxLength)

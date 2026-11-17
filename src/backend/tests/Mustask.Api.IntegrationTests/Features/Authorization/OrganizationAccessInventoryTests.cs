@@ -386,8 +386,8 @@ public sealed class OrganizationAccessInventoryTests(MustaskApiFactory factory)
         // mod-019 api-contract § 2: fifteen grant routes (five under each of a department, a project and a team) - 97.
         // mod-019 api-contract § 3, § 5: the switch, its impact read and the writable ids - 100.
         // mod-021 retires the five department-team link routes and adds the team move (96); mod-007 adds the team's eleven sprint routes (107);
-        // mod-024 api-contract § 0 adds the import constructor's fifteen routes - 122.
-        Assert.Equal(122, expected.Count);
+        // mod-024 api-contract § 0 adds the import constructor's fifteen routes (122); feat-041 adds the project's visibility write - 123.
+        Assert.Equal(123, expected.Count);
     }
 
     // Every organization code of the catalog is declared by at least one route — a code with no route is a decision nobody enforces
@@ -419,26 +419,48 @@ public sealed class OrganizationAccessInventoryTests(MustaskApiFactory factory)
         return data;
     }
 
+    private static bool NamesAnObject(string template) =>
+        template.Contains("{projectId}", StringComparison.Ordinal) || template.Contains("{teamId}", StringComparison.Ordinal)
+        || template.Contains("{areaId}", StringComparison.Ordinal);
+
     // BR-M1-33 · 6, the behavioural proof: a route that declares the right code but enforces a wrong one fails here. Each route is
-    // called by a member of each role, with fake nested ids and a well-formed body: the answer is 403 «Недостаточно прав» exactly
-    // when the role's bundle lacks the route's code, and otherwise anything but that 403 and anything but the organization's 404.
+    // called by a member of each role and a well-formed body: the answer is 403 «Недостаточно прав» exactly when the role's bundle lacks
+    // the route's code, and otherwise anything but that 403 and anything but the organization's 404. feat-041: a route that names a
+    // project, a team or an area is called with the ids of real, visible objects (a project visible to the organization, a team linked
+    // to it, its department, a sprint of the team, an item of the project), so the role cell is judged as before; the administrator
+    // keeps fresh ids (a role that holds every code would otherwise change the shared objects). The not-found cells are the next test.
     [Theory]
     [MemberData(nameof(EveryRouteForEveryRole))]
     public async Task EveryRoute_ForEveryRole_IsRefusedWith403_ExactlyWhenTheRolesBundleLacksTheRoutesCode(string method, string template, OrganizationRole role)
     {
         var route = OrganizationAddressedRoutes.All.Single(candidate => candidate.Method == method && candidate.Template == template);
-        var organization = await OrganizationsTestData.CreateOrganizationAsync(
-            factory,
-            status: route.AcceptsDeactivated ? OrganizationStatus.Deactivated : OrganizationStatus.Active,
-            founded: false);
-        var caller = await MembershipTestData.NewMemberAsync(factory, organization.Id, role);
+        var real = role != OrganizationRole.Admin && NamesAnObject(template) && !route.AcceptsDeactivated;
+        Guid organizationId;
+        string path;
 
-        var answer = await OrganizationsApi.SendAsync(
-            factory,
-            new HttpMethod(method),
-            OrganizationAddressedRoutes.Path(template, organization.Id.ToString()),
-            OrganizationAddressedRoutes.Body(method),
-            caller.Token);
+        if (real)
+        {
+            var world = await Boards.BoardsTestData.CreateWorldAsync(factory);
+            var departmentId = await OrganizationsTestData.DepartmentForTeamsAsync(factory, world.OrganizationId);
+            organizationId = world.OrganizationId;
+            path = OrganizationAddressedRoutes.PathOf(
+                template, organizationId.ToString(), world.ProjectId, world.PlatformId, departmentId,
+                template.Contains("{sprintId}", StringComparison.Ordinal) ? (await Iterations.IterationsTestData.NewAsync(factory, world, world.PlatformId)).ToString() : null,
+                template.Contains("{identifier}", StringComparison.Ordinal) ? await WorkItems.WorkItemsTestData.CreateItemAsync(factory, world.Items, "TASK", "Задача") : null);
+        }
+        else
+        {
+            var organization = await OrganizationsTestData.CreateOrganizationAsync(
+                factory,
+                status: route.AcceptsDeactivated ? OrganizationStatus.Deactivated : OrganizationStatus.Active,
+                founded: false);
+            organizationId = organization.Id;
+            path = OrganizationAddressedRoutes.Path(template, organizationId.ToString());
+        }
+
+        var caller = await MembershipTestData.NewMemberAsync(factory, organizationId, role);
+
+        var answer = await OrganizationsApi.SendAsync(factory, new HttpMethod(method), path, OrganizationAddressedRoutes.Body(method), caller.Token);
 
         // mod-024 api-contract § 0: the import routes answer their own module's 403 (`imports.access_forbidden`), decided by the handler.
         var isImports = route.Template.Contains("/imports/", StringComparison.Ordinal);
@@ -457,6 +479,42 @@ public sealed class OrganizationAccessInventoryTests(MustaskApiFactory factory)
                 $"{route.Key} answered {(int)answer.Status} {answer.ErrorCode} to a {role}, whose bundle lacks {route.Code}.");
             Assert.Equal(isImports ? "У вас нет прав на эту операцию." : "Недостаточно прав", answer.Detail);
         }
+    }
+
+    public static TheoryData<string, string, OrganizationRole> EveryObjectRouteForTheNonAdministrators()
+    {
+        var data = new TheoryData<string, string, OrganizationRole>();
+
+        foreach (var route in OrganizationAddressedRoutes.All.Where(route => NamesAnObject(route.Template)))
+        {
+            foreach (var role in OrganizationRoles.All.Where(role => role != OrganizationRole.Admin))
+            {
+                data.Add(route.Method, route.Template, role);
+            }
+        }
+
+        return data;
+    }
+
+    // feat-041 (ADR-0029 § 8 items 3-4 before item 5), the not-found cells: a non-administrator who names a project, a team or an area
+    // that does not exist (here: fresh ids) gets its «не найден» before any 403, whatever the role's bundle holds.
+    [Theory]
+    [MemberData(nameof(EveryObjectRouteForTheNonAdministrators))]
+    public async Task EveryObjectRoute_ForANonAdministrator_NamingAnObjectThatDoesNotExist_Is404OfItsKind_BeforeAny403(string method, string template, OrganizationRole role)
+    {
+        var organization = await OrganizationsTestData.CreateOrganizationAsync(factory, founded: false);
+        var caller = await MembershipTestData.NewMemberAsync(factory, organization.Id, role);
+
+        var answer = await OrganizationsApi.SendAsync(
+            factory, new HttpMethod(method), OrganizationAddressedRoutes.Path(template, organization.Id.ToString()), OrganizationAddressedRoutes.Body(method), caller.Token);
+
+        var expected = template.Contains("{projectId}", StringComparison.Ordinal) ? "organizations.project.not_found"
+            : template.Contains("{teamId}", StringComparison.Ordinal) ? "organizations.team.not_found"
+            : "organizations.area.not_found";
+
+        Assert.True(
+            answer.Status == HttpStatusCode.NotFound && answer.ErrorCode == expected,
+            $"{method} {template} answered {(int)answer.Status} {answer.ErrorCode} to a {role} naming an object that does not exist; expected 404 {expected}.");
     }
 
     // BR-M1-33 · 6, the fourth caller: a user of no role at all gets the byte-identical organization 404 on every route.

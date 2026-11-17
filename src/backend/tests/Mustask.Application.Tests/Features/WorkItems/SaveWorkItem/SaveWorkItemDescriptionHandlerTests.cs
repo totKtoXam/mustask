@@ -220,6 +220,7 @@ public sealed class SaveWorkItemDescriptionHandlerTests
                 new FakeTeamPlaces(),
                 new FakeSprintRepository(),
                 new FakeOrganizationAccess(OrganizationRole.Admin),
+                new EveryoneSeesSight(),
                 new FakeClock(),
                 UnitOfWork,
                 Reducer);
@@ -445,5 +446,43 @@ public sealed class SaveWorkItemDescriptionHandlerTests
         public Task<IReadOnlyList<AssigneeFilterOptionView>> GetAssigneeOptionsAsync(
             Guid projectId, IReadOnlyCollection<string> stateNames, CancellationToken cancellationToken) =>
             throw new NotSupportedException();
+    }
+}
+
+/// <summary>A sight double: every member sees the project (the description tests do not set an assignee).</summary>
+internal sealed class EveryoneSeesSight : Mustask.Application.Abstractions.Organizations.IScopedAccessReadModel
+{
+    public Task<IReadOnlyList<Mustask.Domain.Identity.ReachingGrant>?> ReachingGrantsAsync(
+        Guid organizationId, string userId, Mustask.Domain.Identity.ResourceScope target, Guid objectId, CancellationToken cancellationToken) =>
+        Task.FromResult<IReadOnlyList<Mustask.Domain.Identity.ReachingGrant>?>(null);
+
+    public Task<Mustask.Application.Abstractions.Organizations.AccessSet> LoadSetAsync(
+        Guid organizationId, string userId, Mustask.Domain.Identity.OrganizationRole role, CancellationToken cancellationToken) =>
+        throw new NotSupportedException();
+
+    public Task<IReadOnlySet<string>> UsersSeeingProjectAsync(Guid organizationId, Guid projectId, CancellationToken cancellationToken) =>
+        Task.FromResult<IReadOnlySet<string>>(new AlwaysContains());
+
+    private sealed class AlwaysContains : IReadOnlySet<string>
+    {
+        public int Count => 0;
+
+        public bool Contains(string item) => true;
+
+        public bool IsProperSubsetOf(IEnumerable<string> other) => false;
+
+        public bool IsProperSupersetOf(IEnumerable<string> other) => false;
+
+        public bool IsSubsetOf(IEnumerable<string> other) => false;
+
+        public bool IsSupersetOf(IEnumerable<string> other) => true;
+
+        public bool Overlaps(IEnumerable<string> other) => true;
+
+        public bool SetEquals(IEnumerable<string> other) => false;
+
+        public IEnumerator<string> GetEnumerator() => Enumerable.Empty<string>().GetEnumerator();
+
+        System.Collections.IEnumerator System.Collections.IEnumerable.GetEnumerator() => GetEnumerator();
     }
 }

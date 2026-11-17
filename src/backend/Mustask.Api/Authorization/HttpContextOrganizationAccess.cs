@@ -16,7 +16,7 @@ internal sealed class HttpContextOrganizationAccess(
     /// <summary>The key of the resolved access in <c>HttpContext.Items</c>.</summary>
     internal const string ItemKey = "Mustask.Api.Authorization.OrganizationAccess";
 
-    private const string SetKey = "Mustask.Api.Authorization.AccessSet";
+    internal const string SetKey = "Mustask.Api.Authorization.AccessSet";
 
     private ResolvedOrganizationAccess Resolved =>
         httpContextAccessor.HttpContext?.Items[ItemKey] as ResolvedOrganizationAccess
@@ -40,6 +40,23 @@ internal sealed class HttpContextOrganizationAccess(
         var reaching = await scopedAccess.ReachingGrantsAsync(resolved.OrganizationId, currentUser.SubjectId, scope, objectId, cancellationToken) ?? [];
 
         return EffectivePermissions.Holds(resolved.Role, scope, reaching, code);
+    }
+
+    public async Task<bool> SeesAsync(ResourceScope scope, Guid objectId, CancellationToken cancellationToken)
+    {
+        if (Resolved.Role == OrganizationRole.Admin)
+        {
+            return true;
+        }
+
+        var set = await SetAsync(cancellationToken);
+
+        return scope switch
+        {
+            ResourceScope.Project => set.SeesProject(objectId),
+            ResourceScope.Team => set.SeesTeam(objectId),
+            _ => true,
+        };
     }
 
     public async Task<AccessSet> SetAsync(CancellationToken cancellationToken)

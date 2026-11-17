@@ -160,6 +160,7 @@ public sealed class TeamPlacesEndpointTests(MustaskApiFactory factory)
         var destination = await OrganizationsTestData.AddDepartmentAsync(factory, organization.Id, "Продажи");
         var team = await OrganizationsTestData.AddTeamInAsync(factory, organization.Id, source.Id, "MARS");
         var caller = await MembershipTestData.NewMemberAsync(factory, organization.Id, role);
+        await MembershipTestData.AddTeamMemberAsync(factory, organization.Id, team.Id, caller.Id); // feat-041: an unlinked team is seen by its members only (BR-TD-13)
         var body = new { departmentId = destination.Id.ToString() };
 
         var forbidden = await SendAsync(HttpMethod.Put, Move(organization.Id, team.Id), body, caller.Token);

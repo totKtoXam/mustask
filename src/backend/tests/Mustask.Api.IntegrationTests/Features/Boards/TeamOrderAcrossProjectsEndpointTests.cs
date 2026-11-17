@@ -287,7 +287,7 @@ public sealed class TeamOrderAcrossProjectsEndpointTests(MustaskApiFactory facto
         var administrator = await ReorderAsync(factory, cast, cast.Mars, BoardsTestData.Top(a1), token: ann.Token);
 
         Assert.Equal((HttpStatusCode.Forbidden, "organizations.access.forbidden"), (viewer.Status, viewer.ErrorCode));
-        Assert.Equal((HttpStatusCode.Forbidden, "organizations.access.forbidden"), (viewerUnknownTeam.Status, viewerUnknownTeam.ErrorCode));
+        Assert.Equal((HttpStatusCode.NotFound, "organizations.team.not_found"), (viewerUnknownTeam.Status, viewerUnknownTeam.ErrorCode));
         Assert.Equal(HttpStatusCode.NoContent, member.Status);
         Assert.Equal(HttpStatusCode.NoContent, administrator.Status);
         Assert.Equal(Ids(a1, b1), await RowsAsync(factory, cast, cast.Mars, token: vera.Token));

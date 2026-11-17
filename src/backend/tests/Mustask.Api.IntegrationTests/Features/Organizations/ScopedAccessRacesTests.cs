@@ -130,6 +130,7 @@ public sealed class ScopedAccessRacesTests(MustaskApiFactory factory)
         {
             var projects = services.GetRequiredService<IProjectRepository>();
             var project = Project.Create(structure.OrganizationId, OrganizationsTestData.Name("Под отделом"), "RCE", OrganizationsTestData.Now, "seed", "blue", parentAreaId: source.Id);
+            project.Project.SetVisibleToOrganization(true);
             projects.Add(project);
             await projects.SaveAsync(ct);
 

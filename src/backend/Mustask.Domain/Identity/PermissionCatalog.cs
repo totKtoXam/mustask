@@ -146,6 +146,12 @@ public static class PermissionCatalog
     /// <summary>Giving, changing and removing grants on a project (mod-019 BR-SA-2: scope P).</summary>
     public const string OrganizationsProjectGrant = "organizations.project.grant";
 
+    /// <summary>
+    /// Setting a project's «Видим всей организации» (doc-016 BR-TD-12, feat-041): scope P, held by the project «Менеджер», the
+    /// department «Менеджер» on the projects its grant reaches, and the administrator.
+    /// </summary>
+    public const string OrganizationsVisibilityWrite = "organizations.visibility.write";
+
     /// <summary>Giving, changing and removing grants on a team (mod-019 BR-SA-2: scope T).</summary>
     public const string OrganizationsTeamGrant = "organizations.team.grant";
 
@@ -193,6 +199,7 @@ public static class PermissionCatalog
         new(ImportsImportRun, PermissionSource.Organization, "Проверка и запуск импорта в проект", ResourceScope.Project),
         new(OrganizationsAreaGrant, PermissionSource.Organization, "Доступ к департаменту: выдача, смена роли и отзыв", ResourceScope.Area),
         new(OrganizationsProjectGrant, PermissionSource.Organization, "Доступ к проекту: выдача, смена роли и отзыв", ResourceScope.Project),
+        new(OrganizationsVisibilityWrite, PermissionSource.Organization, "Видимость проекта всей организации", ResourceScope.Project),
         new(OrganizationsTeamGrant, PermissionSource.Organization, "Доступ к команде: выдача, смена роли и отзыв", ResourceScope.Team),
         new(IterationsSprintManage, PermissionSource.Organization, "Управление спринтами команды", ResourceScope.Team),
     ];

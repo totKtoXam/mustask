@@ -19,6 +19,6 @@ internal sealed class ProjectReadModel(MustaskDbContext context) : IProjectReadM
         context.ReachableProjects(organizationId)
             .AsNoTracking()
             .Where(project => project.Id == projectId)
-            .Select(project => new ProjectRow(project.Id, project.OrganizationId, project.Name, project.Key, project.Description, project.Color))
+            .Select(project => new ProjectRow(project.Id, project.OrganizationId, project.Name, project.Key, project.Description, project.Color, project.VisibleToOrganization))
             .SingleOrDefaultAsync(cancellationToken);
 }

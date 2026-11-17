@@ -38,6 +38,7 @@ public sealed class ScopedRoutesQaTests(MustaskApiFactory factory)
         {
             var projects = services.GetRequiredService<IProjectRepository>();
             var project = Project.Create(structure.OrganizationId, OrganizationsTestData.Name("Под отделом"), "DPT", OrganizationsTestData.Now, "seed", "blue", parentAreaId: department.Id);
+            project.Project.SetVisibleToOrganization(true);
             projects.Add(project);
             await projects.SaveAsync(ct);
 
@@ -197,6 +198,8 @@ public sealed class ScopedRoutesQaTests(MustaskApiFactory factory)
         var projectOnly = await HolderAsync(w, ResourceScope.Project, w.InDepartment.Id, GrantRole.Manager);
         var both = await HolderAsync(w, ResourceScope.Project, w.InDepartment.Id, GrantRole.Manager);
         await SeedAsync(ResourceScope.Team, w.Structure.OrganizationId, jupiter.Id, both.Id, GrantRole.Manager);
+        // The project end alone sees the team through a «Читатель» grant (a team linked to nothing is hidden otherwise, BR-TD-13): it lacks the team end's code.
+        await SeedAsync(ResourceScope.Team, w.Structure.OrganizationId, jupiter.Id, projectOnly.Id, GrantRole.Reader);
         var link = $"{UnderProject(w)}/teams";
 
         var one = await SendAsync(HttpMethod.Post, link, new { teamIds = new[] { jupiter.Id.ToString() } }, projectOnly.Token);
@@ -343,9 +346,9 @@ public sealed class ScopedRoutesQaTests(MustaskApiFactory factory)
         Assert.Equal(HttpStatusCode.Forbidden, withoutProject.Status);
     }
 
-    // QA pass 2 · a project of another organization, a malformed id and an unknown id are judged by the organization role alone.
+    // feat-041 qa D-1/D-2 · a project of another organization, a malformed id and an unknown id are not visible objects: 404 for everyone but the administrator.
     [Fact]
-    public async Task TheAssigneePicker_ANamedProjectOfAnotherOrganizationOrAMalformedId_FallsBackToTheRole()
+    public async Task TheAssigneePicker_ANamedProjectOfAnotherOrganizationOrAMalformedId_Is404()
     {
         var w = await WorldAsync();
         var foreign = await OrganizationsTestData.CreateStructureAsync(factory);
@@ -359,11 +362,10 @@ public sealed class ScopedRoutesQaTests(MustaskApiFactory factory)
         var roleForeign = await SendAsync(HttpMethod.Get, $"{path}?projectId={foreign.ProjectId}", null, orgMember.Token);
         var roleMalformed = await SendAsync(HttpMethod.Get, $"{path}?projectId=not-an-id", null, orgMember.Token);
 
-        Assert.Equal(HttpStatusCode.Forbidden, holderForeign.Status);
-        Assert.Equal(HttpStatusCode.Forbidden, holderMalformed.Status);
-        Assert.Equal(HttpStatusCode.Forbidden, holderUnknown.Status);
-        Assert.Equal(HttpStatusCode.OK, roleForeign.Status);
-        Assert.Equal(HttpStatusCode.OK, roleMalformed.Status);
+        foreach (var answer in new[] { holderForeign, holderMalformed, holderUnknown, roleForeign, roleMalformed })
+        {
+            Assert.Equal((HttpStatusCode.NotFound, "organizations.project.not_found"), (answer.Status, answer.ErrorCode));
+        }
     }
 
     // QA pass 2 · BR-SA-9 / US-7 on the other link routes: an unknown other end is 404 for a holder of the addressed end's code; a known
@@ -376,6 +378,7 @@ public sealed class ScopedRoutesQaTests(MustaskApiFactory factory)
         var kirill = await HolderAsync(w, ResourceScope.Project, w.InDepartment.Id, GrantRole.Manager);
         var teamManager = await HolderAsync(w, ResourceScope.Team, jupiter.Id, GrantRole.Manager);
         var viewer = await MembershipTestData.NewMemberAsync(factory, w.Structure.OrganizationId, OrganizationRole.Viewer);
+        await SeedAsync(ResourceScope.Team, w.Structure.OrganizationId, jupiter.Id, kirill.Id, GrantRole.Reader);
         var ghost = Guid.CreateVersion7().ToString();
         var teams = OrganizationsApi.OrgTeams(w.Structure.OrganizationId);
         var unlink = $"{UnderProject(w)}/teams/{ghost}/unlink";
@@ -392,7 +395,7 @@ public sealed class ScopedRoutesQaTests(MustaskApiFactory factory)
         Assert.Equal((HttpStatusCode.NotFound, "organizations.team.not_found"), (ghostUnlink.Status, ghostUnlink.ErrorCode));
         Assert.Equal(HttpStatusCode.NotFound, ghostCount.Status);
         Assert.Equal(HttpStatusCode.Forbidden, knownUnlink.Status);
-        Assert.Equal(HttpStatusCode.Forbidden, viewerGhost.Status);
+        Assert.Equal(HttpStatusCode.NotFound, viewerGhost.Status);
         Assert.Equal(HttpStatusCode.NotFound, reverseGhost.Status);
         Assert.Equal(HttpStatusCode.NotFound, reverseGhostAreas.Status);
     }

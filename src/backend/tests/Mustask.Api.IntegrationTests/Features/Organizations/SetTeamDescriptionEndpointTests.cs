@@ -116,7 +116,7 @@ public sealed class SetTeamDescriptionEndpointTests(MustaskApiFactory factory)
         var answer = await DescribeAsync(structure.OrganizationId, Guid.CreateVersion7().ToString(), new { description = new string('я', 2001) }, caller.Token);
         var real = await DescribeAsync(structure.OrganizationId, structure.Platform.Id.ToString(), new { description = "Новое" }, caller.Token);
 
-        Assert.Equal((HttpStatusCode.Forbidden, "organizations.access.forbidden"), (answer.Status, answer.ErrorCode));
+        Assert.Equal((HttpStatusCode.NotFound, "organizations.team.not_found"), (answer.Status, answer.ErrorCode)); // feat-041: a missing team answers 404 before the 403 (ADR-0029 § 8 item 4)
         Assert.Equal((HttpStatusCode.Forbidden, "organizations.access.forbidden"), (real.Status, real.ErrorCode));
         Assert.Null(await StoredAsync(structure.Platform.Id));
     }

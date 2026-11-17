@@ -3,8 +3,15 @@ import { screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { HttpResponse, http } from 'msw';
 import { server } from '../../../test/mocks/server';
-import { serveWorkItems, type WorkItemsTestApi } from '../testApi';
-import { CANDIDATES_URL, exampleDataset, ids, type Dataset } from '../testFixtures';
+import { serveProblem, serveWorkItems, type WorkItemsTestApi } from '../testApi';
+import {
+  CANDIDATES_URL,
+  WORK_ITEM_URL,
+  exampleDataset,
+  ids,
+  problem,
+  type Dataset,
+} from '../testFixtures';
 import { held } from '../components/card/testCard';
 import { mskForm, renderWorkItems } from '../testRender';
 
@@ -258,5 +265,22 @@ describe('mod-003 US-4 Scenario: An assignment is cleared', () => {
     expect(assignee()).toHaveValue('');
     expect(screen.getByText('Не назначен')).toBeInTheDocument();
     expect(api.record(ids.msk, 4).assigneeId).toBeNull();
+  });
+});
+
+describe('feat-041 US-6 Scenario: a newly set assignee who does not see the project', () => {
+  it('409 assignee_unavailable lands under «Исполнитель» with the contract’s text; the pick stays', async () => {
+    const api = await openForm('MSK-BUG-4', unassigned());
+    serveProblem('patch', WORK_ITEM_URL, problem('workitems.workitem.assignee_unavailable'));
+
+    await search('анна');
+    await userEvent.click(await screen.findByRole('option', { name: /Анна Смирнова/ }));
+    await userEvent.click(save());
+
+    expect(
+      await screen.findByText('Этого пользователя нельзя назначить исполнителем.'),
+    ).toBeInTheDocument();
+    expect(assignee()).toHaveValue('Анна Смирнова');
+    expect(patches(api)).toEqual([]);
   });
 });

@@ -59,6 +59,7 @@ using Mustask.Application.Features.Organizations.ChangeGrantRole;
 using Mustask.Application.Features.Organizations.GetGrants;
 using Mustask.Application.Features.Organizations.GetSwitchImpact;
 using Mustask.Application.Features.Organizations.SetInheritsAccess;
+using Mustask.Application.Features.Organizations.SetProjectVisibility;
 using Mustask.Application.Features.Organizations.GiveGrant;
 using Mustask.Application.Features.Organizations.RevokeGrant;
 using Mustask.Application.Features.Organizations.SearchGrantCandidates;
@@ -182,6 +183,7 @@ public static class DependencyInjection
         // Scoped grants (mod-019).
         services.AddScoped<GetGrantsHandler>();
         services.AddScoped<SetInheritsAccessHandler>();
+        services.AddScoped<SetProjectVisibilityHandler>();
         services.AddScoped<GetSwitchImpactHandler>();
         services.AddScoped<GiveGrantHandler>();
         services.AddScoped<ChangeGrantRoleHandler>();

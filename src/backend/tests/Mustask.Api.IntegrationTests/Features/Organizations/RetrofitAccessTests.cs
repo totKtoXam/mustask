@@ -24,7 +24,7 @@ public sealed class RetrofitAccessTests(MustaskApiFactory factory)
     // not «Проект не найден»; a member's read of that project answers «Проект не найден»; and a request with no token answers 401
     // before anything else.
     [Fact]
-    public async Task Order_AViewersWriteToAMissingProject_Is403_AMembersReadOfItIsProjectNotFound_NoTokenIs401()
+    public async Task Order_AViewersWriteToAMissingProject_IsProjectNotFound_LikeAMembersRead_NoTokenIs401()
     {
         var organization = await OrganizationsTestData.CreateOrganizationAsync(factory, founded: false);
         var viewer = await MembershipTestData.NewMemberAsync(factory, organization.Id, OrganizationRole.Viewer);
@@ -38,8 +38,9 @@ public sealed class RetrofitAccessTests(MustaskApiFactory factory)
         var memberWrites = await OrganizationsApi.SendAsync(factory, HttpMethod.Post, $"{missing}/workitems", write, member.Token);
         var noToken = await OrganizationsApi.SendAsync(factory, HttpMethod.Post, $"{missing}/workitems", write);
 
-        Assert.Equal((HttpStatusCode.Forbidden, ForbiddenCode), (viewerWrites.Status, viewerWrites.ErrorCode));
-        Assert.Equal((HttpStatusCode.Forbidden, ForbiddenCode), (viewerRenames.Status, viewerRenames.ErrorCode));
+        // feat-041 restates the order (ADR-0029 § 8 item 3 before item 5): the viewer now gets «Проект не найден» too (US-6).
+        Assert.Equal((HttpStatusCode.NotFound, "organizations.project.not_found"), (viewerWrites.Status, viewerWrites.ErrorCode));
+        Assert.Equal((HttpStatusCode.NotFound, "organizations.project.not_found"), (viewerRenames.Status, viewerRenames.ErrorCode));
         Assert.Equal((HttpStatusCode.NotFound, "organizations.project.not_found"), (memberReads.Status, memberReads.ErrorCode));
         Assert.Equal((HttpStatusCode.NotFound, "organizations.project.not_found"), (memberWrites.Status, memberWrites.ErrorCode));
         Assert.Equal((HttpStatusCode.Unauthorized, "http.unauthorized"), (noToken.Status, noToken.ErrorCode));
@@ -57,9 +58,12 @@ public sealed class RetrofitAccessTests(MustaskApiFactory factory)
         var world = await WorkItemsTestData.CreateWorldAsync(factory);
         var viewer = await MembershipTestData.NewMemberAsync(factory, world.OrganizationId, OrganizationRole.Viewer);
         var admin = await MembershipTestData.NewMemberAsync(factory, world.OrganizationId, OrganizationRole.Admin);
+        // feat-041: an item that does not exist is 404 before the viewer's 403 (ADR-0029 § 8 item 4), so the PATCH names a real one.
+        var identifier = await WorkItemsTestData.CreateItemAsync(factory, world, "TASK", "Задача");
         var path = template
             .Replace("{o}", world.OrganizationId.ToString(), StringComparison.Ordinal)
-            .Replace("{p}", world.ProjectId.ToString(), StringComparison.Ordinal);
+            .Replace("{p}", world.ProjectId.ToString(), StringComparison.Ordinal)
+            .Replace("MSK-TASK-1", identifier, StringComparison.Ordinal);
 
         async Task<HttpStatusCode> StatusAsync(string token)
         {

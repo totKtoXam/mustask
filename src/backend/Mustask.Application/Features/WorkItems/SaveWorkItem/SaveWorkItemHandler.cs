@@ -72,6 +72,7 @@ public sealed class SaveWorkItemHandler(
     ITeamBacklogPlaces teamPlaces,
     ISprintRepository sprints,
     IOrganizationAccess access,
+    IScopedAccessReadModel sight,
     IClock clock,
     IUnitOfWork unitOfWork,
     IRichTextReducer reducer)
@@ -240,7 +241,7 @@ public sealed class SaveWorkItemHandler(
                     title,
                     prepared.Value?.Value,
                     StateIdOf(command.StateId),
-                    await AssigneeOfAsync(command.Assignee, organizationId, ct),
+                    await AssigneeOfAsync(command.Assignee, organizationId, projectId, ct),
                     areaId,
                     command.Fields,
                     team,
@@ -453,11 +454,11 @@ public sealed class SaveWorkItemHandler(
 
     /// <summary>
     /// The sent assignee with whether they can be assigned (BR-M3-22, mod-016 BR-M1-26): known to the directory, active
-    /// there, <b>and a member of the item's organization</b> in any role. The domain decides, and refuses only a
+    /// there, <b>a member of the item's organization</b> in any role, <b>who sees the item's project</b> (feat-041, ADR-0029 § 11 as ADR-0040 § 4 reads it). The domain decides, and refuses only a
     /// <i>newly set</i> unavailable assignee: an assignee who was set and has since left, or been disabled, stays and never
     /// refuses a save of other fields, and clearing the assignee is always allowed.
     /// </summary>
-    private async Task<AssigneeEdit?> AssigneeOfAsync(AssigneeChange? change, Guid organizationId, CancellationToken cancellationToken)
+    private async Task<AssigneeEdit?> AssigneeOfAsync(AssigneeChange? change, Guid organizationId, Guid projectId, CancellationToken cancellationToken)
     {
         if (change is null)
         {
@@ -472,7 +473,8 @@ public sealed class SaveWorkItemHandler(
         var lookup = await directory.LookupAsync([userId], cancellationToken);
         var isAvailable = lookup.Known.TryGetValue(userId, out var user)
             && user.IsActive
-            && await members.IsMemberAsync(organizationId, userId, cancellationToken);
+            && await members.IsMemberAsync(organizationId, userId, cancellationToken)
+            && (await sight.UsersSeeingProjectAsync(organizationId, projectId, cancellationToken)).Contains(userId);
 
         return new AssigneeEdit(userId, isAvailable);
     }

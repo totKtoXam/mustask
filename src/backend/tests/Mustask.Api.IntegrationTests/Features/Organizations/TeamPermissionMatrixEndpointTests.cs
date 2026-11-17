@@ -97,6 +97,14 @@ public sealed class TeamPermissionMatrixEndpointTests(MustaskApiFactory factory)
         var viewer = await MembershipTestData.NewMemberAsync(factory, world.OrganizationId, OrganizationRole.Viewer);
         var admin = await MembershipTestData.NewMemberAsync(factory, world.OrganizationId, OrganizationRole.Admin);
         var (method, path, body, success) = Operation(operation, world);
+        foreach (var person in new[] { member.Id, viewer.Id })
+        {
+            foreach (var team in new[] { world.Free.Id, world.Doomed.Id, world.Structure.Platform.Id })
+            {
+                await OrganizationsTestData.GrantAsync(factory, ResourceScope.Team, world.OrganizationId, team, person);
+            }
+        }
+
         var before = await StateAsync(world);
 
         foreach (var caller in new[] { member.Token, viewer.Token })
@@ -153,7 +161,7 @@ public sealed class TeamPermissionMatrixEndpointTests(MustaskApiFactory factory)
     // feat-028 US-8 · "Viewer_TeamWriteNamingAMissingTeam_Is403Not404": the 403 comes before the address is looked at, so a viewer learns
     // nothing about which ids exist; the administrator gets the team's 404 for the same request.
     [Fact]
-    public async Task Viewer_WritesNamingAMissingTeamOrProject_Is403Not404_AdminGets404()
+    public async Task Viewer_WritesNamingAMissingTeamOrProject_Is404LikeTheAdmins()
     {
         var world = await CreateWorldAsync();
         var viewer = await MembershipTestData.NewMemberAsync(factory, world.OrganizationId, OrganizationRole.Viewer);
@@ -176,8 +184,9 @@ public sealed class TeamPermissionMatrixEndpointTests(MustaskApiFactory factory)
             var asViewer = await OrganizationsApi.SendAsync(factory, method, path, body, viewer.Token);
             var asAdmin = await OrganizationsApi.SendAsync(factory, method, path, body, admin.Token);
 
-            Assert.True(asViewer.Status == HttpStatusCode.Forbidden, $"{method} {path} answered {asViewer.Status} {asViewer.ErrorCode} to a viewer.");
-            Assert.Equal(Forbidden, asViewer.ErrorCode);
+            // feat-041 restates feat-028 US-8 (ADR-0029 § 8 items 3-4 before item 5): the viewer learns what the administrator learns.
+            Assert.True(asViewer.Status == HttpStatusCode.NotFound, $"{method} {path} answered {asViewer.Status} {asViewer.ErrorCode} to a viewer.");
+            Assert.Equal(code, asViewer.ErrorCode);
             Assert.Equal((HttpStatusCode.NotFound, code), (asAdmin.Status, asAdmin.ErrorCode));
         }
     }

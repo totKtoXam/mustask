@@ -106,7 +106,66 @@ internal sealed class ScopedAccessReadModel(MustaskDbContext context) : IScopedA
         var teamGrants = (await context.TeamGrants.AsNoTracking().Where(g => g.OrganizationId == organizationId && g.UserId == userId)
             .Select(g => new { g.ObjectId, g.Role }).ToListAsync(cancellationToken)).Select(g => (g.ObjectId, g.Role));
 
-        return new AccessSet(role, nodes, Group(areaGrants), Group(projectGrants), Group(teamGrants));
+        var sight = await LoadSightAsync(organizationId, userId, cancellationToken);
+
+        return new AccessSet(role, nodes, Group(areaGrants), Group(projectGrants), Group(teamGrants), sight);
+    }
+
+    public async Task<IReadOnlySet<string>> UsersSeeingProjectAsync(Guid organizationId, Guid projectId, CancellationToken cancellationToken)
+    {
+        var project = await context.Projects.AsNoTracking()
+            .Where(p => p.OrganizationId == organizationId && p.Id == projectId)
+            .Select(p => new { p.VisibleToOrganization }).SingleOrDefaultAsync(cancellationToken);
+
+        if (project is null)
+        {
+            return new HashSet<string>(StringComparer.Ordinal);
+        }
+
+        var members = context.OrganizationMemberships.AsNoTracking().Where(m => m.OrganizationId == organizationId);
+
+        if (project.VisibleToOrganization)
+        {
+            return (await members.Select(m => m.UserId).ToListAsync(cancellationToken)).ToHashSet(StringComparer.Ordinal);
+        }
+
+        var seeing = new HashSet<string>(StringComparer.Ordinal);
+        seeing.UnionWith(await members.Where(m => m.Role == OrganizationRole.Admin).Select(m => m.UserId).ToListAsync(cancellationToken));
+        seeing.UnionWith(await context.ProjectGrants.AsNoTracking().Where(g => g.ObjectId == projectId).Select(g => g.UserId).ToListAsync(cancellationToken));
+        seeing.UnionWith(await context.TeamMemberships.AsNoTracking()
+            .Where(m => context.ProjectTeams.Any(link => link.ProjectId == projectId && link.TeamId == m.TeamId))
+            .Select(m => m.UserId).ToListAsync(cancellationToken));
+
+        var node = await context.Areas.AsNoTracking()
+            .Where(area => area.OrganizationId == organizationId && area.ProjectId == projectId && area.Type == AreaType.Project)
+            .Select(area => new { area.ParentId, area.InheritsAccess }).SingleOrDefaultAsync(cancellationToken);
+
+        if (node is { InheritsAccess: true, ParentId: { } department })
+        {
+            seeing.UnionWith(await context.AreaGrants.AsNoTracking().Where(g => g.ObjectId == department).Select(g => g.UserId).ToListAsync(cancellationToken));
+        }
+
+        return seeing;
+    }
+
+    // feat-041: the rows the sight rule reads beyond grants and the tree (doc-016 BR-TD-12..-14): the projects with their flag, the
+    // teams with their department, the links, and the caller's team memberships. Four indexed statements over one organization.
+    private async Task<SightData> LoadSightAsync(Guid organizationId, string userId, CancellationToken cancellationToken)
+    {
+        var projects = await context.Projects.AsNoTracking().Where(project => project.OrganizationId == organizationId)
+            .Select(project => new { project.Id, project.VisibleToOrganization }).ToListAsync(cancellationToken);
+        var teams = await context.Teams.AsNoTracking().Where(team => team.OrganizationId == organizationId)
+            .Select(team => new { team.Id, team.DepartmentId }).ToListAsync(cancellationToken);
+        var links = await context.ProjectTeams.AsNoTracking().Where(link => link.OrganizationId == organizationId)
+            .Select(link => new { link.ProjectId, link.TeamId }).ToListAsync(cancellationToken);
+        var memberOf = await context.TeamMemberships.AsNoTracking().Where(m => m.OrganizationId == organizationId && m.UserId == userId)
+            .Select(m => m.TeamId).ToListAsync(cancellationToken);
+
+        return new SightData(
+            projects.ToDictionary(project => project.Id, project => project.VisibleToOrganization),
+            teams.ToDictionary(team => team.Id, team => team.DepartmentId),
+            links.GroupBy(link => link.ProjectId).ToDictionary(group => group.Key, group => (IReadOnlyList<Guid>)group.Select(link => link.TeamId).ToList()),
+            memberOf.ToHashSet());
     }
 
     private static IReadOnlyDictionary<Guid, IReadOnlyList<GrantRole>> Group(IEnumerable<(Guid Id, GrantRole Role)> rows) =>
