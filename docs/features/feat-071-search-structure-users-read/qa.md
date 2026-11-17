@@ -70,6 +70,16 @@ Dataset: 1000 areas, 200 projects, 200 teams, 2000 members, 300 reads, half admi
 
 View: p99 is inside the spec in all four runs. p95 is above 300 in three of four, so I do not call it runner noise: the spread 233..474 is noise on a laptop with Docker Desktop, but the median of the four (~330) sits over the target. The measured scope is also narrower than the NFR's: the read model only (no HTTP, authentication, `AccessSet` construction for a non-administrator, JSON), with a ~107 ms p50 already a third of the budget. So the p95 target is neither shown met nor shown missed. Recorded as D-1 (minor debt, for gate-3): measure end to end on the stand or CI and re-judge; the ADR's fallback (sight in SQL) is the remedy if it holds above 300.
 
+#### Re-measure after review round 1 (fix round 1, 2026-11-18)
+
+Review F1: the volume test now also sends the plan's omitted queries: 2-character («пр», «ко»; the trigram index cannot serve them), 3-character («про»), a typo («юзз») and a no-match («щщщщ»), next to the earlier ten texts (15 texts, 300 reads, each text 20 times); a 1-character text is asserted rejected by `SearchQueryText.Judge`. One run (the final code) on the developer's laptop with Docker Desktop (`postgres:18-alpine`, datctype/datcollate `en_US.utf8`):
+
+| Run | n | p50 | p95 | p99 | max |
+|---|---|---|---|---|---|
+| fix round 1 | 300 | 78.0 | 225.3 | 292.7 | 312.0 |
+
+Scope, stated plainly: **these numbers cover the database read only** (`SearchReadModel.ReadCandidatesAsync` for the restricted half and `ReadAsync`, one new context per read). They exclude the handler, building the caller's sight set (`AccessSet`), authentication, JSON and HTTP, so they do not stand for the NFR's end-to-end p95/p99. The 2-character queries were not the outlier in these runs. D-1 stays what it was: an end-to-end measurement on the stand or CI is the open debt.
+
 EXPLAIN pin for the project-key index: honest for what it claims, no more. It proves the predicate text of the read equals the index expression and that the operators (`LIKE`, `%>`) can use the GIN index (seq scan off; a drift fails). Dropping the competing btree inside a rolled-back transaction is a disclosed, harmless device (if the btree is renamed the `IF EXISTS` becomes a no-op and the test would fail loudly, not pass). It does not prove the planner picks the trigram index for the real statement (organization filter, OR of name and key); at 200 projects a btree plus filter is as good, so the key index is probably unused in practice. Not a defect; the claim "indexes serve the read" should not be read from it.
 
 ### Defects
@@ -86,13 +96,13 @@ EXPLAIN pin for the project-key index: honest for what it claims, no more. It pr
 - Severity: minor
 - Steps: `WordPrefixPattern` is `(^|[^[:alnum:]])q` evaluated with the database default collation; Cyrillic letters count as alphanumeric only when the cluster's ctype knows them. The test suite runs on `postgres:18-alpine`; the production host's ctype was not checked (no test pins it).
 - Expected / Actual: tier 3 (word starts with) vs tier 4 (contains) ordering is right on the test image; on a C-locale cluster every contains-hit could rank as tier 3. Ranking only, no disclosure. Unverified on such a host.
-- Status: open (suggest DevOps confirm the production ctype, or the regex take an explicit collation)
+- Status: fixed in fix round 1 (review F2): `search_fold` lowers under the explicit `ru-x-icu` collation; the migration refuses a `C`/`POSIX` `datctype`; `SearchDatabaseTests` pins the Cyrillic fold and similarity; the precondition is in `docs/deploy/vm.md` and `vm.ru.md`. The production `datctype` is still to be confirmed by DevOps (orchestrator).
 
 #### D-3: a null `color` is omitted, not sent as null
 
 - Severity: minor (contract wording)
 - Steps: contract says absent fields are omitted "except `color`", which is null when the object has none; the DTO omits a null `color`. No object kind can have a null colour today (projects, teams, departments always carry one), so no client sees the difference.
-- Status: open (fix the contract sentence or the DTO; no test needed today)
+- Status: fixed in fix round 1 (review F3): the contract now says "never null; `color` is always present on projects, teams and departments".
 
 Observations, not defects: with 3 exact and 3 similar rows the first read shows 5 and «ещё» (similar rows count toward «more»), and the expansion then shows 6, consistent. The log-privacy test covers 200, 400 and 429 paths, not the 404/401 paths; neither handles the text.
 

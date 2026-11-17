@@ -37,7 +37,7 @@ Response 200:
 - `groups`: only non-empty groups, ordered by the best row's tier, ties in the order `projects`, `teams`, `departments`, `areas`, `users` (BR-GS-8). Empty array when nothing is visible and matches. (`workitems` is added by `feat-NNN-search-work-items-read` as a new group kind before `projects` in the tie order; nothing else here changes.)
 - `hasMore`: true when more than the group's limit of visible rows match (5, or 20 on expansion; always false on expansion). It is computed from visible rows only. **No total, count or "hidden" field exists anywhere in the response** (BR-GS-5).
 - Rows are ordered by tier, then name (Russian collation), then id. A row with `similar: true` is a typo-tolerant match (BR-GS-17), always after every `similar: false` row of its group; the client shows it under «Похожие» and does not emphasise it. Emphasis for the other rows is done by the client from the typed text.
-- Row fields (one flat DTO; absent fields are omitted, not null, except `color`):
+- Row fields (one flat DTO; absent fields are omitted, never null; `color` is always present on projects, teams and departments, and sub-areas and users carry none):
 
 | Kind | Fields |
 |---|---|
@@ -47,7 +47,7 @@ Response 200:
 | `areas` (sub-areas) | `id`, `name`, `projectId`, `projectName`, `departmentName`, `similar` |
 | `users` | `id` (the user's subject id), `displayName`, `email`, `inactive` (true for a disabled account, shown «(неактивен)»), `similar` |
 
-`color` is the object's palette key (doc-016 BR-TD-20) or null. The server returns ids and names, never URLs; the client builds the addresses (ADR-0032). `email` and the whole users group exist only for a caller holding `organizations.membership.read`.
+`color` is the object's palette key (doc-016 BR-TD-20), always set for a project, team or department. The server returns ids and names, never URLs; the client builds the addresses (ADR-0032). `email` and the whole users group exist only for a caller holding `organizations.membership.read`.
 
 Sight and hiding: a project, team, department or sub-area the caller does not see, a deactivated or deleted one, and the sub-areas of a deactivated project are in no group; a former member is not found. The body for a hidden name and for a name that exists nowhere is identical (hidden ≡ nonexistent).
 
