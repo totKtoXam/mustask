@@ -1,4 +1,5 @@
 using Mustask.Application.Abstractions.Iterations;
+using Mustask.Application.Abstractions.Organizations;
 using Mustask.Application.Abstractions.UserDirectory;
 using Mustask.Application.Features.Organizations;
 using Mustask.Domain.Iterations;
@@ -9,7 +10,7 @@ namespace Mustask.Application.Features.Iterations.GetSprint;
 /// The header of a Closed sprint (US-5). A sprint that is not Closed has no such page and is not found. The closer's name is the
 /// directory's current one, or none for a person the directory does not know.
 /// </summary>
-public sealed class GetSprintHandler(IOrganizationStructure structure, ISprintReadModel sprints, IUserDirectory directory)
+public sealed class GetSprintHandler(IOrganizationStructure structure, ISprintReadModel sprints, IUserDirectory directory, IOrganizationAccess access)
 {
     public async Task<GetSprintResponse> Handle(GetSprintQuery query, CancellationToken cancellationToken)
     {
@@ -30,7 +31,7 @@ public sealed class GetSprintHandler(IOrganizationStructure structure, ISprintRe
             closedByName = user.DisplayName;
         }
 
-        var (items, storyPoints) = await sprints.DoneTotalsAsync(sprintId, cancellationToken);
+        var (items, storyPoints) = await sprints.DoneTotalsAsync(sprintId, await access.VisibleProjectsAsync(cancellationToken), cancellationToken);
 
         return new GetSprintResponse(
             new SprintResponse(

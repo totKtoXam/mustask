@@ -13,4 +13,16 @@ namespace Mustask.Application.Abstractions.Organizations;
 /// <param name="OrganizationId">The organization of the address, which the scoped check has already found the caller a member of.</param>
 /// <param name="UserId">The caller's subject (the token's <c>sub</c>), the key of their memberships.</param>
 /// <param name="Role">The caller's role in <paramref name="OrganizationId"/>.</param>
-public sealed record CallerAccess(Guid OrganizationId, string UserId, OrganizationRole Role);
+/// <param name="Visible">
+/// The projects the caller sees (feat-062, BR-TD-17): what a multi-project read narrows by, before paging. A handler passes
+/// <see cref="IOrganizationAccess.VisibleProjectsAsync"/>. A read reaches it through <see cref="Projects"/>, which fails closed:
+/// a non-administrator caller with none is a defect, not an unrestricted read.
+/// </param>
+public sealed record CallerAccess(Guid OrganizationId, string UserId, OrganizationRole Role, VisibleProjects? Visible = null)
+{
+    /// <summary>The projects this caller's rows may come from; throws for a non-administrator whose sight was not given.</summary>
+    public VisibleProjects Projects =>
+        Visible ?? (Role == OrganizationRole.Admin
+            ? VisibleProjects.All
+            : throw new InvalidOperationException("A read of several projects' rows needs the caller's visible projects (feat-062)."));
+}

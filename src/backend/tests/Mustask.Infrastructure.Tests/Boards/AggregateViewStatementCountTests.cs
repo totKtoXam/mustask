@@ -113,10 +113,50 @@ public sealed class AggregateViewStatementCountTests(OrganizationsDatabaseFixtur
         }
     }
 
-    private async Task<int> CountAsync(Func<IServiceProvider, CancellationToken, Task> run)
+    // feat-062 · BR-TD-17: the sight is a predicate inside each statement. A member who sees some of the projects (every third is hidden)
+    // takes the statements of the administrator's read plus the sight's own fixed ones (the set form, one read per request), for five
+    // projects as for fifty: nothing grows with the projects, the visible ones or the hidden ones.
+    [Fact]
+    public async Task AMember_TakesTheAdministratorsStatementsPlusTheSet_ForFiveProjectsAsForFifty()
+    {
+        var small = await SeedAsync(SmallProjects, hideEveryThird: true);
+        var large = await SeedAsync(LargeProjects, hideEveryThird: true);
+
+        int? setOfSmall = null;
+
+        async Task<int> SetStatementsAsync(Seeded seeded) => await CountAsync(
+            async (provider, ct) => await provider.GetRequiredService<IOrganizationAccess>().VisibleProjectsAsync(ct), seeded.OrganizationId);
+
+        foreach (var seeded in new[] { small, large })
+        {
+            var organization = seeded.OrganizationId.ToString();
+            var set = await SetStatementsAsync(seeded);
+            Assert.Equal(setOfSmall ??= set, set);
+
+            var reads = new (string Name, Func<IServiceProvider, CancellationToken, Task> Run)[]
+            {
+                ("groups", (provider, ct) => provider.GetRequiredService<GetViewGroupsHandler>()
+                    .Handle(new GetViewGroupsQuery(AggregateView.Backlogs, new AggregateQuery(organization, "stories", "team")), ct)),
+                ("rows", (provider, ct) => provider.GetRequiredService<GetBacklogGroupRowsHandler>()
+                    .Handle(new GetBacklogGroupRowsQuery(new AggregateQuery(organization, "stories", "team", Group: seeded.Team.ToString(), Limit: "10")), ct)),
+                ("flat", (provider, ct) => provider.GetRequiredService<GetOrganizationWorkItemsHandler>()
+                    .Handle(new GetOrganizationWorkItemsQuery(new AggregateQuery(organization, null), 1), ct)),
+            };
+
+            foreach (var (name, run) in reads)
+            {
+                var asAdministrator = await CountAsync(run);
+                var asMember = await CountAsync(run, seeded.OrganizationId);
+
+                Assert.True(asMember == asAdministrator + set, $"{name}: member {asMember}, administrator {asAdministrator}, set {set}.");
+            }
+        }
+    }
+
+    private async Task<int> CountAsync(Func<IServiceProvider, CancellationToken, Task> run, Guid? asMemberOf = null)
     {
         var counter = new StatementCounter();
-        await using var provider = BuildServices(counter);
+        await using var provider = BuildServices(counter, asMemberOf);
         await using var scope = provider.CreateAsyncScope();
 
         await run(scope.ServiceProvider, CancellationToken.None);
@@ -126,7 +166,7 @@ public sealed class AggregateViewStatementCountTests(OrganizationsDatabaseFixtur
         return counter.Statements.Count;
     }
 
-    private ServiceProvider BuildServices(IInterceptor interceptor)
+    private ServiceProvider BuildServices(IInterceptor interceptor, Guid? asMemberOf = null)
     {
         var services = new ServiceCollection();
 
@@ -135,7 +175,15 @@ public sealed class AggregateViewStatementCountTests(OrganizationsDatabaseFixtur
         services.AddScoped<IUserDirectory, UserDirectoryReadModel>();
         services.AddScoped<IProcessDefinitionReadModel, ProcessDefinitionReadModel>();
         services.AddSingleton<ICurrentUser>(new FixedUser());
-        services.AddScoped<IOrganizationAccess, AdministratorAccess>();
+        if (asMemberOf is { } organizationId)
+        {
+            services.AddScoped<IOrganizationAccess>(sp => new MemberAccess(sp.GetRequiredService<IScopedAccessReadModel>(), organizationId));
+        }
+        else
+        {
+            services.AddScoped<IOrganizationAccess, AdministratorAccess>();
+        }
+
         services.AddApplication();
         services.AddOrganizationsInfrastructure();
         services.AddBoardsInfrastructure();
@@ -150,6 +198,17 @@ public sealed class AggregateViewStatementCountTests(OrganizationsDatabaseFixtur
         public string SubjectId => "count-user-1";
     }
 
+    /// <summary>A member with no grant: sees the projects flagged for the organization and nothing else; the sight is the real set form.</summary>
+    private sealed class MemberAccess(IScopedAccessReadModel scoped, Guid organizationId) : IOrganizationAccess
+    {
+        public OrganizationRole Role => OrganizationRole.Member;
+
+        public bool Holds(string code) => OrganizationRoleBundles.Holds(Role, code);
+
+        public async Task<VisibleProjects> VisibleProjectsAsync(CancellationToken cancellationToken) =>
+            (await scoped.LoadSetAsync(organizationId, "count-user-1", Role, cancellationToken)).SeenProjects();
+    }
+
     private sealed class AdministratorAccess : IOrganizationAccess
     {
         public OrganizationRole Role => OrganizationRole.Admin;
@@ -158,7 +217,7 @@ public sealed class AggregateViewStatementCountTests(OrganizationsDatabaseFixtur
     }
 
     /// <summary>An organization of <paramref name="projects"/> projects linked to a team, each with 25 stories, every other one owned by the team.</summary>
-    private async Task<Seeded> SeedAsync(int projects)
+    private async Task<Seeded> SeedAsync(int projects, bool hideEveryThird = false)
     {
         var structure = await database.CreateStructureAsync();
         var organization = structure.Organization.Id;
@@ -180,6 +239,12 @@ public sealed class AggregateViewStatementCountTests(OrganizationsDatabaseFixtur
 
             await context.SaveChangesAsync();
         }
+
+        // The sight a member has: the flag of each project (feat-041); every third is hidden when asked, the rest are visible to the organization.
+        await database.ExecuteAsync(
+            "UPDATE projects SET visible_to_organization = NOT (id = ANY(@hidden)) WHERE organization_id = @organization",
+            ("hidden", projectIds.Where((_, index) => hideEveryThird && index % 3 == 0).ToArray()),
+            ("organization", organization));
 
         var story = (await database.QueryAsync(
             """

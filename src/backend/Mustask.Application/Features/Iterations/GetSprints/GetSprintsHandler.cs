@@ -1,5 +1,6 @@
 using System.Globalization;
 using Mustask.Application.Abstractions.Iterations;
+using Mustask.Application.Abstractions.Organizations;
 using Mustask.Application.Abstractions.Process;
 using Mustask.Application.Features.Organizations;
 using Mustask.Domain.Boards;
@@ -15,7 +16,8 @@ namespace Mustask.Application.Features.Iterations.GetSprints;
 public sealed class GetSprintsHandler(
     IOrganizationStructure structure,
     IProcessDefinitionReadModel processes,
-    ISprintReadModel sprints)
+    ISprintReadModel sprints,
+    IOrganizationAccess access)
 {
     public async Task<SprintListPage> Handle(GetSprintsQuery query, CancellationToken cancellationToken)
     {
@@ -36,6 +38,6 @@ public sealed class GetSprintsHandler(
             storiesLevelId = Guid.Empty;
         }
 
-        return await sprints.ListAsync(teamId, before, query.Open == true, storiesLevelId, cancellationToken);
+        return await sprints.ListAsync(teamId, before, query.Open == true, storiesLevelId, await access.VisibleProjectsAsync(cancellationToken), cancellationToken);
     }
 }

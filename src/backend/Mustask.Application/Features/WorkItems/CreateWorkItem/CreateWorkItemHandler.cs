@@ -233,6 +233,12 @@ public sealed class CreateWorkItemHandler(
             throw new NotFoundException(OrganizationErrorCodes.TeamNotFound);
         }
 
+        // feat-062 (feat-041 R-5): a team the caller does not see names nothing: 404, never the 409 of an unlinked team.
+        if (!await access.SeesAsync(ResourceScope.Team, teamId, cancellationToken))
+        {
+            throw new NotFoundException(OrganizationErrorCodes.TeamNotFound);
+        }
+
         var found = await structure.FindProjectTeamAsync(organizationId, projectId, teamId, cancellationToken);
 
         ProjectTeams.EnsureBindable(

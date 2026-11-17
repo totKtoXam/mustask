@@ -2,6 +2,7 @@ using Mustask.Application.Abstractions;
 using Mustask.Application.Abstractions.Iterations;
 using Mustask.Application.Abstractions.Organizations;
 using Mustask.Application.Features.Organizations;
+using Mustask.Domain.Identity;
 using Mustask.Domain.Iterations;
 using Mustask.Domain.Organizations;
 using Mustask.Shared.Exceptions;
@@ -21,6 +22,7 @@ public sealed class CloseSprintHandler(
     ISprintRepository sprints,
     IUnitOfWork unitOfWork,
     ICurrentUser currentUser,
+    IOrganizationAccess access,
     IClock clock)
 {
     public async Task<SprintResponse> Handle(CloseSprintCommand command, CancellationToken cancellationToken)
@@ -49,6 +51,12 @@ public sealed class CloseSprintHandler(
                 var (sprint, facts) = await sprints.LockPairForUpdateAsync(organizationId, teamId, sprintId, destinationId, ct);
 
                 if (sprint is null || (destinationId is not null && facts is null))
+                {
+                    throw SprintAddress.SprintNotFound();
+                }
+
+                // feat-062: a destination that is a sprint of a team the caller does not see names nothing, as one that never existed.
+                if (facts is not null && !await access.SeesAsync(ResourceScope.Team, facts.TeamId, ct))
                 {
                     throw SprintAddress.SprintNotFound();
                 }

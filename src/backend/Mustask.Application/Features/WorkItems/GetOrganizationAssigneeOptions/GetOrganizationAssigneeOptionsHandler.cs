@@ -19,7 +19,7 @@ public sealed class GetOrganizationAssigneeOptionsHandler(IAggregateViewReadMode
         var request = query.Request with { Grouping = null, AssigneeIds = null, Search = null };
         var parsed = AggregateParameters.Parse(request, AggregateView.WorkItems, groupRead: false);
 
-        var caller = new CallerAccess(organizationId, currentUser.SubjectId, access.Role);
+        var caller = new CallerAccess(organizationId, currentUser.SubjectId, access.Role, await access.VisibleProjectsAsync(cancellationToken));
 
         return await views.ReadAssigneeOptionsAsync(caller, AggregateSupport.ScopeOf(AggregateView.WorkItems, null, parsed), cancellationToken);
     }

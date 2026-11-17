@@ -1,6 +1,7 @@
 using System.Data.Common;
 using Mustask.Application;
 using Mustask.Application.Abstractions;
+using Mustask.Application.Abstractions.Organizations;
 using Mustask.Application.Abstractions.Process;
 using Mustask.Application.Abstractions.UserDirectory;
 using Mustask.Application.Features.Iterations.CloseSprint;
@@ -8,6 +9,7 @@ using Mustask.Application.Features.Iterations.GetSprintDynamics;
 using Mustask.Application.Features.Iterations.GetSprintOutcomeItems;
 using Mustask.Application.Features.Iterations.GetSprintParticipants;
 using Mustask.Application.Features.Iterations.GetSprints;
+using Mustask.Domain.Identity;
 using Mustask.Infrastructure.Process;
 using Mustask.Infrastructure.Tests.Organizations;
 using Mustask.Infrastructure.UserDirectory;
@@ -109,6 +111,34 @@ public sealed class SprintStatementCountTests(OrganizationsDatabaseFixture datab
         Assert.Equal(await PreviewAsync(small), await PreviewAsync(large));
     }
 
+    // feat-062 · BR-TD-17: the sight is a predicate inside each statement, not a statement of its own: every sprint read a viewer who
+    // sees only some of the projects makes takes exactly the statements the same read of an administrator takes (the pins below).
+    [Fact]
+    public async Task SprintReads_NarrowedToVisibleProjects_TakeTheStatementsOfTheUnnarrowedRead()
+    {
+        var closed = await SeedClosedAsync(Large);
+        var active = await SeedActiveAsync(Large);
+        var visible = VisibleProjects.Only([Guid.NewGuid(), Guid.NewGuid()]);
+
+        async Task<int> CountOf(Func<IServiceProvider, CancellationToken, Task> run) => await CountAsync(run, visible);
+
+        Assert.Equal(DynamicsStatements, await CountOf((provider, ct) => provider.GetRequiredService<GetSprintDynamicsHandler>()
+            .Handle(new GetSprintDynamicsQuery(closed.OrganizationId, closed.TeamId, closed.SprintId, null, null, null), ct)));
+        Assert.Equal(ParticipantsStatements, await CountOf((provider, ct) => provider.GetRequiredService<GetSprintParticipantsHandler>()
+            .Handle(new GetSprintParticipantsQuery(closed.OrganizationId, closed.TeamId, closed.SprintId, null, null, null, null), ct)));
+        Assert.Equal(ItemsStatements, await CountOf((provider, ct) => provider.GetRequiredService<GetSprintOutcomeItemsHandler>()
+            .Handle(new GetSprintOutcomeItemsQuery(closed.OrganizationId, closed.TeamId, closed.SprintId, null), ct)));
+        Assert.Equal(ListStatements, await CountOf((provider, ct) => provider.GetRequiredService<GetSprintsHandler>()
+            .Handle(new GetSprintsQuery(closed.OrganizationId, closed.TeamId, null, null), ct)));
+
+        var unnarrowedPreview = await CountAsync((provider, ct) => provider.GetRequiredService<Mustask.Application.Features.Iterations.GetCloseSprintPreview.GetCloseSprintPreviewHandler>()
+            .Handle(new Mustask.Application.Features.Iterations.GetCloseSprintPreview.GetCloseSprintPreviewQuery(active.OrganizationId, active.TeamId, active.SprintId), ct));
+        var narrowedPreview = await CountOf((provider, ct) => provider.GetRequiredService<Mustask.Application.Features.Iterations.GetCloseSprintPreview.GetCloseSprintPreviewHandler>()
+            .Handle(new Mustask.Application.Features.Iterations.GetCloseSprintPreview.GetCloseSprintPreviewQuery(active.OrganizationId, active.TeamId, active.SprintId), ct));
+
+        Assert.Equal(unnarrowedPreview, narrowedPreview);
+    }
+
     // Pinned: a change to one of these is a change to the query shape and is made on purpose (the numbers are the first run's).
     private const int DynamicsStatements = 8;
     private const int ParticipantsStatements = 8;
@@ -116,10 +146,10 @@ public sealed class SprintStatementCountTests(OrganizationsDatabaseFixture datab
     private const int ListStatements = 6;
     private const int CloseStatements = 17;
 
-    private async Task<int> CountAsync(Func<IServiceProvider, CancellationToken, Task> run)
+    private async Task<int> CountAsync(Func<IServiceProvider, CancellationToken, Task> run, VisibleProjects? visible = null)
     {
         var counter = new StatementCounter();
-        await using var provider = BuildServices(counter);
+        await using var provider = BuildServices(counter, visible ?? VisibleProjects.All);
         await using var scope = provider.CreateAsyncScope();
 
         await run(scope.ServiceProvider, CancellationToken.None);
@@ -134,7 +164,7 @@ public sealed class SprintStatementCountTests(OrganizationsDatabaseFixture datab
         return counter.Statements.Count;
     }
 
-    private ServiceProvider BuildServices(IInterceptor interceptor)
+    private ServiceProvider BuildServices(IInterceptor interceptor, VisibleProjects visible)
     {
         var services = new ServiceCollection();
 
@@ -144,6 +174,7 @@ public sealed class SprintStatementCountTests(OrganizationsDatabaseFixture datab
         services.AddScoped<IProcessDefinitionReadModel, ProcessDefinitionReadModel>();
         services.AddSingleton<IClock, SystemClock>();
         services.AddSingleton<ICurrentUser>(new FixedUser());
+        services.AddSingleton<IOrganizationAccess>(new FixedAccess(visible));
         services.AddApplication();
         services.AddOrganizationsInfrastructure();
         services.AddWorkItemsInfrastructure();
@@ -151,6 +182,16 @@ public sealed class SprintStatementCountTests(OrganizationsDatabaseFixture datab
         services.AddBoardsInfrastructure();
 
         return services.BuildServiceProvider();
+    }
+
+    /// <summary>The access of a request: an administrator's role with the sight the test gives (feat-062: the sprint reads narrow by it).</summary>
+    private sealed class FixedAccess(VisibleProjects visible) : IOrganizationAccess
+    {
+        public OrganizationRole Role => OrganizationRole.Admin;
+
+        public bool Holds(string code) => OrganizationRoleBundles.Holds(Role, code);
+
+        public Task<VisibleProjects> VisibleProjectsAsync(CancellationToken cancellationToken) => Task.FromResult(visible);
     }
 
     private sealed class FixedUser : ICurrentUser

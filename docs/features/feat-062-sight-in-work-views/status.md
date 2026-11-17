@@ -3,7 +3,7 @@
 - type: feature
 - size: L
 - branch: feat/062-sight-in-work-views
-- stage: 4-backend
+- stage: 5-backend-qa
 - epic: core/org-access
 - deps: feat-041
 - gates: gate-3
@@ -55,3 +55,4 @@ Verification: affected tests locally, the full verify.sh in CI.
 - 2026-11-17 [orchestrator] queue line taken by scripts/queue.sh take feat-062, PR #211 with squash auto-merge.
 - 2026-11-17 [orchestrator] held at the human's word («feat-062 пусть ждёт») after the queue take; the backend agent was stopped before writing anything.
 - 2026-11-18 [orchestrator] hold lifted by the human in chat after feat-041 (PR #203) merged; fresh origin/main merged into the branch (851aee9f). Stage 4 restarted.
+- 2026-11-18 [backend] stage 4 done: BR-TD-17 on feat-048 aggregates, the flat list, assignee options and the team backlog/board (incl. linked-projects list); mod-007 sprint reads (list, card, close preview, Closed outcome) narrowed by one VisibleProjects value taken from the feat-041 AccessSet (SeenProjects), applied as a predicate inside each statement, so no statement is added and the pins are unchanged (dynamics 8, participants 8, items 4, list 6, close 17); R-5 remainder: reorder item/anchor of a hidden project = 409 boards.backlog.reorder_stale like an unknown id; body ids closed: team in create/save (404, not 409 not_in_project), sprint in save and close destination of a hidden team (404 iterations.sprint.not_found). Audited with no gap: see api-contract section 6. Deviations: Overview and selector offers left to feat-061; AccessSet.SeesAsync still has no Area scope; no frontend change (no route or shape change); feat-041 and mod-007 statuses not edited (their owed clauses are met here, contract in api-contract.md). Tests: Api.IntegrationTests Boards+Iterations 457 and WorkItems+Organizations 2411 green, Infrastructure statement-count subset 34 green, Application.Tests 905 green; verify.sh not run (economy mode).

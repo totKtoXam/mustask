@@ -59,6 +59,16 @@ internal sealed class HttpContextOrganizationAccess(
         };
     }
 
+    public async Task<VisibleProjects> VisibleProjectsAsync(CancellationToken cancellationToken)
+    {
+        if (Resolved.Role == OrganizationRole.Admin)
+        {
+            return VisibleProjects.All;
+        }
+
+        return (await SetAsync(cancellationToken)).SeenProjects();
+    }
+
     public async Task<AccessSet> SetAsync(CancellationToken cancellationToken)
     {
         var items = httpContextAccessor.HttpContext!.Items;
