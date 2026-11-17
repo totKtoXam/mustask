@@ -139,6 +139,8 @@ public sealed class FakeWorkItemRepository(WorkItemWorld world) : IWorkItemRepos
 
     public Task<Guid?> FindCreatedByRequestAsync(Guid projectId, Guid requestId, CancellationToken cancellationToken) => throw new NotSupportedException();
 
+    public Task<Guid?> ShareLockAsync(Guid projectId, int number, CancellationToken cancellationToken) => throw new NotSupportedException();
+
     public Task<WorkItem?> LockAsync(Guid projectId, int number, CancellationToken cancellationToken)
     {
         world.Calls.Add($"lock-item {number}");

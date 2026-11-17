@@ -36,6 +36,9 @@ public interface IRichTextReducer
 /// <param name="HasContent">Whether the visible text has a non-whitespace character (BR-RT-6).</param>
 public sealed record RichTextReduction(bool Exceeded, string Html, int MarkupLength, int VisibleLength, bool HasContent)
 {
+    /// <summary>The ids of the images the reduced html holds, in document order, duplicates kept (feat-078 BR-IM-7).</summary>
+    public IReadOnlyList<Guid> ImageIds { get; init; } = [];
+
     /// <summary>The answer for output or input past a bound.</summary>
     public static RichTextReduction OverTheBound { get; } = new(true, string.Empty, 0, 0, false);
 }

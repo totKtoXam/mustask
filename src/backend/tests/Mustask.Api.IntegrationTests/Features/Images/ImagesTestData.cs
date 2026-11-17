@@ -164,6 +164,38 @@ internal static class ImagesTestData
         await context.SaveChangesAsync();
     }
 
+    /// <summary>
+    /// Stores an unbound upload of <paramref name="uploadedBy"/> for the item under the id given, straight into the database:
+    /// the rich-text fixtures name their own ids (feat-078 step 8). The bytes are a real PNG, so a read of it works.
+    /// </summary>
+    public static async Task StoreUnboundAsync(
+        MustaskApiFactory factory, Guid workItemId, Guid imageId, string? uploadedBy = null, DateTimeOffset? uploadedAt = null)
+    {
+        var png = Png(8, 8);
+        using var scope = factory.Services.CreateScope();
+        var context = scope.ServiceProvider.GetRequiredService<MustaskDbContext>();
+
+        // The fixtures' ids are fixed, so another test of the shard may have used them: the row is made anew for this item.
+        // Classes of a shard run one after another, so nothing holds the old row while it is replaced.
+        await context.ImageContents.Where(candidate => candidate.ImageId == imageId).ExecuteDeleteAsync();
+        await context.Images.Where(candidate => candidate.Id == imageId).ExecuteDeleteAsync();
+
+        var image = Image.ForWorkItemDescription(
+            imageId,
+            new StoredImageFacts(ImageFormat.Png, 8, 8, 1, png.Length),
+            uploadedBy ?? OrganizationsTestData.Creator,
+            workItemId,
+            uploadedAt ?? DateTimeOffset.UtcNow);
+        context.Images.Add(image);
+        context.ImageContents.Add(new ImageContent(imageId, png));
+        await context.SaveChangesAsync();
+    }
+
+    /// <summary>The ids an html value names in its image elements (lower case).</summary>
+    public static IEnumerable<Guid> ImageIdsIn(string? html) =>
+        System.Text.RegularExpressions.Regex.Matches(html ?? string.Empty, "data-image-id=[\"']([0-9a-fA-F-]{36})[\"']")
+            .Select(match => Guid.Parse(match.Groups[1].Value));
+
     public static async Task<Guid> UploadBoundAsync(MustaskApiFactory factory, WorkItemsWorld world, string identifier, byte[]? bytes = null)
     {
         var answer = await UploadAsync(factory, world, identifier, bytes ?? Png(60, 40));

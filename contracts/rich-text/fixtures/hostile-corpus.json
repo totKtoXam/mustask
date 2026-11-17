@@ -37,6 +37,10 @@
     { "id": "mxss-svg-style-id", "story": "US-2", "note": "", "input": "<svg></p><style><a id=\"</style><img src=1 onerror=alert(1)>\">", "mustNotContain": ["<svg", "<style", "<img", "onerror"] },
     { "id": "mxss-select-style", "story": "US-2", "note": "", "input": "<select><template><style></select><img src=x onerror=alert(1)></style></template></select>", "mustNotContain": ["<select", "<template", "<style", "<img", "onerror"] },
     { "id": "deep-unclosed-marks", "story": "US-2", "note": "Unclosed and misnested formatting elements.", "input": "<b><i><u><s>a</b>b</i>c</u>d</s><a href=\"https://e.org\"><a href=\"javascript:1\">x</a></a>", "mustNotContain": ["javascript:"] },
-    { "id": "unicode-case-folding-scheme", "story": "US-2", "note": "A Kelvin sign and a dotless i near a scheme name.", "input": "<a href=\"javascrıpt:alert(1)\">x</a><a href=\"JAVASCRIPT:alert(1)\">y</a>", "mustNotContain": ["javascript:", "href="] }
+    { "id": "unicode-case-folding-scheme", "story": "US-2", "note": "A Kelvin sign and a dotless i near a scheme name.", "input": "<a href=\"javascrıpt:alert(1)\">x</a><a href=\"JAVASCRIPT:alert(1)\">y</a>", "mustNotContain": ["javascript:", "href="] },
+    {"id":"image-onerror","story":"US-3","note":"A valid reference carries an event attribute: the image stays, the attribute does not.","input":"<img data-image-id=\"0b9f6a2e-5c3d-4a7e-8f1b-2d4c6e8a0b1c\" onerror=\"alert(1)\" alt=\"x\">","mustNotContain":["onerror","alert(1)"]},
+    {"id":"image-javascript-src","story":"US-3","note":"A src of any scheme is never stored.","input":"<img src=\"javascript:alert(1)\" data-image-id=\"0b9f6a2e-5c3d-4a7e-8f1b-2d4c6e8a0b1c\" alt=\"x\">","mustNotContain":["javascript:","src="]},
+    {"id":"image-srcset-style","story":"US-3","note":"srcset and style are read and dropped.","input":"<img data-image-id=\"0b9f6a2e-5c3d-4a7e-8f1b-2d4c6e8a0b1c\" srcset=\"https://e.org/a.png 2x\" style=\"background:url(javascript:1)\" alt=\"x\">","mustNotContain":["srcset","style","javascript:"]},
+    {"id":"image-alt-breaks-out","story":"US-3","note":"A text alternative that tries to close the attribute and the element.","input":"<img data-image-id=\"0b9f6a2e-5c3d-4a7e-8f1b-2d4c6e8a0b1c\" alt='\"><script>alert(1)</script>'>","mustNotContain":["<script"]}
   ]
 }

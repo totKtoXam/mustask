@@ -18,7 +18,7 @@ internal static class RichTextTestSupport
     public static readonly HashSet<string> AllowedElements = new(StringComparer.Ordinal)
     {
         "p", "br", "h3", "h4", "strong", "em", "u", "s", "mark", "span", "code", "pre", "ul", "ol", "li", "a",
-        "table", "tbody", "tr", "th", "td",
+        "table", "tbody", "tr", "th", "td", "img",
     };
 
     /// <summary>
@@ -112,6 +112,8 @@ internal static class RichTextTestSupport
                 {
                     ("a", "href") => LinkAddress.TryRead(attribute.Value, out var href) && href == attribute.Value,
                     ("a", "rel") => attribute.Value == "noopener noreferrer",
+                    ("img", "data-image-id") => Guid.TryParseExact(attribute.Value, "D", out var imageId) && imageId.ToString("D") == attribute.Value,
+                    ("img", "alt") => attribute.Value.EnumerateRunes().Count() <= 255,
                     ("span" or "mark" or "code", "class") => classes.Contains(attribute.Value),
                     _ => false,
                 };

@@ -13,12 +13,13 @@ internal sealed class DomConverter
 {
     private const string HtmlNamespace = "http://www.w3.org/1999/xhtml";
     private const int MaxListDepth = 3;
+    private const int MaxAltCodePoints = 255;
 
     private static readonly HashSet<string> Dropped = new(StringComparer.Ordinal)
     {
         "script", "style", "iframe", "object", "embed", "template", "svg", "math", "noscript", "head", "title", "link",
         "meta", "base", "form", "input", "textarea", "select", "button", "audio", "video", "canvas", "frame", "frameset",
-        "applet", "img", "hr",
+        "applet", "hr",
     };
 
     private readonly RichTextVocabulary vocabulary;
@@ -28,6 +29,7 @@ internal sealed class DomConverter
 
     private readonly List<Container> containers = [];
     private Leaf? currentLeaf;
+    private readonly List<ImageBlock> pendingImages = [];
     private Marks marks = Marks.None;
     private bool inPre;
     private readonly StringBuilder preText = new();
@@ -122,6 +124,13 @@ internal sealed class DomConverter
         if (name == "br")
         {
             OnBreak();
+            frame.Skipped = true;
+            return false;
+        }
+
+        if (name == "img")
+        {
+            OnImage(element);
             frame.Skipped = true;
             return false;
         }
@@ -329,6 +338,52 @@ internal sealed class DomConverter
         currentLeaf!.Items.Add(new Inline(data, marks.Canonical(currentLeaf.Kind != LeafKind.Paragraph)));
     }
 
+    /// <summary>
+    /// BR-IM-7: an image is kept only by its <c>data-image-id</c> (a parsed Guid) and its <c>alt</c>; any other attribute, a
+    /// <c>src</c> included, is read and dropped. It is a block of its own: a paragraph it sits in is cut around it, a heading
+    /// holds it back until the heading closes, and in a code block or a table cell it is dropped.
+    /// </summary>
+    private void OnImage(IElement element)
+    {
+        if (inPre || Current is CellContainer || !Guid.TryParseExact(element.GetAttribute("data-image-id")?.Trim(), "D", out var id))
+        {
+            return;
+        }
+
+        var image = new ImageBlock(id, CutAlt(element.GetAttribute("alt") ?? string.Empty));
+
+        if (currentLeaf is { } leaf && leaf.Kind != LeafKind.Paragraph)
+        {
+            pendingImages.Add(image);
+
+            return;
+        }
+
+        if (currentLeaf is { Items.Count: 0 } empty)
+        {
+            // An empty half is not kept.
+            Current.Remove(empty);
+        }
+
+        CloseLeaf();
+        Current.Add(image);
+    }
+
+    private static string CutAlt(string alt)
+    {
+        var count = 0;
+
+        for (var index = 0; index < alt.Length; index += char.IsSurrogatePair(alt, index) ? 2 : 1)
+        {
+            if (++count > MaxAltCodePoints)
+            {
+                return alt[..index];
+            }
+        }
+
+        return alt;
+    }
+
     private void OnBreak()
     {
         if (inPre)
@@ -402,7 +457,20 @@ internal sealed class DomConverter
         }
     }
 
-    private void CloseLeaf() => currentLeaf = null;
+    private void CloseLeaf()
+    {
+        currentLeaf = null;
+
+        if (pendingImages.Count > 0)
+        {
+            foreach (var image in pendingImages)
+            {
+                Current.Add(image);
+            }
+
+            pendingImages.Clear();
+        }
+    }
 
     private void StartLeaf(LeafKind kind)
     {
@@ -511,6 +579,8 @@ internal sealed class DomConverter
     private abstract class Container
     {
         public abstract void Add(Block block);
+
+        public abstract void Remove(Block block);
     }
 
     private sealed class RootContainer : Container
@@ -518,6 +588,8 @@ internal sealed class DomConverter
         public List<Block> Blocks { get; } = [];
 
         public override void Add(Block block) => Blocks.Add(block);
+
+        public override void Remove(Block block) => Blocks.Remove(block);
     }
 
     private sealed class ListContainer(ListBlock list) : Container
@@ -539,11 +611,15 @@ internal sealed class DomConverter
 
             implicitItem.Blocks.Add(block);
         }
+
+        public override void Remove(Block block) => implicitItem?.Blocks.Remove(block);
     }
 
     private sealed class ItemContainer(ItemBlock item) : Container
     {
         public override void Add(Block block) => item.Blocks.Add(block);
+
+        public override void Remove(Block block) => item.Blocks.Remove(block);
     }
 
     private sealed class TableContainer(TableBlock table) : Container
@@ -554,6 +630,8 @@ internal sealed class DomConverter
         public List<Block> Before { get; } = [];
 
         public override void Add(Block block) => Before.Add(block);
+
+        public override void Remove(Block block) => Before.Remove(block);
     }
 
     private sealed class RowContainer(TableContainer table, RowBlock row) : Container
@@ -563,6 +641,8 @@ internal sealed class DomConverter
         public RowBlock Row { get; } = row;
 
         public override void Add(Block block) => table.Add(block);
+
+        public override void Remove(Block block) => table.Remove(block);
     }
 
     private sealed class CellContainer : Container
@@ -576,6 +656,14 @@ internal sealed class DomConverter
             if (block is Leaf leaf)
             {
                 cell.Paragraphs.Add(leaf);
+            }
+        }
+
+        public override void Remove(Block block)
+        {
+            if (block is Leaf leaf)
+            {
+                cell.Paragraphs.Remove(leaf);
             }
         }
     }

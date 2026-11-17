@@ -2,6 +2,7 @@ using System.Diagnostics;
 using System.Net;
 using System.Text;
 using System.Text.Json;
+using Mustask.Api.IntegrationTests.Features.Images;
 using Mustask.Api.IntegrationTests.Features.Organizations;
 
 namespace Mustask.Api.IntegrationTests.Features.WorkItems;
@@ -32,6 +33,17 @@ public sealed class SaveWorkItemDescriptionEndpointTests(MustaskApiFactory facto
 
     private static string? Reason(Answer answer, string field = "description") =>
         answer.Body.GetProperty("errors").GetProperty(field).EnumerateArray().Single().GetProperty("code").GetString();
+
+    /// <summary>The fixtures name their own image ids: the save binds only the caller's uploads for the item, so each is stored first (feat-078).</summary>
+    private async Task StoreFixtureImagesAsync(WorkItemsWorld world, string bug, string? html)
+    {
+        var itemId = (await WorkItemsTestData.ReadAsync(factory, world, bug)).GetProperty("id").GetGuid();
+
+        foreach (var imageId in ImagesTestData.ImageIdsIn(html).Distinct())
+        {
+            await ImagesTestData.StoreUnboundAsync(factory, itemId, imageId);
+        }
+    }
 
     private static string Repeat(string unit, int times) => new StringBuilder(unit.Length * times).Insert(0, unit, times).ToString();
 
@@ -365,6 +377,7 @@ public sealed class SaveWorkItemDescriptionEndpointTests(MustaskApiFactory facto
         foreach (var fixture in document.RootElement.GetProperty("cases").EnumerateArray())
         {
             var id = fixture.GetProperty("id").GetString();
+            await StoreFixtureImagesAsync(world, bug, fixture.GetProperty("input").GetString());
             var canonical = fixture.GetProperty("canonical").GetString()!;
 
             var first = await WorkItemsTestData.SaveAsync(
@@ -395,6 +408,7 @@ public sealed class SaveWorkItemDescriptionEndpointTests(MustaskApiFactory facto
         foreach (var fixture in document.RootElement.GetProperty("cases").EnumerateArray())
         {
             var id = fixture.GetProperty("id").GetString();
+            await StoreFixtureImagesAsync(world, bug, fixture.GetProperty("input").GetString());
             var answer = await WorkItemsTestData.SaveAsync(
                 factory, world, bug, new { description = fixture.GetProperty("input").GetString(), descriptionFormat = "html" });
 

@@ -335,6 +335,8 @@ public sealed class SaveWorkItemDescriptionHandlerTests
     {
         public int Saves { get; private set; }
 
+        public Task<Guid?> ShareLockAsync(Guid projectId, int number, CancellationToken cancellationToken) => throw new NotSupportedException();
+
         public Task<WorkItem?> LockAsync(Guid projectId, int number, CancellationToken cancellationToken) =>
             Task.FromResult<WorkItem?>(projectId == item.ProjectId && number == item.Number ? item : null);
 

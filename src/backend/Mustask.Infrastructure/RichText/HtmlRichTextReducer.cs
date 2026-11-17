@@ -176,7 +176,10 @@ internal sealed class HtmlRichTextReducer : IRichTextReducer, IDisposable
             }
 
             return new RichTextReduction(
-                false, writer.Html, (int)writer.MarkupLength, (int)writer.VisibleLength, writer.HasContent);
+                false, writer.Html, (int)writer.MarkupLength, (int)writer.VisibleLength, writer.HasContent)
+            {
+                ImageIds = writer.ImageIds,
+            };
         }
         catch (RichTextBudgetExceededException)
         {
