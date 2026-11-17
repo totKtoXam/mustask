@@ -3,7 +3,7 @@
 - type: feature
 - size: L
 - branch: feat/078-description-images
-- stage: 03-ux-design
+- stage: 04-backend
 - epic: core/work-items
 - deps: feat-018
 - gates: gate-1, gate-2, gate-3
@@ -12,7 +12,7 @@
 
 requirements-review: needs-human-decision (review.md Round 1: R-1..R-15, 14 resolved in the spec, R-14 accepted-risk; OQ-1..OQ-7 for the human)
 gate-1: approved (the human, 2026-11-17)
-gate-2: pending
+gate-2: approved (the human, 2026-11-17)
 gate-3: pending
 
 ## Plan
@@ -31,6 +31,8 @@ gate-3: pending
 - 2026-11-17 [orchestrator] gate-1: the human answered OQ-8 (20 MB intake) and OQ-9 (half size, similarity 0.95, format kept) as recommended and approved the requirements (6 stories, the feat-059 split, crop as its own S line, R-14 no-quota risk accepted); US-6 was not re-reviewed, the human chose approve over a delta review. Stage 3 started
 - 2026-11-17 [ux-designer] stage 3 done: design.md (images in Описание: «Изображение» control, placeholder, image block and its states, paste/drop/chooser, US-6 reduction dialog with queue, full-size view, keyboard and read-only, host seam for feat-059, narrow screens; 11 decisions D-1..D-11 for gate-2) and a clickable prototype/index.html (plain script, opens from file://). Open for the human: D-1 text alternative editing is not designed (out of scope per spec); D-6 read-only readers get a tab stop per image. gate-2 untouched
 - 2026-11-17 [backend-developer] ADR-0045 written, status proposed (docs/adr/0045-image-store-in-own-schema-libvips-hourly-sweep.md, indexed in docs/adr/README.md): bytea in an `images` schema owned by a new Images module in the one MustaskDbContext and migration stream, metadata and bytes split, a cross-schema cascading key to work_items for the purge, random v4 ids, buffered reads with `private, no-cache` + ETag and nosniff; our own header reader, container metadata stripper and SSIM, NetVips (libvips) for decode/scale/encode only; hourly BackgroundService sweep with id-ordered row locks against the bind; ImagePurpose slot and IImageIntake/IImageBinding ports for feat-059; a process-wide decode limiter. For the human at gate-2: ADR D-1 library (licences to verify at pin; ImageSharp only with a commercial licence), D-2 animated PNG, D-3 still GIF scaling, D-4 backups. Owed by the orchestrator: ADR-0039 note pointing to ADR-0045 (BR-IM-18)
+
+- 2026-11-17 [orchestrator] gate-2: the human approved the design (prototype clicked through in the browser by the orchestrator first: over-5 MB offer → reduce → result → insert, PDF refusal, read-only, «Изображение недоступно») and accepted ADR-0045 with D-1 NetVips, D-2 animated PNG like animated GIF, D-3 nearest-neighbour GIF scaling; ADR-0039 got its amendment note (BR-IM-18). Known: alt-text editing stays out of scope (design D-1); ADR D-4 backups proposed as a separate line. Stage 4 started
 
 ## Notes
 
