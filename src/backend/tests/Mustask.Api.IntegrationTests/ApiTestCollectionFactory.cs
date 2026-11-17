@@ -73,6 +73,9 @@ public sealed class ApiTestCollectionFactory : IXunitTestCollectionFactory
         typeof(AreaVolumeEndpointTests),
         typeof(GetTeamsEndpointTests),
         typeof(GetWorkItemsEndpointTests),
+
+        // a host of its own with the decode gate narrowed, and a timing
+        typeof(Features.Images.IntakeGateTests),
     };
 
     private const string ShardsVariable = "MUSTASK_API_TEST_SHARDS";

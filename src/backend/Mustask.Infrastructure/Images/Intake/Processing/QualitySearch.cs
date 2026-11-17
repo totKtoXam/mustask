@@ -6,50 +6,80 @@ namespace Mustask.Infrastructure.Images.Intake.Processing;
 internal sealed record SearchResult(byte[] Bytes, int Quality, double Similarity);
 
 /// <summary>
-/// BR-IM-4 (4): a binary search over the quality of a lossy encoder for the lowest <c>Q</c> whose decoded result is similar
-/// enough to the reference (plan-backend § 5.2). At most seven encodes (61 values, one optional probe at a hint first).
+/// BR-IM-4 (4): a search over the quality of a lossy encoder for the lowest <c>Q</c> whose decoded result is similar enough to
+/// the reference (plan-backend § 5.2). Tuned for the 5 s / 15 s targets: each round tries four qualities at once (encode,
+/// decode and compare run in parallel), so the 61 values narrow to one in two rounds instead of six sequential encodes (a few hundred MB more per permit while a round runs). A
+/// hint (the previous step's quality) centres the first round.
 /// </summary>
 internal static class QualitySearch
 {
     public const int MinQuality = 40;
     public const int MaxQuality = 100;
 
+    /// <summary>The floor of the upload's 0.98 search: photographs that need less are rare, and a narrower range is one round fewer (the 5 s target).</summary>
+    public const int UploadFloorQuality = 60;
+
+    private const int Probes = 4;
+    private const int HintSpread = 4;
+
     /// <summary>The smallest passing encoding, or <c>null</c> when even the highest quality is not similar enough.</summary>
     public static SearchResult? Find(
-        IImageCodec codec, IPicture picture, ImageFormat format, double threshold, byte[] referenceLuma, int? hint = null)
+        IImageCodec codec, IPicture picture, ImageFormat format, double threshold, byte[] referenceLuma, int? hint = null, int minQuality = MinQuality)
     {
-        var low = MinQuality;
+        var low = Math.Max(MinQuality, minQuality);
         var high = MaxQuality;
         SearchResult? best = null;
-        var first = hint is >= MinQuality and <= MaxQuality ? hint : null;
+        var useHint = hint is { } h && h >= low && h <= MaxQuality ? hint : null;
 
         while (low <= high)
         {
-            var quality = first ?? ((low + high) / 2);
-            first = null;
+            var points = useHint is { } centre
+                ? new[] { centre - (2 * HintSpread), centre - HintSpread, centre, centre + HintSpread, centre + (2 * HintSpread) }.Select(point => Math.Clamp(point, low, high)).Distinct().Order().ToArray()
+                : Spread(low, high);
+            useHint = null;
 
-            var encoded = picture.Encode(new PictureEncoding(format, quality, Lossless: false));
-            var luma = codec.DecodeLuma(encoded, format, out var width, out var height);
+            var results = new SearchResult?[points.Length];
 
-            if (width != picture.Width || height != picture.Height)
+            Parallel.For(0, points.Length, index =>
             {
-                throw new InvalidOperationException("The candidate changed size.");
+                var encoded = picture.Encode(new PictureEncoding(format, points[index], Lossless: false));
+                var luma = codec.DecodeLuma(encoded, format, out var width, out var height);
+
+                if (width != picture.Width || height != picture.Height)
+                {
+                    throw new InvalidOperationException("The candidate changed size.");
+                }
+
+                var similarity = Ssim.Mean(referenceLuma, luma, width, height);
+                results[index] = similarity >= threshold ? new SearchResult(encoded, points[index], similarity) : null;
+            });
+
+            var passing = Array.FindIndex(results, result => result is not null);
+
+            if (passing < 0)
+            {
+                low = points[^1] + 1;
+                continue;
             }
 
-            var similarity = Ssim.Mean(referenceLuma, luma, width, height);
-
-            if (similarity >= threshold)
-            {
-                best = new SearchResult(encoded, quality, similarity);
-                high = quality - 1;
-            }
-            else
-            {
-                low = quality + 1;
-            }
+            best = results[passing];
+            high = points[passing] - 1;
+            low = passing > 0 ? points[passing - 1] + 1 : low;
         }
 
         return best;
+    }
+
+    /// <summary>Up to <see cref="Probes"/> distinct qualities splitting [low, high] into equal parts.</summary>
+    private static int[] Spread(int low, int high)
+    {
+        var count = high - low + 1;
+
+        return Enumerable.Range(1, Probes)
+            .Select(i => low + (int)((long)count * i / (Probes + 1)))
+            .Select(point => Math.Min(point, high))
+            .Distinct()
+            .ToArray();
     }
 }
 
@@ -61,26 +91,39 @@ internal static class QualitySearch
 /// </summary>
 internal static class ReductionLadder
 {
-    private static readonly double[] Steps = [0.85, 0.72, 0.61, 0.52, ImageLimits.ReductionSideFloor];
+    private const double SkipAbove = 1.8;
+
+    private static readonly double[] Steps =[0.85, 0.72, 0.61, 0.52, ImageLimits.ReductionSideFloor];
 
     public static byte[]? Run(
-        IImageCodec codec, IPicture picture, ImageFormat format, bool lossy, int originalWidth, int originalHeight, int? qualityHint)
+        IImageCodec codec, IPicture picture, ImageFormat format, bool lossy, int originalWidth, int originalHeight, int? qualityHint,
+        SearchResult? initial = null)
     {
         var hint = qualityHint;
+        long? fullSizeBytes = null;
 
         if (lossy)
         {
-            var found = QualitySearch.Find(codec, picture, format, ImageLimits.MinReductionSimilarity, picture.Luma(), hint);
+            // The caller may have run this very search already (the reduction's first probe): it is not repeated.
+            var found = initial ?? QualitySearch.Find(codec, picture, format, ImageLimits.MinReductionSimilarity, picture.Luma(), hint);
             if (found is { Bytes.Length: <= ImageLimits.MaxStoredBytes })
             {
                 return found.Bytes;
             }
 
             hint = found?.Quality ?? hint;
+            fullSizeBytes = found?.Bytes.Length;
         }
 
         foreach (var step in Steps)
         {
+            // Tuning of the 15 s target: the size of a lossy encode goes with the pixels, so a step whose estimate is far above
+            // the cap is not tried (the exact half is always tried).
+            if (fullSizeBytes is { } full && step != ImageLimits.ReductionSideFloor && full * step * step > SkipAbove * ImageLimits.MaxStoredBytes)
+            {
+                continue;
+            }
+
             // Never below half of the original's sides; the half itself rounds up.
             var width = step == ImageLimits.ReductionSideFloor ? (int)Math.Ceiling(originalWidth * step) : (int)Math.Round(originalWidth * step);
             var height = step == ImageLimits.ReductionSideFloor ? (int)Math.Ceiling(originalHeight * step) : (int)Math.Round(originalHeight * step);

@@ -84,6 +84,15 @@ internal static class ImagesTestData
     public static byte[] Png(int width, int height, double sigma = 10) =>
         (NetVips.Image.Black(width, height, bands: 3) + 128 + NetVips.Image.Gaussnoise(width, height, sigma: sigma, seed: 5)).Cast(NetVips.Enums.BandFormat.Uchar).PngsaveBuffer();
 
+    /// <summary>A PNG of seeded random bytes: nothing to compress, so no reduction within the floors can reach 5 MB.</summary>
+    public static byte[] NoisePng(int width, int height)
+    {
+        var pixels = new byte[width * height * 3];
+        new Random(11).NextBytes(pixels);
+
+        return NetVips.Image.NewFromMemory(pixels, width, height, 3, NetVips.Enums.BandFormat.Uchar).PngsaveBuffer();
+    }
+
     public static byte[] Jpeg(int width, int height, int quality = 90, double sigma = 12) =>
         (NetVips.Image.Black(width, height, bands: 3) + 128 + NetVips.Image.Gaussnoise(width, height, sigma: sigma, seed: 5)).Cast(NetVips.Enums.BandFormat.Uchar).JpegsaveBuffer(q: quality);
 
@@ -114,6 +123,22 @@ internal static class ImagesTestData
         output.Write(System.Text.Encoding.ASCII.GetBytes(type));
         output.Write(body);
         output.Write(new byte[4]);
+    }
+
+    public static byte[] AnimatedGif(int frames, int size = 8)
+    {
+        var list = Enumerable.Range(0, frames)
+            .Select(i => NetVips.Image.Black(size, size, bands: 3) + new double[] { i * 6 % 256, 255 - (i * 6 % 256), 128 })
+            .ToArray();
+        var joined = NetVips.Image.Arrayjoin(list, across: 1).Cast(NetVips.Enums.BandFormat.Uchar);
+        var mutated = joined.Mutate(mutable =>
+        {
+            mutable.Set(NetVips.GValue.GIntType, "page-height", size);
+            mutable.Set(NetVips.GValue.ArrayIntType, "delay", Enumerable.Repeat(100, frames).ToArray());
+            mutable.Set(NetVips.GValue.GIntType, "loop", 0);
+        });
+
+        return mutated.GifsaveBuffer(dither: 0);
     }
 
     public static byte[] Svg() =>

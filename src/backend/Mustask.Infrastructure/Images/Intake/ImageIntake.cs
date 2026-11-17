@@ -71,9 +71,26 @@ internal sealed class ImageIntake(IImageCodec codec, DecodeGate gate) : IImageIn
         byte[]? candidate = null;
         int? quality = null;
 
+        if (lossy && mode == ImageIntakeMode.Reduction && !strippedFits)
+        {
+            // A reduction of a file over the cap: the lowest quality at 0.95 comes first. If even that does not fit, the 0.98
+            // search could not either (a higher quality is larger), so it is not run, and the ladder continues from this result.
+            var luma = picture.Luma();
+            var rough = QualitySearch.Find(codec, picture, header.Format, ImageLimits.MinReductionSimilarity, luma);
+
+            if (rough is not { Bytes.Length: <= ImageLimits.MaxStoredBytes })
+            {
+                return ReductionLadder.Run(codec, picture, header.Format, lossy, header.DisplayWidth, header.DisplayHeight, rough?.Quality, rough);
+            }
+
+            var fine = QualitySearch.Find(codec, picture, header.Format, ImageLimits.MinSimilarity, luma, minQuality: rough.Quality);
+
+            return fine is { Bytes.Length: <= ImageLimits.MaxStoredBytes } ? fine.Bytes : rough.Bytes;
+        }
+
         if (lossy)
         {
-            var found = QualitySearch.Find(codec, picture, header.Format, ImageLimits.MinSimilarity, picture.Luma());
+            var found = QualitySearch.Find(codec, picture, header.Format, ImageLimits.MinSimilarity, picture.Luma(), minQuality: QualitySearch.UploadFloorQuality);
             candidate = found?.Bytes;
             quality = found?.Quality;
         }
