@@ -500,3 +500,33 @@ describe('feat-043 D-6: a sub-area row keeps the fitting team', () => {
     );
   });
 });
+
+describe('doc-016 BR-TD-21 (feat-061): the «Структура» filter field', () => {
+  const FIELD = 'Найти департамент, команду или проект';
+
+  it('is named by the design, filters from the first character by name and project key, and Esc clears it', async () => {
+    serveOrganizations();
+    renderPage({ path: AREAS });
+    await treegrid();
+
+    const field = screen.getByPlaceholderText(FIELD);
+    await userEvent.type(field, 'prm');
+    await waitFor(() => expect(screen.queryByText('Аналитика')).not.toBeInTheDocument());
+    expect(row('Платформа')).toBeInTheDocument();
+    expect(row('Пример проекта')).toBeInTheDocument();
+    expect(screen.queryByText('Отчёты')).not.toBeInTheDocument();
+
+    await userEvent.type(field, '{Escape}');
+    expect(field).toHaveValue('');
+    expect(row('Отчёты')).toBeInTheDocument();
+  });
+
+  it('says «Ничего не найдено» when nothing matches', async () => {
+    serveOrganizations();
+    renderPage({ path: AREAS });
+    await treegrid();
+
+    await userEvent.type(screen.getByPlaceholderText(FIELD), 'нет такого');
+    expect(await screen.findByText('Ничего не найдено')).toBeInTheDocument();
+  });
+});

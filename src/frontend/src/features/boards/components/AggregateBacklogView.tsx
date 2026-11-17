@@ -19,6 +19,8 @@ import { useGroupRead, isProjectGone } from '../hooks/useGroupRead';
 import { useRowDrag } from '../hooks/useRowDrag';
 import type { AggregateViewState } from '../hooks/useAggregateView';
 import { aggregateTexts, countText, streamCountText } from '../lib/aggregateTexts';
+import { goneSelectionLevel } from '../lib/goneSelection';
+import { NotFound } from '../../../shared/ui/StateFrame';
 import { backlogCanMove, backlogHint } from '../lib/grouping';
 import { dropBody, droppedRows, moveBody, moveItems, movedRows } from '../lib/aggregateMove';
 import { groupIdOf } from '../lib/openGroups';
@@ -190,9 +192,12 @@ export function AggregateBacklogView({ v }: { v: AggregateViewState }) {
   const hint = backlogHint(v.grouping, v.selectors, false);
   const groups = v.groups;
 
+  const gone = goneSelectionLevel(v.headers.error);
   let body;
   if (v.headers.isPending || (v.headers.isError && v.headers.isFetching)) {
     body = <HeadersSkeleton />;
+  } else if (gone) {
+    body = <NotFound level={gone} keepNavigation />;
   } else if (v.headers.isError || groups === undefined) {
     body = (
       <InlineNotice
