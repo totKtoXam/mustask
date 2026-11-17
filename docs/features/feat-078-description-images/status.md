@@ -61,3 +61,11 @@ Inputs for the analysis (the orchestrator, 2026-11-16; sources are files, read t
   through `gh` with a merge commit and Auto-fix on.
 - feat-059 takes no ADR number beyond 0041 (feat-059 session note, 2026-11-16): any ADR
   this task needs takes its own number, and feat-059 builds on it without a new one.
+- 2026-11-17 backend stage 4b, partial: plan steps 1-4 committed (pins and licence check, domain and
+  AddImageStore migration, header reader and stripper, intake with quality search, reduction ladder
+  and decode gate; 61 Images tests green against the real libvips). The decode gate is a
+  SemaphoreSlim with a bounded queue, not a ConcurrencyLimiter (Infrastructure has no
+  System.Threading.RateLimiting reference; same behaviour). Timing against the 5 s / 15 s targets
+  is not yet measured end to end (the spike projected about 8 s for a 12 MP noisy JPEG before
+  tuning). Steps 5-11 (API slices, error catalog, reducer image element, SaveWorkItem binding,
+  sweeper, nginx and docs) are not started. No contract change so far.
