@@ -82,6 +82,13 @@ The profile is carried, never converted: the encoded result keeps the source's I
 - libvips' own worker-thread count and memory are capped process-wide at start, so the limiter's arithmetic holds.
 - Steps 1-3 decode nothing and run outside the gate; the request bodies waiting for it are bounded by the route's size cap times the permits plus the queue.
 
+**Implementation note (feat-078 stage 4a, 2026-11-17).** Decision 3's sweep
+must not wait on id-ordered row locks: a purge's cascade deletes image rows in
+no fixed order, so a waiting sweep batch could deadlock with it. The sweep
+deletes in batches with `SKIP LOCKED`, then handles the skipped rows one per
+transaction, waiting for each. The bind/sweep outcomes and the 3-hour bound
+are unchanged ([plan-backend.md](../features/feat-078-description-images/plan-backend.md)).
+
 ## Consequences
 
 - **Database size and backups.** Images will soon be most of the database. An estimate, not a measurement: 100 active members inserting 5 images a week at about 300 KB stored (a typical PNG screenshot) is ~150 MB a week, ~8 GB a year; scale it linearly by the real figures. Bound images are never collected while their item lives (D-9), so the volume only grows with edits. The bytes are already compressed, so a dump's compression gains nothing on them, and dump and restore times grow linearly. A schema of its own lets an operator dump `images` on its own schedule (`pg_dump -n images`), at the price of a restore where descriptions may reference images newer than the images dump. `docs/deploy/vm.md` describes no backup today; the volume and the schedule go to the operator through it.
