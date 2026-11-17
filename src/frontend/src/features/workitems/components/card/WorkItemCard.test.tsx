@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { formatDateTime } from '../../../../shared/lib/format';
@@ -7,9 +7,6 @@ import { ids, recordOf } from '../../testFixtures';
 import type { CardFrameProps } from './cardFrame';
 import { PageFrame } from './KitFrames';
 import { ITEM_OF_TYPE, openCard, statusSaying } from './testCard';
-
-// Each user action draws the kit’s fields in jsdom; a test of several steps outlasts the default.
-vi.setConfig({ testTimeout: 60_000 });
 
 const region = (name: string) => screen.getByRole('region', { name });
 

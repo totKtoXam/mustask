@@ -1,7 +1,6 @@
-import { describe, expect, it, vi } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import { fireEvent, screen, within } from '@testing-library/react';
 
-vi.setConfig({ testTimeout: 120_000 });
 import userEvent from '@testing-library/user-event';
 import { ITEM_OF_TYPE, openFieldsForm, patches, save, section, textbox } from '../testFields';
 import { hierarchyDataset, recordOf } from '../testFixtures';

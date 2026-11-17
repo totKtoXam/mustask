@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import { fireEvent, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { serveBoards } from '../testApi';
@@ -9,8 +9,6 @@ import { boardAddress, mskForm, renderBoards } from '../testRender';
 // feat-029 US-1: a card's title opens the work item card as a dialog over the board (BR-C-1,
 // BR-C-2) and the board reads again after the card saved (BR-C-21). The card inside is the
 // kit's fields in jsdom, which are slow.
-
-vi.setConfig({ testTimeout: 60_000 });
 
 function dataset() {
   const data = boardsDataset();

@@ -221,11 +221,15 @@ export default defineConfig(({ command, mode }) => {
       ],
       // Пороги и кламп воркеров: при параллельном прогоне jsdom-воркеры
       // конкурируют за ядра, и дефолтные таймауты начинают ложно падать.
-      // 60 s: the heavy page tests ask for 60–120 s with `vi.setConfig`, and under
-      // `--sequence.shuffle` with isolate: false they were still cut at 20 s.
-      // The cause was not established; the global budget is what holds. A hung
-      // test costs a minute, not 20 s.
-      testTimeout: 60000,
+      // One budget for every file, set here and nowhere else (tech-073). A
+      // file-level `vi.setConfig({ testTimeout })` does not hold under
+      // isolate: false: only the first file a worker runs gets it, every later
+      // file keeps this value (the readOnly page test was cut at 60 s on CI
+      // under its own 120 s). 120 s on a developer box, what the heaviest
+      // files asked for; 180 s on CI, where the 4-core runner with coverage
+      // runs a work item form test at about 20 s. The UI waits
+      // (asyncUtilTimeout) scale the same way in src/test/setup.ts.
+      testTimeout: process.env.CI ? 180_000 : 120_000,
       // One jsdom window and one module cache per worker (tech-029); the app's
       // own modules are re-evaluated per file by src/test/setup.ts.
       isolate: false,

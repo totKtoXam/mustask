@@ -242,7 +242,7 @@ describe('feat-043 QA, US-1/US-3/US-4/US-5: «Параметры» by role', () 
     );
     const menu = await settingsMenu();
 
-    expect(await within(menu).findByText('Проект', {}, { timeout: 1500 })).toBeInTheDocument();
+    expect(await within(menu).findByText('Проект')).toBeInTheDocument();
     expect(selectors()).toEqual([
       'Организация: Альфа',
       'Департамент: все',

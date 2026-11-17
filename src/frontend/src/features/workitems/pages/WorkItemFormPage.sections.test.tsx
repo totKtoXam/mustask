@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import { fireEvent, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { HttpResponse, http } from 'msw';
@@ -22,9 +22,6 @@ import {
 } from '../testFields';
 import { WORK_ITEM_URL, hierarchyDataset, recordOf, validationProblem } from '../testFixtures';
 import { mskForm, renderWorkItems } from '../testRender';
-
-// Each user action draws the kit’s fields in jsdom; a test of several steps outlasts the default.
-vi.setConfig({ testTimeout: 120_000 });
 
 // feat-022 US-1, US-4 and US-5 on the form (spec § Screens and copy). The
 // dataset is feat-001's: one item of every type in «Мастаск».
