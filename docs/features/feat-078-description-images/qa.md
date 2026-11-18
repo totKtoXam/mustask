@@ -445,3 +445,83 @@ data-address images, animation sniffing on a fixed prefix; D-13 the 640 px toolb
 in a browser and there is no «Ещё» overflow; D-14 an html drop loses its image and the next paste
 inserts it. Manual QA owed as the stories say (real clipboard and drag, rendering, themes, 360 px,
 screen reader).
+
+## Backend delta — intake fix (gate-3 condition)
+
+2026-11-18, QA (clean context, not the author), over `git diff 7540e412..0cfb1ca9 -- src/backend`:
+the header readers (GIF, WebP, PNG), `ImageCaps.FrameFits`, the decoded-size check in
+`VipsCodec.Decode`, `HttpUploadBody` and `UploadBodySlots`. Basis: BR-IM-2, BR-IM-3, review F-1,
+F-6, F-7, ADR-0045 decision 2. The plan was written from those before the code was read.
+
+### Plan and coverage
+
+| # | Check (from the spec and the findings) | Test | Result |
+|---|---|---|---|
+| 1 | GIF frame at the screen edge: `left+width == W` fits, `+1` refused (both axes, one and three frames); empty frame; ushort extremes; only the last frame outside | `ImageIntakeFixQaTests.Gif_FrameAtTheScreenEdge` (11 rows), `Gif_OnlyTheLastFrameOutside_IsFormat` | pass |
+| 2 | WebP ANMF at the canvas edge with halved offsets, `+1` refused; 24-bit extremes | `Webp_AnmfAtTheCanvasEdge` (9), `Webp_AnmfMaximalFields_IsFormat` | pass |
+| 3 | APNG fcTL at the IHDR edge, `+1` refused, empty frames, uint32 extremes | `Apng_FctlAtTheCanvasEdge` (7), `Apng_FctlUInt32Extremes_IsFormat` | pass |
+| 4 | Still caps exactly at 60 MP and 20 000 px, per reader (GIF screen, WebP VP8X, PNG IHDR): 20 000×3 000 and 3 000×20 000 pass; 20 001, 20 000×3 001 and 4 693×12 785 (60 000 005, the smallest product over) refused as dimensions | `Gif_/Webp_/Png_…AgainstTheStillCaps` (7 each) | pass |
+| 5 | Animation total at exactly 600 MP passes, one frame more refused | `Gif_AnimationPixelsAtTheBoundary` | pass |
+| 6 | After decoding: a JPEG and a PNG of exactly 20 000×3 000 pass the decoded-size check and are stored at ≤ 16 777 216 px, aspect kept | `Intake_AtExactly60MegapixelsAnd20000Side_IsDecodedAndScaled` (2) | pass |
+| 7 | Every proper prefix of seven samples (still/animated GIF, PNG, APNG, lossy WebP, animated WebP, ANMF container): a header format refusal, and the whole intake answers `Format` without throwing. Covers a GIF cut inside a descriptor and an APNG cut inside fcTL | `EveryPrefix_IsFormat_AndTheIntakeNeverThrows` (7) | pass |
+| 8 | 1 500 seeded byte flips per sample through the whole intake (header, strip, decode, re-read): an outcome, never an exception (an escaped one would be a 500) | `SeededMutations_EndInAnOutcome_NeverAnException` (7) | pass |
+| 9 | WebP chunk size past the file end; chunk size `uint.MaxValue`; an odd last chunk with its pad byte missing | `Webp_ChunkSizePastTheEndOfTheFile_IsFormat`, `Webp_ChunkSizeUInt32Max_IsFormat`, `Webp_OddLastChunkWithoutItsPadByte_NeverThrows` | pass |
+| 10 | VP8X missing before ANMF, VP8X twice, VP8X after the ANMF frames | `Webp_Vp8xMissingOrRepeated`, `Webp_AnmfBeforeVp8x_IsFormat` | pass |
+| 11 | APNG fcTL before IHDR; fcTL length running past the file end | `Apng_FctlBeforeIhdr_IsFormat`, `Apng_FctlRunningPastTheEnd_IsFormat` | pass |
+| 12 | APNG fcTL shorter than 26 bytes | `Apng_FctlShorterThan26Bytes_IsFormat` | **D-15**, skipped pin |
+| 13 | F-6 through the intake: a 4 500×4 000 GIF with its screen patched to 6 000×4 000 is accepted and scaled from the loaded size (≤ 16 MP, never stretched to the screen, aspect of the frame). A load bigger than the header is refused: the developer's `Decode_GifLoadedBiggerThanItsHeader_IsRefused`, read | `Intake_GifScreenBiggerThanItsFrame_ScaledFromTheLoadedSize` | pass |
+| 14 | `HttpUploadBody`: exactly the cap read whole, declared and chunked, on both caps; the server limit set to cap+1 | `HttpUploadBodyQaTests.ExactlyTheCap_IsRead` (4) | pass |
+| 15 | cap+1 declared is refused with no read; 3× cap chunked is read only to cap+1, then refused | `CapPlusOne_IsTooLarge` (2) | pass |
+| 16 | Content-Length too small: at most `min(length, cap)+1` bytes are asked for (pins the F-2 rental bound; Kestrel itself ends the body at the length) | `ContentLengthTooSmall_ReadIsBoundedByTheDeclaredLength` | pass |
+| 17 | Content-Length too large: Kestrel's `BadHttpRequestException` gives `too_large` and frees the slot; a body that just ends early is the shorter body | `ContentLengthTooLarge_TruncatedBody` | pass |
+| 18 | A slot is taken only above 5 MB (declared, or unknown on the reduction route), released once on a double dispose; a failed read frees it; no free slot → 503 `images.busy`, Retry-After 5 s, no byte read; a cancelled wait takes nothing | `Slot_TakenOnlyForALargeBody_ReleasedOnce` (5), `NoFreeSlot_503Busy_AndAFailedReadFreesItsSlot` | pass |
+
+Already covered and green in the developer's rounds, not re-run: the API reduction of a padded
+1×1-screen GIF bomb, the per-host fifth-body 503 through the host, and the unsized cap+1 bodies of
+`ImagesQaTests`.
+
+### Runs
+
+Foreground, per class, no database (both classes are pure; no Testcontainers needed):
+
+- `dotnet test src/backend/tests/Mustask.Infrastructure.Tests --filter FullyQualifiedName~ImageIntakeFixQaTests`:
+  76 passed, 1 failed (`Apng_FctlShorterThan26Bytes_IsFormat`, D-15), 15 s. After the pin: skipped.
+- `dotnet test src/backend/tests/Mustask.Api.IntegrationTests --filter FullyQualifiedName~HttpUploadBodyQaTests`:
+  14/14.
+
+### Defects
+
+#### D-15: an APNG fcTL shorter than 26 bytes is skipped, not refused
+
+- Severity: minor (no bypass of the caps found)
+- Where: `src/backend/Mustask.Infrastructure/Images/Intake/Headers/PngHeaderReader.cs:69`. The
+  branch reads only `fcTL` with `length >= 26`. A shorter fcTL falls through as an unknown chunk.
+  It is not counted, not checked against IHDR, and `PngStripper` keeps it.
+- Steps: take an APNG (IHDR 8×8). Replace its first fcTL with a 12-byte one holding a sequence
+  number and a width of 16 000. Read it.
+- Expected: a format refusal. The file is structurally broken (BR-IM-2; `ImageRefusal.Format`).
+- Actual: accepted and stored as an animation.
+- Why minor: a short fcTL carries no frame rectangle. libpng ignores an fcTL whose length is not
+  26, and Chromium's reader fails the image, so no decoder draws an unchecked frame from it. The
+  stored file is malformed, not a bomb.
+- Fix: refuse an fcTL whose length is not exactly 26, as a format refusal.
+- Pin: `ImageIntakeFixQaTests.Apng_FctlShorterThan26Bytes_IsFormat`, `Skip` until fixed.
+
+#### Noted, not defects of this delta
+
+- The JPEG `shrink` branch of `VipsCodec.Decode` is unreachable under the caps. A shrink of 2
+  needs over 4 × 16 777 216 px, which is more than 60 MP. A 60 MP JPEG is therefore decoded in
+  full, about 180 MB per permit. Row 6 shows it works, and the decode gate bounds it.
+- An animated WebP with exactly one ANMF frame (animation flag on, no top-level VP8/VP8L) is a
+  format refusal (`WebpHeaderReader.cs:144-147`). This predates the delta, and common encoders
+  write such a picture as a still.
+- A Content-Length larger than the body answers `too_large`. This is the mislabel review round 2
+  noted; it predates the delta and nothing is stored.
+
+### Verdict
+
+blockers: 0 · majors: 0 · minors: 1 new (D-15), carried to gate-3 as debt · result: **pass**.
+F-1's rectangle check holds at the exact edge for all three containers. The decoded-size check
+passes the 60 MP and 20 000 px boundary. F-6 scales from the loaded size. No malformed or
+truncated header found escapes as an exception. The body bound and the slots behave as F-2 and F-7
+describe.
