@@ -2,18 +2,23 @@ import { useState } from 'react';
 import Typography from '@mui/material/Typography';
 import { organizationErrorCodes } from '../../../shared/api/errorCodes';
 import { ApiError } from '../../../shared/api/httpClient';
+import { apiErrorText } from '../../../shared/lib/apiErrorText';
 import { FormDialog } from '../../../shared/ui';
-import { useAreaTree } from '../hooks/queries';
+import type { ProjectTeam } from '../api/organizationsApi';
+import { useAreaTree, useTeams } from '../hooks/queries';
 import { useFocusInvalid } from '../hooks/useFocusInvalid';
 import { useFocusOnMount } from '../hooks/useFocusOnMount';
 import { deleteAreaDialog, placeProjectDialog } from '../lib/areaTexts';
 import { placeRefusal } from '../lib/refusals';
 import { LocalPicker } from './AreaPickers';
+import { ProjectTeamsRefusal, UnlinkProjectTeamDialog } from './ProjectTeamsRefusal';
 
 /** One project the dialog offers: its node, with where it stands now. */
 interface ProjectPlace {
   /** The project's root node (what the move addresses). */
   nodeId: string;
+  /** The project itself: its teams are listed when the move is refused. */
+  projectId: string | null;
   name: string;
   parentId: string | null;
   parentName: string | null;
@@ -54,6 +59,13 @@ export function PlaceProjectDialog({
   const [alert, setAlert] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [contextGone, setContextGone] = useState(false);
+  /** The server's text of `project_has_teams` while the refusal and its teams are up (BR-TD-4). */
+  const [linksText, setLinksText] = useState<string | null>(null);
+  const [unlinking, setUnlinking] = useState<ProjectTeam | null>(null);
+  const linkedTeams = useTeams(organizationId, chosen?.projectId ?? '', {
+    enabled: linksText !== null && Boolean(chosen?.projectId),
+    fresh: true,
+  });
   const focusField = useFocusOnMount<HTMLInputElement>();
   const focusInvalid = useFocusInvalid();
 
@@ -70,6 +82,7 @@ export function PlaceProjectDialog({
     )
     .map((node) => ({
       nodeId: node.id,
+      projectId: node.projectId,
       name: node.name,
       parentId: node.parentId,
       parentName: nodes.find((candidate) => candidate.id === node.parentId)?.name ?? null,
@@ -82,10 +95,19 @@ export function PlaceProjectDialog({
     setBusy(true);
     setAlert(null);
     setFieldError(undefined);
+    setLinksText(null);
     try {
       await submit(chosen.nodeId);
       onSucceeded({ name: chosen.name });
     } catch (error) {
+      if (
+        error instanceof ApiError &&
+        error.errorCode === organizationErrorCodes.areaProjectHasTeams
+      ) {
+        setLinksText(apiErrorText(error));
+        setBusy(false);
+        return;
+      }
       let placed = placeRefusal(error, ['location']);
       if (error instanceof ApiError && error.errorCode === organizationErrorCodes.areaNotFound) {
         // The project or the department: the tree says which.
@@ -109,13 +131,37 @@ export function PlaceProjectDialog({
     }
   }
 
+  const teamRows = linkedTeams.data ?? [];
+  const refusal =
+    linksText !== null && !(linkedTeams.isSuccess && teamRows.length === 0) ? (
+      <ProjectTeamsRefusal text={linksText} teams={teamRows} onUnlink={setUnlinking} />
+    ) : null;
+
+  if (unlinking && chosen?.projectId) {
+    return (
+      <UnlinkProjectTeamDialog
+        organizationId={organizationId}
+        projectId={chosen.projectId}
+        projectName={chosen.name}
+        team={unlinking}
+        onDone={() => setUnlinking(null)}
+        onClose={(gone) => {
+          setUnlinking(null);
+          if (gone) {
+            setContextGone(true);
+          }
+        }}
+      />
+    );
+  }
+
   return (
     <FormDialog
       open
       title={placeProjectDialog.title}
       submitLabel={placeProjectDialog.submit}
       busy={busy}
-      error={alert}
+      error={alert ?? refusal}
       submitDisabled={chosen === null}
       onSubmit={() => void handleSubmit()}
       onClose={() => onClose(contextGone)}

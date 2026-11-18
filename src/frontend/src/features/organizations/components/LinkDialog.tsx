@@ -1,4 +1,7 @@
 import { useState } from 'react';
+import { organizationErrorCodes } from '../../../shared/api/errorCodes';
+import { ApiError } from '../../../shared/api/httpClient';
+import { apiErrorText } from '../../../shared/lib/apiErrorText';
 import { Link as RouterLink } from 'react-router-dom';
 import Box from '@mui/material/Box';
 import Link from '@mui/material/Link';
@@ -101,6 +104,24 @@ export function LinkDialog({
       await submit(chosen.map((option) => option.id));
       onSucceeded(chosen);
     } catch (error) {
+      if (
+        error instanceof ApiError &&
+        error.errorCode === organizationErrorCodes.teamOtherDepartment
+      ) {
+        // A move or a link raced the picker (design § 5.3): the dialog's banner, and the lists are read again.
+        setAlert(apiErrorText(error));
+        setBusy(false);
+        void offers.refetch();
+        void query.refetch().then((result) => {
+          const offered = result.data;
+          if (offered) {
+            setChosen((current) =>
+              current.filter((option) => offered.some((candidate) => candidate.id === option.id)),
+            );
+          }
+        });
+        return;
+      }
       const field: RefusalField = forProject ? 'teams' : 'projects';
       const placed = placeRefusal(error, [field]);
       setFieldError(placed.fields[field]);
@@ -151,7 +172,7 @@ export function LinkDialog({
         </InlineNotice>
       ) : noneExist ? (
         <InlineNotice severity="info">
-          {department ? (
+          {department?.name ? (
             texts.noneInDepartment(department.name)
           ) : forProject ? (
             <>

@@ -228,6 +228,28 @@ describe('feat-043 design §§ 8.2, 8.3: placing a project in a department (the 
     expect(api.data.areas.find((entry) => entry.id === ids.anlRoot)!.parentId).toBe(
       ids.reportsArea,
     );
+
+    // F-3: the project's teams are listed with «Отключить»; unlinking the last one clears the refusal.
+    expect(await within(dialog).findByText('Команды:')).toBeInTheDocument();
+    await userEvent.click(
+      await within(dialog).findByRole('button', {
+        name: 'Отключить команду «Аналитика» от проекта',
+      }),
+    );
+    const unlink = await screen.findByRole('dialog', { name: 'Отключение команды от проекта' });
+    await waitFor(() =>
+      expect(within(unlink).getByRole('button', { name: 'Отключить' })).toBeEnabled(),
+    );
+    await userEvent.click(within(unlink).getByRole('button', { name: 'Отключить' }));
+    const back = await screen.findByRole('dialog', { name: 'Добавление проекта в департамент' });
+    await waitFor(() =>
+      expect(
+        within(back).queryByText('Проект связан с командами. Отключите их перед перемещением.'),
+      ).toBeNull(),
+    );
+    await userEvent.click(within(back).getByRole('button', { name: 'Переместить' }));
+
+    expect(await screen.findByText('Проект «Аналитика» перемещён.')).toBeInTheDocument();
   });
 
   it('shows the same-name refusal under the field and keeps the dialog', async () => {

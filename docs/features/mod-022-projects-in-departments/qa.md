@@ -108,11 +108,11 @@ Invented copy (plan-frontend.md § 4): «Сначала выберите рас�
 
 ### Defects
 
-- **F-1 (minor).** In the project move dialog, after the last team is unlinked the refusal text «Проект связан с командами…» stays on screen with an empty list until «Переместить» is pressed again (`linksText` is cleared only on submit). By reading `AreaDialogs.tsx`; not pinned by a test. Steps: move a project with one team to another department, get the refusal, «Отключить», confirm.
-- **F-2 (minor).** Stale link picker (`team.other_department`) shows the text under the field, design § 5.3 asks for an `ErrorBanner`. Behaviour (nothing changes, list re-read) is right.
-- **F-3 (minor).** Department «Добавить проект» of a project with linked teams: server text as alert, no team list or «Отключить» there (design § 5.2 shows them in the move dialog only; the user must go to the project).
-- **F-4 (minor).** No row menu «Переместить» on a department's «Проекты» (design § 3).
-- **F-5 (nit).** `CreateProjectByPlace.test.tsx` last test title still says «Верхний уровень»; `TeamPage` passes `departmentName ?? ''`, which would read «В департаменте «» нет проектов» if the name were ever absent.
+- **F-1 (minor, fixed).** In the project move dialog, after the last team is unlinked the refusal text «Проект связан с командами…» stays on screen with an empty list until «Переместить» is pressed again (`linksText` is cleared only on submit). By reading `AreaDialogs.tsx`; not pinned by a test. Steps: move a project with one team to another department, get the refusal, «Отключить», confirm.
+- **F-2 (minor, fixed).** Stale link picker (`team.other_department`) shows the text under the field, design § 5.3 asks for an `ErrorBanner`. Behaviour (nothing changes, list re-read) is right.
+- **F-3 (minor, fixed).** Department «Добавить проект» of a project with linked teams: server text as alert, no team list or «Отключить» there (design § 5.2 shows them in the move dialog only; the user must go to the project).
+- **F-4 (minor, stays a gate-3 debt, not built).** No row menu «Переместить» on a department's «Проекты» (design § 3).
+- **F-5 (nit, fixed).** `CreateProjectByPlace.test.tsx` last test title still says «Верхний уровень»; `TeamPage` passes `departmentName ?? ''`, which would read «В департаменте «» нет проектов» if the name were ever absent.
 
 ### Verdict
 

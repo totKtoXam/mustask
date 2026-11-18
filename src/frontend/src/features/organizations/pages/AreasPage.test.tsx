@@ -353,6 +353,12 @@ describe('mod-018 US-2: rename, description, move', () => {
     await waitFor(() =>
       expect(within(dialog).queryByRole('button', { name: /^Отключить команду/ })).toBeNull(),
     );
+    // F-1: with no team left the refusal text goes too, before «Переместить» is pressed again.
+    await waitFor(() =>
+      expect(
+        within(dialog).queryByText('Проект связан с командами. Отключите их перед перемещением.'),
+      ).toBeNull(),
+    );
     await userEvent.click(within(dialog).getByRole('button', { name: 'Переместить' }));
 
     expect(await screen.findByText('Проект «Пример проекта» перемещён.')).toBeInTheDocument();
