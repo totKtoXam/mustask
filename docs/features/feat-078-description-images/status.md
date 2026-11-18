@@ -3,7 +3,7 @@
 - type: feature
 - size: L
 - branch: feat/078-description-images
-- stage: 07-mr-complete
+- stage: complete
 - epic: core/work-items
 - deps: feat-018
 - gates: gate-1, gate-2, gate-3
@@ -57,6 +57,7 @@ gate-3: approved — decided by the orchestrator under the human's delegation, 2
 - 2026-11-18 [orchestrator] stage 8 closed: code review round 2 approve (4758bf10), F-6/F-7 fixed in 0cfb1ca9; gate-3 package sent to the orchestrator session doc-012 (delegated decider per the human), verdict pending
 - 2026-11-18 [qa-engineer] backend QA delta over the intake fix (7540e412..0cfb1ca9; qa.md § Backend delta — intake fix): pass, blockers 0, majors 0, new minor D-15 (an APNG fcTL shorter than 26 bytes is skipped, not refused; no cap bypass) carried to gate-3 as debt. Added ImageIntakeFixQaTests (frame edges ±1 for GIF/ANMF/fcTL, 60 MP and 20 000 px boundaries per reader and after decoding, every-prefix and seeded-mutation runs through the intake, VP8X/fcTL order and length cases, F-6 scaling from the loaded size; 76 pass, D-15 pin skipped) and HttpUploadBodyQaTests (cap and cap+1 declared and chunked, lying Content-Length, read bound, slots and 503; 14/14). No DB used
 - 2026-11-18 [orchestrator] gate-3 approved by the orchestrator session doc-012 under the human's delegation; both conditions met (QA delta 96e0f102 pass with D-15 minor; F-5 notes 038c1b3d). Next: rebase onto origin/main (158 behind, conflicts incl. the model snapshot; AddImageStore regenerated on top), then PR
+- 2026-11-18 [backend-developer] pre-PR rebase onto origin/main (git.md): 48 commits replayed, conflicts in the ADR index, error catalog, Program.cs, DbContext, csproj, the two route-count tests (124 -> 126 with the two image routes) and httpClient.ts (main's apiFetchBlob kept, returns {blob, fileName}; the images API reads .blob). AddImageStore regenerated on top of main's AddImportTemplates, ProjectVisibleToOrganization and AddSearchTrigramIndexes as 20261118123629_AddImageStore (SET STORAGE EXTERNAL and DropSchema carried over; Up/Down identical to the old 20261117120530). No contract change.
 
 ## Notes
 
