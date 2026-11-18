@@ -190,7 +190,14 @@ export const RtPaste = Extension.create({
             drop: (view, event) => {
               const drag = event as DragEvent;
               const files = drag.dataTransfer?.files;
-              if (!files || files.length === 0) return false;
+              if (!files || files.length === 0) {
+                // An html drop runs transformPastedHTML after this handler, in the same dispatch, and only a paste
+                // hands the images it set aside on: drop them once the dispatch is over (D-14).
+                queueMicrotask(() => {
+                  pending = [];
+                });
+                return false;
+              }
               event.preventDefault();
               const bindings = bindingsOf(editor);
               if (bindings.imagesEnabled) {

@@ -739,8 +739,8 @@ describe('F-9 the helper while a save waits', () => {
 
 describe('D-14 html dropped with an image', () => {
   // D-14: a drop of html runs `transformPastedHTML`, which takes the images out into `pending`, but
-  // only `handlePaste` hands them on: the dropped image is lost, and the next paste inserts it.
-  it.fails('does not carry the dropped image into the next paste', async () => {
+  // only `handlePaste` hands them on; the drop handler clears them (fixed after review round 1).
+  it('does not carry the dropped image into the next paste', async () => {
     vi.stubGlobal(
       'fetch',
       vi.fn(async () => ({ blob: async () => new Blob(['x'], { type: 'image/png' }) })),
