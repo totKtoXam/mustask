@@ -370,3 +370,109 @@ Backend developer, 2026-11-18, on top of `7540e412`. No contract change.
 - **D-14 fixed.** The drop handler clears `pending` in a microtask after its dispatch (`transformPastedHTML` runs after it);
   the pin in `images.qa.test.tsx` is an `it` now.
 - **Left as they were:** F-5 (the orchestrator's notes at merge), D-1, D-3, D-8, D-9, D-13.
+
+## Round 2 — code (delta)
+
+Reviewer: code-reviewer (clean context, not the author), 2026-11-18. Delta: `git diff 7540e412..HEAD`
+(`ea53bc75`, `aa047131`). The open findings F-1..F-5 and the coordinator's checklist were read again.
+The F-1 libvips probe was re-run in the scratchpad. Test runs: Mustask.Infrastructure.Tests, ImageHeaderReaderTests + ImageIntakeEdgeTests, 56/56 green (foreground, no DB); the API case was read, not run.
+
+### F-1: closed
+
+- **GIF.** `ImageCaps.FrameFits` (`ImageHeader.cs:59-60`) is applied to every image descriptor
+  against the logical screen (`GifHeaderReader.cs:79-90`), before the frame is counted.
+- **WebP and APNG.** `ANMF` is checked with offsets ×2 against VP8X (`WebpHeaderReader.cs:116-124`).
+  `ANMF` without VP8X was already refused (`:257`). `fcTL` is checked against IHDR
+  (`PngHeaderReader.cs:71-80`); IHDR must be the first chunk, so the canvas is always known.
+- **Bypasses looked for, none found.** Interlacing and zero delays change no rectangle. acTL's count is
+  not trusted (frames are counted by `fcTL`; libvips decodes only the IHDR image). A still extended
+  WebP whose VP8/VP8L size differs from VP8X is caught by the new size check. JPEG expects
+  `ceil(header/shrink)` with `shrink` px of slack, and other formats get 0.
+- **The size check sits before `CopyMemory`** (`VipsCodec.cs:46-55`) and runs on the raw (pre-rotation)
+  size, as the header reports it.
+- **Probe re-run.** A 1×1 screen with a 16 000 px frame is now a header refusal. Fitting frames decode
+  within their screen (800×600 / 400×300 → 400×300; 3000×2000 / 1000×1000 → 1000×1000), so nothing
+  decodes larger than its header's canvas.
+- **Tests exercise the path.**
+  - `Read_FrameOutsideTheCanvas_IsFormat` covers nine cases, including offsets and an empty frame.
+    `Read_FramesInsideTheCanvas_StillRead` guards against false refusals.
+  - `Decode_SizeDifferentFromTheHeader_IsRefused` drives the codec check directly.
+  - `Reduce_GifFrameBiggerThanItsScreen_…` would have answered 201 before the fix. Its zero padding
+    sits after the trailer, so the stripper drops it, the stripped file is ≤ 5 MB and the 1×1 header
+    means "no work". The test therefore discriminates the header refusal on the reduction route.
+    It does not reach the codec check; the unit test covers that.
+
+### F-2 (D-2): closed
+
+- `HttpUploadBody.cs:37` rents `min(Content-Length, cap) + 1`, or `cap + 1` when no length is declared.
+- A declared length over the cap is still refused unread (`:32-35`).
+- **A Content-Length that lies.**
+  - Too small: Kestrel ends the body at the declared length, so the read stops at it.
+  - Too large: the read ends early, and the client gets `BadHttpRequestException` → 400 `too_large`.
+    That mislabels a truncated upload, but the behaviour predates this delta and nothing is stored.
+- **A chunked request with no length** gets `cap + 1`. On the reduction route that is "large" and
+  takes a slot; on the upload route it is an 8 MB rental with no slot. Behind nginx the length is
+  always set.
+- **The fifth large body** waits `LargeBodyWait` (5 s), then gets `ServiceUnavailableException`
+  → 503 `images.busy` with `Retry-After: 5`, through the existing handler (`:40-43`).
+- **Slots and leases.** A slot is taken only after the address checks. It is released exactly once by
+  `Lease` (`:85-97`), on every exit: the refusals at `:65`, `:71` and `:77`, and the disposal of the
+  answer after the intake.
+- No test pins the rental size or the fifth-body 503 (F-7).
+
+### F-3, F-4: closed
+
+- ADR-0045 now says the read uses "a fresh byte array" (`0045…md:49`).
+- The gate is named as a `SemaphoreSlim` (`:81`).
+- The arithmetic is restated in terms of the frame check, the size check and the body bound
+  (`:82-83`). Every claim there is anchored above.
+- `IUploadBody.cs:5-6`: "the API reads no byte". vm.md / vm.ru.md § 7.1: buffering stays on.
+
+### D-14: the leak is closed; the dropped image is still lost without a notice (minor, unchanged)
+
+- `paste.ts:193-199` clears `pending` in a microtask on a drop with no files.
+- ProseMirror runs `handleDOMEvents.drop` and its own drop parsing, `transformPastedHTML` included, in
+  one listener call. The microtask therefore runs after `pending` is set, and before any later paste.
+- The pin is now `it`: the next paste uploads nothing.
+- QA's expected half is still unmet: an image dropped as html is neither uploaded nor told. It is a
+  gate-3 debt as before.
+
+### New findings
+
+#### F-6 (minor): the size check refuses GIFs the decoder shrinks below the screen
+
+- **Where:** `VipsCodec.cs:46-55`.
+- **Cause:** nsgif treats a screen of 640×480, 640×512, 800×600, 1024×768, 1280×1024 or 1600×1200, or one
+  wider or taller than 2048, as unknown, and sizes the canvas by the frames. The probe above shows
+  3000×2000 with a 1000×1000 frame loading as 1000×1000.
+- **Effect:** such a GIF that reaches the decode path (over 16 MP, stripped over 5 MB, or a reduction)
+  is now refused as an unsupported format, though it is a legitimate file. Before the fix it was decoded and up-scaled to the header's target.
+- **Not a security issue:** the canvas can only shrink, because every frame lies inside the screen.
+- **Fix:** for GIF, refuse only a loaded size larger than the header's. Take the scaling factor from
+  `loaded`, not from the header. Add a test with an 800×600 screen and a smaller frame.
+
+#### F-7 (minor, tests): no test pins the new body bound
+
+- `HttpUploadBody`'s `min(Content-Length, cap) + 1` rental and the fifth large body's 503 have no test.
+- The semaphore is a process-wide static. Integration tests that send more than four reduction bodies
+  at once could flake into 503s.
+- **Fix:** add an API test with five concurrent reductions held open (expect one 503 with
+  `Retry-After`), or make the bound injectable and unit-test `HttpUploadBody` over a fake
+  `HttpRequest`.
+
+#### F-8 (minor, git): a commit subject hides most of its change
+
+- `aa047131`, "fixes after review round 1 note and log", carries every backend fix. Leave it unless
+  the history is rewritten anyway.
+
+### Verdict
+
+**approve**: 0 blockers, 0 majors.
+
+- Open minors: F-5 (the orchestrator's amendment notes), F-6, F-7 and F-8, plus D-14's
+  remaining half.
+- QA debts: D-1, D-3, D-8, D-9 and D-13.
+- All of these go to gate-3 under "deliberately left open".
+- QA re-run: the backend intake changes were runtime code, so backend QA is owed over the readers,
+  the codec and `HttpUploadBody` only. This round ran the header and intake tests, but the API test
+  and the body-bound behaviour have not been run.
