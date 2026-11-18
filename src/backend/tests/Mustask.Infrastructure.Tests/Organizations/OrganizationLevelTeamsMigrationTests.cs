@@ -99,7 +99,11 @@ public sealed class OrganizationLevelTeamsMigrationTests(OrganizationsDatabaseFi
 
         await MigrateAsync(legacy.ConnectionString, null);
 
-        Assert.Equal(before, await OtherTablesAsync(legacy.ConnectionString));
+        // The one exception is the areas: mod-022 puts each organization's top-level projects into a department, and with none to put
+        // them in it makes «Проекты без департамента» (two organizations here, one department each).
+        var expected = before.Split('|');
+        expected[3] = (int.Parse(expected[3], System.Globalization.CultureInfo.InvariantCulture) + 2).ToString(System.Globalization.CultureInfo.InvariantCulture);
+        Assert.Equal(string.Join('|', expected), await OtherTablesAsync(legacy.ConnectionString));
         Assert.Equal(["2|3|2|0"], await QueryAsync(legacy.ConnectionString, "SELECT concat_ws('|', (SELECT count(*) FROM organizations), (SELECT count(*) FROM projects), (SELECT count(*) FROM organization_memberships), (SELECT count(*) FROM teams)) "));
     }
 

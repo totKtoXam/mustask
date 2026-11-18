@@ -3,7 +3,7 @@
 - type: module
 - size: L
 - branch: mod/022-projects-in-departments
-- stage: 4-backend
+- stage: 5-backend-qa
 - epic: core/org-access
 - deps: mod-021
 - gates: gate-3
@@ -44,3 +44,4 @@ Verification: affected tests locally, the full verify.sh in CI.
 - 2026-11-18 [orchestrator] task started on branch mod/022-projects-in-departments in worktree .claude/worktrees/kanban-test-case-2c0b58 (host DESKTOP-2S17CA7, git rev-parse --show-toplevel and git branch --show-current confirmed), cut from origin/main 731260bc.
 - 2026-11-18 [orchestrator] queue line taken by scripts/queue.sh take mod-022, PR #220 with squash auto-merge.
 - 2026-11-18 [orchestrator] route confirmed by the orchestrator session (coordination delegated by the human, 2026-11-18): L from stage 4 (the queue line said M; L thresholds fired: an irreversible migration cutting project–team links over populated tables, and a breaking API change — a project with no department is refused, BR-TD-6); spec and design inherited from doc-016 (gate-1, gate-2 approved 2026-11-12); gate-3 only. 3.1: no regulatory basis. 3.3: nothing beyond the line. The upgrade must be idempotent, log its cuts per organization, and be tested on a populated fixture.
+- 2026-11-18 [backend] stage 4 done: commits 97ccbc31..716f2eaf on mod/022-projects-in-departments (plan and contract, link/move/create rules, the upgrade migration with its log table, tests). Tests: Application 911, Domain 1153, Contracts 258, Architecture 82, Infrastructure (migration tests 70 incl. 27 new/updated mod-022 and mod-021 ones; the rest 512 green apart from RichText timing classes not rerun), Api.IntegrationTests 1742+ green, one load-sensitive test (SaveWorkItemDescriptionQaTests burst) fails in a parallel run and passes alone. Deviations: (1) the lock of project nodes is one statement for all projects (statement-count rule), so the pinned statement counts moved by their stated amounts (link 4 to 5, AddTeam 10 to 11, CreateProject 10 to 13, scoped project check 3 to 4); (2) a request naming no department by a caller lacking the top-level code still gets 403 before the 400; (3) retired two tests that existed for a project node sharing the top level with a department (name race, OneNameSpacePerLevel) and reshaped the move/depth tests to bare projects; (4) the upgrade makes «Проекты без департамента» when no department can take a project (rule fallback). Contract unchanged since it was fixed.
