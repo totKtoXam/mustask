@@ -78,7 +78,7 @@ internal static class TestImages
     }
 
     /// <summary>A GIF whose frames only have descriptors and empty LZW data: enough for the header walk, not for a decoder.</summary>
-    public static byte[] GifOfFrames(int canvasWidth, int canvasHeight, int frames, int frameWidth, int frameHeight)
+    public static byte[] GifOfFrames(int canvasWidth, int canvasHeight, int frames, int frameWidth, int frameHeight, int frameX = 0, int frameY = 0)
     {
         var output = new MemoryStream();
         output.Write("GIF89a"u8);
@@ -92,7 +92,10 @@ internal static class TestImages
         for (var i = 0; i < frames; i++)
         {
             output.WriteByte(0x2C);
-            output.Write([0, 0, 0, 0]);
+            BinaryPrimitives.WriteUInt16LittleEndian(number, (ushort)frameX);
+            output.Write(number);
+            BinaryPrimitives.WriteUInt16LittleEndian(number, (ushort)frameY);
+            output.Write(number);
             BinaryPrimitives.WriteUInt16LittleEndian(number, (ushort)frameWidth);
             output.Write(number);
             BinaryPrimitives.WriteUInt16LittleEndian(number, (ushort)frameHeight);
@@ -105,8 +108,52 @@ internal static class TestImages
         return output.ToArray();
     }
 
+    /// <summary>A WebP animation container (VP8X, ANIM, ANMF chunks with no pixel data): enough for the header walk, not for a decoder.</summary>
+    public static byte[] WebpOfFrames(int canvasWidth, int canvasHeight, int frames, int frameWidth, int frameHeight, int frameX = 0, int frameY = 0)
+    {
+        static void Chunk(Stream output, string type, byte[] body)
+        {
+            output.Write(System.Text.Encoding.ASCII.GetBytes(type));
+            output.Write(BitConverter.GetBytes((uint)body.Length));
+            output.Write(body);
+        }
+
+        static void U24(byte[] target, int at, int value)
+        {
+            target[at] = (byte)value;
+            target[at + 1] = (byte)(value >> 8);
+            target[at + 2] = (byte)(value >> 16);
+        }
+
+        var body = new MemoryStream();
+        body.Write("WEBP"u8);
+        var vp8x = new byte[10];
+        vp8x[0] = 0x02;
+        U24(vp8x, 4, canvasWidth - 1);
+        U24(vp8x, 7, canvasHeight - 1);
+        Chunk(body, "VP8X", vp8x);
+        Chunk(body, "ANIM", new byte[6]);
+
+        for (var i = 0; i < frames; i++)
+        {
+            var frame = new byte[16];
+            U24(frame, 0, frameX / 2);
+            U24(frame, 3, frameY / 2);
+            U24(frame, 6, frameWidth - 1);
+            U24(frame, 9, frameHeight - 1);
+            Chunk(body, "ANMF", frame);
+        }
+
+        var output = new MemoryStream();
+        output.Write("RIFF"u8);
+        output.Write(BitConverter.GetBytes((uint)body.Length));
+        output.Write(body.ToArray());
+
+        return output.ToArray();
+    }
+
     /// <summary>An APNG made of the first image's compressed data repeated as <paramref name="frames"/> frames (not decodable as an animation, readable by the header walk).</summary>
-    public static byte[] Apng(int frames, int size = 8)
+    public static byte[] Apng(int frames, int size = 8, int? frameWidth = null, int? frameHeight = null, int frameX = 0, int frameY = 0)
     {
         var still = NetVips.Image.Black(size, size, bands: 3).Cast(Enums.BandFormat.Uchar).Copy(interpretation: Enums.Interpretation.Srgb).PngsaveBuffer();
         var idat = ChunkBodies(still, "IDAT").First();
@@ -123,8 +170,10 @@ internal static class TestImages
         {
             var frameControl = new byte[26];
             BinaryPrimitives.WriteUInt32BigEndian(frameControl, sequence++);
-            BinaryPrimitives.WriteUInt32BigEndian(frameControl.AsSpan(4), (uint)size);
-            BinaryPrimitives.WriteUInt32BigEndian(frameControl.AsSpan(8), (uint)size);
+            BinaryPrimitives.WriteUInt32BigEndian(frameControl.AsSpan(4), (uint)(frameWidth ?? size));
+            BinaryPrimitives.WriteUInt32BigEndian(frameControl.AsSpan(8), (uint)(frameHeight ?? size));
+            BinaryPrimitives.WriteUInt32BigEndian(frameControl.AsSpan(12), (uint)frameX);
+            BinaryPrimitives.WriteUInt32BigEndian(frameControl.AsSpan(16), (uint)frameY);
             BinaryPrimitives.WriteUInt16BigEndian(frameControl.AsSpan(20), 1);
             BinaryPrimitives.WriteUInt16BigEndian(frameControl.AsSpan(22), 10);
             WriteChunk(output, "fcTL", frameControl);

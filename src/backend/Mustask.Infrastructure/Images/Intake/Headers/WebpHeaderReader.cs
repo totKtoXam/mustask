@@ -113,8 +113,16 @@ internal static class WebpHeaderReader
                     return false;
                 }
 
+                var frameLeft = 2L * (body[0] | (body[1] << 8) | (body[2] << 16));
+                var frameTop = 2L * (body[3] | (body[4] << 8) | (body[5] << 16));
                 var frameWidth = 1 + (body[6] | (body[7] << 8) | (body[8] << 16));
                 var frameHeight = 1 + (body[9] | (body[10] << 8) | (body[11] << 16));
+
+                if (!ImageCaps.FrameFits(frameLeft, frameTop, frameWidth, frameHeight, width, height))
+                {
+                    return false;
+                }
+
                 frames++;
                 total += (long)frameWidth * frameHeight;
 

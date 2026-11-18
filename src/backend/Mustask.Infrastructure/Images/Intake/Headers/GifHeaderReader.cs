@@ -76,10 +76,18 @@ internal static class GifHeaderReader
                     return false;
                 }
 
+                var frameLeft = BinaryPrimitives.ReadUInt16LittleEndian(data[position..]);
+                var frameTop = BinaryPrimitives.ReadUInt16LittleEndian(data[(position + 2)..]);
                 var frameWidth = BinaryPrimitives.ReadUInt16LittleEndian(data[(position + 4)..]);
                 var frameHeight = BinaryPrimitives.ReadUInt16LittleEndian(data[(position + 6)..]);
                 var descriptorFlags = data[position + 8];
                 position += 9;
+
+                // A frame outside the screen makes the decoder grow its canvas to the frame: the caps above would not hold.
+                if (!ImageCaps.FrameFits(frameLeft, frameTop, frameWidth, frameHeight, width, height))
+                {
+                    return false;
+                }
 
                 if ((descriptorFlags & 0x80) != 0)
                 {

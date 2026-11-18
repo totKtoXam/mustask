@@ -68,8 +68,18 @@ internal static class PngHeaderReader
             }
             else if (type.SequenceEqual("fcTL"u8) && length >= 26)
             {
+                var frameWidth = BinaryPrimitives.ReadUInt32BigEndian(body[4..]);
+                var frameHeight = BinaryPrimitives.ReadUInt32BigEndian(body[8..]);
+                var frameLeft = BinaryPrimitives.ReadUInt32BigEndian(body[12..]);
+                var frameTop = BinaryPrimitives.ReadUInt32BigEndian(body[16..]);
+
+                if (!ImageCaps.FrameFits(frameLeft, frameTop, frameWidth, frameHeight, width, height))
+                {
+                    return false;
+                }
+
                 frames++;
-                total += (long)BinaryPrimitives.ReadUInt32BigEndian(body[4..]) * BinaryPrimitives.ReadUInt32BigEndian(body[8..]);
+                total += (long)frameWidth * frameHeight;
 
                 if (ImageCaps.CheckFrames(frames, total) is { } frameRefusal)
                 {

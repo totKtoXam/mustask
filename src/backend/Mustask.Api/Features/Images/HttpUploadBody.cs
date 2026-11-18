@@ -2,16 +2,26 @@ using System.Buffers;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Http.Features;
 using Mustask.Application.Abstractions.Images;
+using Mustask.Domain.Images;
+using Mustask.Shared.Exceptions;
 
 namespace Mustask.Api.Features.Images;
 
 /// <summary>
 /// <see cref="IUploadBody"/> over the request (plan-backend § 6.2): a declared <c>Content-Length</c> over the cap is refused
-/// without reading, otherwise the body is read into a pooled buffer counting bytes and stops at cap + 1. The declared
+/// without reading, otherwise the body is read into a pooled buffer of min(declared length, cap) + 1 bytes (the whole cap + 1
+/// when no length is declared), counting bytes and stopping at cap + 1. The big bodies of the reduction route are held by
+/// at most <see cref="MaxLargeBodies"/> requests at once; the rest wait a moment, then get 503. The declared
 /// <c>Content-Type</c> is never looked at (BR-IM-2).
 /// </summary>
 internal sealed class HttpUploadBody(HttpRequest request) : IUploadBody
 {
+    /// <summary>How many bodies above the 5 MB upload cap the process holds at once.</summary>
+    internal const int MaxLargeBodies = 4;
+
+    private static readonly SemaphoreSlim LargeBodies = new(MaxLargeBodies, MaxLargeBodies);
+    private static readonly TimeSpan LargeBodyWait = TimeSpan.FromSeconds(5);
+
     public async Task<UploadBodyAnswer> ReadAsync(int maxBytes, CancellationToken cancellationToken)
     {
         if (request.HttpContext.Features.Get<IHttpMaxRequestBodySizeFeature>() is { IsReadOnly: false } limit)
@@ -24,14 +34,23 @@ internal sealed class HttpUploadBody(HttpRequest request) : IUploadBody
             return new UploadBodyAnswer(ReadOnlyMemory<byte>.Empty, tooLarge: true, lease: null);
         }
 
-        var owner = MemoryPool<byte>.Shared.Rent(maxBytes + 1);
+        var capacity = request.ContentLength is { } known ? (int)Math.Min(known, maxBytes) + 1 : maxBytes + 1;
+        var large = capacity > ImageLimits.MaxStoredBytes + 1;
+
+        if (large && !await LargeBodies.WaitAsync(LargeBodyWait, cancellationToken))
+        {
+            throw new ServiceUnavailableException(ImageErrorCodes.Busy, TimeSpan.FromSeconds(5));
+        }
+
+        var owner = MemoryPool<byte>.Shared.Rent(capacity);
+        var lease = new Lease(owner, large ? LargeBodies : null);
         var length = 0;
 
         try
         {
-            while (length <= maxBytes)
+            while (length < capacity)
             {
-                var read = await request.Body.ReadAsync(owner.Memory[length..(maxBytes + 1)], cancellationToken);
+                var read = await request.Body.ReadAsync(owner.Memory[length..capacity], cancellationToken);
 
                 if (read == 0)
                 {
@@ -43,23 +62,37 @@ internal sealed class HttpUploadBody(HttpRequest request) : IUploadBody
         }
         catch (BadHttpRequestException)
         {
-            owner.Dispose();
+            lease.Dispose();
 
             return new UploadBodyAnswer(ReadOnlyMemory<byte>.Empty, tooLarge: true, lease: null);
         }
         catch
         {
-            owner.Dispose();
+            lease.Dispose();
             throw;
         }
 
         if (length > maxBytes)
         {
-            owner.Dispose();
+            lease.Dispose();
 
             return new UploadBodyAnswer(ReadOnlyMemory<byte>.Empty, tooLarge: true, lease: null);
         }
 
-        return new UploadBodyAnswer(owner.Memory[..length], tooLarge: false, owner);
+        return new UploadBodyAnswer(owner.Memory[..length], tooLarge: false, lease);
+    }
+
+    private sealed class Lease(IDisposable owner, SemaphoreSlim? slot) : IDisposable
+    {
+        private int _released;
+
+        public void Dispose()
+        {
+            if (Interlocked.Exchange(ref _released, 1) == 0)
+            {
+                owner.Dispose();
+                slot?.Release();
+            }
+        }
     }
 }

@@ -52,6 +52,13 @@ internal static class ImageCaps
             : null;
     }
 
+    /// <summary>
+    /// A frame's rectangle lies inside the canvas and is not empty. A decoder may grow its canvas to a frame that does not,
+    /// so the canvas caps would not bound what it allocates; such a file is malformed (a format refusal).
+    /// </summary>
+    public static bool FrameFits(long left, long top, long width, long height, long canvasWidth, long canvasHeight) =>
+        width > 0 && height > 0 && left >= 0 && top >= 0 && left + width <= canvasWidth && top + height <= canvasHeight;
+
     /// <summary>The frames of an animation against the animation caps.</summary>
     public static ImageRefusal? CheckFrames(long frames, long totalPixels) =>
         frames > ImageLimits.MaxFrames || totalPixels > ImageLimits.MaxAnimationPixels ? ImageRefusal.Animation : null;

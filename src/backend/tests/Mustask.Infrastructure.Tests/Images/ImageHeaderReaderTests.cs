@@ -232,4 +232,36 @@ public sealed class ImageHeaderReaderTests
         Assert.True(Read(lossless).Header!.IsLossless);
         Assert.False(Read(TestImages.Webp(40, 30)).Header!.IsLossless);
     }
+
+    // feat-078 review F-1 · a frame outside its canvas is refused, as a format refusal, before any decoder grows the canvas to it.
+    public static TheoryData<string, byte[]> FramesOutsideTheCanvas() => new()
+    {
+        { "gif 1x1 screen, 16000x16000 frame", TestImages.GifOfFrames(1, 1, 1, 16000, 16000) },
+        { "gif 1x1 screen, 8000x8000 frame", TestImages.GifOfFrames(1, 1, 1, 8000, 8000) },
+        { "gif frame past the right edge", TestImages.GifOfFrames(100, 100, 2, 60, 60, frameX: 50) },
+        { "gif frame past the bottom edge", TestImages.GifOfFrames(100, 100, 2, 60, 60, frameY: 50) },
+        { "gif empty frame", TestImages.GifOfFrames(100, 100, 2, 0, 10) },
+        { "webp 1x1 canvas, 16000x16000 frame", TestImages.WebpOfFrames(1, 1, 2, 16000, 16000) },
+        { "webp frame offset past the edge", TestImages.WebpOfFrames(100, 100, 2, 60, 60, frameX: 50) },
+        { "apng 8x8 canvas, 16000x16000 frame", TestImages.Apng(2, 8, frameWidth: 16000, frameHeight: 16000) },
+        { "apng frame offset past the edge", TestImages.Apng(2, 8, frameWidth: 6, frameHeight: 6, frameX: 4) },
+    };
+
+    [Theory]
+    [MemberData(nameof(FramesOutsideTheCanvas))]
+    public void Read_FrameOutsideTheCanvas_IsFormat(string name, byte[] data)
+    {
+        var result = Read(data);
+
+        Assert.False(result.Ok, name);
+        Assert.Equal(ImageRefusal.Format, result.Refusal);
+    }
+
+    [Fact]
+    public void Read_FramesInsideTheCanvas_StillRead()
+    {
+        Assert.True(Read(TestImages.GifOfFrames(100, 100, 2, 50, 50, frameX: 50, frameY: 50)).Ok);
+        Assert.True(Read(TestImages.WebpOfFrames(100, 100, 2, 50, 50, frameX: 50, frameY: 50)).Ok);
+        Assert.True(Read(TestImages.Apng(2, 8, frameWidth: 4, frameHeight: 4, frameX: 4, frameY: 4)).Ok);
+    }
 }

@@ -344,3 +344,29 @@ needs-fixes: 1 blocker (F-1), 0 majors, 4 minors (F-2..F-5).
 - The next round is a delta over F-1's fix, with backend QA over the intake only. F-2's cheap half and
   D-14 may ride along.
 - The minors and QA debts D-1, D-3, D-8, D-9, D-13 and D-14 go to gate-3 under "deliberately left open".
+
+### Fixes after review round 1
+
+Backend developer, 2026-11-18, on top of `7540e412`. No contract change.
+
+- **F-1 fixed.**
+  - `ImageCaps.FrameFits` refuses an empty frame, or one whose `left + width` or `top + height` goes beyond the canvas. It is
+    a format refusal (`images.upload.format_unsupported`).
+  - It is applied to GIF image descriptors (against the logical screen), WebP `ANMF` frames (offsets are 2x the stored value)
+    and APNG `fcTL` frames (against `IHDR`).
+  - `VipsCodec.Decode` now refuses a loaded size that differs from the header's (after the JPEG shrink, with a slack of
+    `shrink` pixels, none for the other formats) before `CopyMemory`.
+  - Tests: `ImageHeaderReaderTests.Read_FrameOutsideTheCanvas_IsFormat` (nine hostile cases: GIF 1x1 screen with a 16 000 and an
+    8 000 px frame, offset and empty GIF frames, WebP and APNG analogues) and `Read_FramesInsideTheCanvas_StillRead`;
+    `ImageIntakeEdgeTests.Decode_SizeDifferentFromTheHeader_IsRefused`; through the reduction API
+    `ReduceDescriptionImageEndpointTests.Reduce_GifFrameBiggerThanItsScreen_400FormatUnsupported_NothingStored`
+    (a padded GIF over 5 MB, 1x1 screen, 16 000x16 000 frame).
+- **F-2 / D-2 fixed (cheap half).** `HttpUploadBody` rents `min(Content-Length, cap) + 1` bytes when a length is declared, and
+  holds at most four bodies above 5 MB at once (a `SemaphoreSlim`; a fifth waits 5 s, then gets the 503 `images.busy`).
+  vm.md § 7.1 and vm.ru.md § 7.1 say `proxy_request_buffering` must stay on.
+- **F-3 fixed.** ADR-0045: the read is "a fresh byte array", the gate is a `SemaphoreSlim`, and the arithmetic is restated with
+  the frame check and the decoded-size check in place and the body bound of F-2.
+- **F-4 fixed.** The comment of `IUploadBody` says the API reads no byte of a refused caller's body.
+- **D-14 fixed.** The drop handler clears `pending` in a microtask after its dispatch (`transformPastedHTML` runs after it);
+  the pin in `images.qa.test.tsx` is an `it` now.
+- **Left as they were:** F-5 (the orchestrator's notes at merge), D-1, D-3, D-8, D-9, D-13.

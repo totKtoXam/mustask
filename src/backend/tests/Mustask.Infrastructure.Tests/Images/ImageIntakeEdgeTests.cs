@@ -21,6 +21,18 @@ public sealed class ImageIntakeEdgeTests : IDisposable
     private Task<ImageIntakeResult> Accept(byte[] data, ImageIntakeMode mode = ImageIntakeMode.Upload) =>
         _intake.AcceptAsync(data, mode, CancellationToken.None);
 
+    // feat-078 review F-1 · defence in depth: a decoder that produces another size than the header said is refused before the pixels are copied.
+    [Fact]
+    public void Decode_SizeDifferentFromTheHeader_IsRefused()
+    {
+        var codec = new VipsCodec(new ImagesOptions());
+        var png = TestImages.Png(40, 30);
+        ImageHeaderReader.TryRead(png, out var header, out _);
+
+        Assert.Throws<ImageDecodeException>(() => codec.Decode(png, header with { Width = 1, Height = 1 }));
+        codec.Decode(png, header).Dispose();
+    }
+
     // ADR-0045 decision 2 · only the four loaders are on: a GIF decodes, an SVG is refused by libvips itself.
     [Fact]
     public void VipsSetup_LoadersBlocked_GifDecodes_SvgRefused()

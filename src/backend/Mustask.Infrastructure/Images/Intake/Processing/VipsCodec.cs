@@ -5,7 +5,13 @@ using NetVips;
 namespace Mustask.Infrastructure.Images.Intake.Processing;
 
 /// <summary>A structurally valid file that the decoder still refuses (a corrupt body): the intake answers it as a format refusal.</summary>
-internal sealed class ImageDecodeException(string message, Exception inner) : Exception(message, inner);
+internal sealed class ImageDecodeException(string message, Exception inner) : Exception(message, inner)
+{
+    public ImageDecodeException(string message)
+        : this(message, null!)
+    {
+    }
+}
 
 /// <summary>
 /// <see cref="IImageCodec"/> on libvips through NetVips (plan-backend § 5). Loaders are called by name, never by sniffing
@@ -36,6 +42,17 @@ internal sealed class VipsCodec : IImageCodec
 
             var loaded = Load(stripped, header.Format, shrink);
             var scaled = loaded;
+
+            // Defence in depth (BR-IM-3 (c)): whatever the header said, a decoder that produced another size is not trusted.
+            var expectedWidth = (header.Width + shrink - 1) / shrink;
+            var expectedHeight = (header.Height + shrink - 1) / shrink;
+            var slack = shrink > 1 ? shrink : 0;
+            if (Math.Abs(loaded.Width - expectedWidth) > slack || Math.Abs(loaded.Height - expectedHeight) > slack)
+            {
+                loaded.Dispose();
+
+                throw new ImageDecodeException("The decoded size differs from the header's.");
+            }
 
             if (pixels > target)
             {

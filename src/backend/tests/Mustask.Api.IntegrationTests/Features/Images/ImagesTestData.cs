@@ -142,6 +142,26 @@ internal static class ImagesTestData
         return mutated.GifsaveBuffer(dither: 0);
     }
 
+    /// <summary>A GIF with a small logical screen and one big frame (descriptor and empty LZW data only): the header of a decoder bomb.</summary>
+    public static byte[] GifWithBigFrame(int screenSize, int frameSize)
+    {
+        var output = new MemoryStream();
+        output.Write("GIF89a"u8);
+        Span<byte> number = stackalloc byte[2];
+        BinaryPrimitives.WriteUInt16LittleEndian(number, (ushort)screenSize);
+        output.Write(number);
+        output.Write(number);
+        output.Write([0x00, 0x00, 0x00]);
+        output.WriteByte(0x2C);
+        output.Write([0, 0, 0, 0]);
+        BinaryPrimitives.WriteUInt16LittleEndian(number, (ushort)frameSize);
+        output.Write(number);
+        output.Write(number);
+        output.Write([0x00, 0x02, 0x02, 0x4C, 0x01, 0x00, 0x3B]);
+
+        return output.ToArray();
+    }
+
     public static byte[] Svg() =>
         System.Text.Encoding.UTF8.GetBytes("<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"4\" height=\"4\"><script>alert(1)</script></svg>");
 

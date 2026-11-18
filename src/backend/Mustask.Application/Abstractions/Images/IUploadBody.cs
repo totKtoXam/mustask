@@ -2,7 +2,8 @@ namespace Mustask.Application.Abstractions.Images;
 
 /// <summary>
 /// The request body of an upload, read under a cap by the Api (plan-backend § 6.2). The handler asks for it only after its
-/// address checks, so a refused caller costs no transfer. The bytes are valid until the answer is disposed.
+/// address checks, so the API reads no byte of the body of a refused
+/// caller (a proxy in front may already have buffered it). The bytes are valid until the answer is disposed.
 /// </summary>
 public interface IUploadBody
 {

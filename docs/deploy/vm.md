@@ -421,6 +421,9 @@ the rehearsal (tech-056):
   (20 971 520 bytes). nginx's default of 1 MB would answer 413 before the API sees the
   request; 21 MB is the API's own cap and a little room, the API refuses what is over
   it with its own answer. A proxy in front of this nginx needs the same limit.
+- `proxy_request_buffering` stays on (its default; do not write `off` in `location /api/`): nginx then
+  receives the whole body before it passes the request on, so a slow client holds nginx's temporary file and
+  not the API's memory while an image is read.
 
 ### 7.2 A path of a shared host
 

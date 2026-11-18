@@ -113,4 +113,18 @@ public sealed class ReduceDescriptionImageEndpointTests(MustaskApiFactory factor
         Assert.Equal("images.reduction.animated", answer.ErrorCode);
         Assert.Equal(0, await ImagesTestData.CountForAsync(factory, item.Id));
     }
+
+    // feat-078 review F-1 · a GIF whose frame is bigger than its screen is refused from the header, before any decode, on the reduction route.
+    [Fact]
+    public async Task Reduce_GifFrameBiggerThanItsScreen_400FormatUnsupported_NothingStored()
+    {
+        var (world, item) = await ImagesTestData.WorldWithItemAsync(factory);
+        var bomb = ImagesTestData.PaddedTo(ImagesTestData.GifWithBigFrame(screenSize: 1, frameSize: 16000), ImageLimits.MaxStoredBytes + 1);
+
+        var answer = await ImagesTestData.ReduceAsync(factory, world.Items, item.Identifier, bomb);
+
+        Assert.Equal(HttpStatusCode.BadRequest, answer.Status);
+        Assert.Equal("images.upload.format_unsupported", answer.ErrorCode);
+        Assert.Equal(0, await ImagesTestData.CountForAsync(factory, item.Id));
+    }
 }
