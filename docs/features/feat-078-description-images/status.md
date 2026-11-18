@@ -3,7 +3,7 @@
 - type: feature
 - size: L
 - branch: feat/078-description-images
-- stage: 04-backend
+- stage: 06-frontend
 - epic: core/work-items
 - deps: feat-018
 - gates: gate-1, gate-2, gate-3
@@ -43,6 +43,8 @@ gate-3: pending
 - 2026-11-18 [backend-developer] Kazakh texts needing review (all kkNeedsReview: true in contracts/errors): the nine images.* codes (images.json) and workitems.workitem.description_image_unavailable, workitems.workitem.description_too_many_images.
 - 2026-11-18 [backend-developer] test results at stage 4b end: Mustask.Application.Tests 881/881, Mustask.Contracts.Tests 239/239, Mustask.Architecture.Tests 84/84, Mustask.Api.IntegrationTests Features.Images + Inventory + WorkItems 1092 (1 load flake, passes alone), image tests added this run: GetImage 6, ReadParity 3, SaveDescriptionImages 15, ImageBinding 5, UnboundImageSweeper 7, SweepRace 3, ImageLifecycle 3, reducer image unit tests 7 plus the shared fixture cases (16 canonical, 3 visible-count, 4 hostile). Stage 4b done.
 - 2026-11-18 [qa-engineer] stage 5 backend QA (qa.md, Backend): pass, blockers 0, majors 0, minors 3 carried to gate-3 as debt — D-1 the speed NFR unverified (ImageVolumeTests assert 2× the target; a stand timing is owed), D-2 request bodies buffered at the full cap before the decode gate, D-3 colour profile / over-16 MP similarity / lossless-reduction pixel equality not measured. Added ImagesQaTests (10, API) and ImageIntakeQaTests (9, intake): unsized bodies over each cap, 20 971 520 taken in, empty body, order of answers, deactivated project/organization parity with the description edit, six-kind byte-identical 404, membership removal (404, no 304), the bind/sweep race forced through PATCH, hosted sweep start, SSIM ≥ 0.98, rotated pixels, exact screenshot, never larger, GIF timing, 0.95 reduction floor. Runs: Infrastructure Images 77/77 (migration up/down/up on a clean Testcontainers DB), Domain Images 15/15, ImagesQaTests 10/10. The reducer timing failures (HostileDeepNesting, SpanBomb and others) fail identically at the merge base 6f92b217 on this machine: not caused by this branch. E2E question not asked here (frontend QA's).
+
+- 2026-11-18 [orchestrator] the human confirmed in this session («Да») that gate-3 of feat-078 is decided by the orchestrator session doc-012 (local_7646c220); its verdict goes into gate-3. Backend QA passed (0 blocker/major, minors D-1..D-3 carried to gate-3). Stage 6 started
 
 ## Notes
 
