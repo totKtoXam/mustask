@@ -737,6 +737,67 @@ describe('F-9 the helper while a save waits', () => {
   });
 });
 
+describe('D-14 html dropped with an image', () => {
+  // D-14: a drop of html runs `transformPastedHTML`, which takes the images out into `pending`, but
+  // only `handlePaste` hands them on: the dropped image is lost, and the next paste inserts it.
+  it.fails('does not carry the dropped image into the next paste', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => ({ blob: async () => new Blob(['x'], { type: 'image/png' }) })),
+    );
+    const { images } = host();
+    const { body, editor } = await mountEditor('<p>до</p>', { images });
+    editor().view.posAtCoords = () => ({ pos: 1, inside: -1 });
+    const html = '<p>слово</p><img src="data:image/png;base64,iVBORw0KGgo=">';
+    const event = new Event('drop', { bubbles: true, cancelable: true });
+    Object.defineProperty(event, 'dataTransfer', {
+      value: {
+        types: ['text/html', 'text/plain'],
+        files: [],
+        items: [],
+        getData: (type: string) => (type === 'text/html' ? html : 'слово'),
+      },
+    });
+    Object.defineProperty(event, 'clientX', { value: 1 });
+    Object.defineProperty(event, 'clientY', { value: 1 });
+    act(() => {
+      body.dispatchEvent(event);
+    });
+    await act(async () => new Promise((resolve) => setTimeout(resolve, 50)));
+
+    pasteInto(body, { text: 'ещё', html: '<p>ещё</p>' });
+    await act(async () => new Promise((resolve) => setTimeout(resolve, 100)));
+
+    expect(images.upload).not.toHaveBeenCalled();
+  });
+});
+
+describe('D-12 the drop tint', () => {
+  /** The class of the editor's frame (the toolbar's parent) before and after files are dragged in. */
+  async function tint(canInsert: boolean) {
+    const { images } = host({ canInsert });
+    const { toolbar } = await mountEditor('<p>до</p>', { images });
+    const frame = toolbar.parentElement!;
+    const before = frame.className;
+    const event = new Event('dragenter', { bubbles: true, cancelable: true });
+    Object.defineProperty(event, 'dataTransfer', { value: { types: ['Files'] } });
+    act(() => {
+      frame.dispatchEvent(event);
+    });
+    return { before, after: frame.className };
+  }
+
+  it('shows for an editor that may insert', async () => {
+    const { before, after } = await tint(true);
+    expect(after).not.toBe(before);
+  });
+
+  it('does not show for a viewer without the right to insert', async () => {
+    const { before, after } = await tint(false);
+    expect(after).toBe(before);
+  });
+});
+
 describe('F-35 addresses are released', () => {
   it('releases an address that arrives after the editor is gone', async () => {
     let answer: (url: string) => void = () => {};

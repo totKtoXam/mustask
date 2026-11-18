@@ -101,8 +101,10 @@ describe('QA F-9: a save waiting for image uploads', () => {
     });
 
     const sent = JSON.stringify(patches(t.api).map((request) => request.body));
-    const kept = sent.includes('Название во время ожидания') || t.state().isDirty;
-    expect(kept).toBe(true);
+    // The edit typed during the wait goes out with this save (D-4 fix: the latest draft is sent).
+    expect(sent).toContain('Название во время ожидания');
+    expect(sent).toContain('с картинкой');
+    expect(t.state().isDirty).toBe(false);
   });
 
   it('a failed upload does not stop the save: the description is sent as the editor holds it', async () => {

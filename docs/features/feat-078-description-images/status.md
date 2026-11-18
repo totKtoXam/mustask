@@ -49,6 +49,7 @@ gate-3: pending
 - 2026-11-18 [qa-engineer] stage 7 frontend QA (qa.md, Frontend): fail, blockers 0, majors 2 returned to the frontend developer — D-4 a save waiting for uploads is not busy and an edit typed during the wait is silently lost; D-6 cut and paste of an image re-uploads it (US-1 criterion). Minors 8 carried to gate-3 as debt (D-5, D-7..D-13: tooltip copy, queue order of two offers, non-images refusals read generic, data-image and animation sniff gaps, chooser focus in the offer, notices overwrite each other, small a11y leftovers, the 640 px toolbar check owed). canInsert deviation accepted. E2E: no (standing answer). Added images.qa.test.tsx (52) and useWorkItemEdits.images.qa.test.tsx (3); open defects pinned with it.fails
 
 - 2026-11-18 [frontend-developer] fixes after frontend QA: D-4, D-6 (majors) and D-5, D-7, D-10, D-11, D-12 fixed, pins flipped to `it`; D-8, D-9, D-13 left as gate-3 debt; no contract change.
+- 2026-11-18 [qa-engineer] stage 7 re-check (qa.md, Frontend, round 2) against 17e5ea1f: pass, blockers 0, majors 0. D-4, D-6 closed (D-4 pin tightened: the title typed during the wait is sent; D-6's remembered ids are per editor and come only from its own document, the card and editor remount per item, a foreign store image is still re-uploaded); D-5, D-7, D-10, D-11, D-12 closed (drop-tint test added). New minor D-14: an html drop with an image loses it and the next paste inserts it (it.fails pin). Debt for gate-3: D-8, D-9, D-13, D-14. E2E: no (standing answer)
 
 ## Notes
 

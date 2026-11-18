@@ -392,7 +392,56 @@ chosen order), D-10 (`editor.view.focus()` is synchronous, so the dialog keeps �
 image role for an unavailable image, no drop tint without `canInsert`, the full-size dialog named
 by its title; two tests added). Left as gate-3 debt, as asked: D-8, D-9, D-13.
 
-### Verdict
+### Verdict (round 1)
 
 blockers: 0 · majors: 2 (D-4, D-6, returned to the frontend developer) · minors: 8 (D-5, D-7..D-13,
 debt for gate-3) · result: fail — re-check after the fixes of D-4 and D-6
+
+### Re-check (round 2)
+
+2026-11-18, QA, against commit 17e5ea1f, read as `git diff b5f7a8b2..17e5ea1f`. Runs, per file,
+foreground: `images.qa.test.tsx` 55/55, `images.test.tsx` 17/17,
+`useWorkItemEdits.images.qa.test.tsx` 3/3, `useWorkItemEdits.test.tsx` 16/16; `npx tsc -b` clean,
+ESLint and Prettier clean on the QA files.
+
+Pins: the flipped tests are the round-1 bodies unchanged (only `it.fails` → `it` and Prettier's
+re-wrap). One was **tightened** by this pass: the D-4 test now demands that the title typed during
+the wait is in the sent PATCH and the draft is clean after it (round 1 accepted "sent or still
+dirty").
+
+| Defect | Fix, checked against the description | Result |
+|---|---|---|
+| D-4 | `save` sets `working`/`setSaving(true)` before awaiting `settleDescription()`, so the card is busy during the wait; after it the save reads `latestEdits.current` (the layout-effect copy of the last drawn draft) instead of the captured `edits`. A title typed during the wait is sent with the description, and the draft is empty after the save | closed |
+| D-6 | `holdsImage` is `known.has(id)`, `known` filled from this editor's document at mount and after every doc-changing transaction. It can only hold ids that were in this editor's own document: the stored description (server-checked as this item's) or this member's uploads into it. A pasted store image is taken out of the html before parsing and never enters the document under its old id, so a foreign id cannot get in. The set dies with the editor: the card is keyed per item (`WorkItemCardDialog` `key={target}`, `WorkItemFormPage` keyed by org/project/identifier) and the editor body remounts on a replaced value (`generation` key), so another item's or another description's ids never carry over. QA's "uploads again an image of the store copied from another item" stays green. A remembered unbound upload swept meanwhile is refused by the save (BR-IM-8), as before | closed |
+| D-5 | tooltip of `image` is `copy.images.insert`; the accessible name stays «Изображение» | closed |
+| D-7 | `slotsPlugin` maps the first slot (map order = chosen order) with `assoc -1`, the rest with `+1`; a removed slot is skipped before the flag, so the next one becomes first in the removal's own transaction. Replacements of placeholders map by range ends, unaffected | closed |
+| D-10 | the chooser calls `editor.view.focus()` synchronously; the pin on the chooser path passes | closed |
+| D-11 | a refusal of the action is held (`refusalHeld`) until the next insert, and the swap of a placeholder carries `rtImageWork`, which the notice-clearing handler skips; the insert's own selection sets `pointerSelection`, so no keyboard hint | closed |
+| D-12 | (1) the node view drops its own `role=img` when the read failed (developer test); (2) `onDragEnter` checks `canInsert`: QA test added, `D-12 the drop tint` (the tint changes the frame's class for an editor that may insert, and does not for a viewer); (3) the full-size dialog is named by `DialogTitleBar` (developer test) | closed |
+
+#### D-14: html dropped with an image loses it, and the next paste inserts it
+
+- Severity: minor (found in this round; from stage 6, not caused by the fixes)
+- Steps: drag html holding an image (a data-address one, or one of the store) from another page
+  onto Описание; then paste any text.
+- Expected: the dropped image is handled by BR-IM-13's rules (uploaded, or told), and a later paste
+  inserts only what it carries.
+- Actual: a drop of html runs `transformPastedHTML`, which takes the images out into the paste
+  plugin's `pending` list, but only `handlePaste` hands them on. The drop inserts the text without
+  the image and says nothing; the next paste picks up the stale `pending` list and uploads and
+  inserts the dropped image at the paste. Reproduced in jsdom; pinned by `it.fails` («D-14 html
+  dropped with an image»). A fix: clear `pending` in `handleDrop` (or hand it on there, at the drop
+  position).
+- Status: open, debt (rare path: an html drag with images from another page; nothing reaches
+  another item, the server checks every reference).
+
+### Verdict
+
+blockers: 0 · majors: 0 open (D-4, D-6 closed) · minors open: 4 (D-8, D-9, D-13, D-14), debt for
+gate-3; D-5, D-7, D-10, D-11, D-12 closed · E2E: no (standing answer) · result: **pass**
+
+Debt for gate-3: D-8 non-`images.*` upload refusals read the generic text; D-9 no client checks for
+data-address images, animation sniffing on a fixed prefix; D-13 the 640 px toolbar fit is unchecked
+in a browser and there is no «Ещё» overflow; D-14 an html drop loses its image and the next paste
+inserts it. Manual QA owed as the stories say (real clipboard and drag, rendering, themes, 360 px,
+screen reader).
