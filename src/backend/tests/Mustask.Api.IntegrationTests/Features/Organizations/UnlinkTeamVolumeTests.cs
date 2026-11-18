@@ -31,7 +31,7 @@ public sealed class UnlinkTeamVolumeTests(MustaskApiFactory factory, ITestOutput
         await OrganizationsTestData.LinkAsync(factory, world.OtherProjectId, world.Mars);
         var story = world.Items.Types["US"];
         var level = story.BacklogLevelId;
-        var betaRoot = (await QueryAsync($"SELECT id::text AS \"Value\" FROM areas WHERE project_id = {world.OtherProjectId} AND parent_id IS NULL")).Single();
+        var betaRoot = (await QueryAsync($"SELECT id::text AS \"Value\" FROM areas WHERE project_id = {world.OtherProjectId} AND type = 2")).Single();
         await SeedAsync(world, world.ProjectId, world.Items.RootAreaId, Owned);
         await SeedAsync(world, world.OtherProjectId, Guid.Parse(betaRoot), Elsewhere);
         await WorkItemsTestData.ExecuteAsync(factory, $"""

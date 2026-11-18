@@ -79,7 +79,7 @@ public static class OrganizationsTestData
         bool visibleToOrganization = true) =>
         InUnitOfWorkAsync(factory, async (services, ct) =>
         {
-            var project = Project.Create(organizationId, Name(name), key, Now, Creator, "blue");
+            var project = Project.Create(organizationId, Name(name), key, Now, Creator, "blue", parentAreaId: await TeamDepartmentAsync(services, organizationId, ct));
             project.Project.SetVisibleToOrganization(visibleToOrganization);
             var team = Team.Create(organizationId, await TeamDepartmentAsync(services, organizationId, ct), "blue", Name(name));
 
@@ -110,10 +110,11 @@ public static class OrganizationsTestData
         string name = "Пример проекта",
         string key = "PRM",
         ProjectStatus status = ProjectStatus.Active,
-        bool visibleToOrganization = true) =>
+        bool visibleToOrganization = true,
+        Guid? departmentId = null) =>
         InUnitOfWorkAsync(factory, async (services, ct) =>
         {
-            var project = Project.Create(organizationId, Name(name), key, Now, Creator, "blue");
+            var project = Project.Create(organizationId, Name(name), key, Now, Creator, "blue", parentAreaId: departmentId ?? await TeamDepartmentAsync(services, organizationId, ct));
             project.Project.SetVisibleToOrganization(visibleToOrganization);
 
             if (status == ProjectStatus.Deactivated)
@@ -196,6 +197,18 @@ public static class OrganizationsTestData
         return department.Id;
     }
 
+    /// <summary>
+    /// A create-project body with <c>parentAreaId</c> set to the department the helpers put a test team in (mod-022 BR-TD-6: a
+    /// project is created in a department, never at the top). The body is an anonymous object as everywhere in these tests.
+    /// </summary>
+    public static async Task<System.Text.Json.Nodes.JsonObject> InDepartmentAsync(MustaskApiFactory factory, Guid organizationId, object body)
+    {
+        var node = System.Text.Json.JsonSerializer.SerializeToNode(body, body.GetType())!.AsObject();
+        node["parentAreaId"] = (await DepartmentForTeamsAsync(factory, organizationId)).ToString();
+
+        return node;
+    }
+
     /// <summary>The department the helpers put a test team in (see <see cref="TeamDepartmentAsync"/>), by id.</summary>
     public static Task<Guid> DepartmentForTeamsAsync(MustaskApiFactory factory, Guid organizationId) =>
         InUnitOfWorkAsync(factory, (services, ct) => TeamDepartmentAsync(services, organizationId, ct));
@@ -254,6 +267,15 @@ public static class OrganizationsTestData
 
             return area;
         });
+
+    /// <summary>
+    /// Takes every team off a project (its default team too): a project that has a team is not moved to another department
+    /// (mod-022 BR-TD-4), so a test about the move starts from a project with none.
+    /// </summary>
+    public static Task DetachTeamsAsync(MustaskApiFactory factory, Guid projectId) =>
+        Features.WorkItems.WorkItemsTestData.ExecuteAsync(
+            factory,
+            $"UPDATE projects SET default_team_id = NULL WHERE id = {projectId}; DELETE FROM project_teams WHERE project_id = {projectId}");
 
     /// <summary>A department (top level), written the way the use case writes it.</summary>
     public static Task<Area> AddDepartmentAsync(MustaskApiFactory factory, Guid organizationId, string name) =>

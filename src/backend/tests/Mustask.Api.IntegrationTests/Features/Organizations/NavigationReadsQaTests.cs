@@ -85,7 +85,7 @@ public sealed class NavigationReadsQaTests(MustaskApiFactory factory)
         Assert.Equal(logistics.Id, Row(projects, "A").GetProperty("departmentId").GetGuid());
         Assert.Equal("Логистика", Row(projects, "B").GetProperty("departmentName").GetString());
         Assert.Equal(finance.Id, Row(projects, "C").GetProperty("departmentId").GetGuid());
-        Assert.Equal(JsonValueKind.Null, Row(projects, "D").GetProperty("departmentName").ValueKind);
+        Assert.Equal(JsonValueKind.String, Row(projects, "D").GetProperty("departmentName").ValueKind);
         Assert.Equal(new[] { mars.Id, venus.Id }.Order(), Ids(Row(projects, "A").GetProperty("teamIds")));
         Assert.Equal([mars.Id], Ids(Row(projects, "C").GetProperty("teamIds")));
         Assert.Empty(Row(projects, "D").GetProperty("teamIds").EnumerateArray());
@@ -103,23 +103,26 @@ public sealed class NavigationReadsQaTests(MustaskApiFactory factory)
         var structure = await OrganizationsTestData.CreateStructureAsync(factory);
         var o = structure.OrganizationId;
         var department = await OrganizationsTestData.AddDepartmentAsync(factory, o, "Логистика");
+        var finance = await OrganizationsTestData.AddDepartmentAsync(factory, o, "Финансы");
+        await OrganizationsTestData.DetachTeamsAsync(factory, structure.ProjectId); // a project with a team is not moved (mod-022 BR-TD-4)
         await PlaceAsync(o, structure.ProjectId, department.Id);
         await OrganizationsTestData.PlaceTeamAsync(factory, o, department.Id, structure.Platform.Id);
+        await OrganizationsTestData.LinkAsync(factory, structure.ProjectId, structure.Platform.Id);
 
         var before = (await GetAsync(o, "selector-offers")).Body;
         Assert.Equal(department.Id, before.GetProperty("projects")[0].GetProperty("departmentId").GetGuid());
 
-        await PlaceAsync(o, structure.ProjectId, null);
-        await OrganizationsTestData.DeleteTeamAsync(factory, structure.ProjectId, structure.Platform.Id);
+                await OrganizationsTestData.DeleteTeamAsync(factory, structure.ProjectId, structure.Platform.Id);
+        await PlaceAsync(o, structure.ProjectId, finance.Id);
 
         var offers = (await GetAsync(o, "selector-offers")).Body;
         var overview = (await GetAsync(o, "overview")).Body;
 
-        Assert.Equal(JsonValueKind.Null, offers.GetProperty("projects")[0].GetProperty("departmentId").ValueKind);
+        Assert.Equal(finance.Id, offers.GetProperty("projects")[0].GetProperty("departmentId").GetGuid());
         Assert.DoesNotContain(structure.Platform.Id, offers.GetProperty("teams").EnumerateArray().Select(t => t.GetProperty("id").GetGuid()));
         Assert.DoesNotContain(structure.Platform.Id, Ids(offers.GetProperty("projects")[0].GetProperty("teamIds")));
         Assert.Equal(1, overview.GetProperty("teamCount").GetInt32());
-        Assert.Equal(2, overview.GetProperty("departmentCount").GetInt32());
+        Assert.Equal(3, overview.GetProperty("departmentCount").GetInt32());
     }
 
     // BR-NV-13 · a restored project returns to both reads with its place and links as they were.
@@ -129,7 +132,9 @@ public sealed class NavigationReadsQaTests(MustaskApiFactory factory)
         var structure = await OrganizationsTestData.CreateStructureAsync(factory);
         var o = structure.OrganizationId;
         var department = await OrganizationsTestData.AddDepartmentAsync(factory, o, "Логистика");
+        await OrganizationsTestData.DetachTeamsAsync(factory, structure.ProjectId); // a project with a team is not moved (mod-022 BR-TD-4)
         await PlaceAsync(o, structure.ProjectId, department.Id);
+        await OrganizationsTestData.LinkAsync(factory, structure.ProjectId, structure.Platform.Id);
         await OrganizationsTestData.SetProjectStatusAsync(factory, o, structure.ProjectId, ProjectStatus.Deactivated);
 
         var gone = (await GetAsync(o, "selector-offers")).Body;
@@ -140,7 +145,7 @@ public sealed class NavigationReadsQaTests(MustaskApiFactory factory)
 
         var back = (await GetAsync(o, "selector-offers")).Body.GetProperty("projects")[0];
         Assert.Equal(department.Id, back.GetProperty("departmentId").GetGuid());
-        Assert.Equal(2, back.GetProperty("teamIds").GetArrayLength());
+        Assert.Equal(1, back.GetProperty("teamIds").GetArrayLength());
     }
 
     // US-2 "Empty states": an organization with nothing answers zero counts and empty arrays, never null.
@@ -168,7 +173,7 @@ public sealed class NavigationReadsQaTests(MustaskApiFactory factory)
 
     // mod-021 BR-TD-1: a team stands in a department, so an organization with teams has at least the department the helpers made; its projects still have no place.
     [Fact]
-    public async Task OrganizationWithoutDepartments_CountsZero_ProjectsHaveNoPlace()
+    public async Task OrganizationWithoutDepartments_CountsZero_ProjectsStandInADepartmentToo()
     {
         var structure = await OrganizationsTestData.CreateStructureAsync(factory);
 
@@ -177,7 +182,7 @@ public sealed class NavigationReadsQaTests(MustaskApiFactory factory)
 
         Assert.Equal(1, overview.GetProperty("departmentCount").GetInt32());
         Assert.Equal(1, overview.GetProperty("departments").GetArrayLength());
-        Assert.Equal(JsonValueKind.Null, offers.GetProperty("projects")[0].GetProperty("departmentId").ValueKind);
+        Assert.Equal(JsonValueKind.String, offers.GetProperty("projects")[0].GetProperty("departmentId").ValueKind);
     }
 
     // Isolation · another organization's rows never leak into the counts, rows or links.

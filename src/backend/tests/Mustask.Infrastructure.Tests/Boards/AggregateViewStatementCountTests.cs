@@ -170,7 +170,7 @@ public sealed class AggregateViewStatementCountTests(OrganizationsDatabaseFixtur
             for (var index = 1; index < projects; index++)
             {
                 var project = Project.Create(
-                    organization, OrganizationsDatabaseFixture.Name($"Проект {index:D2}"), $"AS{index:D2}", OrganizationsDatabaseFixture.Now, OrganizationsDatabaseFixture.Creator, "blue");
+                    organization, OrganizationsDatabaseFixture.Name($"Проект {index:D2}"), $"AS{index:D2}", OrganizationsDatabaseFixture.Now, OrganizationsDatabaseFixture.Creator, "blue", parentAreaId: structure.Department.Id);
                 context.Projects.Add(project.Project);
                 context.Areas.Add(project.Root);
                 context.ProjectTeams.Add(
@@ -199,7 +199,7 @@ public sealed class AggregateViewStatementCountTests(OrganizationsDatabaseFixtur
                    'Элемент ' || n, '', gen_random_uuid(), now() + n * interval '1 millisecond', 'count-test', now() + n * interval '1 second',
                    CASE WHEN n % 2 = 0 THEN @team END
             FROM unnest(@projects) AS project(id)
-            JOIN areas AS root ON root.project_id = project.id AND root.parent_id IS NULL
+            JOIN areas AS root ON root.project_id = project.id AND root.type = 2
             CROSS JOIN generate_series(1, @perProject) AS n
             """,
             ("projects", projectIds.ToArray()),

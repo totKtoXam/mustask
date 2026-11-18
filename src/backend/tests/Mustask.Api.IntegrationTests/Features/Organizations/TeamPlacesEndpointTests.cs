@@ -228,10 +228,12 @@ public sealed class TeamPlacesEndpointTests(MustaskApiFactory factory)
     {
         var organization = await OrganizationsTestData.CreateOrganizationAsync(factory);
         var colours = new List<string?>();
+        string? firstDepartment = null;
 
         foreach (var name in new[] { "Разработка", "Продажи", "Финансы" })
         {
             var department = await SendAsync(HttpMethod.Post, OrganizationsApi.Areas(organization.Id), new { name });
+            firstDepartment ??= department.Body.GetProperty("id").GetString();
             colours.Add(department.Body.GetProperty("color").GetString());
         }
 
@@ -239,7 +241,7 @@ public sealed class TeamPlacesEndpointTests(MustaskApiFactory factory)
 
         foreach (var (name, key) in new[] { ("Альфа", "ALF"), ("Бета", "BET") })
         {
-            var project = await SendAsync(HttpMethod.Post, $"{OrganizationsApi.Organization(organization.Id)}/projects", new { name, key });
+            var project = await SendAsync(HttpMethod.Post, $"{OrganizationsApi.Organization(organization.Id)}/projects", new { name, key, parentAreaId = firstDepartment });
             projectColours.Add(project.Body.GetProperty("color").GetString());
         }
 
@@ -247,7 +249,7 @@ public sealed class TeamPlacesEndpointTests(MustaskApiFactory factory)
         var sub = await SendAsync(HttpMethod.Post, OrganizationsApi.Areas(organization.Id), new { name = "Отчёты", parentId = node.Id.ToString() });
 
         Assert.Equal(["blue", "orange", "magenta"], colours);
-        Assert.Equal(["blue", "orange"], projectColours);
+        Assert.Equal(["orange", "magenta"], projectColours);
         Assert.Equal(JsonValueKind.Null, sub.Body.GetProperty("color").ValueKind);
     }
 }

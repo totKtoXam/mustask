@@ -101,7 +101,7 @@ public sealed class NavigationReadModelTests(OrganizationsDatabaseFixture databa
         Assert.Equal((logistics.Id, "Логистика"), (placed.DepartmentId, placed.DepartmentName));
         Assert.Equivalent(new[] { structure.FirstTeam.Id, structure.SecondTeam.Id }, placed.TeamIds);
         var unplaced = offers.Projects.Single(project => project.Key == "TOP");
-        Assert.Null(unplaced.DepartmentId);
+        Assert.Equal(structure.Department.Id, unplaced.DepartmentId);  // mod-022: a new project stands in a department too
         Assert.Empty(unplaced.TeamIds);
         // mod-021: a team has one place, the department it stands in, and the colour it was given.
         Assert.All(offers.Teams, team => Assert.Equal(structure.Department.Id, team.DepartmentId));
@@ -138,7 +138,7 @@ public sealed class NavigationReadModelTests(OrganizationsDatabaseFixture databa
 
         for (var p = 0; p < projects; p++)
         {
-            var project = Project.Create(organizationId, Name($"Проект {p:D3}"), $"P{p:D3}", Now, Creator, "blue");
+            var project = Project.Create(organizationId, Name($"Проект {p:D3}"), $"P{p:D3}", Now, Creator, "blue", parentAreaId: structure.Department.Id);
             context.Projects.Add(project.Project);
             context.Areas.Add(project.Root);
             context.ProjectTeams.Add(ProjectTeam.Link(organizationId, project.Project.Id, structure.FirstTeam.Id, Creator, Now));

@@ -54,7 +54,7 @@ public sealed class WorkItemPickerReadsTests(MustaskApiFactory factory)
 
         Assert.Equal(HttpStatusCode.OK, answer.Status);
         Assert.Equal(
-            ["Мастаск", "Мастаск / Отчёты", "Мастаск / Платформа", "Мастаск / Платформа / API"],
+            ["Отдел для команд / Мастаск", "Отдел для команд / Мастаск / Отчёты", "Отдел для команд / Мастаск / Платформа", "Отдел для команд / Мастаск / Платформа / API"],
             answer.Body.EnumerateArray().Select(node => node.GetProperty("path").GetString()));
     }
 }

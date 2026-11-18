@@ -55,7 +55,7 @@ public sealed class AreaReadsTests(OrganizationsDatabaseFixture database, ITestO
         Assert.Null(await WithStructureAsync(s => s.FindAreaAsync(Org(other), department.Id, default)));
 
         var found = await WithStructureAsync(s => s.FindAreaAsync(Org(mine), sub.Id, default));
-        Assert.Equal((AreaType.Area, mine.Project.Project.Id, "Пример проекта / Отчёты"), (found!.Type, found.ProjectId, found.Path));
+        Assert.Equal((AreaType.Area, mine.Project.Project.Id, "Отдел структуры / Пример проекта / Отчёты"), (found!.Type, found.ProjectId, found.Path));
     }
 
     // NFR Query shape · every read takes the same number of statements for a small organization and for a large one.

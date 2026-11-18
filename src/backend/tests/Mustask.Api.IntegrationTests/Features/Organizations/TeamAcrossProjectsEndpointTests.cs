@@ -1,3 +1,4 @@
+using Mustask.Domain.Organizations;
 using System.Net;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
@@ -42,7 +43,7 @@ public sealed class TeamAcrossProjectsEndpointTests(MustaskApiFactory factory)
 
         return await scope.ServiceProvider.GetRequiredService<MustaskDbContext>().Areas
             .AsNoTracking()
-            .Where(area => area.ProjectId == projectId && area.ParentId == null)
+            .Where(area => area.ProjectId == projectId && area.Type == AreaType.Project)
             .Select(area => area.Id)
             .SingleAsync();
     }

@@ -67,23 +67,6 @@ public sealed class AreaRacesEndpointTests(MustaskApiFactory factory)
         Assert.Single(await StoredAreasAsync(organization.Id));
     }
 
-    // OQ-12 A · a department and a project's creation of one name at the top level meet on the tree lock: one is name_taken.
-    [Fact]
-    public async Task CreateDepartment_VersusCreateProject_OfOneName_OneIsNameTaken()
-    {
-        var organization = await OrganizationsTestData.CreateOrganizationAsync(factory);
-        var projects = $"/api/organizations/{organization.Id}/projects";
-
-        var (a, b) = await RaceAsync(
-            factory,
-            at => CreateAsync(organization.Id, "Мастаск", null, at),
-            at => SendAsync(HttpMethod.Post, projects, new { name = "мастаск", key = "MST" }, at));
-
-        Assert.DoesNotContain(new[] { a, b }, answer => (int)answer.Status >= 500);
-        Assert.Equal(HttpStatusCode.Created, a.Status);
-        LinksTestData.AssertRefused(b, HttpStatusCode.Conflict, "organizations.area.name_taken");
-        Assert.Single(await StoredAreasAsync(organization.Id));
-    }
 
     // US-1 · a creation against a rename into the name: the rename holds only its row, the creation meets it on the sibling index.
     [Theory]
@@ -93,6 +76,7 @@ public sealed class AreaRacesEndpointTests(MustaskApiFactory factory)
     {
         var structure = await OrganizationsTestData.CreateStructureAsync(factory);
         var organization = structure.OrganizationId;
+        await OrganizationsTestData.DetachTeamsAsync(factory, structure.ProjectId);
         var node = await OrganizationsTestData.NodeOfAsync(factory, structure.ProjectId);
         var transport = await OrganizationsTestData.AddSubAreaAsync(factory, organization, node.Id, "Транспортные системы");
 
@@ -112,6 +96,7 @@ public sealed class AreaRacesEndpointTests(MustaskApiFactory factory)
     {
         var structure = await OrganizationsTestData.CreateStructureAsync(factory);
         var organization = structure.OrganizationId;
+        await OrganizationsTestData.DetachTeamsAsync(factory, structure.ProjectId);
         var node = await OrganizationsTestData.NodeOfAsync(factory, structure.ProjectId);
         var finance = await OrganizationsTestData.AddSubAreaAsync(factory, organization, node.Id, "Финансы");
         var infra = await OrganizationsTestData.AddSubAreaAsync(factory, organization, node.Id, "Инфраструктура");
@@ -137,10 +122,11 @@ public sealed class AreaRacesEndpointTests(MustaskApiFactory factory)
     {
         var structure = await OrganizationsTestData.CreateStructureAsync(factory);
         var organization = structure.OrganizationId;
+        await OrganizationsTestData.DetachTeamsAsync(factory, structure.ProjectId);
         var node = await OrganizationsTestData.NodeOfAsync(factory, structure.ProjectId);
         var level8 = node;
 
-        for (var level = 2; level <= 8; level++)
+        for (var level = 2; level <= 7; level++) // the node itself stands on level 2 under its department (mod-022)
         {
             level8 = await OrganizationsTestData.AddSubAreaAsync(factory, organization, level8.Id, $"Ф{level}");
         }
@@ -185,6 +171,7 @@ public sealed class AreaRacesEndpointTests(MustaskApiFactory factory)
     {
         var structure = await OrganizationsTestData.CreateStructureAsync(factory);
         var organization = structure.OrganizationId;
+        await OrganizationsTestData.DetachTeamsAsync(factory, structure.ProjectId);
         var node = await OrganizationsTestData.NodeOfAsync(factory, structure.ProjectId);
         var leaf = await OrganizationsTestData.AddSubAreaAsync(factory, organization, node.Id, "Транспортные системы");
         var finance = await OrganizationsTestData.AddSubAreaAsync(factory, organization, node.Id, "Финансы");
@@ -223,6 +210,7 @@ public sealed class AreaRacesEndpointTests(MustaskApiFactory factory)
     {
         var structure = await OrganizationsTestData.CreateStructureAsync(factory);
         var organization = structure.OrganizationId;
+        await OrganizationsTestData.DetachTeamsAsync(factory, structure.ProjectId);
         var node = await OrganizationsTestData.NodeOfAsync(factory, structure.ProjectId);
         var department = await OrganizationsTestData.AddDepartmentAsync(factory, organization, "Разработка");
 
@@ -256,6 +244,7 @@ public sealed class AreaRacesEndpointTests(MustaskApiFactory factory)
     {
         var structure = await OrganizationsTestData.CreateStructureAsync(factory);
         var organization = structure.OrganizationId;
+        await OrganizationsTestData.DetachTeamsAsync(factory, structure.ProjectId);
         var node = await OrganizationsTestData.NodeOfAsync(factory, structure.ProjectId);
         var department = await OrganizationsTestData.AddDepartmentAsync(factory, organization, "Разработка");
 
@@ -277,6 +266,7 @@ public sealed class AreaRacesEndpointTests(MustaskApiFactory factory)
     {
         var structure = await OrganizationsTestData.CreateStructureAsync(factory);
         var organization = structure.OrganizationId;
+        await OrganizationsTestData.DetachTeamsAsync(factory, structure.ProjectId);
         var node = await OrganizationsTestData.NodeOfAsync(factory, structure.ProjectId);
         var leaf = await OrganizationsTestData.AddSubAreaAsync(factory, organization, node.Id, "Транспортные системы");
 
@@ -375,10 +365,11 @@ public sealed class AreaRacesEndpointTests(MustaskApiFactory factory)
         var source = await OrganizationsTestData.AddDepartmentAsync(factory, structure.OrganizationId, "Разработка");
         var destination = await OrganizationsTestData.AddDepartmentAsync(factory, structure.OrganizationId, "Продажи");
         var team = await OrganizationsTestData.AddTeamInAsync(factory, structure.OrganizationId, source.Id, "SATURN");
+        var project = await OrganizationsTestData.CreateBareProjectAsync(factory, structure.OrganizationId, "Мастаск", "MST", departmentId: source.Id); // the link joins the team and a project of its department (mod-022)
 
         Task<Answer> Move(CommitGate? at) => MoveTeamAsync(structure.OrganizationId, team.Id, destination.Id, at);
         Task<Answer> Link(CommitGate? at) =>
-            LinkTeamsAsync(factory, structure.OrganizationId, structure.ProjectId, new { teamIds = new[] { team.Id.ToString() } }, gate: at);
+            LinkTeamsAsync(factory, structure.OrganizationId, project.Project.Id, new { teamIds = new[] { team.Id.ToString() } }, gate: at);
 
         var (first, second) = moveFirst ? await RaceAsync(factory, Move, Link) : await RaceAsync(factory, Link, Move);
         var (move, link) = moveFirst ? (first, second) : (second, first);
@@ -389,7 +380,8 @@ public sealed class AreaRacesEndpointTests(MustaskApiFactory factory)
         {
             Assert.Equal(HttpStatusCode.OK, move.Status);
             Assert.Equal(destination.Id, await DepartmentOfTeamAsync(team.Id));
-            Assert.NotEmpty(await LinksOfTeamAsync(factory, team.Id));
+            Assert.Equal((HttpStatusCode.Conflict, "organizations.team.other_department"), (link.Status, link.ErrorCode)); // moved first, the team is no longer in the project's department
+            Assert.Empty(await LinksOfTeamAsync(factory, team.Id));
         }
         else
         {

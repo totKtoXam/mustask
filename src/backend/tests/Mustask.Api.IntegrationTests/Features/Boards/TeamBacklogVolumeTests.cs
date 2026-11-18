@@ -52,7 +52,7 @@ public sealed class TeamBacklogVolumeTests(MustaskApiFactory factory, ITestOutpu
                    'Элемент ' || n, '', gen_random_uuid(), now() + n * interval '1 millisecond', 'volume-test', now(), {mars.Id}
             FROM generate_series(1, {Stories}) AS n
             JOIN unnest({projectIds}) WITH ORDINALITY AS project(id, ordinal) ON project.ordinal = ((n - 1) % {Projects}) + 1
-            JOIN areas AS root ON root.project_id = project.id AND root.parent_id IS NULL
+            JOIN areas AS root ON root.project_id = project.id AND root.type = 2
             """);
         await WorkItemsTestData.ExecuteAsync(factory, $"""
             INSERT INTO work_item_counters (project_id, last_number)

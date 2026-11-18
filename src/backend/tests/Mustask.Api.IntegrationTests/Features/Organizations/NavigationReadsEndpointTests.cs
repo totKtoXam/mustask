@@ -74,7 +74,7 @@ public sealed class NavigationReadsEndpointTests(MustaskApiFactory factory)
         Assert.Equal(["color", "id", "name"], PropertyNames(answer.Body.GetProperty("departments")[0]));
         var project = answer.Body.GetProperty("projects")[0];
         Assert.Equal(["color", "departmentId", "departmentName", "id", "key", "name", "teamIds"], PropertyNames(project));
-        Assert.Equal(JsonValueKind.Null, project.GetProperty("departmentId").ValueKind);
+        Assert.Equal(JsonValueKind.String, project.GetProperty("departmentId").ValueKind);
         Assert.Equal(2, project.GetProperty("teamIds").GetArrayLength());
         var team = answer.Body.GetProperty("teams").EnumerateArray().Single(candidate => candidate.GetProperty("id").GetGuid() == venus.Id);
         Assert.Equal(["color", "departmentId", "id", "isMember", "name"], PropertyNames(team));

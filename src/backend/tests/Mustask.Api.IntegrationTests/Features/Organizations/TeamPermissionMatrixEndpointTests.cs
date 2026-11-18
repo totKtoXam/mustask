@@ -51,7 +51,7 @@ public sealed class TeamPermissionMatrixEndpointTests(MustaskApiFactory factory)
             "link teams to project" => (HttpMethod.Post, OrganizationsApi.Teams(org, world.Bare.Project.Id), new { teamIds = new[] { world.Free.Id.ToString() } }, HttpStatusCode.NoContent),
             "unlink team" => (HttpMethod.Post, $"{ProjectTeam(org, project, platform)}/unlink", To(null), HttpStatusCode.NoContent),
             "name default team" => (HttpMethod.Put, $"{OrganizationsApi.Project(org, project)}/default-team", new { teamId = platform.ToString() }, HttpStatusCode.NoContent),
-            _ => (HttpMethod.Post, $"{OrganizationsApi.Organization(org)}/projects", new { name = "Новый проект", key = "NEWP", teamIds = new[] { world.Free.Id.ToString() } }, HttpStatusCode.Created),
+            _ => (HttpMethod.Post, $"{OrganizationsApi.Organization(org)}/projects", new { name = "Новый проект", key = "NEWP", parentAreaId = world.Department.ToString(), teamIds = new[] { world.Free.Id.ToString() } }, HttpStatusCode.Created),
         };
     }
 

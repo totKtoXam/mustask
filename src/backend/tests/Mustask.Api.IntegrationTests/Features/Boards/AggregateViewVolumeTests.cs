@@ -81,7 +81,7 @@ public sealed class AggregateViewVolumeTests(MustaskApiFactory factory, ITestOut
             UPDATE areas SET parent_id = department.id
             FROM unnest({projects}) WITH ORDINALITY AS project(id, ordinal),
                  unnest({departments}) WITH ORDINALITY AS department(id, ordinal)
-            WHERE areas.project_id = project.id AND areas.parent_id IS NULL
+            WHERE areas.project_id = project.id AND areas.type = 2
               AND project.ordinal % {Projects / 20} <> 0
               AND department.ordinal = (project.ordinal % {Departments}) + 1
             """);
@@ -205,7 +205,7 @@ public sealed class AggregateViewVolumeTests(MustaskApiFactory factory, ITestOut
                    CASE WHEN n % 4 = 0 THEN 'user-' || (n % 50) END
             FROM generate_series({first}, {last}) AS n
             JOIN unnest({projects}) WITH ORDINALITY AS project(id, ordinal) ON project.ordinal = ((n - 1) % {Projects}) + 1
-            JOIN areas AS root ON root.project_id = project.id AND root.parent_id IS NULL
+            JOIN areas AS root ON root.project_id = project.id AND root.type = 2
             LEFT JOIN unnest({teams}) WITH ORDINALITY AS team(id, ordinal) ON team.ordinal = n % {Teams + 1}
             """);
 }

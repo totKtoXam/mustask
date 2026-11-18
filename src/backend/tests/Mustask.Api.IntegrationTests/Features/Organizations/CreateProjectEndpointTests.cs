@@ -35,8 +35,10 @@ public sealed class CreateProjectEndpointTests(MustaskApiFactory factory)
             token ?? OrganizationsTokens.SignedIn(),
             gate);
 
-    private Task<Answer> CreateAsync(Guid organizationId, object? body, string? token = null, CommitGate? gate = null) =>
-        CreateAsync(organizationId.ToString(), body, token, gate);
+    // mod-022 BR-TD-6: a project is created in a department, so the ordinary request names one; a test about the missing or the
+    // wrong department sends its own body through the string overload.
+    private async Task<Answer> CreateAsync(Guid organizationId, object? body, string? token = null, CommitGate? gate = null) =>
+        await CreateAsync(organizationId.ToString(), body is null ? null : await OrganizationsTestData.InDepartmentAsync(factory, organizationId, body), token, gate);
 
     // feat-028 US-2 · "A project is created ready to use" (BR-OL-2): active, listed with its name and key, a root area named after
     // the project and owned by nobody — and NO team and no team membership: a team is the organization's, and the project is linked
@@ -80,7 +82,8 @@ public sealed class CreateProjectEndpointTests(MustaskApiFactory factory)
         Assert.Equal("Пример проекта", tree.Root.Name);
 
         var listed = await ListActiveProjectsAsync(organization.Id);
-        Assert.Equal(new ProjectRow(projectId, organization.Id, "Пример проекта", "PRM", null, "blue"), Assert.Single(listed));
+        // The test department took the first colour of the palette, so the project takes the next (mod-022 plus mod-021 BR-TD-20).
+        Assert.Equal(new ProjectRow(projectId, organization.Id, "Пример проекта", "PRM", null, "orange"), Assert.Single(listed));
         Assert.Equal((1, 0, 1), await CountAsync(organization.Id));
     }
 
