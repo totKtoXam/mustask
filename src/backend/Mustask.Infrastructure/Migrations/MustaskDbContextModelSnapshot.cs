@@ -108,6 +108,142 @@ namespace Mustask.Infrastructure.Migrations
                         });
                 });
 
+            modelBuilder.Entity("Mustask.Domain.Images.Image", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset?>("BoundAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("ByteLength")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Format")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)");
+
+                    b.Property<int>("FrameCount")
+                        .HasColumnType("integer");
+
+                    b.Property<int?>("Height")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Purpose")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)");
+
+                    b.Property<DateTimeOffset>("UploadedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("UploadedBy")
+                        .IsRequired()
+                        .HasMaxLength(255)
+                        .HasColumnType("character varying(255)");
+
+                    b.Property<int?>("Width")
+                        .HasColumnType("integer");
+
+                    b.Property<Guid?>("WorkItemId")
+                        .HasColumnType("uuid");
+
+                    b.Property<uint>("xmin")
+                        .IsConcurrencyToken()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("xid")
+                        .HasColumnName("xmin");
+
+                    b.HasKey("Id")
+                        .HasName("pk_images");
+
+                    b.HasIndex(new[] { "UploadedAt", "Id" }, "ix_images_unbound_uploaded_at")
+                        .HasDatabaseName("ix_images_unbound_uploaded_at")
+                        .HasFilter("bound_at IS NULL");
+
+                    b.HasIndex(new[] { "WorkItemId" }, "ix_images_work_item_id")
+                        .HasDatabaseName("ix_images_work_item_id");
+
+                    b.ToTable("images", "images", t =>
+                        {
+                            t.HasCheckConstraint("ck_images_byte_length", "byte_length BETWEEN 1 AND 5242880");
+
+                            t.HasCheckConstraint("ck_images_dimensions", "(width IS NULL OR width BETWEEN 1 AND 20000) AND (height IS NULL OR height BETWEEN 1 AND 20000) AND frame_count BETWEEN 1 AND 1000");
+
+                            t.HasCheckConstraint("ck_images_format", "format IN ('Png', 'Jpeg', 'Gif', 'Webp')");
+
+                            t.HasCheckConstraint("ck_images_purpose_owner", "purpose = 'WorkItemDescription' AND work_item_id IS NOT NULL");
+
+                            t.Property("Id")
+                                .HasColumnName("id");
+
+                            t.Property("BoundAt")
+                                .HasColumnName("bound_at");
+
+                            t.Property("ByteLength")
+                                .HasColumnName("byte_length");
+
+                            t.Property("Format")
+                                .HasColumnName("format");
+
+                            t.Property("FrameCount")
+                                .HasColumnName("frame_count");
+
+                            t.Property("Height")
+                                .HasColumnName("height");
+
+                            t.Property("Purpose")
+                                .HasColumnName("purpose");
+
+                            t.Property("UploadedAt")
+                                .HasColumnName("uploaded_at");
+
+                            t.Property("UploadedBy")
+                                .HasColumnName("uploaded_by");
+
+                            t.Property("Width")
+                                .HasColumnName("width");
+
+                            t.Property("WorkItemId")
+                                .HasColumnName("work_item_id");
+
+                            t.Property("xmin")
+                                .HasColumnName("xmin");
+                        });
+                });
+
+            modelBuilder.Entity("Mustask.Domain.Images.ImageContent", b =>
+                {
+                    b.Property<Guid>("ImageId")
+                        .HasColumnType("uuid");
+
+                    b.Property<byte[]>("Content")
+                        .IsRequired()
+                        .HasColumnType("bytea");
+
+                    b.Property<uint>("xmin")
+                        .IsConcurrencyToken()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("xid")
+                        .HasColumnName("xmin");
+
+                    b.HasKey("ImageId")
+                        .HasName("pk_image_contents");
+
+                    b.ToTable("image_contents", "images", t =>
+                        {
+                            t.Property("ImageId")
+                                .HasColumnName("image_id");
+
+                            t.Property("Content")
+                                .HasColumnName("content");
+
+                            t.Property("xmin")
+                                .HasColumnName("xmin");
+                        });
+                });
+
             modelBuilder.Entity("Mustask.Domain.Imports.ImportDryRun", b =>
                 {
                     b.Property<Guid>("Id")
@@ -2659,6 +2795,25 @@ namespace Mustask.Infrastructure.Migrations
                             t.Property("xmin")
                                 .HasColumnName("xmin");
                         });
+                });
+
+            modelBuilder.Entity("Mustask.Domain.Images.Image", b =>
+                {
+                    b.HasOne("Mustask.Domain.WorkItems.WorkItem", null)
+                        .WithMany()
+                        .HasForeignKey("WorkItemId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .HasConstraintName("fk_images_work_items_work_item_id");
+                });
+
+            modelBuilder.Entity("Mustask.Domain.Images.ImageContent", b =>
+                {
+                    b.HasOne("Mustask.Domain.Images.Image", null)
+                        .WithOne()
+                        .HasForeignKey("Mustask.Domain.Images.ImageContent", "ImageId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_image_contents_images_image_id");
                 });
 
             modelBuilder.Entity("Mustask.Domain.Imports.ImportDryRun", b =>
