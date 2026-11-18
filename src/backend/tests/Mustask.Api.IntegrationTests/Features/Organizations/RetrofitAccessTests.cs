@@ -130,7 +130,7 @@ public sealed class RetrofitAccessTests(MustaskApiFactory factory)
             await OrganizationsApi.SendAsync(factory, HttpMethod.Post, $"{organization}/deactivate", token: member.Token),
             await OrganizationsApi.SendAsync(factory, HttpMethod.Post, $"{project}/deactivate", token: member.Token),
             await OrganizationsApi.SendAsync(factory, HttpMethod.Put, $"{project}/name", new { name = "Взломанный" }, member.Token),
-            await OrganizationsApi.SendAsync(factory, HttpMethod.Post, $"{organization}/projects", new { name = "Новый", key = "NEW" }, member.Token),
+            await OrganizationsApi.SendAsync(factory, HttpMethod.Post, $"{organization}/projects", new { name = "Новый", key = "NEW", parentAreaId = Guid.CreateVersion7().ToString() }, member.Token),
         };
 
         Assert.All(attempts, answer => Assert.Equal((HttpStatusCode.Forbidden, ForbiddenCode), (answer.Status, answer.ErrorCode)));

@@ -103,7 +103,11 @@ public sealed class InMemoryOrganizations
     /// <summary>A project with its node (mod-018 OQ-5 A): at the top of the tree, or under <paramref name="department"/>.</summary>
     public NewProject AddProject(Organization organization, string name = "Пример проекта", string key = "PRM", Area? department = null, string color = "blue")
     {
-        var created = Project.Create(organization.Id, Name(name), key, Now, Creator, color, parentAreaId: department?.Id);
+        var made = Project.Create(organization.Id, Name(name), key, Now, Creator, color, parentAreaId: department?.Id ?? Guid.CreateVersion7());
+
+        // The unit tests of the handlers use a flat store; with no department the node stands at the top of the fake tree (the domain
+        // factory demands a department, mod-022, the database check does too — the fake does not model it).
+        var created = department is null ? new NewProject(made.Project, Area.CreateProjectNode(organization.Id, null, made.Project.Id, Name(name), Creator, Now)) : made;
         Store(created);
 
         return created;

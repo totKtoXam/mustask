@@ -11,7 +11,7 @@ Plan written from `doc-016` spec (BR-TD-3, -4, -6, -19 steps 2-3, -20, US-5, US-
 | BR-TD-6: no department -> 400 `department_required` on `parentAreaId`, nothing created | absent field; JSON null; with a bad name both reasons listed | integration (`ProjectsInDepartmentsEndpointTests`, `…QaTests`) | pass |
 | BR-TD-6: place is a department only | project node, sub-area -> 409 `type_not_allowed`; unknown / foreign -> 404 | integration (QA) | pass |
 | BR-TD-6: who creates (`area.write` on the department) | manager creates in own department only; plain member 403 | integration (QA) | pass |
-| BR-TD-6: request naming no department, caller without the top-level code | contract: 400, "no place is judged" | integration (QA, skipped) | **D-1** |
+| BR-TD-6: request naming no department, caller without the top-level code | contract: 400, "no place is judged" | integration (QA, un-skipped) | pass (D-1 fixed) |
 | BR-TD-3: team–project link in one department only | both link routes, create-with-teams, team-create-with-projects; batch with one foreign -> none linked; relink = 204; unknown id = 404 | integration | pass |
 | BR-TD-3 vs BR-TD-4 order | link-first / move-first races | integration (races) | pass |
 | BR-TD-4: linked project not moved; same department = 200 no-op; after unlink it moves | + order: type rules and top-level refusal before `project_has_teams` | integration (QA) | pass |
@@ -45,7 +45,7 @@ Plan written from `doc-016` spec (BR-TD-3, -4, -6, -19 steps 2-3, -20, US-5, US-
 
 ### Defects
 
-#### D-1: a request naming no department is judged by the top-level code first
+#### D-1: a request naming no department is judged by the top-level code first — FIXED (backend, mod-022 QA minors pass)
 
 - Severity: minor
 - Steps: a user who holds `organizations.area.write` only on a department (grant «Менеджер») sends `POST /projects` with no `parentAreaId`.
@@ -54,7 +54,7 @@ Plan written from `doc-016` spec (BR-TD-3, -4, -6, -19 steps 2-3, -20, US-5, US-
 - Pin: `ProjectsInDepartmentsQaTests.Create_WithoutADepartment_ByADepartmentManager_Is400_NotA403` (skipped).
 - Status: open (minor, carried to gate-3 as a debt)
 
-#### D-2: stale comment on `Project.Create`
+#### D-2: stale comment on `Project.Create` — FIXED (Project.Create requires a department parent, with a Domain test)
 
 - Severity: minor
 - `Project.Create` still says the node "stands under a department or at the top" and accepts a null parent; only the handler and the DB check stop a top-level project. Domain guard would make the rule local.

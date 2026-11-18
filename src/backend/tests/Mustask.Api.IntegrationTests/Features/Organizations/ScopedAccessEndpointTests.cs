@@ -195,7 +195,7 @@ public sealed class ScopedAccessEndpointTests(MustaskApiFactory factory)
         var admin = await SendAsync(HttpMethod.Post, projects, new { name = "Верхний", key = "TOP" }, w.Admin.Token);  // mod-022 BR-TD-6: not even the administrator
 
         Assert.Equal(HttpStatusCode.Created, inside.Status);
-        Assert.Equal(HttpStatusCode.Forbidden, top.Status);
+        Assert.Equal(HttpStatusCode.BadRequest, top.Status); // no department: 400 before any place is judged (BR-TD-6)
         Assert.Equal(HttpStatusCode.BadRequest, admin.Status);
     }
 

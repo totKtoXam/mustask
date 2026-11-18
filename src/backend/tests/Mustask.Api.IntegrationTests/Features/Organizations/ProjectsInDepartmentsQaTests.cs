@@ -296,9 +296,9 @@ public sealed class ProjectsInDepartmentsQaTests(MustaskApiFactory factory)
     }
 
     // BR-TD-6 / contract § 1 · "A request naming no department is refused, 400 «Выберите департамент»"; "no place is judged for such a
-    // request". A department's «Менеджер» (no top-level code) who sends none must get the 400, not a 403. EXPECTED TO FAIL while
+    // request". A department's «Менеджер» (no top-level code) who sends none must get the 400, not a 403. Was EXPECTED TO FAIL while
     // CreateProjectHandler judges a null place by the top-level code (QA defect D-1); skipped until it is fixed, then un-skip.
-    [Fact(Skip = "QA D-1 (minor, mod-022): a null place is judged by organizations.area.create first, so a department manager gets 403 instead of 400")]
+    [Fact]
     public async Task Create_WithoutADepartment_ByADepartmentManager_Is400_NotA403()
     {
         var organization = await OrganizationsTestData.CreateOrganizationAsync(factory);

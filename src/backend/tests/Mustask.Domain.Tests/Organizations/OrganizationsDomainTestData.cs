@@ -17,7 +17,7 @@ internal static class OrganizationsDomainTestData
         Organization.Create(Guid.CreateVersion7(), Name(name), ProcessId.New(), Now, Creator);
 
     public static NewProject ANewProject(string name = "Пример проекта", string key = "PRM", Guid? parentAreaId = null) =>
-        Project.Create(Guid.CreateVersion7(), Name(name), key, Now, Creator, "blue", parentAreaId: parentAreaId);
+        Project.Create(Guid.CreateVersion7(), Name(name), key, Now, Creator, "blue", parentAreaId: parentAreaId ?? Guid.CreateVersion7());
 
     public static Project AProject(string name = "Пример проекта", string key = "PRM") => ANewProject(name, key).Project;
 
