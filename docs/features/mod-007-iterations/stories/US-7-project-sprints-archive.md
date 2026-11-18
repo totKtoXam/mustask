@@ -34,7 +34,7 @@ Scenario: A deleted team's sprint that recorded nothing is listed nowhere
   Then no project's «Спринты» lists it
 
 Scenario: A project the user may not see answers not found
-  Given C becomes «Ограниченный» with no grant for Vera (owed by feat-041)
+  Given C becomes «Ограниченный» with no grant for Vera (owed by feat-058)
   When she opens C's «Спринты» by its address
   Then it answers «Проект не найден» and A's list is unchanged
 

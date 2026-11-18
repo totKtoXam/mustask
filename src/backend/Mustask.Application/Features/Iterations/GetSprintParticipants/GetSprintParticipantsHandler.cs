@@ -18,7 +18,8 @@ public sealed class GetSprintParticipantsHandler(
     IOrganizationStructure structure,
     IProcessDefinitionReadModel processes,
     ISprintReadModel sprints,
-    IUserDirectory directory)
+    IUserDirectory directory,
+    IOrganizationAccess access)
 {
     private const int LookupBatch = 500;
 
@@ -29,7 +30,7 @@ public sealed class GetSprintParticipantsHandler(
             cancellationToken);
 
         var rangeIds = scope.RangeSprints.Sprints.Select(sprint => sprint.Id).ToList();
-        var counts = await sprints.CountsByParticipantAsync(rangeIds.Append(scope.Sprint.Id).ToList(), scope.LevelId, cancellationToken);
+        var counts = await sprints.CountsByParticipantAsync(rangeIds.Append(scope.Sprint.Id).ToList(), scope.LevelId, await access.VisibleProjectsAsync(cancellationToken), cancellationToken);
 
         // Who is a row: whoever held items at the level in this sprint. Their figures in the range are of the other sprints.
         var current = counts.Where(row => row.SprintId == scope.Sprint.Id).ToDictionary(row => row.AssigneeId ?? string.Empty);

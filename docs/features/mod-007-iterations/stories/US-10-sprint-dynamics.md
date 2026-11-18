@@ -83,7 +83,7 @@ Scenario: Only the team's own Closed sprints are compared
   When Vera opens «Спринт 12» of MARS
   Then no VENUS sprint and no Planned or Active MARS sprint appears among the sprints of the range
 
-Scenario: Figures count only what the viewer sees (owed by feat-041)
+Scenario: Figures count only what the viewer sees (delivered by feat-062)
   Given the items of project C are in the snapshots of «Спринт 12» and «Спринт 11», and C is «Ограниченный» with no grant for Vera
   When she opens «Спринт 12»
   Then every figure of this sprint and of each sprint of the range, totals and percents included, equals what a twin organization without C gives her

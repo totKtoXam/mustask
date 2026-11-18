@@ -120,6 +120,42 @@ public sealed class AccessSetSightTests
         Assert.True(set.SeesArea(Department));
     }
 
+    // feat-062 · BR-TD-17: the projects a multi-project read narrows by are the set form's own SeesProject over the organization's projects.
+    [Fact]
+    public void SeenProjects_AreExactlyTheProjectsSeesProjectAnswersTrueFor()
+    {
+        Assert.Empty(Set().SeenProjects().Ids!);
+        Assert.Equal([Project], Set(flag: true).SeenProjects().Ids!);
+        Assert.Equal([Project], Set(memberOf: [Team]).SeenProjects().Ids!);
+        Assert.Equal([Project], Set(projectGrants: Grant(Project)).SeenProjects().Ids!);
+        Assert.Empty(Set(teamGrants: Grant(OtherTeam)).SeenProjects().Ids!);
+    }
+
+    [Fact]
+    public void SeenProjects_OfTheAdministrator_IsAll_AndAHiddenProjectIsNotSeenByAMember()
+    {
+        var administrator = new AccessSet(OrganizationRole.Admin, [], NoGrants, NoGrants, NoGrants).SeenProjects();
+
+        Assert.True(administrator.IsAll);
+        Assert.True(administrator.Sees(Guid.NewGuid()));
+        Assert.False(Set().SeenProjects().Sees(Project));
+        Assert.True(Set(flag: true).SeenProjects().Sees(Project));
+    }
+
+    // feat-062 · a read of several projects' rows fails closed: a non-administrator's CallerAccess without its sight is a defect.
+    [Fact]
+    public void CallerAccess_OfANonAdministrator_WithNoSight_Throws_AndOfTheAdministratorIsAll()
+    {
+        var member = new CallerAccess(Guid.NewGuid(), "u", OrganizationRole.Member, null);
+        var administrator = new CallerAccess(Guid.NewGuid(), "u", OrganizationRole.Admin, null);
+        var withSight = new CallerAccess(Guid.NewGuid(), "u", OrganizationRole.Member, new SightedIds(new HashSet<Guid> { Project }, new HashSet<Guid>(), new HashSet<Guid>()));
+
+        Assert.Throws<InvalidOperationException>(() => member.Projects);
+        Assert.True(administrator.Projects.IsAll);
+        Assert.True(withSight.Projects.Sees(Project));
+        Assert.False(withSight.Projects.Sees(Guid.NewGuid()));
+    }
+
     // feat-061 · BR-TD-17: the id sets a list filters by are exactly what the Sees* answers say, for every kind.
     [Theory]
     [InlineData(false, false, false)]

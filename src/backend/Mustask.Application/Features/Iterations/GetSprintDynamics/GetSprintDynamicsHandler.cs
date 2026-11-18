@@ -14,7 +14,8 @@ namespace Mustask.Application.Features.Iterations.GetSprintDynamics;
 public sealed class GetSprintDynamicsHandler(
     IOrganizationStructure structure,
     IProcessDefinitionReadModel processes,
-    ISprintReadModel sprints)
+    ISprintReadModel sprints,
+    IOrganizationAccess access)
 {
     public async Task<GetSprintDynamicsResponse> Handle(GetSprintDynamicsQuery query, CancellationToken cancellationToken)
     {
@@ -23,7 +24,7 @@ public sealed class GetSprintDynamicsHandler(
             cancellationToken);
 
         var ids = scope.RangeSprints.Sprints.Select(sprint => sprint.Id).Append(scope.Sprint.Id).ToList();
-        var counts = await sprints.CountsBySprintAsync(ids, scope.LevelId, cancellationToken);
+        var counts = await sprints.CountsBySprintAsync(ids, scope.LevelId, await access.VisibleProjectsAsync(cancellationToken), cancellationToken);
 
         SprintCounts CountsOf(Guid id) => counts.TryGetValue(id, out var found) ? found : default;
 

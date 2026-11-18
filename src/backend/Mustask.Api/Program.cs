@@ -8,6 +8,7 @@ using Mustask.Api.Authentication;
 using Mustask.Api.Authentication.Readiness;
 using Mustask.Api.Authorization;
 using Mustask.Api.Features.Boards;
+using Mustask.Api.Features.Search;
 using Mustask.Api.Features.Dictionaries;
 using Mustask.Api.Features.Imports;
 using Mustask.Api.Features.Organizations;
@@ -153,6 +154,10 @@ builder.Services.AddScoped<IOrganizationAccess, HttpContextOrganizationAccess>()
 // The read limiter of the aggregate views (feat-048 OQ-2): one per API process, on the clock the host runs on.
 builder.Services.AddSingleton<AggregateReadLimiter>();
 builder.Services.AddScoped<AggregateReadLimitFilter>();
+
+// The read limiter of the quick search (ADR-0044 § 4): its own instance, no permits shared with the aggregate views.
+builder.Services.AddSingleton<Mustask.Api.Features.Search.SearchReadLimiter>();
+builder.Services.AddScoped<Mustask.Api.Features.Search.SearchReadLimitFilter>();
 
 // ADR-0018: Mustask.Api как resource server realm'а Keycloak. Значения
 // читаются один раз из builder.Configuration до Build() — единственный
@@ -317,6 +322,7 @@ app.MapImportEndpoints();
 app.MapBoardEndpoints();
 app.MapIterationsEndpoints();
 app.MapAggregateViewEndpoints();
+app.MapSearchEndpoints();
 
 app.Run();
 

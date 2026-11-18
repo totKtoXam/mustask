@@ -33,7 +33,11 @@ public sealed class OrganizationAccessInventoryTests(MustaskApiFactory factory)
     /// with its reason"). <b>Empty today</b>: every write route holds a write or deactivate code. A GET with a write code (the
     /// assignee candidates, api-contract § 4.2 row 34) is not an exception, it is legitimate.
     /// </summary>
-    private static readonly IReadOnlyDictionary<string, string> AllowedWriteWithReadCode = new Dictionary<string, string>(StringComparer.Ordinal);
+    private static readonly IReadOnlyDictionary<string, string> AllowedWriteWithReadCode = new Dictionary<string, string>(StringComparer.Ordinal)
+    {
+        ["POST /api/organizations/{organizationId}/search"] =
+            "feat-071, ADR-0044 § 5: a read sent as POST so the typed text stays out of the URL and the access logs; it writes nothing.",
+    };
 
     /// <summary>
     /// The routes that carry <c>{organizationId}</c> and declare an <b>instance</b> code instead of an organization code (BR-M1-33,
@@ -344,7 +348,8 @@ public sealed class OrganizationAccessInventoryTests(MustaskApiFactory factory)
         var allowed = new Dictionary<string, string>(StringComparer.Ordinal) { ["POST /api/organizations/{organizationId}/listed"] = "a stated reason" };
 
         Assert.Equal(["PUT /api/organizations/{organizationId}/x"], WriteRoutesWithReadCodes(routes, allowed));
-        Assert.Empty(AllowedWriteWithReadCode);
+        // feat-071: the one real exception is the quick search, a read sent as POST (ADR-0044 § 5).
+        Assert.Equal(["POST /api/organizations/{organizationId}/search"], AllowedWriteWithReadCode.Keys);
     }
 
     private static List<string> WriteRoutesWithReadCodes(
@@ -387,7 +392,8 @@ public sealed class OrganizationAccessInventoryTests(MustaskApiFactory factory)
         // mod-019 api-contract § 3, § 5: the switch, its impact read and the writable ids - 100.
         // mod-021 retires the five department-team link routes and adds the team move (96); mod-007 adds the team's eleven sprint routes (107);
         // mod-024 api-contract § 0 adds the import constructor's fifteen routes (122); feat-041 adds the project's visibility write - 123.
-        Assert.Equal(123, expected.Count);
+        // feat-071 api-contract adds the quick search - 124.
+        Assert.Equal(124, expected.Count);
     }
 
     // Every organization code of the catalog is declared by at least one route — a code with no route is a decision nobody enforces

@@ -43,6 +43,7 @@ anything already fixed by the conventions.
 
 Keep the list current (append-only, newest on top):
 
+- ADR-0044 — Match the quick search by pg_trgm substring with a similarity tier, build the full search page on Postgres full-text, and limit searches per user and per process · accepted (accepted 2026-11-17) (departs from ADR-0015's "full-text search … a new ADR" note; beside ADR-0036, not amending it)
 - ADR-0043 — Generate release notes from the merged pull requests and publish them as a GitHub Release · accepted (accepted 2026-11-13)
 - ADR-0042 — Write an import row by row through the work items module's own writes, and record each import as a batch that one undo can reverse · accepted (adds three codes to ADR-0029 § 4; supersedes doc-005 BR-M6-8's import writes)
 - ADR-0040 — Place every team and project in one department, cascade the context selectors, and let a user see only what they take part in · accepted (accepted 2026-11-13) (supersedes in part ADR-0028 rule 1, ADR-0031 rules 2 and 4, ADR-0032 § 5, ADR-0038 § 3's top-level creation; amends ADR-0029 § 6, ADR-0038 § 1)

@@ -56,6 +56,7 @@ public sealed class ApiTestCollectionFactory : IXunitTestCollectionFactory
         typeof(ProductionLoggingTests),
         typeof(RealmReadinessTests),
         typeof(TokenLeakTests),
+        typeof(Features.Search.SearchPrivacyAndLimitEndpointTests),
 
         // environment variables
         typeof(CorsTests),

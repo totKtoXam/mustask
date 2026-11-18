@@ -81,6 +81,7 @@ Body `{ "destinationSprintId": string|null }` (absent or `null` = «Без сп�
 409 `iterations.sprint.not_active`; 409 `iterations.sprint.close_destination_invalid` (the destination exists but is not a
 Planned sprint of this team); 404 `iterations.sprint.not_found` (the destination, or the sprint, names nothing: malformed,
 unknown, removed meanwhile, of another organization); 404 team.
+A destination (or a sprint in a save) that is a sprint of a team the caller does not see: 404 `iterations.sprint.not_found`, feat-062 api-contract § 4.
 
 ### 2.8 `GET …/sprints/{sprintId}` — a Closed sprint (US-5)
 
@@ -130,6 +131,7 @@ Rules (BR-2, BR-5): setting a sprint checks only when the pointer changes. The e
 `iterations.sprint.not_found` (unknown, foreign organization); an item in «Удалена» answers `workitems.workitem.deleted` first.
 A save that changes the owning team and sends no sprint clears the pointer; sending a Planned or Active sprint of the new team keeps it.
 The unlink of a team and its deletion clear the pointers of the items they reassign, a Closed sprint's included.
+A sprint of a team the caller does not see: 404 `iterations.sprint.not_found` instead of `other_team`, feat-062 api-contract § 4.
 
 ## 4. Errors added
 

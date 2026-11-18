@@ -22,7 +22,7 @@ Scenario: Each row shows how much the sprint holds, after visibility
   Given «Спринт 13» is Planned and holds API of A (5 SP) and notifications of C (3 SP)
   When Vera opens MARS's «Спринты»
   Then the row of «Спринт 13» reads 2 items and 8 SP
-  When C becomes «Ограниченный» with no grant for Vera (owed by feat-041)
+  When C becomes «Ограниченный» with no grant for Vera (delivered by feat-062)
   Then the row reads 1 item and 5 SP, as if C did not exist, and a deactivated project's items count nowhere
   And an empty sprint reads 0 items and 0 SP
 

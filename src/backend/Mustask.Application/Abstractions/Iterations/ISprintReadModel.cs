@@ -1,3 +1,4 @@
+using Mustask.Application.Abstractions.Organizations;
 using Mustask.Domain.Iterations;
 
 namespace Mustask.Application.Abstractions.Iterations;
@@ -13,13 +14,13 @@ public interface ISprintReadModel
     Task<SprintView?> FindAsync(Guid teamId, Guid sprintId, CancellationToken cancellationToken);
 
     /// <summary>One page of the team's sprints, highest number first, with their counts (3 statements).</summary>
-    Task<SprintListPage> ListAsync(Guid teamId, int? before, bool openOnly, Guid storiesLevelId, CancellationToken cancellationToken);
+    Task<SprintListPage> ListAsync(Guid teamId, int? before, bool openOnly, Guid storiesLevelId, VisibleProjects visible, CancellationToken cancellationToken);
 
     /// <summary>The Active sprint's items split into what will move and what stays, and the team's Planned sprints (3 statements).</summary>
-    Task<ClosePreview> ClosePreviewAsync(Guid teamId, Guid sprintId, CancellationToken cancellationToken);
+    Task<ClosePreview> ClosePreviewAsync(Guid teamId, Guid sprintId, VisibleProjects visible, CancellationToken cancellationToken);
 
     /// <summary>A Closed sprint's done items, all levels: the header's count and points (1 statement).</summary>
-    Task<(int Items, decimal StoryPoints)> DoneTotalsAsync(Guid sprintId, CancellationToken cancellationToken);
+    Task<(int Items, decimal StoryPoints)> DoneTotalsAsync(Guid sprintId, VisibleProjects visible, CancellationToken cancellationToken);
 
     /// <summary>
     /// The team's other Closed sprints whose end date lies in the range, the latest first, at most
@@ -28,16 +29,16 @@ public interface ISprintReadModel
     Task<RangeSprints> FindRangeAsync(Guid teamId, Guid sprintId, SprintRange range, CancellationToken cancellationToken);
 
     /// <summary>The figures per sprint of <paramref name="sprintIds"/> at the level, in one statement; a sprint holding nothing is absent.</summary>
-    Task<IReadOnlyDictionary<Guid, SprintCounts>> CountsBySprintAsync(IReadOnlyCollection<Guid> sprintIds, Guid levelId, CancellationToken cancellationToken);
+    Task<IReadOnlyDictionary<Guid, SprintCounts>> CountsBySprintAsync(IReadOnlyCollection<Guid> sprintIds, Guid levelId, VisibleProjects visible, CancellationToken cancellationToken);
 
     /// <summary>The figures per (sprint, assignee) at the level in one statement; <c>AssigneeId</c> is <c>null</c> for no assignee.</summary>
-    Task<IReadOnlyList<ParticipantCounts>> CountsByParticipantAsync(IReadOnlyCollection<Guid> sprintIds, Guid levelId, CancellationToken cancellationToken);
+    Task<IReadOnlyList<ParticipantCounts>> CountsByParticipantAsync(IReadOnlyCollection<Guid> sprintIds, Guid levelId, VisibleProjects visible, CancellationToken cancellationToken);
 
     
     Task<IReadOnlySet<string>> OrganizationMemberIdsAsync(Guid organizationId, IReadOnlyCollection<string> userIds, CancellationToken cancellationToken);
 
     /// <summary>One page of a Closed sprint's done items and the totals (2 statements).</summary>
-    Task<OutcomeItemsPage> OutcomeItemsAsync(Guid sprintId, int offset, CancellationToken cancellationToken);
+    Task<OutcomeItemsPage> OutcomeItemsAsync(Guid sprintId, int offset, VisibleProjects visible, CancellationToken cancellationToken);
 }
 
 public sealed record SprintView(

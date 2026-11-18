@@ -316,6 +316,20 @@ structural bounds computed from the input (never by a clock), the parser runs on
 a dedicated large-stack thread behind an async gate, the walkers are iterative,
 and the hostile corpus is a permanent test input.
 
+### Quick search (feat-071, ADR-0044)
+
+The structure and users quick search matches with `pg_trgm` over the folded
+text: `search_fold(text)` (lower-case under the explicit `ru-x-icu` collation, `ё` to `е`; IMMUTABLE) and GIN
+`gin_trgm_ops` expression indexes owned by the `Search` slice's migration as
+raw SQL (not in the EF snapshot). The read model's folded column text is the
+index expression character for character (`SearchSql.Folded`), and
+`SearchDatabaseTests` builds its `EXPLAIN` predicates from that same text and checks the planner can use each index. `pg_trgm` classifies word characters by the database `datctype`: the migration refuses a `C`/`POSIX` one. The typed text is only ever a parameter and
+travels in a POST body, never in a URL or a log record; the users statement
+lives in the `UserDirectory` sub-slice (the architecture rule lets only it name the
+projection's tables), an accepted exception to mod-014 A.8 (ADR-0044 § 1): the search joins the projection in its own statement; the SQL both builders share is the neutral `SearchSql`. Full-text indexes are the later page's (ADR-0044 § 3).
+([ADR-0044](../adr/0044-trigram-quick-search-full-text-page-and-search-limiter.md))
+
+
 ## Named values
 
 A literal in code is acceptable only if it carries no domain meaning (a
