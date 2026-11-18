@@ -33,6 +33,36 @@ public sealed class ImageIntakeEdgeTests : IDisposable
         codec.Decode(png, header).Dispose();
     }
 
+    // feat-078 review F-6 · the GIF loader sizes the canvas from the frames when the screen is over 2048 px: that GIF still decodes,
+    // and one that loads bigger than its header is refused.
+    [Fact]
+    public void Decode_GifScreenLargerThanItsFrames_StillDecodes()
+    {
+        var codec = new VipsCodec(new ImagesOptions());
+        var gif = TestImages.Photo(1000, 1000).GifsaveBuffer(dither: 0);
+        gif[6] = 3000 & 0xFF;
+        gif[7] = 3000 >> 8;
+        gif[8] = 2000 & 0xFF;
+        gif[9] = 2000 >> 8;
+        Assert.True(ImageHeaderReader.TryRead(gif, out var header, out _));
+        Assert.Equal(3000, header.Width);
+
+        using var picture = codec.Decode(gif, header);
+
+        Assert.True(picture.Width <= 3000 && picture.Height <= 2000);
+        Assert.True(picture.Width >= 1);
+    }
+
+    [Fact]
+    public void Decode_GifLoadedBiggerThanItsHeader_IsRefused()
+    {
+        var codec = new VipsCodec(new ImagesOptions());
+        var gif = TestImages.Photo(40, 30).GifsaveBuffer(dither: 0);
+        ImageHeaderReader.TryRead(gif, out var header, out _);
+
+        Assert.Throws<ImageDecodeException>(() => codec.Decode(gif, header with { Width = 10, Height = 10 }));
+    }
+
     // ADR-0045 decision 2 · only the four loaders are on: a GIF decodes, an SVG is refused by libvips itself.
     [Fact]
     public void VipsSetup_LoadersBlocked_GifDecodes_SvgRefused()

@@ -127,4 +127,34 @@ public sealed class ReduceDescriptionImageEndpointTests(MustaskApiFactory factor
         Assert.Equal("images.upload.format_unsupported", answer.ErrorCode);
         Assert.Equal(0, await ImagesTestData.CountForAsync(factory, item.Id));
     }
+
+    // feat-078 review F-7 · the fifth big body of a host is told to come back; a freed slot lets the next one in. The slots are per host.
+    [Fact]
+    public async Task Reduce_NoFreeBodySlot_503Busy_ThenServedOnceFreed()
+    {
+        var (world, item) = await ImagesTestData.WorldWithItemAsync(factory);
+        var slots = new Mustask.Api.Features.Images.UploadBodySlots(1, TimeSpan.FromMilliseconds(100));
+        using var host = factory.WithWebHostBuilder(builder => builder.ConfigureTestServices(services => services.AddSingleton(slots)));
+        var big = ImagesTestData.PaddedTo(ImagesTestData.Png(40, 30), ImageLimits.MaxStoredBytes + 1);
+
+        async Task<HttpResponseMessage> Send()
+        {
+            using var request = new HttpRequestMessage(HttpMethod.Post, ImagesTestData.ReductionPath(world.Items, item.Identifier)) { Content = new ByteArrayContent(big) };
+            request.WithBearer(OrganizationsTokens.SignedIn());
+
+            return await host.CreateClient().SendAsync(request);
+        }
+
+        await slots.Semaphore.WaitAsync();
+        using (var refused = await Send())
+        {
+            Assert.Equal(HttpStatusCode.ServiceUnavailable, refused.StatusCode);
+            Assert.Contains("images.busy", await refused.Content.ReadAsStringAsync());
+            Assert.True(refused.Headers.Contains("Retry-After"));
+        }
+
+        slots.Semaphore.Release();
+        using var served = await Send();
+        Assert.Equal(HttpStatusCode.Created, served.StatusCode);
+    }
 }

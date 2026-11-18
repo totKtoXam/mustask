@@ -66,11 +66,12 @@ public static class ImagesEndpoints
         string projectId,
         string identifier,
         HttpRequest request,
+        UploadBodySlots slots,
         UploadDescriptionImageHandler handler,
         CancellationToken cancellationToken)
     {
         var response = await handler.Handle(
-            new UploadDescriptionImageCommand(organizationId, projectId, identifier, new HttpUploadBody(request)), cancellationToken);
+            new UploadDescriptionImageCommand(organizationId, projectId, identifier, new HttpUploadBody(request, slots)), cancellationToken);
 
         return Results.Json(response.Image, statusCode: StatusCodes.Status201Created);
     }
@@ -80,11 +81,12 @@ public static class ImagesEndpoints
         string projectId,
         string identifier,
         HttpRequest request,
+        UploadBodySlots slots,
         ReduceDescriptionImageHandler handler,
         CancellationToken cancellationToken)
     {
         var response = await handler.Handle(
-            new ReduceDescriptionImageCommand(organizationId, projectId, identifier, new HttpUploadBody(request)), cancellationToken);
+            new ReduceDescriptionImageCommand(organizationId, projectId, identifier, new HttpUploadBody(request, slots)), cancellationToken);
 
         return Results.Json(response, statusCode: StatusCodes.Status201Created);
     }

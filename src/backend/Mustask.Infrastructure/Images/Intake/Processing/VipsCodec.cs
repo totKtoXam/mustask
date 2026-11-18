@@ -47,18 +47,27 @@ internal sealed class VipsCodec : IImageCodec
             var expectedWidth = (header.Width + shrink - 1) / shrink;
             var expectedHeight = (header.Height + shrink - 1) / shrink;
             var slack = shrink > 1 ? shrink : 0;
-            if (Math.Abs(loaded.Width - expectedWidth) > slack || Math.Abs(loaded.Height - expectedHeight) > slack)
+
+            // The GIF loader ignores a screen over 2048 px or of a few common sizes and sizes the canvas from the frames: for a GIF only
+            // a decode bigger than the header is refused, and everything below works from the loaded size (review F-6).
+            var tooBig = loaded.Width > header.Width || loaded.Height > header.Height;
+            var differs = Math.Abs(loaded.Width - expectedWidth) > slack || Math.Abs(loaded.Height - expectedHeight) > slack;
+            if (header.Format == ImageFormat.Gif ? tooBig : differs)
             {
                 loaded.Dispose();
 
                 throw new ImageDecodeException("The decoded size differs from the header's.");
             }
 
+            var baseWidth = header.Format == ImageFormat.Gif ? loaded.Width : header.Width;
+            var baseHeight = header.Format == ImageFormat.Gif ? loaded.Height : header.Height;
+            pixels = (double)baseWidth * baseHeight;
+
             if (pixels > target)
             {
                 var factor = Math.Sqrt(target / pixels);
-                var width = Math.Max(1, (int)Math.Floor(header.Width * factor));
-                var height = Math.Max(1, (int)Math.Floor(header.Height * factor));
+                var width = Math.Max(1, (int)Math.Floor(baseWidth * factor));
+                var height = Math.Max(1, (int)Math.Floor(baseHeight * factor));
 
                 // A full size of 1 means nothing to scale; otherwise the integers above never exceed the cap.
                 if (width != loaded.Width || height != loaded.Height)

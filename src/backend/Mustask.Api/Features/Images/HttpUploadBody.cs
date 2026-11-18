@@ -11,17 +11,11 @@ namespace Mustask.Api.Features.Images;
 /// <see cref="IUploadBody"/> over the request (plan-backend § 6.2): a declared <c>Content-Length</c> over the cap is refused
 /// without reading, otherwise the body is read into a pooled buffer of min(declared length, cap) + 1 bytes (the whole cap + 1
 /// when no length is declared), counting bytes and stopping at cap + 1. The big bodies of the reduction route are held by
-/// at most <see cref="MaxLargeBodies"/> requests at once; the rest wait a moment, then get 503. The declared
+/// at most <see cref="UploadBodySlots.Count"/> requests at once; the rest wait a moment, then get 503. The declared
 /// <c>Content-Type</c> is never looked at (BR-IM-2).
 /// </summary>
-internal sealed class HttpUploadBody(HttpRequest request) : IUploadBody
+internal sealed class HttpUploadBody(HttpRequest request, UploadBodySlots slots) : IUploadBody
 {
-    /// <summary>How many bodies above the 5 MB upload cap the process holds at once.</summary>
-    internal const int MaxLargeBodies = 4;
-
-    private static readonly SemaphoreSlim LargeBodies = new(MaxLargeBodies, MaxLargeBodies);
-    private static readonly TimeSpan LargeBodyWait = TimeSpan.FromSeconds(5);
-
     public async Task<UploadBodyAnswer> ReadAsync(int maxBytes, CancellationToken cancellationToken)
     {
         if (request.HttpContext.Features.Get<IHttpMaxRequestBodySizeFeature>() is { IsReadOnly: false } limit)
@@ -37,13 +31,13 @@ internal sealed class HttpUploadBody(HttpRequest request) : IUploadBody
         var capacity = request.ContentLength is { } known ? (int)Math.Min(known, maxBytes) + 1 : maxBytes + 1;
         var large = capacity > ImageLimits.MaxStoredBytes + 1;
 
-        if (large && !await LargeBodies.WaitAsync(LargeBodyWait, cancellationToken))
+        if (large && !await slots.Semaphore.WaitAsync(slots.Wait, cancellationToken))
         {
             throw new ServiceUnavailableException(ImageErrorCodes.Busy, TimeSpan.FromSeconds(5));
         }
 
         var owner = MemoryPool<byte>.Shared.Rent(capacity);
-        var lease = new Lease(owner, large ? LargeBodies : null);
+        var lease = new Lease(owner, large ? slots.Semaphore : null);
         var length = 0;
 
         try

@@ -476,3 +476,4 @@ The F-1 libvips probe was re-run in the scratchpad. Test runs: Mustask.Infrastru
 - QA re-run: the backend intake changes were runtime code, so backend QA is owed over the readers,
   the codec and `HttpUploadBody` only. This round ran the header and intake tests, but the API test
   and the body-bound behaviour have not been run.
+- **F-6, F-7 fixed.** GIF decode refuses only a loaded size over the header's and scales from the loaded size; the body slots are a per-host `UploadBodySlots` singleton (fifth-body 503 test added).

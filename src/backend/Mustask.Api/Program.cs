@@ -145,6 +145,7 @@ builder.Services.AddSingleton<IAuthorizationMiddlewareResultHandler, ForbiddenEr
 // principal — see HttpContextCurrentUser for the exact fallback order and
 // the anonymous constant.
 builder.Services.AddHttpContextAccessor();
+builder.Services.AddSingleton<Mustask.Api.Features.Images.UploadBodySlots>();
 builder.Services.AddScoped<ICurrentUser, HttpContextCurrentUser>();
 builder.Services.AddSingleton<Mustask.Application.Abstractions.Imports.IReasonText, Mustask.Api.Features.Imports.ReasonText>();
 
