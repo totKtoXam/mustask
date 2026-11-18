@@ -10,6 +10,9 @@ import { itemImagesHost } from './workItemImagesApi';
 const base = `${env.apiBaseUrl}/api/organizations/o1/projects/p1/workitems/MSK-1/images`;
 const stored = { id: 'a', format: 'png', byteLength: 3, width: 2, height: 1 };
 
+// jsdom's AbortSignal is not the one the fetch under MSW accepts, so these calls pass none.
+const NO_SIGNAL = undefined as unknown as AbortSignal;
+
 afterEach(() => vi.unstubAllGlobals());
 
 describe('itemImagesHost', () => {
@@ -27,7 +30,7 @@ describe('itemImagesHost', () => {
 
     const answer = await itemImagesHost('o1', 'p1', 'MSK-1').upload(
       new File(['abc'], 'a.png', { type: 'image/png' }),
-      new AbortController().signal,
+      NO_SIGNAL,
     );
 
     expect(answer).toEqual(stored);
@@ -46,7 +49,7 @@ describe('itemImagesHost', () => {
     );
 
     const error = await itemImagesHost('o1', 'p1', 'MSK-1')
-      .reduce(new File(['x'], 'a.png'), new AbortController().signal)
+      .reduce(new File(['x'], 'a.png'), NO_SIGNAL)
       .catch((caught: unknown) => caught);
 
     expect(error).toBeInstanceOf(ImageRefusal);
@@ -58,7 +61,7 @@ describe('itemImagesHost', () => {
     server.use(http.post(base, () => HttpResponse.json({}, { status: 500 })));
 
     const error = await itemImagesHost('o1', 'p1', 'MSK-1')
-      .upload(new File(['x'], 'a.png'), new AbortController().signal)
+      .upload(new File(['x'], 'a.png'), NO_SIGNAL)
       .catch((caught: unknown) => caught);
 
     expect(error).not.toBeInstanceOf(ImageRefusal);
@@ -79,7 +82,7 @@ describe('itemImagesHost', () => {
     );
 
     const host = itemImagesHost('o1', 'p1', 'MSK-1');
-    const address = await host.address('a', new AbortController().signal);
+    const address = await host.address('a', NO_SIGNAL);
     host.release?.(address);
 
     expect(address).toBe('blob:one');
