@@ -85,6 +85,11 @@ const CONTRACT_TABLE: readonly (readonly [string, number, readonly string[]])[] 
   ['organizations.team.has_links', 409, []],
   ['organizations.area.has_teams', 409, []],
   ['organizations.team.department_required', 400, []],
+  // mod-022 api-contract § 2: a project stands in a department, a link stays inside one.
+  ['organizations.team.other_department', 409, []],
+  ['organizations.area.project_has_teams', 409, []],
+  ['organizations.area.project_needs_department', 409, []],
+  ['organizations.project.department_required', 400, []],
 ];
 
 describe('mod-002 api-contract § 6: the panel holds the organizations codes one to one with the catalog', () => {
@@ -97,7 +102,7 @@ describe('mod-002 api-contract § 6: the panel holds the organizations codes one
     expect(new Set(constants).size).toBe(constants.length);
   });
 
-  it('matches api-contract § 6 row by row: the 56 codes (the earlier modules’ 53 and mod-021’s 3), their statuses and parameters', () => {
+  it('matches api-contract § 6 row by row: the 60 codes (the earlier modules’ 56 and mod-022’s 4), their statuses and parameters', () => {
     const catalog = readCatalog();
 
     expect(Object.values(organizationErrorCodes)).toHaveLength(CONTRACT_TABLE.length);

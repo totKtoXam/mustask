@@ -87,6 +87,7 @@ public sealed class AreaTypedTreeQaEndpointTests(MustaskApiFactory factory)
     {
         var structure = await OrganizationsTestData.CreateStructureAsync(factory);
         var organization = structure.OrganizationId;
+        await OrganizationsTestData.DetachTeamsAsync(factory, structure.ProjectId);
         var node = await OrganizationsTestData.NodeOfAsync(factory, structure.ProjectId);
         var department = await OrganizationsTestData.AddDepartmentAsync(factory, organization, "Разработка");
 
@@ -108,40 +109,8 @@ public sealed class AreaTypedTreeQaEndpointTests(MustaskApiFactory factory)
         else
         {
             LinksTestData.AssertRefused(moved, HttpStatusCode.NotFound, "organizations.project.not_found");
-            Assert.Null(stored.ParentId);
+            Assert.NotEqual(department.Id, stored.ParentId);
         }
-    }
-
-    // OQ-12 A · one name space per level, at the top level and across a move: a department cannot take a project node's name, a project
-    // cannot be created or renamed into a department's name, and a node moved to the top meets the department of its name.
-    [Fact]
-    public async Task OneNameSpacePerLevel_AcrossCreateRenameAndMove()
-    {
-        var organization = await OrganizationsTestData.CreateOrganizationAsync(factory);
-        var finance = await OrganizationsTestData.AddDepartmentAsync(factory, organization.Id, "Финансы");
-        var logistics = await OrganizationsTestData.AddDepartmentAsync(factory, organization.Id, "Логистика");
-        var alpha = await CreateProjectAsync(organization.Id, "Alpha", "ALP", logistics.Id);
-        var named = await CreateProjectAsync(organization.Id, "Финансы", "FIN", logistics.Id);
-        var alphaNode = await OrganizationsTestData.NodeOfAsync(factory, alpha.Body.GetProperty("id").GetGuid());
-        var namedNode = await OrganizationsTestData.NodeOfAsync(factory, named.Body.GetProperty("id").GetGuid());
-
-        var topClash = await CreateProjectAsync(organization.Id, " ЛОГИСТИКА", "LOG", null);
-        var beta = await CreateProjectAsync(organization.Id, "Beta", "BET", null);
-        var rename = await SendAsync(HttpMethod.Put, $"{OrganizationsApi.Project(organization.Id, beta.Body.GetProperty("id").GetGuid())}/name", new { name = "логистика" });
-        var moveClash = await MoveAsync(organization.Id, namedNode.Id, null);
-        var moveFree = await MoveAsync(organization.Id, alphaNode.Id, null);
-        var departmentTakesAlphaAtTop = await SendAsync(HttpMethod.Post, OrganizationsApi.Areas(organization.Id), new { name = "ALPHA" });
-
-        Assert.Equal((HttpStatusCode.Created, HttpStatusCode.Created), (alpha.Status, named.Status));
-        LinksTestData.AssertRefused(topClash, HttpStatusCode.Conflict, "organizations.area.name_taken");
-        LinksTestData.AssertRefused(rename, HttpStatusCode.Conflict, "organizations.area.name_taken");
-        LinksTestData.AssertRefused(moveClash, HttpStatusCode.Conflict, "organizations.area.name_taken");
-        Assert.Equal(HttpStatusCode.OK, moveFree.Status);
-        LinksTestData.AssertRefused(departmentTakesAlphaAtTop, HttpStatusCode.Conflict, "organizations.area.name_taken");
-
-        var stored = await StoredAreasAsync(organization.Id);
-        Assert.Equal(logistics.Id, Assert.Single(stored, area => area.Id == namedNode.Id).ParentId);
-        Assert.Equal("Alpha", Assert.Single(stored, area => area.Id == alphaNode.Id).Name);
     }
 
     // BR-AW-3 · the depth boundary of a project's node: nine levels counting the node move under a department (ten), ten levels do not.
@@ -150,6 +119,7 @@ public sealed class AreaTypedTreeQaEndpointTests(MustaskApiFactory factory)
     {
         var structure = await OrganizationsTestData.CreateStructureAsync(factory);
         var organization = structure.OrganizationId;
+        await OrganizationsTestData.DetachTeamsAsync(factory, structure.ProjectId);
         var node = await OrganizationsTestData.NodeOfAsync(factory, structure.ProjectId);
         var department = await OrganizationsTestData.AddDepartmentAsync(factory, organization, "Разработка");
         var branch = node;
@@ -160,14 +130,13 @@ public sealed class AreaTypedTreeQaEndpointTests(MustaskApiFactory factory)
         }
 
         var nine = await MoveAsync(organization, node.Id, department.Id);
-        var back = await MoveAsync(organization, node.Id, null);
         await OrganizationsTestData.AddSubAreaAsync(factory, organization, branch.Id, "Уровень 10");
-        var ten = await MoveAsync(organization, node.Id, department.Id);
+        var other = await OrganizationsTestData.AddDepartmentAsync(factory, organization, "Продажи");
+        var ten = await MoveAsync(organization, node.Id, other.Id);
 
         Assert.Equal(HttpStatusCode.OK, nine.Status);
-        Assert.Equal(HttpStatusCode.OK, back.Status);
         LinksTestData.AssertRefused(ten, HttpStatusCode.Conflict, "organizations.area.depth_exceeded");
-        Assert.Null(Assert.Single(await StoredAreasAsync(organization), area => area.Id == node.Id).ParentId);
+        Assert.Equal(department.Id, Assert.Single(await StoredAreasAsync(organization), area => area.Id == node.Id).ParentId);
     }
 
     // BR-AW-3 · a department does not move, and the answer for "to the top" (the parent it already has) is a success that changes nothing;
@@ -193,6 +162,7 @@ public sealed class AreaTypedTreeQaEndpointTests(MustaskApiFactory factory)
     {
         var structure = await OrganizationsTestData.CreateStructureAsync(factory);
         var organization = structure.OrganizationId;
+        await OrganizationsTestData.DetachTeamsAsync(factory, structure.ProjectId);
         var node = await OrganizationsTestData.NodeOfAsync(factory, structure.ProjectId);
         var sub = await OrganizationsTestData.AddSubAreaAsync(factory, organization, node.Id, "Отчёты");
         var department = await OrganizationsTestData.AddDepartmentAsync(factory, organization, "Разработка");
@@ -245,6 +215,7 @@ public sealed class AreaTypedTreeQaEndpointTests(MustaskApiFactory factory)
     {
         var structure = await OrganizationsTestData.CreateStructureAsync(factory);
         var organization = structure.OrganizationId;
+        await OrganizationsTestData.DetachTeamsAsync(factory, structure.ProjectId);
         var node = await OrganizationsTestData.NodeOfAsync(factory, structure.ProjectId);
         var department = await OrganizationsTestData.AddDepartmentAsync(factory, organization, "Разработка");
         var team = await OrganizationsTestData.AddUnlinkedTeamAsync(factory, organization, "Марс");

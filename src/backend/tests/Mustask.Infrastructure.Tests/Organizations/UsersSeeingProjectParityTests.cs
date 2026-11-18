@@ -32,6 +32,9 @@ public sealed class UsersSeeingProjectParityTests(OrganizationsDatabaseFixture d
         var structure = await database.CreateStructureAsync();
         var organization = structure.Organization.Id;
         var project = structure.Project.Project.Id;
+        // A department the project is not in: a grant on the project's own department would reach it (mod-022: every project stands in one).
+        var elsewhere = OrganizationsDatabaseFixture.NewDepartment(organization, OrganizationsDatabaseFixture.UniqueName("Другой отдел"));
+        await database.AddAreasAsync(elsewhere);
         var users = People.ToDictionary(person => person.Name, person => $"{person.Name}-{Guid.CreateVersion7()}");
 
         await using (var context = database.NewContext())
@@ -44,7 +47,7 @@ public sealed class UsersSeeingProjectParityTests(OrganizationsDatabaseFixture d
             await context.SaveChangesAsync();
 
             context.ProjectGrants.Add(ProjectGrant.Give(organization, project, users["granted"], GrantRole.Reader, OrganizationsDatabaseFixture.Creator, OrganizationsDatabaseFixture.Now));
-            context.AreaGrants.Add(AreaGrant.Give(organization, structure.Department.Id, users["elsewhere"], GrantRole.Reader, OrganizationsDatabaseFixture.Creator, OrganizationsDatabaseFixture.Now));
+            context.AreaGrants.Add(AreaGrant.Give(organization, elsewhere.Id, users["elsewhere"], GrantRole.Reader, OrganizationsDatabaseFixture.Creator, OrganizationsDatabaseFixture.Now));
             context.TeamMemberships.Add(TeamMembership.Add(structure.FirstTeam.Id, organization, users["teamed"]));
 
             if (visibleToOrganization)

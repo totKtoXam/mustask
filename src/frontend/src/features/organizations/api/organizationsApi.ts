@@ -165,7 +165,7 @@ export interface CreateProjectBody {
   key: string;
   description?: string;
   teamIds?: string[];
-  /** mod-018 api-contract § 4: the department to place the project's node under; absent: the top level. */
+  /** mod-018 api-contract § 4: the department to place the project's node under; required (doc-016 BR-TD-6, absent is a 400). */
   parentAreaId?: string;
 }
 

@@ -224,8 +224,8 @@ public sealed class OrganizationContainmentTests(MustaskApiFactory factory)
                 await SendAsync(HttpMethod.Post, $"{project}/teams", new { teamIds = new[] { unknown } })),
             (
                 "a new project's team",
-                await SendAsync(HttpMethod.Post, $"{organization}/projects", new { name = "Проект с чужой командой", key = "FRGN", teamIds = new[] { world.B.TeamId.ToString() } }),
-                await SendAsync(HttpMethod.Post, $"{organization}/projects", new { name = "Проект с чужой командой", key = "FRGN", teamIds = new[] { unknown } })),
+                await SendAsync(HttpMethod.Post, $"{organization}/projects", new { name = "Проект с чужой командой", key = "FRGN", parentAreaId = department, teamIds = new[] { world.B.TeamId.ToString() } }),
+                await SendAsync(HttpMethod.Post, $"{organization}/projects", new { name = "Проект с чужой командой", key = "FRGN", parentAreaId = department, teamIds = new[] { unknown } })),
             (
                 "a team's link",
                 await SendAsync(HttpMethod.Post, $"{organization}/teams/{a.TeamId}/projects", new { projectIds = new[] { world.B.World.ProjectId.ToString() } }),

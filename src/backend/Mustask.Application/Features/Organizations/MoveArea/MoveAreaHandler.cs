@@ -36,6 +36,7 @@ public sealed class MoveAreaHandler(
     IOrganizationReadModel organizations,
     IProjectRepository projects,
     IAreaRepository areas,
+    IProjectTeamRepository links,
     IOrganizationAccess access,
     IUnitOfWork unitOfWork)
 {
@@ -107,6 +108,17 @@ public sealed class MoveAreaHandler(
 
                 // 5. The domain rules, on the tree the locks hold: into its own subtree, the type, the project, the depth; then the
                 // sibling name.
+                // BR-TD-4 (mod-022, OQ-9 A): a project linked to a team does not move to another department. A destination that is no
+                // department is the type rule's, and the department it already stands in is a no-op; the links are read after the node's
+                // lock, and a link takes the node FOR SHARE, so it either committed before this lock and is seen, or waits for this move.
+                if (area.Type == AreaType.Project
+                    && destination is { Type: AreaType.Department }
+                    && destination.Id != area.ParentId
+                    && await links.HasProjectLinksAsync(organizationId, area.ProjectId!.Value, ct))
+                {
+                    throw new ConflictException(OrganizationErrorCodes.AreaProjectHasTeams);
+                }
+
                 var tree = new AreaTree(await areas.GetNodesAsync(organizationId, ct));
 
                 if (area.MoveUnder(destination, tree))

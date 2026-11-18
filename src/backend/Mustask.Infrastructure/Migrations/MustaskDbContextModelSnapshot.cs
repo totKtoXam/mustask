@@ -596,7 +596,7 @@ namespace Mustask.Infrastructure.Migrations
 
                             t.HasCheckConstraint("ck_areas_name_length", "char_length(name) BETWEEN 1 AND 100");
 
-                            t.HasCheckConstraint("ck_areas_type_shape", "(type = 1 AND project_id IS NULL AND parent_id IS NULL) OR (type = 2 AND project_id IS NOT NULL) OR (type = 3 AND project_id IS NOT NULL AND parent_id IS NOT NULL)");
+                            t.HasCheckConstraint("ck_areas_type_shape", "(type = 1 AND project_id IS NULL AND parent_id IS NULL) OR (type = 2 AND project_id IS NOT NULL AND parent_id IS NOT NULL) OR (type = 3 AND project_id IS NOT NULL AND parent_id IS NOT NULL)");
 
                             t.Property("Id")
                                 .HasColumnName("id");

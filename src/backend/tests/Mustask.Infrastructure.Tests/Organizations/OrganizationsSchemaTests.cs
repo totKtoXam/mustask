@@ -64,7 +64,7 @@ public sealed class OrganizationsSchemaTests(OrganizationsDatabaseFixture databa
         {
             "BR-M1-11: a second node for one project",
             "INSERT INTO areas (id, organization_id, type, project_id, parent_id, name, normalized_name, created_by, created_at) "
-            + "VALUES (gen_random_uuid(), @org, 2, @project, NULL, 'Второй узел', 'ВТОРОЙ УЗЕЛ', 'x', now())",
+            + "VALUES (gen_random_uuid(), @org, 2, @project, (SELECT id FROM areas WHERE organization_id = @org AND type = 1 LIMIT 1), 'Второй узел', 'ВТОРОЙ УЗЕЛ', 'x', now())",
             "ix_areas_project_id_node"
         },
     };
@@ -83,6 +83,7 @@ public sealed class OrganizationsSchemaTests(OrganizationsDatabaseFixture databa
         { "a team description over 2 000 characters", "UPDATE teams SET description = repeat('я', 2001) WHERE id = @second", "ck_teams_description_length" },
         { "a project description over 2 000 characters", "UPDATE projects SET description = repeat('я', 2001) WHERE id = @project", "ck_projects_description_length" },
         { "an empty area name", "UPDATE areas SET name = '' WHERE id = @secondArea", "ck_areas_name_length" },
+        { "mod-022 BR-TD-6: a project node at the top level", "UPDATE areas SET parent_id = NULL WHERE project_id = @project AND type = 2", "ck_areas_type_shape" },
     };
 
     // The expected key, or either of two when the row is referenced from two tables.

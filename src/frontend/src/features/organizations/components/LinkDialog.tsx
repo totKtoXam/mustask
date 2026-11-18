@@ -1,10 +1,14 @@
 import { useState } from 'react';
+import { organizationErrorCodes } from '../../../shared/api/errorCodes';
+import { ApiError } from '../../../shared/api/httpClient';
+import { apiErrorText } from '../../../shared/lib/apiErrorText';
 import { Link as RouterLink } from 'react-router-dom';
 import Box from '@mui/material/Box';
 import Link from '@mui/material/Link';
 import Typography from '@mui/material/Typography';
 import { FormDialog, InlineMultiPickerField, InlineNotice } from '../../../shared/ui';
 import { useFocusInvalid } from '../hooks/useFocusInvalid';
+import { useSelectorOffers } from '../hooks/navigationQueries';
 import { useOrganizationTeams, useProjects } from '../hooks/queries';
 import { placeRefusal, type RefusalField } from '../lib/refusals';
 import { linkDialog } from '../lib/teamTexts';
@@ -25,13 +29,15 @@ export interface LinkOption {
  * ones the page lists as linked. «Добавить» waits for a choice. Every state of the list is named: it
  * loads («Загрузка…») while the field works; a failed read replaces the field with «Повторить»; no
  * option because all are linked is said in the list; none existing at all replaces the field with an
- * information notice. A chosen end that is gone lands under the field, the options are read again and a
+ * information notice. With `department` (mod-022, BR-TD-3) only the other end's objects standing in
+ * that department are offered, and a refusal `team.other_department` (a stale list) is the alert. A chosen end that is gone lands under the field, the options are read again and a
  * choice no longer offered drops; the page's own end gone is the dialog's alert.
  */
 export function LinkDialog({
   end,
   organizationId,
   ownName,
+  department,
   linkedIds,
   submit,
   onSucceeded,
@@ -41,6 +47,8 @@ export function LinkDialog({
   organizationId: string;
   /** The page's own end: the project's name for `end="project"`, the team's for `end="team"`. */
   ownName: string;
+  /** The department the page's own end stands in: the picker offers that department's objects only. */
+  department?: { id: string; name: string };
   /** What the page lists as linked already. */
   linkedIds: readonly string[];
   submit(ids: string[]): Promise<unknown>;
@@ -60,6 +68,10 @@ export function LinkDialog({
     fresh: true,
     linkableFor: 'team',
   });
+  // The project list carries no department: the selector offers do (read when the dialog opens).
+  const offers = useSelectorOffers(organizationId, {
+    enabled: !forProject && department !== undefined,
+  });
   const query = forProject ? teams : projects;
   const [chosen, setChosen] = useState<LinkOption[]>([]);
   const [typed, setTyped] = useState('');
@@ -69,12 +81,20 @@ export function LinkDialog({
   const [contextGone, setContextGone] = useState(false);
   const focusInvalid = useFocusInvalid();
 
+  const departmentOf = new Map((offers.data?.projects ?? []).map((p) => [p.id, p.departmentId]));
   const everyone: LinkOption[] = forProject
-    ? (teams.data ?? []).map(({ id, name }) => ({ id, name }))
-    : (projects.data ?? []).map(({ id, name, key }) => ({ id, name, key }));
+    ? (teams.data ?? [])
+        .filter((team) => department === undefined || team.departmentId === department.id)
+        .map(({ id, name }) => ({ id, name }))
+    : (projects.data ?? [])
+        .filter(
+          (project) => department === undefined || departmentOf.get(project.id) === department.id,
+        )
+        .map(({ id, name, key }) => ({ id, name, key }));
   const options = everyone.filter((option) => !linkedIds.includes(option.id));
-  const failed = query.isError && !query.isFetching;
-  const noneExist = query.isSuccess && everyone.length === 0;
+  const failed = (query.isError && !query.isFetching) || (offers.isError && !offers.isFetching);
+  const loadingOffers = !forProject && department !== undefined && offers.isPending;
+  const noneExist = query.isSuccess && !loadingOffers && everyone.length === 0;
 
   async function handleSubmit() {
     setBusy(true);
@@ -84,6 +104,24 @@ export function LinkDialog({
       await submit(chosen.map((option) => option.id));
       onSucceeded(chosen);
     } catch (error) {
+      if (
+        error instanceof ApiError &&
+        error.errorCode === organizationErrorCodes.teamOtherDepartment
+      ) {
+        // A move or a link raced the picker (design § 5.3): the dialog's banner, and the lists are read again.
+        setAlert(apiErrorText(error));
+        setBusy(false);
+        void offers.refetch();
+        void query.refetch().then((result) => {
+          const offered = result.data;
+          if (offered) {
+            setChosen((current) =>
+              current.filter((option) => offered.some((candidate) => candidate.id === option.id)),
+            );
+          }
+        });
+        return;
+      }
       const field: RefusalField = forProject ? 'teams' : 'projects';
       const placed = placeRefusal(error, [field]);
       setFieldError(placed.fields[field]);
@@ -122,13 +160,21 @@ export function LinkDialog({
       {failed ? (
         <InlineNotice
           severity="error"
-          action={{ label: linkDialog.retry, onClick: () => void query.refetch() }}
+          action={{
+            label: linkDialog.retry,
+            onClick: () => {
+              void query.refetch();
+              void offers.refetch();
+            },
+          }}
         >
           {texts.loadFailed}
         </InlineNotice>
       ) : noneExist ? (
         <InlineNotice severity="info">
-          {forProject ? (
+          {department?.name ? (
+            texts.noneInDepartment(department.name)
+          ) : forProject ? (
             <>
               {linkDialog.project.noneExist}
               <Link component={RouterLink} to={organizationTeamsPath(organizationId)}>
@@ -149,10 +195,12 @@ export function LinkDialog({
           error={fieldError}
           value={chosen}
           options={options}
-          loading={query.isPending}
+          loading={query.isPending || loadingOffers}
           inputValue={typed}
           onInputChange={(text, reason) => setTyped(reason === 'input' ? text : '')}
-          noOptionsText={typed === '' ? texts.allLinked : undefined}
+          noOptionsText={
+            typed === '' ? (department ? texts.allLinkedInDepartment : texts.allLinked) : undefined
+          }
           onChange={(next) => {
             setChosen(next);
             setFieldError(undefined);

@@ -20,6 +20,7 @@ import {
   getUnlinkCount,
   linkProjectsToTeam,
   linkTeamsToProject,
+  moveArea,
   renameTeam,
   setDefaultTeam,
   unlinkTeam,
@@ -86,10 +87,15 @@ describe('the slice’s test API answers per api-contract (a check of the test d
   it('creates a project with no team, and a team with its description, members and links (BR-OL-2)', async () => {
     const api = serveOrganizations();
 
-    const project = await createProject(ids.beta, { name: 'Ядро', key: 'CORE', description: 'Д' });
+    const department = await createArea(ids.beta, { name: 'Отдел' });
+    const project = await createProject(ids.beta, {
+      name: 'Ядро',
+      key: 'CORE',
+      description: 'Д',
+      parentAreaId: department.id,
+    });
     expect(project.description).toBe('Д');
     expect(await getTeams(ids.beta, project.id)).toEqual([]);
-    const department = await createArea(ids.beta, { name: 'Отдел' });
     const treeBefore = await getAreaTree(ids.beta);
 
     const team = await createTeam(ids.beta, {
@@ -112,6 +118,58 @@ describe('the slice’s test API answers per api-contract (a check of the test d
       ['Сервис', 'onlyTeam'],
     ]);
     expect(api.writes()).toHaveLength(3);
+  });
+
+  it('refuses a project with no department and a team of another department (mod-022 api-contract § 1)', async () => {
+    serveOrganizations();
+
+    const failure = await createProject(ids.alfa, { name: 'Новый', key: 'NEW' }).catch(
+      (error: unknown) => error,
+    );
+    expect(failure).toBeInstanceOf(ApiError);
+    expect((failure as ApiError).errorCode).toBe('organizations.validation_failed');
+    expect((failure as ApiError).body?.errors?.parentAreaId?.[0]?.code).toBe(
+      'organizations.project.department_required',
+    );
+    // The team stands in «Платформа»; the project is asked for «Отчёты».
+    expect(
+      await codeOf(
+        createProject(ids.alfa, {
+          name: 'Новый',
+          key: 'NEW',
+          parentAreaId: ids.reportsArea,
+          teamIds: [ids.platformTeam],
+        }),
+      ),
+    ).toBe('organizations.team.other_department');
+  });
+
+  it('keeps a link inside one department, and a project inside a department (mod-022 BR-TD-3, -4, -6)', async () => {
+    serveOrganizations();
+    const fresh = await createProject(ids.alfa, {
+      name: 'Отчётный',
+      key: 'RPT',
+      parentAreaId: ids.reportsArea,
+    });
+    const node = (await getAreaTree(ids.alfa)).find((area) => area.projectId === fresh.id)!;
+
+    expect(await codeOf(linkTeamsToProject(ids.alfa, fresh.id, [ids.platformTeam]))).toBe(
+      'organizations.team.other_department',
+    );
+    expect(await codeOf(linkProjectsToTeam(ids.alfa, ids.platformTeam, [fresh.id]))).toBe(
+      'organizations.team.other_department',
+    );
+    expect(await codeOf(moveArea(ids.alfa, node.id, null))).toBe(
+      'organizations.area.project_needs_department',
+    );
+    // A project with no team moves; one with a team is refused, and the same place is a no-op.
+    await moveArea(ids.alfa, node.id, ids.platformArea);
+    expect(await codeOf(moveArea(ids.alfa, node.id, ids.reportsArea))).toBeUndefined();
+    const linked = (await getAreaTree(ids.alfa)).find((area) => area.projectId === ids.prm)!;
+    expect(await codeOf(moveArea(ids.alfa, linked.id, ids.reportsArea))).toBe(
+      'organizations.area.project_has_teams',
+    );
+    await moveArea(ids.alfa, linked.id, ids.platformArea);
   });
 
   it('refuses a name held by an active team of the organization, in any case, and frees a deleted team’s', async () => {

@@ -21,6 +21,7 @@ public sealed class WorkItemAreaUnderDepartmentEndpointTests(MustaskApiFactory f
         var sub = await OrganizationsTestData.AddSubAreaAsync(factory, world.OrganizationId, node.Id, "Платформа");
         var department = await OrganizationsTestData.AddDepartmentAsync(factory, world.OrganizationId, "Логистика");
 
+        await OrganizationsTestData.DetachTeamsAsync(factory, world.ProjectId); // a linked project is not moved (doc-016 BR-TD-4)
         var created = await WorkItemsTestData.CreateAsync(factory, world, "BUG", "До переноса");
         var move = await OrganizationsApi.SendAsync(
             factory,

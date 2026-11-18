@@ -43,7 +43,7 @@ public sealed class AreaVolumeEndpointTests(MustaskApiFactory factory, ITestOutp
             for (var index = 0; index < DeepProjects + ShallowProjects; index++)
             {
                 var created = Project.Create(
-                    organization.Id, OrganizationsTestData.Name($"Проект {index:D3}"), $"V{index:D3}", OrganizationsTestData.Now, OrganizationsTestData.Creator, "blue");
+                    organization.Id, OrganizationsTestData.Name($"Проект {index:D3}"), $"V{index:D3}", OrganizationsTestData.Now, OrganizationsTestData.Creator, "blue", parentAreaId: hub.Id);
                 projects.Add(created);
                 firstProject = firstProject == Guid.Empty ? created.Project.Id : firstProject;
                 var parent = created.Root;

@@ -219,7 +219,12 @@ public sealed class Area
 
                 break;
             case AreaType.Project:
-                if (newParent is not null && newParent.Type != AreaType.Department)
+                if (newParent is null)
+                {
+                    throw new ConflictException(OrganizationErrorCodes.AreaProjectNeedsDepartment);
+                }
+
+                if (newParent.Type != AreaType.Department)
                 {
                     throw new ConflictException(OrganizationErrorCodes.AreaTypeNotAllowed);
                 }

@@ -49,13 +49,14 @@ public sealed class CreateProjectHandler(
     public async Task<CreateProjectResult> Handle(CreateProjectCommand command, CancellationToken cancellationToken)
     {
         // 0. The second codes, first of all (D-7). The place decides who creates (mod-019 BR-SA-17, ADR-0038): area.write on the
-        // department named, area.create at the top level, judged before any lookup; a non-admin who lacks it gets 403 for every place —
+        // department named, judged before any lookup (no department named is a 400 at validation, doc-016 BR-TD-6); a non-admin who lacks it gets 403 for every place —
         // unknown, deleted, foreign or not a department included — so nothing is disclosed. A project that links needs both ends' link codes.
         var placeGuess = AddressedId.TryParse(command.ParentAreaId, out var guessedPlace) ? guessedPlace : Guid.Empty;
 
-        if (command.ParentAreaId is null
-                ? !access.Holds(PermissionCatalog.OrganizationsAreaCreate)
-                : !await access.HoldsOnAsync(PermissionCatalog.OrganizationsAreaWrite, placeGuess, cancellationToken))
+        // BR-TD-6 (mod-022): a project is created in a department only. A request naming none judges no place: it is refused as a
+        // value (400 «Выберите департамент») below and creates nothing.
+        if (command.ParentAreaId is not null
+            && !await access.HoldsOnAsync(PermissionCatalog.OrganizationsAreaWrite, placeGuess, cancellationToken))
         {
             throw new ForbiddenException(OrganizationErrorCodes.AccessForbidden);
         }
@@ -107,6 +108,11 @@ public sealed class CreateProjectHandler(
                 if (!EntityDescription.TryCreate(command.Description, out var description))
                 {
                     errors["description"] = [EntityDescription.LengthReason];
+                }
+
+                if (command.ParentAreaId is null)
+                {
+                    errors["parentAreaId"] = [new FieldError(OrganizationErrorCodes.ProjectDepartmentRequired)];
                 }
 
                 if (errors.Count > 0)
@@ -166,6 +172,12 @@ public sealed class CreateProjectHandler(
                     if (locked.Count != teamIds.Count || locked.Any(team => !team.IsActive))
                     {
                         throw new NotFoundException(OrganizationErrorCodes.TeamNotFound);
+                    }
+
+                    // BR-TD-3: every team named stands in the project's department.
+                    if (locked.Any(team => team.DepartmentId != parentAreaId))
+                    {
+                        throw new ConflictException(OrganizationErrorCodes.TeamOtherDepartment);
                     }
                 }
 

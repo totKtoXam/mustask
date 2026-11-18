@@ -116,7 +116,7 @@ public sealed class AreaTests
 
     // BR-AW-3 · a project node moves to the top or under a department, with its subtree; never under itself or a descendant.
     [Fact]
-    public void MoveUnder_ProjectNode_GoesToTopOrADepartment_NotUnderItsOwnSubtreeOrAnArea()
+    public void MoveUnder_ProjectNode_GoesToADepartment_NeverTheTop_NotUnderItsOwnSubtreeOrAnArea()
     {
         var department = Department();
         var node = ProjectNode();
@@ -127,13 +127,13 @@ public sealed class AreaTests
         Assert.Equal(OrganizationErrorCodes.AreaTypeNotAllowed, CodeOf(() => node.MoveUnder(sub, tree)));
         Assert.Equal(OrganizationErrorCodes.AreaTypeNotAllowed, CodeOf(() => node.MoveUnder(node, tree)));
         Assert.Equal(OrganizationErrorCodes.AreaTypeNotAllowed, CodeOf(() => other.MoveUnder(sub, tree)));
-        Assert.False(node.MoveUnder(null, tree));
+        // doc-016 BR-TD-6 (mod-022): a project never goes to the top.
+        Assert.Equal(OrganizationErrorCodes.AreaProjectNeedsDepartment, CodeOf(() => node.MoveUnder(null, tree)));
 
         Assert.True(node.MoveUnder(department, tree));
         Assert.Equal(department.Id, node.ParentId);
         Assert.Equal(node.Id, sub.ParentId);
-        Assert.True(node.MoveUnder(null, Tree(department, node, sub, other)));
-        Assert.True(node.IsTopLevel);
+        Assert.False(node.MoveUnder(department, Tree(department, node, sub, other)));
     }
 
     // BR-AW-3 · a department never moves (the top has no depth, OQ-3 A): not under another department, not anywhere.

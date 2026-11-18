@@ -287,8 +287,10 @@ describe('mod-018 US-2: rename, description, move', () => {
     expect(api.writes()[0]?.body).toEqual({ description: null });
   });
 
-  it('moves a project: every place but the current one, the project’s notice', async () => {
-    const api = serveOrganizations();
+  it('moves a project with no team: departments only, never the top level, the project’s notice', async () => {
+    const data = exampleDataset();
+    data.links = data.links.filter((link) => link.projectId !== ids.prm);
+    const api = serveOrganizations(data);
     renderPage({ path: AREAS });
     await treegrid();
 
@@ -301,8 +303,8 @@ describe('mod-018 US-2: rename, description, move', () => {
     ).toBeInTheDocument();
     await userEvent.click(within(dialog).getByRole('combobox', { name: /Новое расположение/ }));
     const options = within(await screen.findByRole('listbox')).getAllByRole('option');
-    expect(options.map((option) => option.textContent)).toEqual(['Верхний уровень', 'Отчёты']);
-    await userEvent.click(options[1]!);
+    expect(options.map((option) => option.textContent)).toEqual(['Отчёты']);
+    await userEvent.click(options[0]!);
     await userEvent.click(within(dialog).getByRole('button', { name: 'Переместить' }));
 
     expect(await screen.findByText('Проект «Пример проекта» перемещён.')).toBeInTheDocument();
@@ -313,20 +315,56 @@ describe('mod-018 US-2: rename, description, move', () => {
     });
   });
 
-  it('moves a project to «Организация» with `parentId: null`', async () => {
+  it('refuses a project with linked teams, lists them, and moves after they are unlinked (mod-022 BR-TD-4)', async () => {
     const api = serveOrganizations();
     renderPage({ path: AREAS });
     await treegrid();
 
     await choose('Пример проекта', 'Переместить');
-    const dialog = await screen.findByRole('dialog', { name: 'Перемещение проекта' });
+    let dialog = await screen.findByRole('dialog', { name: 'Перемещение проекта' });
     await userEvent.click(within(dialog).getByRole('combobox', { name: /Новое расположение/ }));
-    await userEvent.click(await screen.findByRole('option', { name: 'Верхний уровень' }));
+    await userEvent.click(await screen.findByRole('option', { name: 'Отчёты' }));
     await userEvent.click(within(dialog).getByRole('button', { name: 'Переместить' }));
 
-    await screen.findByText('Проект «Пример проекта» перемещён.');
-    expect(api.writes()[0]?.body).toEqual({ parentId: null });
-    await waitFor(() => expect(row('Пример проекта')).toHaveAttribute('aria-level', '1'));
+    expect(
+      await within(dialog).findByText(
+        'Проект связан с командами. Отключите их перед перемещением.',
+      ),
+    ).toBeInTheDocument();
+    expect(await within(dialog).findByText('Команды:')).toBeInTheDocument();
+    expect(within(dialog).getByText('Платформа')).toBeInTheDocument();
+    expect(api.data.areas.find((entry) => entry.id === ids.prmRoot)!.parentId).toBe(
+      ids.platformArea,
+    );
+
+    for (const team of ['Платформа', 'Пример проекта']) {
+      await userEvent.click(
+        await within(dialog).findByRole('button', {
+          name: `Отключить команду «${team}» от проекта`,
+        }),
+      );
+      const unlink = await screen.findByRole('dialog', { name: 'Отключение команды от проекта' });
+      await waitFor(() =>
+        expect(within(unlink).getByRole('button', { name: 'Отключить' })).toBeEnabled(),
+      );
+      await userEvent.click(within(unlink).getByRole('button', { name: 'Отключить' }));
+      dialog = await screen.findByRole('dialog', { name: 'Перемещение проекта' });
+    }
+    await waitFor(() =>
+      expect(within(dialog).queryByRole('button', { name: /^Отключить команду/ })).toBeNull(),
+    );
+    // F-1: with no team left the refusal text goes too, before «Переместить» is pressed again.
+    await waitFor(() =>
+      expect(
+        within(dialog).queryByText('Проект связан с командами. Отключите их перед перемещением.'),
+      ).toBeNull(),
+    );
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Переместить' }));
+
+    expect(await screen.findByText('Проект «Пример проекта» перемещён.')).toBeInTheDocument();
+    expect(api.data.areas.find((entry) => entry.id === ids.prmRoot)!.parentId).toBe(
+      ids.reportsArea,
+    );
   });
 
   it('moves a sub-area inside its project only: the offer is the project’s subtree', async () => {

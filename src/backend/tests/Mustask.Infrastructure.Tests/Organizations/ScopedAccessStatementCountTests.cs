@@ -16,7 +16,7 @@ namespace Mustask.Infrastructure.Tests.Organizations;
 [Collection(OrganizationsDatabaseCollection.Name)]
 public sealed class ScopedAccessStatementCountTests(OrganizationsDatabaseFixture database, ITestOutputHelper output)
 {
-    private const int CheckStatements = 3;
+    private const int CheckStatements = 4; // 3 while a project could stand at the top; every project stands in a department now (mod-022), and the check reads its grants too
     private const int AreaStatements = 3;
     private const int ProjectStatements = 4;
     private const int SetStatements = 8; // 4 for the grants and the tree, 4 more for the sight data (feat-041), still fixed

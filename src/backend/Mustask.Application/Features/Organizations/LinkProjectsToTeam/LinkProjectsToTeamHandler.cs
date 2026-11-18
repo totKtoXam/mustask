@@ -28,6 +28,7 @@ namespace Mustask.Application.Features.Organizations.LinkProjectsToTeam;
 public sealed class LinkProjectsToTeamHandler(
     IProjectRepository projects,
     ITeamRepository teams,
+    IAreaRepository areas,
     IProjectTeamRepository links,
     IOrganizationAccess access,
     ICurrentUser currentUser,
@@ -97,6 +98,9 @@ public sealed class LinkProjectsToTeamHandler(
                 {
                     throw new ForbiddenException(OrganizationErrorCodes.AccessForbidden);
                 }
+
+                // BR-TD-3 (mod-022): every project stands in the team's department, judged under the projects' node locks.
+                await LinkPlaces.EnsureSameDepartmentAsync(areas, organizationId, projectIds, team.DepartmentId, ct);
 
                 // 4. One statement for all the pairs; a pair already linked is left as it is.
                 await links.LinkAsync(

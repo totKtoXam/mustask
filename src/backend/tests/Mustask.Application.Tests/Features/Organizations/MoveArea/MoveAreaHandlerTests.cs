@@ -24,7 +24,7 @@ public sealed class MoveAreaHandlerTests
             Archive = Store.AddArea(Node, "Архив");
             Areas = new FakeAreaRepository(Store);
             Handler = new MoveAreaHandler(
-                new FakeOrganizationReadModel(Store), new FakeProjectRepository(Store), Areas, new FakeOrganizationAccess(role), new FakeUnitOfWork());
+                new FakeOrganizationReadModel(Store), new FakeProjectRepository(Store), Areas, new FakeProjectTeamRepository(Store), new FakeOrganizationAccess(role), new FakeUnitOfWork());
         }
 
         public InMemoryOrganizations Store { get; } = new();
@@ -67,19 +67,43 @@ public sealed class MoveAreaHandlerTests
         Assert.Equal(1, f.Store.SaveCount);
     }
 
-    // US-3 · "A project's node moves under a department and to the top, with its whole subtree".
+    // US-3 · "A project's node moves under another department with its whole subtree"; doc-016 BR-TD-6 (US-5 "A project is never moved to
+    // the top level"): the top level is refused 409 project_needs_department and nothing changes.
     [Fact]
-    public async Task Handle_ProjectNode_MovesBetweenDepartmentsAndTheTop()
+    public async Task Handle_ProjectNode_MovesBetweenDepartments_NeverToTheTop()
     {
         var f = new Fixture();
 
         var toProduct = await f.HandleAsync(f.Node, f.Product);
-        var toTop = await f.HandleAsync(f.Node, null);
+        var toTop = await Assert.ThrowsAsync<ConflictException>(() => f.HandleAsync(f.Node, null));
 
         Assert.Equal(("project", f.Product.Id, "Продукт / Мастаск"), (toProduct.Response.Type, toProduct.Response.ParentId, toProduct.Response.Path));
-        Assert.Null(toTop.Response.ParentId);
-        Assert.Equal("Мастаск", toTop.Response.Path);
+        Assert.Equal(OrganizationErrorCodes.AreaProjectNeedsDepartment, toTop.Code);
+        Assert.Equal(f.Product.Id, f.Node.ParentId);
         Assert.Equal(f.Node.Id, f.Reports.ParentId);
+    }
+
+    // doc-016 BR-TD-4 (OQ-9 A), US-5 "A linked project is not moved": 409 project_has_teams while any team is linked, nothing changes;
+    // the department it already stands in is a no-op success; once unlinked the move succeeds.
+    [Fact]
+    public async Task Handle_LinkedProject_IsNotMoved_UntilItIsUnlinked()
+    {
+        var f = new Fixture();
+        var team = f.Store.AddTeam(f.Organization, "MARS", f.Development);
+        f.Store.Link(f.Project, team);
+
+        var refusal = await Assert.ThrowsAsync<ConflictException>(() => f.HandleAsync(f.Node, f.Product));
+        var same = await f.HandleAsync(f.Node, f.Development);
+
+        Assert.Equal(OrganizationErrorCodes.AreaProjectHasTeams, refusal.Code);
+        Assert.Equal(f.Development.Id, f.Node.ParentId);
+        Assert.Equal(f.Development.Id, same.Response.ParentId);
+        Assert.Equal(0, f.Store.SaveCount);
+
+        f.Store.Links.Clear();
+        var moved = await f.HandleAsync(f.Node, f.Product);
+
+        Assert.Equal(f.Product.Id, moved.Response.ParentId);
     }
 
     // US-3 · "A move to the parent it has changes nothing": no save.
@@ -183,10 +207,8 @@ public sealed class MoveAreaHandlerTests
         f.Store.AddDepartment(f.Organization, "Мастаск");
 
         var sub = await Assert.ThrowsAsync<ConflictException>(() => f.HandleAsync(f.Reports, f.Archive));
-        var top = await Assert.ThrowsAsync<ConflictException>(() => f.HandleAsync(f.Node, null));
 
         Assert.Equal(OrganizationErrorCodes.AreaNameTaken, sub.Code);
-        Assert.Equal(OrganizationErrorCodes.AreaNameTaken, top.Code);
         Assert.Equal(0, f.Store.SaveCount);
     }
 

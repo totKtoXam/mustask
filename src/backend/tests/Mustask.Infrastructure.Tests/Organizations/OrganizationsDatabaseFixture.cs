@@ -175,8 +175,8 @@ public sealed class OrganizationsDatabaseFixture : IAsyncLifetime
                 var processId = await seed.SeedAsync(organizationId, ct);
                 var organization = Organization.Create(
                     organizationId, Name(organizationName ?? UniqueName("Организация")), processId, Now, Creator);
-                var project = Project.Create(organizationId, Name(projectName), key, Now, Creator, "blue");
                 var department = Area.CreateDepartment(organizationId, "blue", Name("Отдел структуры"), null, Creator, Now);
+                var project = Project.Create(organizationId, Name(projectName), key, Now, Creator, "blue", parentAreaId: department.Id);
                 var first = Team.Create(organizationId, department.Id, "orange", Name(projectName));
                 var second = Team.Create(organizationId, department.Id, "magenta", Name("Платформа"));
 
@@ -243,7 +243,7 @@ public sealed class OrganizationsDatabaseFixture : IAsyncLifetime
     public async Task<NewProject> AddProjectAsync(Guid organizationId, string name, string key)
     {
         await using var context = NewContext();
-        var project = Project.Create(organizationId, Name(name), key, Now, Creator, "blue");
+        var project = Project.Create(organizationId, Name(name), key, Now, Creator, "blue", parentAreaId: await DepartmentOfAsync(organizationId));
 
         context.Projects.Add(project.Project);
         context.Areas.Add(project.Root);

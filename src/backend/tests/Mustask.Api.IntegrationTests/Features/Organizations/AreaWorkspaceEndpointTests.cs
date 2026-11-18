@@ -50,7 +50,7 @@ public sealed class AreaWorkspaceEndpointTests(MustaskApiFactory factory)
             department.Body.GetProperty("description").GetString()));
         Assert.Equal(JsonValueKind.Null, department.Body.GetProperty("projectId").ValueKind);
         Assert.Equal(HttpStatusCode.Created, sub.Status);
-        Assert.Equal(("area", structure.ProjectId, node.Id, "Пример проекта / Отчёты"), (
+        Assert.Equal(("area", structure.ProjectId, node.Id, "Отдел для команд / Пример проекта / Отчёты"), (
             sub.Body.GetProperty("type").GetString(),
             sub.Body.GetProperty("projectId").GetGuid(),
             sub.Body.GetProperty("parentId").GetGuid(),
@@ -62,7 +62,7 @@ public sealed class AreaWorkspaceEndpointTests(MustaskApiFactory factory)
             ["id", "parentId", "type", "projectId", "projectActive", "name", "description", "path", "depth", "inheritsAccess", "color"],
             PropertyNames(tree.Body[0]));
         Assert.Equal(
-            new[] { ("Отдел для команд", "department", 1), ("Пример проекта", "project", 1), ("Пример проекта / Отчёты", "area", 2), ("Разработка", "department", 1) }.Order().ToList(),
+            new[] { ("Отдел для команд", "department", 1), ("Отдел для команд / Пример проекта", "project", 2), ("Отдел для команд / Пример проекта / Отчёты", "area", 3), ("Разработка", "department", 1) }.Order().ToList(),
             tree.Body.EnumerateArray()
                 .Select(n => (n.GetProperty("path").GetString()!, n.GetProperty("type").GetString()!, n.GetProperty("depth").GetInt32()))
                 .Order()
@@ -83,7 +83,7 @@ public sealed class AreaWorkspaceEndpointTests(MustaskApiFactory factory)
         LinksTestData.AssertRefused(invalidAndMissing, HttpStatusCode.NotFound, "organizations.area.not_found");
     }
 
-    // OQ-12 A · one name space per level: a department and a project node share the top level; a name is free under another parent.
+    // OQ-12 A · one name space per level: a name is free under another parent (a project node no longer shares the top level, mod-022).
     [Fact]
     public async Task Create_SiblingName_IsTakenIgnoringCaseAndSpaces_AcrossTypes()
     {
@@ -100,7 +100,7 @@ public sealed class AreaWorkspaceEndpointTests(MustaskApiFactory factory)
 
         LinksTestData.AssertRefused(sameLevel, HttpStatusCode.Conflict, "organizations.area.name_taken");
         Assert.Equal(HttpStatusCode.Created, otherParent.Status);
-        LinksTestData.AssertRefused(clashWithNode, HttpStatusCode.Conflict, "organizations.area.name_taken");
+        Assert.Equal(HttpStatusCode.Created, clashWithNode.Status); // mod-022: a project node stands in a department, so it no longer shares the top level
     }
 
     // BR-AW-4 · the tree is at most 10 levels deep: a node on level 10 takes no child.
@@ -148,8 +148,10 @@ public sealed class AreaWorkspaceEndpointTests(MustaskApiFactory factory)
     [Fact]
     public async Task DepartmentPage_ProjectChildren_CarryTheKeyAndTheActiveFlag()
     {
-        var structure = await OrganizationsTestData.CreateStructureAsync(factory);
-        var organization = structure.OrganizationId;
+        // A project with a team is not moved (mod-022 BR-TD-4), so the page is read for a bare one.
+        var organization = (await OrganizationsTestData.CreateOrganizationAsync(factory)).Id;
+        var bare = await OrganizationsTestData.CreateBareProjectAsync(factory, organization);
+        var structure = (Project: bare, ProjectId: bare.Project.Id);
         var node = await OrganizationsTestData.NodeOfAsync(factory, structure.ProjectId);
         var department = await OrganizationsTestData.AddDepartmentAsync(factory, organization, "Разработка");
         var moved = await MoveAsync(organization, node.Id, department.Id);
@@ -181,7 +183,7 @@ public sealed class AreaWorkspaceEndpointTests(MustaskApiFactory factory)
         var taken = await SendAsync(HttpMethod.Put, $"{Area(organization, sub.Id)}/name", new { name = "годовые" });
 
         Assert.Equal(
-            ("Пример проекта / Месячные", "Продукт"),
+            ("Отдел для команд / Пример проекта / Месячные", "Продукт"),
             (renamedSub.Body.GetProperty("path").GetString(), renamedDepartment.Body.GetProperty("path").GetString()));
         LinksTestData.AssertRefused(nodeRename, HttpStatusCode.Conflict, "organizations.area.root_is_fixed");
         LinksTestData.AssertRefused(taken, HttpStatusCode.Conflict, "organizations.area.name_taken");
@@ -222,6 +224,7 @@ public sealed class AreaWorkspaceEndpointTests(MustaskApiFactory factory)
     {
         var structure = await OrganizationsTestData.CreateStructureAsync(factory);
         var organization = structure.OrganizationId;
+        await OrganizationsTestData.DetachTeamsAsync(factory, structure.ProjectId);
         var node = await OrganizationsTestData.NodeOfAsync(factory, structure.ProjectId);
         var reports = await OrganizationsTestData.AddSubAreaAsync(factory, organization, node.Id, "Отчёты");
         var quarterly = await OrganizationsTestData.AddSubAreaAsync(factory, organization, reports.Id, "Квартальные");
@@ -242,10 +245,10 @@ public sealed class AreaWorkspaceEndpointTests(MustaskApiFactory factory)
         var cycle = await MoveAsync(organization, reports.Id, quarterly.Id);
         var nodeUnderSub = await MoveAsync(organization, node.Id, archive.Id);
 
-        Assert.Equal("Пример проекта / Архив / Отчёты", subMove.Body.GetProperty("path").GetString());
+        Assert.Equal("Отдел для команд / Пример проекта / Архив / Отчёты", subMove.Body.GetProperty("path").GetString());
         Assert.Equal("Разработка / Пример проекта", nodeIntoDepartment.Body.GetProperty("path").GetString());
         Assert.Equal("Продукт / Пример проекта", nodeToProduct.Body.GetProperty("path").GetString());
-        Assert.Equal(JsonValueKind.Null, nodeToTop.Body.GetProperty("parentId").ValueKind);
+        LinksTestData.AssertRefused(nodeToTop, HttpStatusCode.Conflict, "organizations.area.project_needs_department"); // mod-022 BR-TD-6
         LinksTestData.AssertRefused(departmentMove, HttpStatusCode.Conflict, "organizations.area.type_not_allowed");
         LinksTestData.AssertRefused(subToTop, HttpStatusCode.Conflict, "organizations.area.type_not_allowed");
         LinksTestData.AssertRefused(subUnderDepartment, HttpStatusCode.Conflict, "organizations.area.type_not_allowed");
@@ -282,6 +285,7 @@ public sealed class AreaWorkspaceEndpointTests(MustaskApiFactory factory)
     {
         var structure = await OrganizationsTestData.CreateStructureAsync(factory);
         var organization = structure.OrganizationId;
+        await OrganizationsTestData.DetachTeamsAsync(factory, structure.ProjectId);
         var node = await OrganizationsTestData.NodeOfAsync(factory, structure.ProjectId);
         var parent = await OrganizationsTestData.AddSubAreaAsync(factory, organization, node.Id, "Отчёты");
         var leaf = await OrganizationsTestData.AddSubAreaAsync(factory, organization, parent.Id, "Квартальные");
@@ -345,16 +349,16 @@ public sealed class AreaWorkspaceEndpointTests(MustaskApiFactory factory)
         var projects = $"/api/organizations/{organization.Id}/projects";
 
         var under = await SendAsync(HttpMethod.Post, projects, new { name = "Мастаск", key = "MST", parentAreaId = department.Id.ToString() });
-        var top = await SendAsync(HttpMethod.Post, projects, new { name = "Верхний", key = "TOP" });
+        var top = await SendAsync(HttpMethod.Post, projects, new { name = "Верхний", key = "TOP" });  // mod-022 BR-TD-6: no department, no project
         var node = await OrganizationsTestData.NodeOfAsync(factory, under.Body.GetProperty("id").GetGuid());
         var notDepartment = await SendAsync(HttpMethod.Post, projects, new { name = "Третий", key = "THR", parentAreaId = node.Id.ToString() });
-        var clash = await SendAsync(HttpMethod.Post, projects, new { name = "разработка", key = "CLS" });
-        var missing = await SendAsync(HttpMethod.Post, projects, new { name = "Пятый", key = "FIV", parentAreaId = Guid.CreateVersion7().ToString() });
+                var missing = await SendAsync(HttpMethod.Post, projects, new { name = "Пятый", key = "FIV", parentAreaId = Guid.CreateVersion7().ToString() });
 
-        Assert.Equal((HttpStatusCode.Created, HttpStatusCode.Created), (under.Status, top.Status));
+        Assert.Equal(HttpStatusCode.Created, under.Status);
+        Assert.Equal(HttpStatusCode.BadRequest, top.Status);
+        Assert.Equal("parentAreaId", Assert.Single(top.Body.GetProperty("errors").EnumerateObject()).Name);
         Assert.Equal(department.Id, node.ParentId);
         LinksTestData.AssertRefused(notDepartment, HttpStatusCode.Conflict, "organizations.area.type_not_allowed");
-        LinksTestData.AssertRefused(clash, HttpStatusCode.Conflict, "organizations.area.name_taken");
         LinksTestData.AssertRefused(missing, HttpStatusCode.NotFound, "organizations.area.not_found");
     }
 
@@ -398,7 +402,7 @@ public sealed class AreaWorkspaceEndpointTests(MustaskApiFactory factory)
         var deactivated = await SendAsync(HttpMethod.Get, OrganizationsApi.ProjectAreas(organization, structure.ProjectId));
 
         Assert.Equal(
-            [("project", 1), ("area", 2)],
+            [("project", 2), ("area", 3)],
             list.Body.EnumerateArray().Select(n => (n.GetProperty("type").GetString()!, n.GetProperty("depth").GetInt32())));
         LinksTestData.AssertRefused(deactivated, HttpStatusCode.NotFound, "organizations.project.not_found");
     }

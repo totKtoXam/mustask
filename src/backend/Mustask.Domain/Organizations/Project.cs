@@ -107,7 +107,7 @@ public sealed class Project
     }
 
     /// <summary>
-    /// A new, active project with its node (US-3). The node is named after the project, stands under a department or at the top, and owns nothing (mod-017
+    /// A new, active project with its node (US-3). The node is named after the project, stands under the department <paramref name="parentAreaId"/> (mod-022 BR-TD-6: never at the top), and owns nothing (mod-017
     /// BR-OT-10); <b>no team comes with the project</b> and no one joins one (feat-028 BR-OL-2). The caller has checked the key
     /// already (<see cref="ProjectKey"/>) and links the teams the request names in the same operation.
     /// </summary>
@@ -129,6 +129,11 @@ public sealed class Project
         if (!ProjectKey.IsWellFormed(key))
         {
             throw new ArgumentException("The key is checked before the project is built.", nameof(key));
+        }
+
+        if (parentAreaId is null || parentAreaId == Guid.Empty)
+        {
+            throw new ArgumentException("A project stands in a department (BR-TD-6).", nameof(parentAreaId));
         }
 
         Organization.EnsureCreator(createdBy);

@@ -2,7 +2,6 @@ import { useState } from 'react';
 import { Link as RouterLink, useLocation, useNavigate, useParams } from 'react-router-dom';
 import Box from '@mui/material/Box';
 import Link from '@mui/material/Link';
-import DriveFileMoveOutlinedIcon from '@mui/icons-material/DriveFileMoveOutlined';
 import FolderOpenOutlinedIcon from '@mui/icons-material/FolderOpenOutlined';
 import { ObjectAccess } from '../../../shared/lib/objectAccessProvider';
 import { useObjectAccess } from '../../../shared/lib/objectAccess';
@@ -13,7 +12,6 @@ import {
   DataTable,
   InlineEmpty,
   InlineNotice,
-  MoreActionsMenu,
   Section,
   Tag,
   ThinAddIcon,
@@ -35,7 +33,6 @@ import {
   type NodeDialogResult,
 } from '../components/AreaNodeDialogs';
 import { AreaTypeMark, commandIcon } from '../components/AreaTypeMark';
-import { ConfirmAction } from '../components/ConfirmAction';
 import { FactsPanel, type Fact } from '../components/FactsPanel';
 import { InheritAccessControl } from '../components/InheritAccessControl';
 import { useNotify } from '../components/notice';
@@ -50,14 +47,7 @@ import { useObjectCodesNotice } from '../hooks/useObjectCodesNotice';
 import { codesChangedNotice } from '../lib/grantTexts';
 import { useObjectLink } from '../hooks/useObjectLink';
 import { commandKinds, commandLabel } from '../lib/areaCommands';
-import {
-  areaCommands,
-  areasPage,
-  areaPage,
-  liftProjectDialog,
-  moveAreaDialog,
-  placeProjectDialog,
-} from '../lib/areaTexts';
+import { areaCommands, areasPage, areaPage, placeProjectDialog } from '../lib/areaTexts';
 import { createTeamDialog } from '../lib/teamTexts';
 import { notFoundLevel } from '../lib/notFoundLevel';
 import {
@@ -73,7 +63,6 @@ type PageDialog =
   | { kind: 'node'; dialog: NodeDialog }
   | { kind: 'place' }
   | { kind: 'createProject' }
-  | { kind: 'lift'; project: { id: string; name: string } }
   | { kind: 'createTeam' }
   | null;
 
@@ -345,30 +334,6 @@ export function AreaPage() {
       render: (child) => <TruncatedText>{child.description ?? ''}</TruncatedText>,
     },
   ];
-  // A project moves to the top level for the holder of both codes (design § 8.3; api-contract § 1).
-  const canLift = canWrite && canCreate;
-  if (area?.type === 'department' && canLift) {
-    childColumns.push({
-      key: 'actions',
-      header: '',
-      align: 'right',
-      width: 48,
-      render: (child) =>
-        child.projectActive === false ? null : (
-          <MoreActionsMenu
-            label={areaPage.rowMenu(child.name)}
-            size="row"
-            items={[
-              {
-                label: areaPage.projects.liftToTop,
-                icon: <DriveFileMoveOutlinedIcon />,
-                onSelect: () => setDialog({ kind: 'lift', project: child }),
-              },
-            ]}
-          />
-        ),
-    });
-  }
   if (area?.type === 'department') {
     childColumns.splice(1, 0, {
       key: 'key',
@@ -584,27 +549,11 @@ export function AreaPage() {
           <PlaceProjectDialog
             organizationId={organizationId}
             department={{ id: area.id, name: area.name }}
-            canFromTop={canCreate}
             writableIds={writable.isSuccess ? writableIds : undefined}
             submit={(nodeId) => moveArea.mutateAsync({ areaId: nodeId, parentId: area.id })}
             onSucceeded={(project) => {
               setDialog(null);
               notify(placeProjectDialog.moved(project.name));
-            }}
-            onClose={closeDialog}
-          />
-        </RequiresOrganizationCode>
-      )}
-      {dialog?.kind === 'lift' && (
-        <RequiresOrganizationCode code={organizationsPermissions.areaCreate}>
-          <ConfirmAction
-            title={liftProjectDialog.title}
-            text={liftProjectDialog.text(dialog.project.name)}
-            confirmLabel={liftProjectDialog.confirm}
-            action={() => moveArea.mutateAsync({ areaId: dialog.project.id, parentId: null })}
-            onSucceeded={() => {
-              setDialog(null);
-              notify(moveAreaDialog.project.moved(dialog.project.name));
             }}
             onClose={closeDialog}
           />

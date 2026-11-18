@@ -57,6 +57,9 @@ public interface IProjectTeamRepository
     /// <summary>Whether the team is linked to any project, of any status (BR-TD-4: a linked team does not move). Read after the team's lock.</summary>
     Task<bool> HasLinksAsync(Guid organizationId, Guid teamId, CancellationToken cancellationToken);
 
+    /// <summary>Whether any team is linked to the project (BR-TD-4: a linked project does not move). Read after the project node's lock.</summary>
+    Task<bool> HasProjectLinksAsync(Guid organizationId, Guid projectId, CancellationToken cancellationToken);
+
     /// <summary>Removes every link of the team, with one statement (a team's deletion).</summary>
     Task RemoveTeamLinksAsync(Guid organizationId, Guid teamId, CancellationToken cancellationToken);
 

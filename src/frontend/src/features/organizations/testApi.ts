@@ -413,7 +413,15 @@ export class OrganizationsTestApi {
       codes: this.objectCodes(project.organizationId),
       color: project.color ?? DEFAULT_COLOUR,
       visibleToOrganization: project.visibleToOrganization ?? false,
+      // mod-019 api-contract § 3: the department above the project's node.
+      department: this.departmentRefOf(project),
     };
+  }
+
+  private departmentRefOf(project: ProjectRecord): { id: string; name: string } | null {
+    const departmentId = this.departmentOfProject(project);
+    const department = this.data.areas.find((area) => area.id === departmentId);
+    return department ? { id: department.id, name: this.nodeName(department) } : null;
   }
 
   /** mod-021: a team's department — its own, else the organization's first by name (an old dataset names none). */
@@ -734,6 +742,11 @@ export class OrganizationsTestApi {
             ? []
             : ['organizations.project.key_invalid'],
       description: descriptionReasons(body.description),
+      // mod-022 api-contract § 1: a department is required (BR-TD-6).
+      parentAreaId:
+        body.parentAreaId === null || body.parentAreaId === undefined
+          ? ['organizations.project.department_required']
+          : [],
     });
     const teamIds = idList(body.teamIds);
     const teams = teamIds.map((teamId) => this.team(organization, teamId));
@@ -743,6 +756,9 @@ export class OrganizationsTestApi {
         : this.area(organization, body.parentAreaId as string);
     if (parentArea && parentArea.type !== 'department') {
       refuse('organizations.area.type_not_allowed');
+    }
+    if (teams.some((team) => (this.placeOf(team)?.id ?? null) !== (parentArea?.id ?? null))) {
+      refuse('organizations.team.other_department');
     }
     this.projectNameConflict(organization.id, name);
     this.assertNodeNameFree(organization.id, parentArea?.id ?? null, name.trim());
@@ -894,6 +910,14 @@ export class OrganizationsTestApi {
     return this.teamPlace(team);
   }
 
+  /** mod-022: the department a project's node stands in (`null`: none, which the contract no longer allows). */
+  private departmentOfProject(project: ProjectRecord): string | null {
+    return (
+      this.data.areas.find((area) => area.type === 'project' && area.projectId === project.id)
+        ?.parentId ?? null
+    );
+  }
+
   private describeTeam(team: TeamRecord, body: Record<string, unknown>) {
     validate({ description: descriptionReasons(body.description) });
     team.description = descriptionOf(body.description);
@@ -962,6 +986,13 @@ export class OrganizationsTestApi {
     body: Record<string, unknown>,
   ): void {
     const projects = idList(body.projectIds).map((id) => this.activeProject(organization, id));
+    if (
+      projects.some(
+        (project) => this.departmentOfProject(project) !== (this.placeOf(team)?.id ?? null),
+      )
+    ) {
+      refuse('organizations.team.other_department');
+    }
     for (const project of projects) {
       this.link(project.id, team.id);
     }
@@ -974,6 +1005,11 @@ export class OrganizationsTestApi {
     body: Record<string, unknown>,
   ): void {
     const teams = idList(body.teamIds).map((id) => this.team(organization, id));
+    if (
+      teams.some((team) => (this.placeOf(team)?.id ?? null) !== this.departmentOfProject(project))
+    ) {
+      refuse('organizations.team.other_department');
+    }
     for (const team of teams) {
       this.link(project.id, team.id);
     }
@@ -1129,6 +1165,17 @@ export class OrganizationsTestApi {
       }
       if (parent && parent.type !== 'department') {
         refuse('organizations.area.type_not_allowed');
+      }
+      // mod-022 api-contract § 1: never the top level (BR-TD-6); not while a team is linked (BR-TD-4).
+      if (parent === null) {
+        refuse('organizations.area.project_needs_department');
+      }
+      if (parent.id === area.parentId) {
+        return this.areaAnswer(area);
+      }
+      const moving = this.data.projects.find((candidate) => candidate.id === area.projectId);
+      if (moving && this.data.links.some((link) => link.projectId === moving.id)) {
+        refuse('organizations.area.project_has_teams');
       }
     } else {
       if (parent === null || parent.type === 'department') {

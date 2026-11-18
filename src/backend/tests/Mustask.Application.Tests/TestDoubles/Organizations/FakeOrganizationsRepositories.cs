@@ -164,6 +164,9 @@ public sealed class FakeProjectTeamRepository(InMemoryOrganizations store) : IPr
     public Task<bool> HasLinksAsync(Guid organizationId, Guid teamId, CancellationToken cancellationToken) =>
         Task.FromResult(store.Links.Any(link => link.OrganizationId == organizationId && link.TeamId == teamId));
 
+    public Task<bool> HasProjectLinksAsync(Guid organizationId, Guid projectId, CancellationToken cancellationToken) =>
+        Task.FromResult(store.Links.Any(link => link.OrganizationId == organizationId && link.ProjectId == projectId));
+
     public Task<bool> LockLinkForShareAsync(Guid organizationId, Guid projectId, Guid teamId, CancellationToken cancellationToken)
     {
         store.Record($"lock link share {projectId} {teamId}");

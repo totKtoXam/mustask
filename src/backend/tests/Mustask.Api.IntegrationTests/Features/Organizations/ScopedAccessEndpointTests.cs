@@ -142,7 +142,7 @@ public sealed class ScopedAccessEndpointTests(MustaskApiFactory factory)
         var top = await SendAsync(HttpMethod.Get, OrganizationsApi.Project(w.Structure.OrganizationId, w.Structure.ProjectId), null, w.Admin.Token);
 
         Assert.Equal((w.Department.Id.ToString(), true), (under.Body.GetProperty("department").GetProperty("id").GetString(), under.Body.GetProperty("inheritsAccess").GetBoolean()));
-        Assert.Equal(System.Text.Json.JsonValueKind.Null, top.Body.GetProperty("department").ValueKind);
+        Assert.Equal(System.Text.Json.JsonValueKind.Object, top.Body.GetProperty("department").ValueKind);
     }
 
     // US-4 · the codes served on a project are the caller's own on it: a project reader holds the reads, a manager holds the grant code.
@@ -184,7 +184,7 @@ public sealed class ScopedAccessEndpointTests(MustaskApiFactory factory)
 
     // BR-SA-17 · the place decides the creation: a department manager creates in their department and not at the top level.
     [Fact]
-    public async Task ADepartmentManager_CreatesAProjectInTheirDepartment_NotAtTheTopLevel()
+    public async Task ADepartmentManager_CreatesAProjectInTheirDepartment_AndNoOneAtTheTopLevel()
     {
         var w = await WorldAsync();
         var manager = await DepartmentManagerAsync(w);
@@ -192,11 +192,11 @@ public sealed class ScopedAccessEndpointTests(MustaskApiFactory factory)
 
         var inside = await SendAsync(HttpMethod.Post, projects, new { name = "Новый", key = "NEW", parentAreaId = w.Department.Id.ToString() }, manager.Token);
         var top = await SendAsync(HttpMethod.Post, projects, new { name = "Верхний", key = "TOP" }, manager.Token);
-        var admin = await SendAsync(HttpMethod.Post, projects, new { name = "Верхний", key = "TOP" }, w.Admin.Token);
+        var admin = await SendAsync(HttpMethod.Post, projects, new { name = "Верхний", key = "TOP" }, w.Admin.Token);  // mod-022 BR-TD-6: not even the administrator
 
         Assert.Equal(HttpStatusCode.Created, inside.Status);
-        Assert.Equal(HttpStatusCode.Forbidden, top.Status);
-        Assert.Equal(HttpStatusCode.Created, admin.Status);
+        Assert.Equal(HttpStatusCode.BadRequest, top.Status); // no department: 400 before any place is judged (BR-TD-6)
+        Assert.Equal(HttpStatusCode.BadRequest, admin.Status);
     }
 
     // BR-SA-17 · a plain member of the organization creates nowhere, and learns nothing about an unknown place.

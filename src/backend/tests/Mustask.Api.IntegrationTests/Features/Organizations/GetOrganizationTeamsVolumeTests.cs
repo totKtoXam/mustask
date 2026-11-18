@@ -37,7 +37,7 @@ public sealed class GetOrganizationTeamsVolumeTests(MustaskApiFactory factory, I
 
             for (var p = 0; p < Projects; p++)
             {
-                var project = Project.Create(organization.Id, OrganizationsTestData.Name($"Проект {p:D3}"), $"P{p:D3}", OrganizationsTestData.Now, OrganizationsTestData.Creator, "blue");
+                var project = Project.Create(organization.Id, OrganizationsTestData.Name($"Проект {p:D3}"), $"P{p:D3}", OrganizationsTestData.Now, OrganizationsTestData.Creator, "blue", parentAreaId: department);
                 projects.Add(project);
                 projectIds.Add(project.Project.Id);
             }

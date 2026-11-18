@@ -51,7 +51,7 @@ public sealed class OrganizationsSaveChangesTests(OrganizationsDatabaseFixture d
         {
             var repository = scope.ServiceProvider.GetRequiredService<IProjectRepository>();
 
-            repository.Add(Project.Create(structure.Organization.Id, Name("пример ПРОЕКТА"), "OTHER", Now, Creator, "blue"));
+            repository.Add(Project.Create(structure.Organization.Id, Name("пример ПРОЕКТА"), "OTHER", Now, Creator, "blue", parentAreaId: structure.Department.Id));
             await repository.SaveAsync(ct);
         });
 
@@ -68,7 +68,7 @@ public sealed class OrganizationsSaveChangesTests(OrganizationsDatabaseFixture d
         {
             var repository = scope.ServiceProvider.GetRequiredService<IProjectRepository>();
 
-            repository.Add(Project.Create(structure.Organization.Id, Name("Другой проект"), "PRM", Now, Creator, "blue"));
+            repository.Add(Project.Create(structure.Organization.Id, Name("Другой проект"), "PRM", Now, Creator, "blue", parentAreaId: structure.Department.Id));
             await repository.SaveAsync(ct);
         });
 

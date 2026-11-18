@@ -32,6 +32,7 @@ namespace Mustask.Application.Features.Organizations.LinkTeamsToProject;
 public sealed class LinkTeamsToProjectHandler(
     IProjectRepository projects,
     ITeamRepository teams,
+    IAreaRepository areas,
     IProjectTeamRepository links,
     IOrganizationAccess access,
     ICurrentUser currentUser,
@@ -100,6 +101,20 @@ public sealed class LinkTeamsToProjectHandler(
                 if (!await ScopedCodes.HoldsOnAllAsync(access, PermissionCatalog.OrganizationsTeamLink, command.TeamIds, ct))
                 {
                     throw new ForbiddenException(OrganizationErrorCodes.AccessForbidden);
+                }
+
+                // BR-TD-3 (mod-022): every team stands in the project's department; the project node is locked FOR SHARE and its
+                // department read under that lock.
+                var (nodeFound, projectDepartment) = await areas.LockProjectNodeForShareAsync(organizationId, projectId, ct);
+
+                if (!nodeFound)
+                {
+                    throw new NotFoundException(OrganizationErrorCodes.ProjectNotFound);
+                }
+
+                if (locked.Any(team => team.DepartmentId != projectDepartment))
+                {
+                    throw new ConflictException(OrganizationErrorCodes.TeamOtherDepartment);
                 }
 
                 // 4. One statement for all the pairs; a pair already linked is left as it is.

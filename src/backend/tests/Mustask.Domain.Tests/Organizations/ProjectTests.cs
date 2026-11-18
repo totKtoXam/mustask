@@ -11,7 +11,7 @@ public sealed class ProjectTests
     {
         var organizationId = Guid.CreateVersion7();
 
-        var made = Project.Create(organizationId, Name(" Пример проекта "), "PRM", Now, Creator, "blue");
+        var made = Project.Create(organizationId, Name(" Пример проекта "), "PRM", Now, Creator, "blue", parentAreaId: Guid.CreateVersion7());
         var created = made.Project;
 
         Assert.Equal(organizationId, created.OrganizationId);
@@ -24,10 +24,10 @@ public sealed class ProjectTests
         Assert.Null(created.DefaultTeamId);
         Assert.Null(created.Description);
 
-        // mod-018 OQ-5 A: the project comes with its node, named after it, at the top, owning nothing.
+        // mod-018 OQ-5 A: the project comes with its node, named after it, under its department, owning nothing.
         Assert.Equal(AreaType.Project, made.Root.Type);
         Assert.Equal(created.Id, made.Root.ProjectId);
-        Assert.Null(made.Root.ParentId);
+        Assert.NotNull(made.Root.ParentId);
         Assert.Equal("Пример проекта", made.Root.Name);
     }
 
@@ -37,7 +37,7 @@ public sealed class ProjectTests
     {
         Assert.True(EntityDescription.TryCreate(" О проекте\n", out var description));
 
-        var created = Project.Create(Guid.CreateVersion7(), Name("Проект"), "PRJ", Now, Creator, "blue", description).Project;
+        var created = Project.Create(Guid.CreateVersion7(), Name("Проект"), "PRJ", Now, Creator, "blue", description, Guid.CreateVersion7()).Project;
 
         Assert.Equal(" О проекте\n", created.Description);
     }
@@ -67,7 +67,7 @@ public sealed class ProjectTests
     [InlineData("prm")]
     public void Create_MalformedKey_IsADefect(string key)
     {
-        Assert.Throws<ArgumentException>(() => Project.Create(Guid.CreateVersion7(), Name("Проект"), key, Now, Creator, "blue"));
+        Assert.Throws<ArgumentException>(() => Project.Create(Guid.CreateVersion7(), Name("Проект"), key, Now, Creator, "blue", parentAreaId: Guid.CreateVersion7()));
     }
 
     // US-3 · "Renaming a project keeps its key" (mod-018 BR-AW-11: a project has no root area to rename).
@@ -127,12 +127,25 @@ public sealed class ProjectTests
     [Fact]
     public void Create_KeepsTheColour()
     {
-        Assert.Equal("pink", Project.Create(Guid.CreateVersion7(), Name("Проект"), "PRJ", Now, Creator, "pink").Project.Color);
+        Assert.Equal("pink", Project.Create(Guid.CreateVersion7(), Name("Проект"), "PRJ", Now, Creator, "pink", parentAreaId: Guid.CreateVersion7()).Project.Color);
     }
 
     [Fact]
     public void Create_WithAColourOutsideThePalette_IsADefect()
     {
-        Assert.Throws<ArgumentException>(() => Project.Create(Guid.CreateVersion7(), Name("Проект"), "PRJ", Now, Creator, "chartreuse"));
+        Assert.Throws<ArgumentException>(() => Project.Create(Guid.CreateVersion7(), Name("Проект"), "PRJ", Now, Creator, "chartreuse", parentAreaId: Guid.CreateVersion7()));
+    }
+
+    // mod-022 BR-TD-6: a project's node stands in a department, never at the top.
+    [Fact]
+    public void Create_WithoutADepartment_IsRefused_WithOne_NodeStandsUnderIt()
+    {
+        Assert.Throws<ArgumentException>(() => Project.Create(Guid.CreateVersion7(), Name("Проект"), "PRJ", Now, Creator, "blue"));
+        Assert.Throws<ArgumentException>(() => Project.Create(Guid.CreateVersion7(), Name("Проект"), "PRJ", Now, Creator, "blue", parentAreaId: Guid.Empty));
+
+        var department = Guid.CreateVersion7();
+        var made = Project.Create(Guid.CreateVersion7(), Name("Проект"), "PRJ", Now, Creator, "blue", parentAreaId: department);
+
+        Assert.Equal(department, made.Root.ParentId);
     }
 }

@@ -46,7 +46,7 @@ public sealed class ReadModelsTests(OrganizationsDatabaseFixture database)
 
         Assert.Single(counter.Commands);
         Assert.Equal(452, rows.Count);
-        Assert.Equal(10, new AreaTree(rows.Select(row => row.ToNode())).LevelOf(areas[^1].Id));
+        Assert.Equal(11, new AreaTree(rows.Select(row => row.ToNode())).LevelOf(areas[^1].Id)); // the department above the project node is the first level (mod-022)
     }
 
     // A row is a node's place, name, type and project and nothing about a team: no join to the teams.
@@ -67,7 +67,7 @@ public sealed class ReadModelsTests(OrganizationsDatabaseFixture database)
             [
                 (api.Id, (Guid?)structure.Project.Root.Id, "API", AreaType.Area),
                 (structure.Department.Id, null, "Отдел структуры", AreaType.Department),
-                (structure.Project.Root.Id, null, "Пример проекта", AreaType.Project),
+                (structure.Project.Root.Id, structure.Department.Id, "Пример проекта", AreaType.Project),
                 (department.Id, null, "Разработка", AreaType.Department),
             ],
             rows.Select(row => (row.Id, row.ParentId, row.Name, row.Type)).OrderBy(row => row.Name, StringComparer.Ordinal));

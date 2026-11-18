@@ -39,7 +39,7 @@ public sealed class DeleteTeamVolumeTests(MustaskApiFactory factory, ITestOutput
         await WorkItemsTestData.ExecuteAsync(factory, $"""
             INSERT INTO backlog_orders (team_id, backlog_level_id) VALUES ({world.Mars}, {level}) ON CONFLICT DO NOTHING
             """);
-        var betaRoot = (await QueryAsync($"SELECT id::text AS \"Value\" FROM areas WHERE project_id = {world.OtherProjectId} AND parent_id IS NULL")).Single();
+        var betaRoot = (await QueryAsync($"SELECT id::text AS \"Value\" FROM areas WHERE project_id = {world.OtherProjectId} AND type = 2")).Single();
 
         await SeedAsync(world, world.ProjectId, world.Items.RootAreaId, InAlpha, placed: 1_000);
         await SeedAsync(world, world.OtherProjectId, Guid.Parse(betaRoot), InBeta, placed: 300);

@@ -20,8 +20,8 @@ public sealed class AddTeamHandlerTests
         {
             AreaRepository = new FakeAreaRepository(Store);
             Organization = Store.AddOrganization();
-            Project = Store.AddProject(Organization).Project;
             Department = Store.AddDepartment(Organization, "Разработка");
+            Project = Store.AddProject(Organization, department: Department).Project;
             Clock.UtcNow = new DateTimeOffset(2026, 10, 17, 3, 0, 0, TimeSpan.Zero);
             User.SubjectId = "admin-anna";
             Directory.Add("u-1", "Иван", "ivan@example.test", true);
@@ -240,6 +240,21 @@ public sealed class AddTeamHandlerTests
         Assert.Equal(OrganizationErrorCodes.AccessForbidden, withProjects.Code);
         Assert.Equal(OrganizationErrorCodes.AccessForbidden, withMembers.Code);
         Assert.Empty(f.Store.Teams);
+    }
+
+    // doc-016 BR-TD-3 (mod-022): a project of another department than the new team's is refused 409 team.other_department, no team created.
+    [Fact]
+    public async Task Handle_ProjectOfAnotherDepartment_Is409_CreatesNothing()
+    {
+        var f = new Fixture();
+        var finance = f.Store.AddDepartment(f.Organization, "Финансы");
+        var other = f.Store.AddProject(f.Organization, "Другой", "OTH", finance).Project;
+
+        var refusal = await Assert.ThrowsAsync<ConflictException>(() => f.HandleAsync(f.Command(projectIds: [other.Id.ToString()])));
+
+        Assert.Equal(OrganizationErrorCodes.TeamOtherDepartment, refusal.Code);
+        Assert.Empty(f.Store.Teams);
+        Assert.Empty(f.Store.Links);
     }
 
     // plan-backend: the tree lock, then the department FOR SHARE (ADR-0040 § 1), then one flush; the team itself is new and bound by nothing.

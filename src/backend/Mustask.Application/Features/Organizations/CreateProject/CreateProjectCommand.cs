@@ -10,7 +10,7 @@ namespace Mustask.Application.Features.Organizations.CreateProject;
 /// <param name="Key">The key as sent: never trimmed or upper-cased.</param>
 /// <param name="Description">The description as sent, never trimmed; <c>null</c>, absent and the empty string are none (BR-OL-3).</param>
 /// <param name="ParentAreaId">
-/// The department the project's node stands under (mod-018 BR-AW-3); absent or <c>null</c> is the top level. A node that is not a
+/// The department the project's node stands under (mod-018 BR-AW-3); required: absent or <c>null</c> is refused 400 <c>department_required</c> (doc-016 BR-TD-6). A node that is not a
 /// department is refused <c>type_not_allowed</c>, an unknown one <c>area.not_found</c>.
 /// </param>
 /// <param name="TeamIds">

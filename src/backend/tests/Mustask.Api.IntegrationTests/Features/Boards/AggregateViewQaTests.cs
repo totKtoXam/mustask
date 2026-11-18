@@ -41,7 +41,7 @@ public sealed class AggregateViewQaTests(MustaskApiFactory factory)
         foreach (var view in new[] { cast.Alpha, cast.Beta })
         {
             await WorkItemsTestData.ExecuteAsync(
-                factory, $"UPDATE areas SET parent_id = {department.Id} WHERE project_id = {view.ProjectId} AND parent_id IS NULL");
+                factory, $"UPDATE areas SET parent_id = {department.Id} WHERE project_id = {view.ProjectId} AND type = 2");
         }
 
         var at = new DateTimeOffset(2026, 10, 1, 12, 0, 0, TimeSpan.Zero);
@@ -215,7 +215,7 @@ public sealed class AggregateViewQaTests(MustaskApiFactory factory)
         var (cast, items, department) = await SeedAsync();
 
         await WorkItemsTestData.ExecuteAsync(factory, $"UPDATE work_items SET owning_team_id = {cast.Venus} WHERE id = {items["A1"].Id}");
-        await WorkItemsTestData.ExecuteAsync(factory, $"UPDATE areas SET parent_id = {department} WHERE project_id = {cast.Gamma.ProjectId} AND parent_id IS NULL");
+        await WorkItemsTestData.ExecuteAsync(factory, $"UPDATE areas SET parent_id = {department} WHERE project_id = {cast.Gamma.ProjectId} AND type = 2");
 
         var byTeam = await GetAsync(cast, "/backlogs/stories/groups?grouping=team", factory);
         var byDepartment = await GetAsync(cast, "/backlogs/stories/groups?grouping=department", factory);

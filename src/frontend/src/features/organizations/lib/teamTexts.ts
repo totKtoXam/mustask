@@ -136,6 +136,10 @@ export const linkDialog = {
     text: (projectName: string) =>
       `Выбранные команды войдут в проект «${projectName}». Работу команд это не меняет.`,
     allLinked: 'Все команды уже подключены к проекту.',
+    /** doc-016 design § 7.5 (BR-TD-3). */
+    allLinkedInDepartment: 'Все команды департамента уже подключены к проекту.',
+    noneInDepartment: (department: string) =>
+      `В департаменте «${department}» нет команд. Создайте команду в этом департаменте.`,
     noneExist: 'В организации пока нет команд. Создайте первую в разделе «Организация» → ',
     sectionName: '«Команды»',
     loadFailed: 'Не удалось загрузить команды. Попробуйте ещё раз.',
@@ -148,6 +152,10 @@ export const linkDialog = {
     text: (teamName: string) =>
       `Команда «${teamName}» войдёт в выбранные проекты. Её работу это не меняет.`,
     allLinked: 'Команда уже подключена ко всем проектам.',
+    /** Written by the developer: § 7.5 says the team's picker mirrors the project's (for gate-3). */
+    allLinkedInDepartment: 'Команда уже подключена ко всем проектам департамента.',
+    noneInDepartment: (department: string) =>
+      `В департаменте «${department}» нет проектов. Создайте проект в этом департаменте.`,
     noneExist: 'В организации нет активных проектов.',
     loadFailed: 'Не удалось загрузить проекты. Попробуйте ещё раз.',
     linkedOne: (projectName: string) => `Проект «${projectName}» добавлен.`,
@@ -223,7 +231,11 @@ export const projectTexts = {
     teams: {
       label: 'Команды',
       hint: 'Необязательно. Команды можно добавить позже на странице «Команды» проекта.',
-      none: 'В организации пока нет команд.',
+      /** doc-016 design § 7.4 (BR-TD-3): the department's teams only. */
+      none: (department: string) =>
+        `В департаменте «${department}» нет команд. Создайте команду в этом департаменте.`,
+      /** Written by the developer (design has none), for gate-3. */
+      chooseDepartment: 'Сначала выберите расположение.',
     },
   },
   rename: {

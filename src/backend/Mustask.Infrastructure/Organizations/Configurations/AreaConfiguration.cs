@@ -63,7 +63,7 @@ internal sealed class AreaConfiguration : IEntityTypeConfiguration<Area>
             table.HasCheckConstraint(
                 OrganizationsConstraints.AreaTypeShape,
                 "(type = 1 AND project_id IS NULL AND parent_id IS NULL) "
-                + "OR (type = 2 AND project_id IS NOT NULL) "
+                + "OR (type = 2 AND project_id IS NOT NULL AND parent_id IS NOT NULL) "
                 + "OR (type = 3 AND project_id IS NOT NULL AND parent_id IS NOT NULL)");
         });
     }

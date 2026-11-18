@@ -44,11 +44,11 @@ public sealed class TeamStatementCountTests(OrganizationsDatabaseFixture databas
     private const int ProjectTeamsStatements = 2;
     private const int TeamProjectsStatements = 2;
     private const int DeletionCountsStatements = 3;
-    private const int LinkTeamsStatements = 4;
-    private const int LinkProjectsStatements = 4;
-    private const int AddTeamStatements = 10;
+    private const int LinkTeamsStatements = 5; // 4 + the project nodes locked FOR SHARE in one statement (mod-022 BR-TD-3)
+    private const int LinkProjectsStatements = 5; // 4 + the same one statement
+    private const int AddTeamStatements = 11; // + the project nodes locked FOR SHARE in one statement (mod-022 BR-TD-3)
     private const int NewTeamMemberCandidatesStatements = 2;
-    private const int CreateProjectStatements = 10;   // 6 + the area tree lock (2) and the project node insert + the department parent read (mod-018, ADR-0031) + the colours in use (mod-021)
+    private const int CreateProjectStatements = 13;   // mod-022: 13, with a department named (the place check, the nodes of the teams); 6 + the area tree lock (2) and the project node insert + the department parent read (mod-018, ADR-0031) + the colours in use (mod-021)
     private const int UnlinkStatements = 14;     // 11 + the hierarchy lock's two (mod-005 QD-1) + the open-sprint lock (mod-007, ADR-0028 rule 7)
     private const int DeletionStatements = 15;   // 11 + the same two, + the open-sprint lock (mod-007), for every linked project at once, + the team grants ended (mod-019 BR-SA-3); the area links ended retired (mod-021)
 
@@ -186,11 +186,13 @@ public sealed class TeamStatementCountTests(OrganizationsDatabaseFixture databas
     {
         var small = await SeedAsync(projects: 1, teams: 1, linksPerTeam: 0);
         var large = await SeedAsync(projects: 1, teams: 50, linksPerTeam: 0);
+        var smallDepartment = Id(await database.DepartmentOfAsync(small.OrganizationId));
+        var largeDepartment = Id(await database.DepartmentOfAsync(large.OrganizationId));
 
         var smallCount = await CountAsync((p, ct) => p.GetRequiredService<CreateProjectHandler>().Handle(
-            new CreateProjectCommand(Id(small.OrganizationId), "Малый проект", "SMLP", "Описание", [Id(small.Team)]), ct));
+            new CreateProjectCommand(Id(small.OrganizationId), "Малый проект", "SMLP", "Описание", [Id(small.Team)], smallDepartment), ct));
         var largeCount = await CountAsync((p, ct) => p.GetRequiredService<CreateProjectHandler>().Handle(
-            new CreateProjectCommand(Id(large.OrganizationId), "Большой проект", "BIGP", "Описание", large.TeamIds.Select(Id).ToList()), ct));
+            new CreateProjectCommand(Id(large.OrganizationId), "Большой проект", "BIGP", "Описание", large.TeamIds.Select(Id).ToList(), largeDepartment), ct));
 
         Assert.Equal(smallCount, largeCount);
         Assert.Equal(CreateProjectStatements, largeCount);
@@ -383,7 +385,7 @@ public sealed class TeamStatementCountTests(OrganizationsDatabaseFixture databas
 
         for (var index = 1; index < projects; index++)
         {
-            var project = Project.Create(organization, OrganizationsDatabaseFixture.Name($"Проект {index:D3}"), $"P{index:D3}", OrganizationsDatabaseFixture.Now, OrganizationsDatabaseFixture.Creator, "blue");
+            var project = Project.Create(organization, OrganizationsDatabaseFixture.Name($"Проект {index:D3}"), $"P{index:D3}", OrganizationsDatabaseFixture.Now, OrganizationsDatabaseFixture.Creator, "blue", parentAreaId: first.Department.Id);
             context.Projects.Add(project.Project);
             context.Areas.Add(project.Root);
             projectIds.Add(project.Project.Id);
@@ -425,7 +427,7 @@ public sealed class TeamStatementCountTests(OrganizationsDatabaseFixture databas
 
         foreach (var project in linked)
         {
-            var root = (await database.QueryAsync("SELECT id::text FROM areas WHERE project_id = @project AND parent_id IS NULL", ("project", project))).Single();
+            var root = (await database.QueryAsync("SELECT id::text FROM areas WHERE project_id = @project AND type = 2", ("project", project))).Single();
 
             await database.ExecuteAsync(
                 """

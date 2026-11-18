@@ -62,7 +62,7 @@ public sealed class SightRulesTests
     [Fact]
     public void TheFlag_IsOffAtCreation_AndSettingItReportsWhetherItChanged()
     {
-        var project = Project.Create(Guid.CreateVersion7(), Mustask.Domain.Tests.Organizations.OrganizationsDomainTestData.Name("Проект"), "PRJ", DateTimeOffset.UnixEpoch, "u", "blue").Project;
+        var project = Project.Create(Guid.CreateVersion7(), Mustask.Domain.Tests.Organizations.OrganizationsDomainTestData.Name("Проект"), "PRJ", DateTimeOffset.UnixEpoch, "u", "blue", parentAreaId: Guid.CreateVersion7()).Project;
 
         Assert.False(project.VisibleToOrganization);
         Assert.True(project.SetVisibleToOrganization(true));

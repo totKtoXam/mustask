@@ -41,7 +41,7 @@ public sealed class AggregateViewEndpointTests(MustaskApiFactory factory)
         foreach (var view in new[] { cast.Alpha, cast.Beta })
         {
             await WorkItemsTestData.ExecuteAsync(
-                factory, $"UPDATE areas SET parent_id = {department.Id} WHERE project_id = {view.ProjectId} AND parent_id IS NULL");
+                factory, $"UPDATE areas SET parent_id = {department.Id} WHERE project_id = {view.ProjectId} AND type = 2");
         }
 
         // A known change order, newest first: G1, B1, A4, A3, A2, A1.
@@ -103,7 +103,7 @@ public sealed class AggregateViewEndpointTests(MustaskApiFactory factory)
         Assert.Equal([3], Counts(answer, "total"));
     }
 
-    // BR-AV-4 · by department, «Без департамента» (a project at the top level) first.
+    // BR-AV-4 · by department, by name (mod-022: every project stands in a department, so «Без департамента» stays empty).
     [Fact]
     public async Task Groups_ByDepartment_PutNoDepartmentFirst()
     {
@@ -111,7 +111,7 @@ public sealed class AggregateViewEndpointTests(MustaskApiFactory factory)
 
         var answer = await GetAsync(cast, "/backlogs/stories/groups?grouping=department", factory);
 
-        Assert.Equal(["-", "Разработка"], Names(answer));
+        Assert.Equal(["Отдел для команд", "Разработка"], Names(answer));
         Assert.Equal([1, 5], Counts(answer));
     }
 
@@ -218,13 +218,14 @@ public sealed class AggregateViewEndpointTests(MustaskApiFactory factory)
     public async Task Rows_OfAGroup_ArePagedUntilTheEnd_WithoutATotal()
     {
         var (cast, _, department) = await SeedAsync();
+        var teamsDepartment = await OrganizationsTestData.DepartmentForTeamsAsync(factory, cast.OrganizationId); // mod-022: no project is without a department; Gamma stays in the helpers' one
         var seen = new List<string>();
         string? cursor = null;
         var pages = 0;
 
         do
         {
-            var query = "/backlogs/stories/rows?grouping=department&group=none&limit=2" + (cursor is null ? string.Empty : "&cursor=" + Uri.EscapeDataString(cursor));
+            var query = $"/backlogs/stories/rows?grouping=department&group={teamsDepartment}&limit=2" + (cursor is null ? string.Empty : "&cursor=" + Uri.EscapeDataString(cursor));
             var page = await GetAsync(cast, query, factory);
             Assert.Equal(HttpStatusCode.OK, page.Status);
             Assert.False(page.Body.TryGetProperty("total", out _));

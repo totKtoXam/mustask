@@ -61,15 +61,15 @@ describe('mod-019 «Создать проект» by place', () => {
     );
   });
 
-  it('keeps the administrator’s «Верхний уровень» and every department', async () => {
+  it('offers the administrator every department, and no «Верхний уровень» (mod-022 BR-TD-6)', async () => {
     openPage({ path: PROJECTS });
 
     await userEvent.click(await screen.findByRole('button', { name: 'Создать проект' }));
     const dialog = await screen.findByRole('dialog', { name: 'Новый проект' });
     await userEvent.click(await within(dialog).findByRole('combobox', { name: /Расположение/ }));
 
-    expect((await screen.findAllByRole('option')).map((option) => option.textContent)).toContain(
-      'Платформа',
-    );
+    const options = (await screen.findAllByRole('option')).map((option) => option.textContent);
+    expect(options).toContain('Платформа');
+    expect(options).not.toContain('Верхний уровень');
   });
 });

@@ -42,3 +42,35 @@ internal static class LinkableFor
             });
     }
 }
+
+/// <summary>
+/// doc-016 BR-TD-3 (mod-022): a project–team link joins a team and a project standing in the same department. Each project's node is
+/// locked <c>FOR SHARE</c> in id order and its department read under that lock, so a link against a move of the project (which holds the
+/// node <c>FOR NO KEY UPDATE</c>) ends in one order: the link refused, or the move refused (BR-TD-4).
+/// </summary>
+internal static class LinkPlaces
+{
+    public static async Task EnsureSameDepartmentAsync(
+        IAreaRepository areas, Guid organizationId, IEnumerable<Guid> projectIds, Guid? departmentId, CancellationToken cancellationToken)
+    {
+        var wanted = projectIds.Distinct().Order().ToList();
+
+        if (wanted.Count == 0)
+        {
+            return;
+        }
+
+        // One statement for all the nodes, whatever their number (the statement-count rule), in project-id order.
+        var places = await areas.LockProjectNodesForShareAsync(organizationId, wanted, cancellationToken);
+
+        if (wanted.Any(projectId => !places.ContainsKey(projectId)))
+        {
+            throw new Mustask.Shared.Exceptions.NotFoundException(OrganizationErrorCodes.ProjectNotFound);
+        }
+
+        if (departmentId is null || wanted.Any(projectId => places[projectId] != departmentId))
+        {
+            throw new Mustask.Shared.Exceptions.ConflictException(OrganizationErrorCodes.TeamOtherDepartment);
+        }
+    }
+}

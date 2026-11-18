@@ -54,7 +54,7 @@ public sealed class RefusalLogTests(MustaskApiFactory factory)
         await using var host = HostWith(logs);
 
         var answer = await OrganizationsApi.SendAsync(
-            host.Factory, HttpMethod.Post, $"/api/organizations/{organization.Id}/projects", new { name = "Проект читателя", key = "RLG" }, viewer.Token);
+            host.Factory, HttpMethod.Post, $"/api/organizations/{organization.Id}/projects", await OrganizationsTestData.InDepartmentAsync(factory, organization.Id, new { name = "Проект читателя", key = "RLG" }), viewer.Token);
 
         Assert.Equal((HttpStatusCode.Forbidden, "organizations.access.forbidden"), (answer.Status, answer.ErrorCode));
         var line = Assert.Single(RefusalLines(logs));

@@ -246,6 +246,7 @@ public static class OrganizationAddressedRoutes
                 key = "PRM",
                 areaId = Guid.CreateVersion7().ToString(),
                 parentId = Guid.CreateVersion7().ToString(),
+                parentAreaId = Guid.CreateVersion7().ToString(),
                 teamId = (string?)null,
                 requestId = Guid.CreateVersion7().ToString(),
                 typeId = Guid.CreateVersion7().ToString(),
