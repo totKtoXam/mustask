@@ -1,3 +1,5 @@
+using System.Diagnostics.CodeAnalysis;
+
 namespace Mustask.Infrastructure.Images.Intake.Processing;
 
 /// <summary>
@@ -5,7 +7,10 @@ namespace Mustask.Infrastructure.Images.Intake.Processing;
 /// uniform weights, <c>C1 = (0.01 * 255)^2</c>, <c>C2 = (0.03 * 255)^2</c>, the mean over all windows. Running column sums over a
 /// window-high band keep memory at O(width) and time at O(pixels); stripes of window rows run in parallel. Our own, so that a
 /// library change cannot move a threshold the spec names; pinned by unit tests against hand-computed values.
+/// Out of the coverage count: the collector's per-line counters in these per-pixel loops made one 12 MP comparison tens of times
+/// slower in CI's coverage runs and pushed the image tests past every ceiling; <c>SsimTests</c> pins the math instead.
 /// </summary>
+[ExcludeFromCodeCoverage]
 internal static class Ssim
 {
     private const int Window = 8;
