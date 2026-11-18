@@ -10,7 +10,7 @@
 
 ## Gates
 
-gate-3: approved (2026-11-18, by the human in chat, after the gate-3 package; no debts)
+gate-3: approved (2026-11-18, by the human in chat, after the gate-3 package; no debts) · PR #223 https://github.com/totKtoXam/mustask/pull/223
 
 ## Plan
 
@@ -66,3 +66,4 @@ Verification: affected tests locally, the full verify.sh in CI.
 - 2026-11-18 [backend] merged origin/main (731260bc, feat-061 sight in structure lists) into the branch. One set form kept: feat-061's `AccessSet.Sighted()` / `CallerAccess.Sight` (required) is the only way a read carries the sight; feat-062's `CallerAccess.Visible` and `CallerAccess.NotNarrowed` are gone, `CallerAccess.Projects` (still fail-closed: a non-administrator without a sight throws) is derived from `Sight.Projects`, and `AccessSet.SeenProjects()` shares one `SeenProjectIds()` computation with `Sighted()`. The Boards/WorkItems handlers build the caller from `(await access.SetAsync(ct)).Sighted()` (same cached set, no added statement); `IOrganizationAccess.VisibleProjectsAsync` stays for the sprint reads and `ReorderBacklog`. Both features' narrowings and tests kept (AccessSetSightTests holds both sets of facts). Re-pinned nothing; the one test double that needed a change is the member double of AggregateViewStatementCountTests, which now serves `SetAsync` (the handlers read the set, not `VisibleProjectsAsync`). api-contract § intro notes the single source; no behaviour changed.
 - 2026-11-18 [code-reviewer] round 3 (merge 7c3a4f3d, feat-061 resolution): approved; no narrowing lost, no fail-open path, admin unchanged; 1 minor open (R-7, debt). See review.md.
 - 2026-11-18 [orchestrator] review round 3 R-7 (minor) fixed: CallerAccess.Projects computed on each read, no cached field in the record; Application.Tests AccessSet|CallerAccess 22 green. No open findings. Api volume tests failed locally on wall-clock budgets under machine load only; CI decides.
+- 2026-11-18 [orchestrator] merged fresh origin/main (queue line only), pushed; PR #223 opened (merge commit, auto-merge asked for, branch kept).
