@@ -27,3 +27,4 @@ starts** is not written here — its number is held by the branch and the
 - [x] feat-056-login-logo — withdrawn: The login page is the company-wide shared Keycloak login; the human ruled on 2026-11-12 that MUSTASK does not touch the shared stand or its login page, so there is no place to put the logo., 2026-11-12
 - [x] tech-067-aggregate-board-create-cell-reload — withdrawn: Fixed in feat-060 PR #144 (m3, human decision 2026-11-13), 2026-11-13
 - [x] tech-068-slow-form-tests — withdrawn: absorbed by tech-074-ci-full-run-speed (human, 2026-11-16), 2026-11-16
+- [x] mod-011-sprint-views — withdrawn: absorbed whole by feat-057-team-sprint-board (the human, 2026-11-18): the sprint taskboard, grouping by people and the sprint backlog tab, 2026-11-18
