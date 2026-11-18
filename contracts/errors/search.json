@@ -1,0 +1,34 @@
+{
+  "module": "search",
+  "origin": "slice",
+  "codes": {
+    "search.validation_failed": {
+      "statuses": [400],
+      "params": {},
+      "ru": "Проверьте правильность запроса.",
+      "kk": "Сұраныстың дұрыстығын тексеріңіз.",
+      "kkNeedsReview": true
+    },
+    "search.query_too_short": {
+      "statuses": [400],
+      "params": {},
+      "ru": "Введите не менее 2 символов.",
+      "kk": "Кемінде 2 таңба енгізіңіз.",
+      "kkNeedsReview": true
+    },
+    "search.query_too_long": {
+      "statuses": [400],
+      "params": {},
+      "ru": "Запрос не должен быть длиннее 100 символов.",
+      "kk": "Сұраныс 100 таңбадан ұзын болмауы керек.",
+      "kkNeedsReview": true
+    },
+    "search.invalid_group": {
+      "statuses": [400],
+      "params": {},
+      "ru": "Такой группы результатов нет.",
+      "kk": "Мұндай нәтиже тобы жоқ.",
+      "kkNeedsReview": true
+    }
+  }
+}

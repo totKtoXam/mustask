@@ -84,6 +84,7 @@ public sealed class WorkItemWriteInventoryTests(MustaskApiFactory factory)
         ["PUT " + Org + "/name"] = new(Kind.NamesNoWorkItem, ReasonContainer),
         ["POST " + Org + "/deactivate"] = new(Kind.NamesNoWorkItem, ReasonContainer),
         ["POST " + Org + "/restore"] = new(Kind.NamesNoWorkItem, ReasonContainer),
+        ["POST " + Org + "/search"] = new(Kind.NamesNoWorkItem, "a read sent as POST (feat-071, ADR-0044 § 5); it writes nothing and finds no work item"),
         ["POST " + Org + "/projects"] = new(Kind.NamesNoWorkItem, ReasonContainer),
         ["PUT " + Project + "/name"] = new(Kind.NamesNoWorkItem, ReasonContainer),
         ["POST " + Project + "/deactivate"] = new(Kind.NamesNoWorkItem, ReasonContainer),
