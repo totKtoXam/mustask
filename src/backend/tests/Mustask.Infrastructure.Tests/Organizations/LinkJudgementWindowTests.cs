@@ -11,6 +11,7 @@ using Mustask.Application.Features.WorkItems.CreateWorkItem;
 using Mustask.Application.Features.WorkItems.SaveWorkItem;
 using Mustask.Domain.Identity;
 using Mustask.Domain.Organizations;
+using Mustask.Infrastructure.Images;
 using Mustask.Infrastructure.Process;
 using Mustask.Infrastructure.UserDirectory;
 using Mustask.Shared.Exceptions;
@@ -339,6 +340,7 @@ public sealed class LinkJudgementWindowTests(OrganizationsDatabaseFixture databa
         services.AddOrganizationsInfrastructure();
         services.AddWorkItemsInfrastructure();
         services.AddIterationsInfrastructure();
+        services.AddImagesInfrastructure();
         services.AddBoardsInfrastructure();
 
         return services.BuildServiceProvider();

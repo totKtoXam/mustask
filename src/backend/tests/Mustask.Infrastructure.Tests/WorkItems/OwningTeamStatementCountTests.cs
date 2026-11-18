@@ -17,6 +17,7 @@ using Mustask.Application.Features.WorkItems.GetWorkItems;
 using Mustask.Application.Features.WorkItems.SaveWorkItem;
 using Mustask.Domain.Identity;
 using Mustask.Domain.Organizations;
+using Mustask.Infrastructure.Images;
 using Mustask.Infrastructure.Process;
 using Mustask.Infrastructure.Tests.Organizations;
 using Mustask.Infrastructure.UserDirectory;
@@ -262,6 +263,7 @@ public sealed class OwningTeamStatementCountTests(OrganizationsDatabaseFixture d
         services.AddOrganizationsInfrastructure();
         services.AddWorkItemsInfrastructure();
         services.AddIterationsInfrastructure();
+        services.AddImagesInfrastructure();
         services.AddBoardsInfrastructure();
 
         return services.BuildServiceProvider();
