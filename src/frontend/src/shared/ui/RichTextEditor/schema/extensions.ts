@@ -18,6 +18,8 @@ import { RtBindings } from '../behaviour/bindings';
 import { RtCodeHighlight } from '../behaviour/codeHighlight';
 import { RtKeyboard } from '../behaviour/keyboard';
 import { RtPaste } from '../behaviour/paste';
+import { RtImage, RtImageKeys, RtImagePlaceholder } from '../images/nodes';
+import { ImageRuntime } from '../images/runtime';
 import { RtCodeBlock, type CodeChrome } from './codeBlock';
 import { RtColor, RtHighlight, RtSize } from './rtMarks';
 import { RtTable, RtTableCell, RtTableHeader, RtTableRow } from './table';
@@ -50,7 +52,8 @@ const RtOrderedList = OrderedList.extend({
  * guards) and the toolbar's two buttons.
  */
 const RtListItem = ListItem.extend({
-  content: 'paragraph (paragraph | bulletList | orderedList)*',
+  // An image is a block of its own in an item (feat-078 BR-IM-7), also alone.
+  content: '(paragraph | imageBlock) (paragraph | imageBlock | bulletList | orderedList)*',
   addKeyboardShortcuts() {
     return {
       Enter: () => this.editor.commands.splitListItem(this.name),
@@ -121,14 +124,18 @@ const RtCode = Code.extend({
  * set also brings link, underline, a trailing node and list keymaps with
  * their own Tab bindings, which BR-RT-20 and ADR-0039 decision 7 switch off.
  * Not registered, so no shortcut or rule can create them: blockquote,
- * horizontal rule, task list, text align, trailing node, image
- * (`extensions.test.ts` pins the list).
+ * horizontal rule, task list, text align, trailing node, the stock image
+ * (`extensions.test.ts` pins the list; the product's image is `images/nodes.ts`).
  *
  * Mark priority is the canonical nesting: link 1000, bold 900, italic 800,
  * underline 700, strike 600, highlight 500, colour 400, size 300, code 200.
  * `placeholder` is the text shown while the document is empty, fixed at mount.
  */
-export function createExtensions(placeholder: string, chrome?: CodeChrome): AnyExtension[] {
+export function createExtensions(
+  placeholder: string,
+  chrome?: CodeChrome,
+  images: ImageRuntime = new ImageRuntime(),
+): AnyExtension[] {
   return [
     Document,
     Paragraph,
@@ -149,6 +156,9 @@ export function createExtensions(placeholder: string, chrome?: CodeChrome): AnyE
     RtSize,
     RtCode.extend({ priority: 200 }),
     chrome ? RtCodeBlock.configure({ chrome }) : RtCodeBlock,
+    RtImage.configure({ runtime: images }),
+    RtImagePlaceholder.configure({ runtime: images }),
+    RtImageKeys.configure({ runtime: images }),
     RtTable,
     RtTableRow,
     RtTableCell,
@@ -191,6 +201,9 @@ export const EXTENSION_NAMES = [
   'rtSize',
   'code',
   'codeBlock',
+  'rtImage',
+  'rtImagePlaceholder',
+  'rtImageKeys',
   'table',
   'tableRow',
   'tableCell',

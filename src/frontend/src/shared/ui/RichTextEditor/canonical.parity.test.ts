@@ -94,7 +94,7 @@ interface HostileCase {
 describe('hostile-corpus.json: the stored markup itself is not rendered', () => {
   const cases = load<HostileCase>('hostile-corpus.json');
 
-  it.each(cases.map((c) => [c.id, c] as const))('%s', (_id, c) => {
+  it.each(cases.map((c) => [c.id, c] as const))('%s', (id, c) => {
     const editor = open(c.input);
     // What the editor serialises and what it puts on the page (the content, not its own
     // root, and not the code block's strip: chrome the editor draws itself, with an icon).
@@ -106,9 +106,11 @@ describe('hostile-corpus.json: the stored markup itself is not rendered', () => 
       for (const needle of c.mustNotContain) {
         expect(surface).not.toContain(needle.toLowerCase());
       }
-      expect(surface).not.toMatch(
-        /<script|<style|<iframe|<img|<svg|<form|\son[a-z]+=|\sstyle=|\sid=|\sname=/,
-      );
+      // The image element is the one element of this family the editor does draw (feat-078).
+      const hostile = id.startsWith('image-')
+        ? /<script|<style|<iframe|<svg|<form|\son[a-z]+=|\sstyle=|\sid=|\sname=|\ssrc=/
+        : /<script|<style|<iframe|<img|<svg|<form|\son[a-z]+=|\sstyle=|\sid=|\sname=/;
+      expect(surface).not.toMatch(hostile);
     }
   });
 });

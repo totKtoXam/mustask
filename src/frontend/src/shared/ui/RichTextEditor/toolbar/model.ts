@@ -1,4 +1,5 @@
 import type { SvgIconComponent } from '@mui/icons-material';
+import ImageIcon from '@mui/icons-material/Image';
 import EmojiEmotionsOutlinedIcon from '@mui/icons-material/EmojiEmotionsOutlined';
 import FormatBoldIcon from '@mui/icons-material/FormatBold';
 import FormatClearIcon from '@mui/icons-material/FormatClear';
@@ -77,6 +78,8 @@ export interface ToolbarContext {
   canLift: boolean;
   /** The editor is not editable (the form is saving). */
   disabled: boolean;
+  /** The host passed `images`: the «Изображение» control exists (feat-078 design § Host seam). */
+  images: boolean;
 }
 
 export function selectToolbarContext(editor: Editor): ToolbarContext {
@@ -142,15 +145,20 @@ export function selectToolbarContext(editor: Editor): ToolbarContext {
     canSink: editor.can().sinkListItem('listItem'),
     canLift: editor.can().liftListItem('listItem'),
     disabled: !editor.isEditable,
+    images: bindingsOf(editor).imagesEnabled,
   };
 }
 
 /** What a control can ask of the editor's own UI (the dialog and the popovers). */
 export interface ToolbarUi {
   openLink: () => void;
+  /** Opens the browser's file chooser for images. */
+  chooseImages: () => void;
 }
 
 export interface ToolbarControlState {
+  /** Not drawn at all (not disabled): a control the host does not offer. */
+  hidden?: boolean;
   pressed?: boolean;
   disabled: boolean;
   /** For a menu: the checked option's value; `null` is the reset item. */
@@ -494,8 +502,18 @@ export const TOOLBAR_GROUPS: readonly ToolbarGroup[] = [
         kind: 'popover',
         state: (context) => ({ disabled: context.disabled }),
       },
-      // RESERVED (feat-NNN images, mentions-links): append «Изображение», «Упомянуть»,
-      // «Ссылка на рабочий элемент» here, after 'emoji', before group 'code'.
+      {
+        // Never context-disabled: in a heading, a cell or a code block the insert lands after the
+        // block (BR-IM-13). Hidden, not disabled, when the host offers no images (D-11).
+        id: 'image',
+        name: (copy) => copy.controls.image,
+        icon: ImageIcon,
+        kind: 'action',
+        state: (context) => ({ hidden: !context.images, disabled: context.disabled }),
+        run: (_editor, ui) => ui.chooseImages(),
+      },
+      // RESERVED (mentions-links): append «Упомянуть», «Ссылка на рабочий элемент» here,
+      // after 'image', before group 'code'.
     ],
   },
   {

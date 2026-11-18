@@ -181,7 +181,7 @@ describe('paste into a cell or a list item (plan § 7.5)', () => {
   });
 });
 
-describe('images and files (D-7, US-1)', () => {
+describe('images and files (D-7, D-8, US-1)', () => {
   it('drops an image of rich content, keeps the text, and tells the member', async () => {
     const { body, editor } = await empty();
 
@@ -200,24 +200,25 @@ describe('images and files (D-7, US-1)', () => {
     await waitFor(() => expect(screen.getByRole('status')).toHaveTextContent(IMAGE));
   });
 
-  it('does not insert a file, prevents the browser from navigating to it, and tells the member', async () => {
+  // feat-078 design D-8: a host without `images` ignores an image file without a notice.
+  it('does not insert a file and prevents the browser from navigating to it, without a notice', async () => {
     const { body, editor } = await empty('<p>до</p>');
 
     const event = pasteInto(body, { files: [{ name: 'a.png', type: 'image/png' }] });
 
     expect(event.defaultPrevented).toBe(true);
     expect(editor().getHTML()).toBe('<p>до</p>');
-    await waitFor(() => expect(screen.getByRole('status')).toHaveTextContent(IMAGE));
+    expect(screen.getByRole('status')).toBeEmptyDOMElement();
   });
 
-  it('refuses a dropped file the same way', async () => {
+  it('ignores a dropped file the same way', async () => {
     const { body, editor } = await empty('<p>до</p>');
 
     const event = dropOn(body, { files: [{ name: 'a.png', type: 'image/png' }] });
 
     expect(event.defaultPrevented).toBe(true);
     expect(editor().getHTML()).toBe('<p>до</p>');
-    await waitFor(() => expect(screen.getByRole('status')).toHaveTextContent(IMAGE));
+    expect(screen.getByRole('status')).toBeEmptyDOMElement();
   });
 
   it('announces a second drop again: the region is emptied and filled once more', async () => {
@@ -227,11 +228,11 @@ describe('images and files (D-7, US-1)', () => {
     const observer = new MutationObserver(() => seen.push(region.textContent ?? ''));
     observer.observe(region, { childList: true, characterData: true, subtree: true });
 
-    dropOn(body, { files: [{ name: 'a.png', type: 'image/png' }] });
+    pasteInto(body, { text: '', html: '<img src="https://e.org/a.png">' });
     await waitFor(() => expect(region).toHaveTextContent(IMAGE));
     seen.length = 0;
 
-    dropOn(body, { files: [{ name: 'b.png', type: 'image/png' }] });
+    pasteInto(body, { text: '', html: '<img src="https://e.org/b.png">' });
     await waitFor(() => expect(seen).toContain(''));
     await waitFor(() => expect(region).toHaveTextContent(IMAGE));
     observer.disconnect();
@@ -239,7 +240,7 @@ describe('images and files (D-7, US-1)', () => {
 
   it('clears the notice on the next edit', async () => {
     const { body, editor, user } = await empty('<p>до</p>');
-    dropOn(body, { files: [{ name: 'a.png', type: 'image/png' }] });
+    pasteInto(body, { text: '', html: '<img src="https://e.org/a.png">' });
     await waitFor(() => expect(screen.getByRole('status')).toHaveTextContent(IMAGE));
 
     select(editor(), positionOf(editor(), 'до') + 2);

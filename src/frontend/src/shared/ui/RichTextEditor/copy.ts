@@ -47,7 +47,8 @@ export interface RichTextCopy {
     | 'language'
     | 'copy'
     | 'table'
-    | 'tableOps',
+    | 'tableOps'
+    | 'image',
     string
   >;
   /** The palettes: the label of each token by its vocabulary name, and the reset item. */
@@ -95,6 +96,48 @@ export interface RichTextCopy {
     /** The clipboard refused (design gap G-2): new copy, for the human at gate-3. */
     codeCopyFailed: string;
   };
+  /** Images in the description (feat-078): the design's § Interface texts and the stories' copy tables. */
+  images: {
+    /** The toolbar control's tooltip. */
+    insert: string;
+    uploading: string;
+    unavailable: string;
+    /** The text alternative of a clipboard image or a file with no name. */
+    defaultAlt: string;
+    open: string;
+    remove: string;
+    openNamed: (alt: string) => string;
+    menu: string;
+    inserted: string;
+    removed: string;
+    keyboardHint: string;
+    waiting: string;
+    refusals: {
+      format: string;
+      tooLarge: string;
+      animation: string;
+      count: string;
+      foreign: string;
+      uploadFailed: string;
+      reduceFailed: string;
+    };
+    view: { title: string; close: string; scrollArea: string };
+    reduce: {
+      title: string;
+      offer: (size: string) => string;
+      queue: (index: number, total: number, name: string) => string;
+      cancel: string;
+      reduce: string;
+      reducing: string;
+      was: (size: string, width: number, height: number) => string;
+      now: (size: string, width: number, height: number) => string;
+      previewAlt: string;
+      insert: string;
+      cannot: string;
+      close: string;
+      retry: string;
+    };
+  };
 }
 
 const numbers = new Intl.NumberFormat('ru-RU');
@@ -135,6 +178,7 @@ export const DEFAULT_COPY: RichTextCopy = {
     copy: 'Копировать код',
     table: 'Таблица',
     tableOps: 'Операции с таблицей',
+    image: 'Изображение',
   },
   colours: {
     gray: 'Серый',
@@ -209,5 +253,50 @@ export const DEFAULT_COPY: RichTextCopy = {
     tableHint: 'Tab переходит между ячейками. Esc, затем Tab — выйти из таблицы.',
     codeCopied: 'Код скопирован',
     codeCopyFailed: 'Не удалось скопировать код.',
+  },
+  images: {
+    insert: 'Вставить изображение',
+    uploading: 'Загрузка изображения…',
+    unavailable: 'Изображение недоступно',
+    defaultAlt: 'Изображение',
+    open: 'Открыть в полном размере',
+    remove: 'Удалить изображение',
+    openNamed: (alt) => `Открыть в полном размере: ${alt}`,
+    menu: 'Меню изображения',
+    inserted: 'Изображение вставлено.',
+    removed: 'Изображение удалено.',
+    keyboardHint: 'Enter — открыть в полном размере, Delete — удалить, Shift+F10 — меню.',
+    waiting: 'Дожидаемся загрузки изображений…',
+    refusals: {
+      format: 'Можно вставить только изображения PNG, JPEG, GIF или WebP.',
+      tooLarge: 'Файл больше 20 МБ. Уменьшите изображение в другой программе и вставьте снова.',
+      animation: 'Анимация больше 5 МБ. Уменьшите её в другой программе и вставьте снова.',
+      count: 'В описании может быть не больше 50 изображений.',
+      foreign: 'Изображение с другого сайта не вставлено. Сохраните его как файл и вставьте снова.',
+      uploadFailed: 'Не удалось загрузить изображение. Попробуйте ещё раз.',
+      reduceFailed: 'Не удалось уменьшить изображение. Попробуйте ещё раз.',
+    },
+    view: {
+      title: 'Просмотр изображения',
+      close: 'Закрыть',
+      scrollArea: 'Изображение, полный размер',
+    },
+    reduce: {
+      title: 'Изображение больше 5 МБ',
+      offer: (size) =>
+        `Размер файла — ${size}, а в описание можно вставить изображение не больше 5 МБ. Система может уменьшить его: файл станет легче, изображение может стать немного менее чётким.`,
+      queue: (index, total, name) => (total > 1 ? `Файл ${index} из ${total} · ${name}` : name),
+      cancel: 'Отмена',
+      reduce: 'Уменьшить',
+      reducing: 'Уменьшаем изображение…',
+      was: (size, width, height) => `Было: ${size}, ${width} × ${height}`,
+      now: (size, width, height) => `Стало: ${size}, ${width} × ${height}`,
+      previewAlt: 'Уменьшенное изображение',
+      insert: 'Вставить',
+      cannot:
+        'Не удалось уменьшить изображение до 5 МБ без сильной потери качества. Уменьшите его в другой программе и вставьте снова.',
+      close: 'Закрыть',
+      retry: 'Повторить',
+    },
   },
 };

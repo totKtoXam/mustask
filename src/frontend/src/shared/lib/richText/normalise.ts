@@ -1,4 +1,5 @@
 import { DESCRIPTION_MAX_MARKUP, DESCRIPTION_RAW_CEILING } from './limits';
+import { cutAlt } from './imageAlt';
 import { readLinkAddress } from './linkAddress';
 import {
   CODE_LANGUAGES,
@@ -719,21 +720,6 @@ class DomConverter {
 }
 
 const UUID = /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/;
-const MAX_ALT_CODE_POINTS = 255;
-
-/** At most 255 code points of the text alternative; longer is cut. */
-function cutAlt(alt: string): string {
-  let count = 0;
-  for (let index = 0; index < alt.length; ) {
-    const unit = alt.charCodeAt(index);
-    const next = alt.charCodeAt(index + 1);
-    const pair = unit >= 0xd800 && unit <= 0xdbff && next >= 0xdc00 && next <= 0xdfff;
-    if (++count > MAX_ALT_CODE_POINTS) return alt.slice(0, index);
-    index += pair ? 2 : 1;
-  }
-  return alt;
-}
-
 /** `colspan` / `rowspan`: a trimmed run of 1..9 ASCII digits, else 1. */
 function spanOf(element: Element, attribute: string): number {
   const value = element.getAttribute(attribute);

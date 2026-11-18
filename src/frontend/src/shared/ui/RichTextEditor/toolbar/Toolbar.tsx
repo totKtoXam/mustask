@@ -51,12 +51,22 @@ export function Toolbar({ editor, copy, ui }: ToolbarProps) {
   });
   const [opened, setOpened] = useState<Opened | null>(null);
 
+  // A control the host does not offer is not drawn, so it is not in the roving order either.
+  const groups = useMemo(
+    () =>
+      TOOLBAR_GROUPS.map((group) => ({
+        ...group,
+        controls: group.controls.filter((control) => !control.state(context).hidden),
+      })).filter((group) => group.controls.length > 0),
+    [context],
+  );
   const order = useMemo(
-    () => TOOLBAR_GROUPS.flatMap((group) => group.controls.map((control) => control.id)),
-    [],
+    () => groups.flatMap((group) => group.controls.map((control) => control.id)),
+    [groups],
   );
   const enabled = new Set(
-    TOOLBAR_GROUPS.flatMap((group) => group.controls)
+    groups
+      .flatMap((group) => group.controls)
       .filter((control) => !control.state(context).disabled)
       .map((control) => control.id),
   );
@@ -93,7 +103,7 @@ export function Toolbar({ editor, copy, ui }: ToolbarProps) {
         borderBottom: `1px solid ${theme.palette.divider}`,
       })}
     >
-      {TOOLBAR_GROUPS.map((group, index) => (
+      {groups.map((group, index) => (
         <Fragment key={group.id}>
           {index > 0 && <Divider orientation="vertical" flexItem sx={{ mx: 0.5 }} />}
           <Box role="group" sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>

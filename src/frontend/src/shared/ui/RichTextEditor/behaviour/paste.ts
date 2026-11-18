@@ -8,6 +8,8 @@ import {
 } from '@tiptap/pm/model';
 import { Plugin, PluginKey } from '@tiptap/pm/state';
 import { normaliseBody, reducePastedHtml, tabularRows } from '../../../lib/richText';
+import { IMAGE_ID } from '../images/host';
+import type { PastedImage } from '../images/controller';
 import { bindingsOf } from './bindings';
 
 /**
@@ -23,9 +25,41 @@ import { bindingsOf } from './bindings';
  * - inside a cell or a list item the pasted tables and code blocks become
  *   paragraphs, so `prosemirror-tables`' own paste (which overwrites cell
  *   ranges) has nothing of its kind to handle.
- * - a file or an image on its own is not inserted: the member is told in the
- *   live region, and the browser never navigates to it.
+ * - images (feat-078): an image file or a clipboard image is uploaded through the host's
+ *   `images`, at the caret or the drop position; the images the pasted html names (own store,
+ *   data address) are read or decoded and uploaded after the text, a foreign one is told and
+ *   dropped. Without the host an image file is ignored without a notice (design D-8) and the
+ *   browser never navigates to it.
  */
+
+const IMAGE_FILE = /^image\//;
+const imageFiles = (list: FileList | null | undefined): File[] =>
+  Array.from(list ?? []).filter((file) => IMAGE_FILE.test(file.type));
+
+/** The images of a pasted body, taken out of it; the ones the document already holds stay. */
+function takeImages(
+  body: Element,
+  holds: (id: string) => boolean,
+  keepOwn: boolean,
+): PastedImage[] {
+  const taken: PastedImage[] = [];
+  for (const image of Array.from(body.querySelectorAll('img'))) {
+    const id = (image.getAttribute('data-image-id') ?? '').trim().toLowerCase();
+    const alt = image.getAttribute('alt') ?? '';
+    const src = image.getAttribute('src') ?? '';
+    if (IMAGE_ID.test(id)) {
+      // Cut and paste inside the description moves the image: no second copy in the store.
+      if (keepOwn && holds(id)) continue;
+      taken.push({ kind: 'own', id, alt });
+    } else if (/^data:image\//i.test(src)) {
+      taken.push({ kind: 'data', src, alt });
+    } else {
+      taken.push({ kind: 'foreign' });
+    }
+    image.remove();
+  }
+  return taken;
+}
 
 function ancestors($position: ResolvedPos): Set<string> {
   const names = new Set<string>();
@@ -78,6 +112,8 @@ export const RtPaste = Extension.create({
 
   addProseMirrorPlugins() {
     const { editor } = this;
+    // The images the last pasted html named; handed on once the paste has been applied.
+    let pending: PastedImage[] = [];
 
     return [
       new Plugin({
@@ -86,7 +122,12 @@ export const RtPaste = Extension.create({
           transformPastedHTML: (html) => {
             const reduced = reducePastedHtml(html);
             if (!reduced) return '';
-            if (reduced.hadImage) bindingsOf(editor).notice('image');
+            const bindings = bindingsOf(editor);
+            if (reduced.hadImage) {
+              const taken = takeImages(reduced.body, bindings.holdsImage, bindings.imagesEnabled);
+              if (bindings.imagesEnabled) pending = taken;
+              else bindings.notice('image');
+            }
             return normaliseBody(reduced.body).html;
           },
 
@@ -122,15 +163,23 @@ export const RtPaste = Extension.create({
           },
 
           handlePaste: (_view, event) => {
+            const bindings = bindingsOf(editor);
+            const taken = pending;
+            pending = [];
             const data = event.clipboardData;
             if (!data) return false;
-            const hasFiles = (data.files?.length ?? 0) > 0;
-            const types = Array.from(data.types ?? []);
-            const hasText = types.includes('text/html') || types.includes('text/plain');
-            if (hasFiles && !hasText) {
+            const files = imageFiles(data.files);
+            const readText = (type: string) =>
+              (data.getData?.(type) ?? '').replace(/<[^>]*>/g, '').trim();
+            // A screenshot, or an image copied in a browser (a file next to html with no text).
+            if (files.length > 0 && readText('text/html') === '' && readText('text/plain') === '') {
               event.preventDefault();
-              bindingsOf(editor).notice('image');
+              if (bindings.imagesEnabled) bindings.insertFiles(files, 'clipboard');
               return true;
+            }
+            if (taken.length > 0) {
+              // After the default paste has put the text in.
+              queueMicrotask(() => bindings.insertPasted(taken));
             }
             return false;
           },
@@ -138,11 +187,16 @@ export const RtPaste = Extension.create({
           handleDOMEvents: {
             // A dropped file: the default would navigate the tab to it. Text and
             // html drops go through the editor's own drop, and the same pipeline.
-            drop: (_view, event) => {
-              const files = (event as DragEvent).dataTransfer?.files;
+            drop: (view, event) => {
+              const drag = event as DragEvent;
+              const files = drag.dataTransfer?.files;
               if (!files || files.length === 0) return false;
               event.preventDefault();
-              bindingsOf(editor).notice('image');
+              const bindings = bindingsOf(editor);
+              if (bindings.imagesEnabled) {
+                const pos = view.posAtCoords({ left: drag.clientX, top: drag.clientY })?.pos;
+                bindings.insertFiles(Array.from(files), 'drop', pos);
+              }
               return true;
             },
           },

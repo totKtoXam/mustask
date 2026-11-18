@@ -11,6 +11,12 @@ import { CODE_TOKENS } from './behaviour/codeHighlight';
 import { applyLink, linkSeed, type LinkSeed } from './behaviour/linkCommands';
 import { documentJson } from './behaviour/loadDocument';
 import type { RichTextCopy } from './copy';
+import { ImageController, type FileSource } from './images/controller';
+import { FullSizeDialog, ImageMenu, ReductionDialog } from './images/dialogs';
+import { IMAGE_TYPES, type RichTextImages } from './images/host';
+import { removeImageAt } from './images/commands';
+import { ImageRuntime, type ImageTarget } from './images/runtime';
+import { NodeSelection } from '@tiptap/pm/state';
 import { createExtensions } from './schema/extensions';
 import { TableHandles } from './table/TableHandles';
 import { LinkDialog } from './toolbar/LinkDialog';
@@ -52,6 +58,10 @@ export interface EditorImplProps {
   onNotice: (message: string) => void;
   /** `@internal`, tests: the live editor, `null` on unmount. */
   onEditorReady?: (editor: Editor | null) => void;
+  /** The host's images group (feat-078 design § Host seam); without it there are no images to insert. */
+  images?: RichTextImages;
+  /** Set to «wait until the uploads end» while mounted: `null` when none is running. */
+  settleRef?: MutableRefObject<(() => Promise<void> | null) | null>;
 }
 
 /**
@@ -234,7 +244,12 @@ function EditorBody({
   onNotice,
   onEditorReady,
   onReplace,
+  images,
+  settleRef,
 }: EditorImplProps & { onReplace: () => void }) {
+  const [runtime] = useState(() => new ImageRuntime());
+  // The runtime reads these on every use: set before the editor draws.
+  runtime.configure(images ?? null, copy.images);
   const onChangeRef = useRef(onChange);
   const sync = useRef<SyncState | null>(null);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -244,10 +259,14 @@ function EditorBody({
   });
 
   const [extensions] = useState(() =>
-    createExtensions(placeholder, {
-      languages: copy.languages,
-      copyLabel: copy.controls.copy,
-    }),
+    createExtensions(
+      placeholder,
+      {
+        languages: copy.languages,
+        copyLabel: copy.controls.copy,
+      },
+      runtime,
+    ),
   );
   const [seed, setSeed] = useState<LinkSeed | null>(null);
   // The document is built once, from the value the editor mounts with; later
@@ -287,6 +306,15 @@ function EditorBody({
     selector: ({ editor: current }) => {
       if (!current || !current.isFocused) return '';
       const { $from } = current.state.selection;
+      const { selection } = current.state;
+      if (
+        selection instanceof NodeSelection &&
+        selection.node.type.name === 'rtImage' &&
+        current.isEditable &&
+        !runtime.pointerSelection
+      ) {
+        return copy.images.keyboardHint;
+      }
       if ($from.parent.type.name === 'codeBlock') return copy.notices.codeHint;
       for (let depth = $from.depth; depth > 0; depth--) {
         const name = $from.node(depth).type.name;
@@ -303,6 +331,56 @@ function EditorBody({
   useEffect(() => {
     onNoticeRef.current(hint);
   }, [hint]);
+  // The image surfaces that open from an image (design § Full-size view, § Keyboard).
+  const [view, setView] = useState<ImageTarget | null>(null);
+  const [menu, setMenu] = useState<{ target: ImageTarget; anchor: HTMLElement | null } | null>(
+    null,
+  );
+  const [controller, setController] = useState<ImageController | null>(null);
+  const fileInput = useRef<HTMLInputElement>(null);
+  const [dropping, setDropping] = useState(false);
+
+  useEffect(() => {
+    if (!editor) return undefined;
+    runtime.attach(editor, {
+      openView: (target) => setView(target),
+      openMenu: (target, anchor) => setMenu({ target, anchor }),
+      notice: (message) => onNoticeRef.current(message),
+    });
+    const created = new ImageController(runtime, editor);
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- the controller belongs to the editor made in this effect
+    setController(created);
+    bindEditor(editor, {
+      imagesEnabled: images !== undefined,
+      insertFiles: (files: File[], source: FileSource, pos?: number) => {
+        void created.insertFiles(files, source, pos);
+      },
+      insertPasted: (list) => created.insertPasted(list),
+      holdsImage: (id) => {
+        let held = false;
+        editor.state.doc.descendants((node) => {
+          if (node.type.name === 'rtImage' && node.attrs.imageId === id) held = true;
+          return !held;
+        });
+        return held;
+      },
+    });
+    if (settleRef) {
+      settleRef.current = () => (created.pending > 0 ? created.whenIdle() : null);
+    }
+    return () => {
+      if (settleRef) settleRef.current = null;
+      created.destroy();
+      setController(null);
+      runtime.addresses.dispose();
+    };
+    // The editor is made once; `images` is read through the runtime and `imagesEnabled` below.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [editor]);
+  useEffect(() => {
+    if (editor) bindEditor(editor, { imagesEnabled: images !== undefined });
+  }, [editor, images]);
+
   useEffect(() => {
     if (!editor) return undefined;
     bindEditor(editor, {
@@ -412,15 +490,85 @@ function EditorBody({
 
   if (!editor) return null;
 
+  /** Back to the image a surface was opened from, selected (design § Full-size view). */
+  const returnTo = (target: ImageTarget) => {
+    const node = editor.state.doc.nodeAt(target.pos);
+    if (node?.type.name === 'rtImage') editor.chain().focus().setNodeSelection(target.pos).run();
+    else editor.commands.focus();
+  };
+
   return (
-    <Box>
-      <Toolbar editor={editor} copy={copy} ui={{ openLink }} />
+    <Box
+      onDragEnter={(event) => {
+        if (images && event.dataTransfer?.types.includes('Files')) setDropping(true);
+      }}
+      onDragLeave={(event) => {
+        if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setDropping(false);
+      }}
+      onDrop={() => setDropping(false)}
+      sx={(theme) => ({
+        outline: dropping ? `2px dashed ${theme.palette.primary.main}` : 'none',
+        outlineOffset: '-2px',
+        backgroundColor: dropping ? theme.palette.action.selected : undefined,
+      })}
+    >
+      <Toolbar
+        editor={editor}
+        copy={copy}
+        ui={{ openLink, chooseImages: () => fileInput.current?.click() }}
+      />
+      {images && (
+        <input
+          ref={fileInput}
+          type="file"
+          multiple
+          hidden
+          data-testid="rt-image-input"
+          accept={IMAGE_TYPES.join(',')}
+          onChange={(event) => {
+            const files = Array.from(event.target.files ?? []);
+            event.target.value = '';
+            if (files.length === 0) return;
+            editor.commands.focus();
+            void controller?.insertFiles(files, 'chooser');
+          }}
+        />
+      )}
       <Box sx={{ position: 'relative' }}>
         <Content>
           <EditorContent editor={editor} />
         </Content>
         <TableHandles editor={editor} copy={copy} />
       </Box>
+      {controller && <ReductionDialog controller={controller} runtime={runtime} />}
+      {view && (
+        <FullSizeDialog
+          runtime={runtime}
+          target={view}
+          onClose={() => {
+            setView(null);
+            window.setTimeout(() => returnTo(view), 0);
+          }}
+        />
+      )}
+      {menu && (
+        <ImageMenu
+          runtime={runtime}
+          anchor={menu.anchor}
+          onOpen={() => {
+            setMenu(null);
+            setView(menu.target);
+          }}
+          onRemove={() => {
+            setMenu(null);
+            removeImageAt(editor, menu.target.pos, runtime);
+          }}
+          onClose={() => {
+            setMenu(null);
+            window.setTimeout(() => returnTo(menu.target), 0);
+          }}
+        />
+      )}
       {seed && (
         <LinkDialog
           copy={copy.link}
