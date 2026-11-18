@@ -222,8 +222,9 @@ export function exampleDataset(): Dataset {
       department(ids.platformArea, ids.alfa, 'Платформа', 'Платформенные сервисы'),
       department(ids.reportsArea, ids.alfa, 'Отчёты'),
       projectNode(ids.prmRoot, ids.alfa, ids.prm, ids.platformArea),
-      projectNode(ids.anlRoot, ids.alfa, ids.anl, null),
-      projectNode(ids.oldRoot, ids.alfa, ids.old, null),
+      // mod-022: every project of an organization with departments stands in one (BR-TD-6).
+      projectNode(ids.anlRoot, ids.alfa, ids.anl, ids.platformArea),
+      projectNode(ids.oldRoot, ids.alfa, ids.old, ids.platformArea),
       projectNode(ids.repRoot, ids.beta, ids.rep, null),
       projectNode(ids.arcRoot, ids.gamma, ids.arc, null),
       subArea(ids.apiArea, ids.alfa, ids.prm, ids.prmRoot, 'API'),

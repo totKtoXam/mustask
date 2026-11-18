@@ -167,7 +167,7 @@ describe('feat-043 design § 6: a department’s «Проекты» and «Ком
   });
 });
 
-describe('feat-043 design §§ 8.2, 8.3: placing a project in a department and lifting it out', () => {
+describe('feat-043 design §§ 8.2, 8.3: placing a project in a department (the lift is gone, mod-022)', () => {
   async function openPlace() {
     await loaded('Департамент: Платформа');
     await userEvent.click(await screen.findByRole('button', { name: 'Добавить проект' }));
@@ -179,6 +179,8 @@ describe('feat-043 design §§ 8.2, 8.3: placing a project in a department and l
     const reports = data.areas.find((entry) => entry.id === ids.reportsArea);
     expect(reports).toBeDefined();
     data.areas.find((entry) => entry.id === ids.anlRoot)!.parentId = ids.reportsArea;
+    // A project with no team moves (BR-TD-4).
+    data.links = data.links.filter((link) => link.projectId !== ids.anl);
     const api = serveOrganizations(data);
     renderPage({ path: `${PLATFORM}/projects` });
     const dialog = await openPlace();
@@ -203,24 +205,36 @@ describe('feat-043 design §§ 8.2, 8.3: placing a project in a department and l
     expect(await within(projects).findByRole('link', { name: 'Аналитика' })).toBeInTheDocument();
   });
 
-  it('names the top level for a project that stands there and phrases the move as an entry', async () => {
-    serveOrganizations();
+  it('refuses a project with a linked team with the server’s text, and keeps the dialog (mod-022 BR-TD-4)', async () => {
+    const data = exampleDataset();
+    data.areas.find((entry) => entry.id === ids.anlRoot)!.parentId = ids.reportsArea;
+    data.teams.find((team) => team.id === ids.anlTeam)!.departmentId = ids.reportsArea;
+    const api = serveOrganizations(data);
     renderPage({ path: `${PLATFORM}/projects` });
     const dialog = await openPlace();
 
     await userEvent.click(within(dialog).getByRole('combobox', { name: /Проект/ }));
     await userEvent.click(
-      await screen.findByRole('option', { name: 'Аналитика — сейчас: верхний уровень' }),
+      await screen.findByRole('option', { name: 'Аналитика — сейчас: Отчёты' }),
     );
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Переместить' }));
+
     expect(
-      within(dialog).getByText(
-        'Проект «Аналитика» войдёт в департамент «Платформа». Его области, команды и рабочие элементы не изменятся.',
+      await within(dialog).findByText(
+        'Проект связан с командами. Отключите их перед перемещением.',
       ),
     ).toBeInTheDocument();
+    expect(dialog).toBeInTheDocument();
+    expect(api.data.areas.find((entry) => entry.id === ids.anlRoot)!.parentId).toBe(
+      ids.reportsArea,
+    );
   });
 
   it('shows the same-name refusal under the field and keeps the dialog', async () => {
-    serveOrganizations();
+    const data = exampleDataset();
+    data.areas.find((entry) => entry.id === ids.anlRoot)!.parentId = ids.reportsArea;
+    data.links = data.links.filter((link) => link.projectId !== ids.anl);
+    serveOrganizations(data);
     renderPage({ path: `${PLATFORM}/projects` });
     const dialog = await openPlace();
     serveProblem('put', `${AREA_URL}/parent`, problem('organizations.area.name_taken'), {
@@ -229,7 +243,7 @@ describe('feat-043 design §§ 8.2, 8.3: placing a project in a department and l
 
     await userEvent.click(within(dialog).getByRole('combobox', { name: /Проект/ }));
     await userEvent.click(
-      await screen.findByRole('option', { name: 'Аналитика — сейчас: верхний уровень' }),
+      await screen.findByRole('option', { name: 'Аналитика — сейчас: Отчёты' }),
     );
     await userEvent.click(within(dialog).getByRole('button', { name: 'Переместить' }));
 
@@ -239,31 +253,16 @@ describe('feat-043 design §§ 8.2, 8.3: placing a project in a department and l
     expect(dialog).toBeInTheDocument();
   });
 
-  it('lifts a project to the top level after a confirmation focused on «Отмена»', async () => {
-    const api = serveOrganizations();
+  it('has no «Вынести на верхний уровень»: a project never stands at the top (mod-022 BR-TD-6)', async () => {
+    serveOrganizations();
     renderPage({ path: `${PLATFORM}/projects` });
     await loaded('Департамент: Платформа');
 
     const projects = await screen.findByRole('table', { name: 'Проекты департамента' });
-    await userEvent.click(
-      await within(projects).findByRole('button', { name: 'Ещё действия: Пример проекта' }),
-    );
-    await userEvent.click(
-      await screen.findByRole('menuitem', { name: 'Вынести на верхний уровень' }),
-    );
-    const dialog = await screen.findByRole('dialog', { name: 'Вынести на верхний уровень' });
-    expect(
-      within(dialog).getByText(
-        'Вынести проект «Пример проекта» на верхний уровень? Команды, области и рабочие элементы проекта не изменятся.',
-      ),
-    ).toBeInTheDocument();
-    expect(within(dialog).getByRole('button', { name: 'Отмена' })).toHaveFocus();
-    await userEvent.click(within(dialog).getByRole('button', { name: 'Вынести' }));
+    await within(projects).findByRole('link', { name: 'Пример проекта' });
 
-    expect(await screen.findByText('Проект «Пример проекта» перемещён.')).toBeInTheDocument();
-    expect(api.writes().map((write) => [write.method, write.path, write.body])).toEqual([
-      ['PUT', `${API_BASE}/${ids.prmRoot}/parent`, { parentId: null }],
-    ]);
+    expect(screen.queryByRole('button', { name: 'Ещё действия: Пример проекта' })).toBeNull();
+    expect(screen.queryByText('Вынести на верхний уровень')).toBeNull();
   });
 
   it('a member sees neither «Добавить проект» nor the row menu', async () => {

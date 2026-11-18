@@ -46,6 +46,14 @@ export const organizationErrorCodes = {
   areaHasTeams: 'organizations.area.has_teams',
   /** mod-021 api-contract § 3: a field reason of `validationFailed` under `departmentId` (BR-TD-1). */
   teamDepartmentRequired: 'organizations.team.department_required',
+  /** mod-022 api-contract § 1: 409 on a link whose ends stand in different departments (BR-TD-3). */
+  teamOtherDepartment: 'organizations.team.other_department',
+  /** mod-022 api-contract § 1: 409 on a project's move to another department while a team is linked (BR-TD-4). */
+  areaProjectHasTeams: 'organizations.area.project_has_teams',
+  /** mod-022 api-contract § 1: 409 on a project's move to the top level (BR-TD-6). */
+  areaProjectNeedsDepartment: 'organizations.area.project_needs_department',
+  /** mod-022 api-contract § 1: a field reason of `validationFailed` under `parentAreaId` (BR-TD-6). */
+  projectDepartmentRequired: 'organizations.project.department_required',
   /**
    * 409 (feat-028 api-contract § 0.3): an active team of the organization that is not linked to the project,
    * named as an owner, a default or an unlink destination.

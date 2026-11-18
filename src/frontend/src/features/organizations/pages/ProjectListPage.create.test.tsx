@@ -7,12 +7,21 @@ import { renderPage } from '../testRender';
 
 const ALFA_PROJECTS = `/organizations/${ids.alfa}/projects`;
 
-async function openCreate() {
+/** Chooses a department in «Расположение»: the administrator of «Альфа» has two, so none is preset (BR-TD-6). */
+async function chooseDepartment(dialog: HTMLElement, name: string) {
+  await userEvent.click(await within(dialog).findByRole('combobox', { name: /Расположение/ }));
+  await userEvent.click(await screen.findByRole('option', { name }));
+}
+
+async function openCreate(department: string | null = 'Платформа') {
   const api = serveOrganizations();
   renderPage({ path: ALFA_PROJECTS });
   await screen.findByRole('table', { name: 'Проекты' });
   await userEvent.click(screen.getByRole('button', { name: 'Создать проект' }));
   const dialog = await screen.findByRole('dialog', { name: 'Новый проект' });
+  if (department !== null) {
+    await chooseDepartment(dialog, department);
+  }
   return {
     api,
     dialog,
@@ -24,8 +33,9 @@ async function openCreate() {
 
 describe('mod-002 US-3 Scenario: Created ready to use', () => {
   it('shows both helpers; sends name and key; the new project’s «Общие» opens with the notice', async () => {
-    const { api, dialog, name, key, submit } = await openCreate();
+    const { api, dialog, name, key, submit } = await openCreate(null);
     expect(name).toHaveFocus();
+    await chooseDepartment(dialog, 'Платформа');
     expect(
       within(dialog).getByText(
         'От 1 до 100 символов. Так же будет называться корневая область проекта.',
@@ -56,9 +66,54 @@ describe('mod-002 US-3 Scenario: Created ready to use', () => {
       {
         method: 'POST',
         path: `/api/organizations/${ids.alfa}/projects`,
-        body: { name: 'Витрина', key: 'PLT' },
+        body: { name: 'Витрина', key: 'PLT', parentAreaId: ids.platformArea },
       },
     ]);
+  });
+
+  it('offers departments only, never «Верхний уровень», and leaves «Расположение» empty with two to choose from', async () => {
+    const { dialog, api, name, key, submit } = await openCreate(null);
+    const place = within(dialog).getByRole('combobox', { name: /Расположение/ });
+    expect(place).toHaveValue('');
+    expect(within(dialog).getByText('Проект всегда стоит в департаменте.')).toBeInTheDocument();
+    await userEvent.click(place);
+    expect((await screen.findAllByRole('option')).map((option) => option.textContent)).toEqual([
+      'Отчёты',
+      'Платформа',
+    ]);
+    await userEvent.keyboard('{Escape}');
+
+    await userEvent.type(name, 'Витрина');
+    await userEvent.type(key, 'PLT');
+    await submit();
+
+    expect(await within(dialog).findByText('Выберите департамент')).toBeInTheDocument();
+    expect(api.writes()).toEqual([]);
+  });
+
+  it('offers the teams of the chosen department only, and drops a team when the department changes (BR-TD-3)', async () => {
+    const { dialog } = await openCreate();
+    const teams = within(dialog).getByRole('combobox', { name: 'Команды' });
+    await userEvent.click(teams);
+    expect((await screen.findAllByRole('option')).map((option) => option.textContent)).toEqual([
+      'Аналитика',
+      'Платформа',
+      'Пример проекта',
+      'Старый проект',
+    ]);
+    await userEvent.click(screen.getByRole('option', { name: 'Платформа' }));
+    await userEvent.keyboard('{Escape}');
+    expect(within(dialog).getByRole('button', { name: 'Убрать «Платформа»' })).toBeVisible();
+
+    await chooseDepartment(dialog, 'Отчёты');
+
+    expect(within(dialog).queryByRole('button', { name: 'Убрать «Платформа»' })).toBeNull();
+    await userEvent.click(within(dialog).getByRole('combobox', { name: 'Команды' }));
+    expect(
+      await screen.findByText(
+        'В департаменте «Отчёты» нет команд. Создайте команду в этом департаменте.',
+      ),
+    ).toBeInTheDocument();
   });
 });
 
@@ -76,7 +131,11 @@ describe('feat-028 US-2 Scenario: A project is created with no team, a descripti
     await submit();
 
     expect(await screen.findByText('Проект «Витрина» создан.')).toBeInTheDocument();
-    expect(api.writes()[0]?.body).toEqual({ name: 'Витрина', key: 'PLT' });
+    expect(api.writes()[0]?.body).toEqual({
+      name: 'Витрина',
+      key: 'PLT',
+      parentAreaId: ids.platformArea,
+    });
     const created = api.data.projects.find((project) => project.key === 'PLT')!;
     // BR-OL-2: creating a project creates no team and no link.
     expect(api.data.links.filter((link) => link.projectId === created.id)).toEqual([]);
@@ -102,6 +161,7 @@ describe('feat-028 US-2 Scenario: A project is created with no team, a descripti
       name: 'Ядро',
       key: 'CORE',
       description: ' Первая',
+      parentAreaId: ids.platformArea,
       teamIds: [ids.anlTeam, ids.platformTeam],
     });
     const created = api.data.projects.find((project) => project.key === 'CORE')!;
@@ -110,16 +170,21 @@ describe('feat-028 US-2 Scenario: A project is created with no team, a descripti
     ).toEqual([ids.anlTeam, ids.platformTeam]);
   });
 
-  it('says «В организации пока нет команд.» in the list of an organization with none — the first state', async () => {
+  it('says «В департаменте … нет команд.» in the list of a department with none — the first state', async () => {
     serveOrganizations(noTeamsDataset());
     renderPage({ path: ALFA_PROJECTS });
     await screen.findByRole('table', { name: 'Проекты' });
     await userEvent.click(screen.getByRole('button', { name: 'Создать проект' }));
     const dialog = await screen.findByRole('dialog', { name: 'Новый проект' });
 
+    await chooseDepartment(dialog, 'Платформа');
     await userEvent.click(within(dialog).getByRole('combobox', { name: 'Команды' }));
 
-    expect(await screen.findByText('В организации пока нет команд.')).toBeInTheDocument();
+    expect(
+      await screen.findByText(
+        'В департаменте «Платформа» нет команд. Создайте команду в этом департаменте.',
+      ),
+    ).toBeInTheDocument();
   });
 
   it('refuses a description of 2 001 characters under «Описание» and sends nothing', async () => {

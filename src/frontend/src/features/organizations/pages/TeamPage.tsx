@@ -361,6 +361,7 @@ export function TeamPage() {
             end="team"
             organizationId={organizationId}
             ownName={team.name}
+            department={{ id: team.departmentId, name: team.departmentName ?? '' }}
             linkedIds={rows.map((project) => project.id)}
             submit={(ids) => link.mutateAsync(ids)}
             onSucceeded={(chosen) => {

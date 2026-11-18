@@ -245,6 +245,8 @@ describe('mod-016 design § 2.3 Scenario: a refused write, then the codes are re
     const field = within(dialog).getByRole('textbox', { name: 'Название' });
     await userEvent.type(field, 'Омега');
     await userEvent.type(within(dialog).getByRole('textbox', { name: 'Ключ' }), 'OMG');
+    await userEvent.click(await within(dialog).findByRole('combobox', { name: /Расположение/ }));
+    await userEvent.click(await screen.findByRole('option', { name: 'Платформа' }));
     serveProblem('post', PROJECTS_URL, problem('organizations.access.forbidden'), { once: true });
 
     await lockedAfterRefusal(dialog, 'Создать', field, 'Омега', page);

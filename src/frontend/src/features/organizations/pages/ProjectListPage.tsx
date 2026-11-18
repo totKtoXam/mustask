@@ -8,6 +8,7 @@ import InboxOutlinedIcon from '@mui/icons-material/InboxOutlined';
 import { useAccessCheck } from '../../../shared/lib/access';
 import { apiErrorText } from '../../../shared/lib/apiErrorText';
 import {
+  ColorLabel,
   DataTable,
   InlineSelectField,
   MoreActionsMenu,
@@ -43,8 +44,12 @@ interface ProjectRow {
   id: string;
   name: string;
   key: string;
-  /** The department holding the project's node; `null` at the top level. */
+  /** The department holding the project's node. */
   place: string | null;
+  placeId?: string | null;
+  /** BR-TD-20: the project's and its department's palette keys. */
+  color?: string;
+  placeColor?: string;
 }
 
 /** «Деактивировать» of one row: the confirmation of mod-002, mounted per opening. */
@@ -108,23 +113,27 @@ function ProjectList({ view, organizationId }: { view: ListView; organizationId:
   const [, setParams] = useSearchParams();
   const access = useAccessCheck();
   const [creating, setCreating] = useState(false);
-  // mod-019 BR-SA-12, BR-SA-17: a project is created where the caller may write — the top level with
-  // `area.create`, a department with `area.write` on it; with no place the command is absent.
-  const canTop = access(organizationsPermissions.areaCreate, 'organization');
+  // mod-019 BR-SA-12, mod-022 BR-TD-6: a project is created in a department the caller may write
+  // (`area.write` on it; the administrator, `area.create`, in any); with no place the command is absent.
+  const canAll = access(organizationsPermissions.areaCreate, 'organization');
   const writable = useWritableAreaIds(organizationId);
   const writableIds = new Set(writable.data ?? []);
-  const hasPlace = canTop || writableIds.size > 0;
+  const hasPlace = canAll || writableIds.size > 0;
   const [deactivating, setDeactivating] = useState<ProjectRow | null>(null);
   const [text, setText] = useState('');
   const pageRef = useRef<HTMLDivElement>(null);
 
   const rows: ProjectRow[] | undefined =
     view === 'active'
-      ? offers.data?.projects.map(({ id, name, key, departmentName }) => ({
+      ? offers.data?.projects.map(({ id, name, key, departmentName, departmentId, color }) => ({
           id,
           name,
           key,
           place: departmentName,
+          placeId: departmentId,
+          color,
+          placeColor: offers.data?.departments.find((department) => department.id === departmentId)
+            ?.color,
         }))
       : deactivated.data?.map(({ id, name, key }) => ({ id, name, key, place: null }));
 
@@ -166,9 +175,12 @@ function ProjectList({ view, organizationId }: { view: ListView; organizationId:
         }
         const link = objectLink('project', project.id);
         return (
-          <TruncatedText to={link.to} linkState={link.state} look="link">
-            {project.name}
-          </TruncatedText>
+          <ColorLabel
+            colour={project.color}
+            name={project.name}
+            to={link.to}
+            linkState={link.state}
+          />
         );
       },
     },
@@ -178,7 +190,21 @@ function ProjectList({ view, organizationId }: { view: ListView; organizationId:
     columns.push({
       key: 'place',
       header: projectsList.columns.place,
-      render: (project) => <TruncatedText>{project.place ?? projectsList.topLevel}</TruncatedText>,
+      render: (project) => {
+        if (!project.place || !project.placeId) {
+          return <TruncatedText>{projectsList.topLevel}</TruncatedText>;
+        }
+        const link = objectLink('department', project.placeId);
+        return (
+          <ColorLabel
+            colour={project.placeColor}
+            name={project.place}
+            size="department"
+            to={link.to}
+            linkState={link.state}
+          />
+        );
+      },
     });
   }
   if (canDeactivate) {
@@ -282,9 +308,8 @@ function ProjectList({ view, organizationId }: { view: ListView; organizationId:
               access(organizationsPermissions.teamLink, 'organization') &&
               access(organizationsPermissions.projectLink, 'organization')
             }
-            canPlaceInDepartment={writableIds.size > 0}
-            canPlaceAtTop={canTop}
-            writableIds={writableIds}
+            canPlaceInDepartment
+            writableIds={canAll ? undefined : writableIds}
             onForbidden={() => void writable.refetch()}
             submit={(body) => createProject.mutateAsync(body)}
             onSucceeded={(project) => {

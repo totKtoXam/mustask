@@ -7,7 +7,7 @@ import EditOutlinedIcon from '@mui/icons-material/EditOutlined';
 import NotesOutlinedIcon from '@mui/icons-material/NotesOutlined';
 import { ObjectAccess } from '../../../shared/lib/objectAccessProvider';
 import { useObjectAccess } from '../../../shared/lib/objectAccess';
-import { ActionButton, InlineEmpty, Section } from '../../../shared/ui';
+import { ActionButton, ColorDot, ColorLabel, InlineEmpty, Section } from '../../../shared/ui';
 import { ErrorBanner } from '../../../shared/ui/ErrorBanner';
 import { FormSkeleton } from '../../../shared/ui/FormSkeleton';
 import { PageHeader, type Command } from '../../../shared/ui/PageHeader';
@@ -22,6 +22,7 @@ import { NameDialog } from '../components/NameDialog';
 import { ProjectVisibilityControl } from '../components/ProjectVisibilityControl';
 import { useNotify } from '../components/notice';
 import { useDescribeProject, useRenameProject, useSetDefaultTeam } from '../hooks/mutations';
+import { useSelectorOffers } from '../hooks/navigationQueries';
 import { useArea, useProject, useProjectAreaTree, useTeams } from '../hooks/queries';
 import { useObjectCodesNotice } from '../hooks/useObjectCodesNotice';
 import { codesChangedNotice } from '../lib/grantTexts';
@@ -58,6 +59,7 @@ export function ProjectGeneralPage() {
   const tree = useProjectAreaTree(organizationId, projectId);
   const node = tree.data?.find((entry) => entry.type === 'project');
   const notify = useNotify();
+  const offers = useSelectorOffers(organizationId);
   const access = useObjectAccess(query.data?.codes);
   useObjectCodesNotice(projectId, query.data?.name, query.data?.codes, codesChangedNotice.project);
   // The node's own codes: a project manager holds the area codes there (ADR-0038 § 2).
@@ -135,7 +137,11 @@ export function ProjectGeneralPage() {
 
   return (
     <ObjectAccess codes={query.data?.codes}>
-      <PageHeader title={section === 'settings' ? 'Параметры' : 'Общие'} commands={commands} />
+      <PageHeader
+        title={section === 'settings' ? 'Параметры' : 'Общие'}
+        titleIcon={project?.color ? <ColorDot colour={project.color} /> : undefined}
+        commands={commands}
+      />
       {loading ? (
         <FormSkeleton fields={4} />
       ) : query.isError ? (
@@ -206,13 +212,15 @@ export function ProjectGeneralPage() {
                     label: placementField.label,
                     value:
                       node?.parentId && department ? (
-                        <Link
-                          component={RouterLink}
+                        <ColorLabel
+                          size="department"
+                          colour={
+                            offers.data?.departments.find((d) => d.id === node.parentId)?.color
+                          }
+                          name={department}
                           to={objectLink('department', node.parentId).to}
-                          state={objectLink('department', node.parentId).state}
-                        >
-                          {department}
-                        </Link>
+                          linkState={objectLink('department', node.parentId).state}
+                        />
                       ) : (
                         projectTexts.noDepartment
                       ),

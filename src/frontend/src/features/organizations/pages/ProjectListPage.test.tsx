@@ -24,7 +24,7 @@ describe('feat-043 design § 5.3: «Проекты» loads, fails and lists (US-
       .getAllByRole('row')
       .slice(1);
     expect(rows.map((row) => row.textContent)).toEqual([
-      'АналитикаANL—',
+      'АналитикаANLПлатформа',
       'Пример проектаPRMПлатформа',
     ]);
     expect(within(rows[1]!).getByRole('link', { name: 'Пример проекта' })).toHaveAttribute(

@@ -15,26 +15,25 @@ interface ProjectPlace {
   /** The project's root node (what the move addresses). */
   nodeId: string;
   name: string;
-  /** `null`: the top level. */
   parentId: string | null;
   parentName: string | null;
 }
 
 const placeKey = (project: ProjectPlace) => project.nodeId;
 const placeLabel = (project: ProjectPlace) =>
-  placeProjectDialog.current(project.name, project.parentName ?? placeProjectDialog.topLevelNow);
+  placeProjectDialog.current(project.name, project.parentName ?? '—');
 
 /**
  * «Добавление проекта в департамент» (feat-043 design § 8.2): one project at a time, from the active
- * projects that stand elsewhere (read from the area tree at open), each with its present place. Once
- * one is chosen the dialog says what moves from where. A refusal of the move lands under the field,
+ * projects that stand in another department (read from the area tree at open), each with its present
+ * place. Once one is chosen the dialog says what moves from where. A project with a linked team is
+ * refused by the server (BR-TD-4, `project_has_teams`) and the server's text is the dialog's alert. A refusal of the move lands under the field,
  * a project that is gone drops from the choice and the offer is read again; the department gone is
  * the dialog's alert and the page reads itself again.
  */
 export function PlaceProjectDialog({
   organizationId,
   department,
-  canFromTop,
   writableIds,
   submit,
   onSucceeded,
@@ -42,8 +41,6 @@ export function PlaceProjectDialog({
 }: {
   organizationId: string;
   department: { id: string; name: string };
-  /** The user holds `area.create`: a move from the top level needs it. */
-  canFromTop: boolean;
   /** The nodes the caller may write (mod-019 § 5, BR-MX-3): a project is offered only with the code on its node and its current parent. Absent: all. */
   writableIds?: ReadonlySet<string>;
   submit(nodeId: string): Promise<unknown>;
@@ -67,7 +64,7 @@ export function PlaceProjectDialog({
         node.type === 'project' &&
         node.projectActive !== false &&
         node.parentId !== department.id &&
-        (canFromTop || node.parentId !== null) &&
+        node.parentId !== null &&
         (writableIds === undefined ||
           (writableIds.has(node.id) && (node.parentId === null || writableIds.has(node.parentId)))),
     )
@@ -141,9 +138,7 @@ export function PlaceProjectDialog({
       />
       {chosen && (
         <Typography variant="body2" color="text.secondary">
-          {chosen.parentName === null
-            ? placeProjectDialog.fromTop(chosen.name, department.name)
-            : placeProjectDialog.fromPlace(chosen.name, chosen.parentName, department.name)}
+          {placeProjectDialog.fromPlace(chosen.name, chosen.parentName ?? '—', department.name)}
         </Typography>
       )}
     </FormDialog>

@@ -14,6 +14,7 @@ import {
   noTeamsDataset,
   ownedKey,
   problem,
+  team,
 } from '../testFixtures';
 import { serveOrganizations, serveProblem } from '../testApi';
 import { contextSource, renderPage } from '../testRender';
@@ -220,6 +221,40 @@ describe('feat-028 US-3 Scenario: «Добавить команду» links exis
     ]);
   });
 
+  it('offers only the teams of the project’s department (mod-022 BR-TD-3)', async () => {
+    const data = exampleDataset();
+    data.teams.push(
+      team('c0000000-0000-4000-8000-0000000000dd', ids.alfa, 'Отчётная', null, ids.reportsArea),
+    );
+    const { dialog } = await openLink(PRM_TEAMS, data);
+
+    await userEvent.click(within(dialog).getByRole('combobox', { name: 'Команды' }));
+
+    expect((await screen.findAllByRole('option')).map((option) => option.textContent)).toEqual([
+      'Аналитика',
+      'Старый проект',
+    ]);
+  });
+
+  it('a stale list: the refusal of another department lands under «Команды» (mod-022)', async () => {
+    const { api, dialog } = await openLink();
+    await userEvent.click(within(dialog).getByRole('combobox', { name: 'Команды' }));
+    await userEvent.click(await screen.findByRole('option', { name: 'Аналитика' }));
+    await userEvent.keyboard('{Escape}');
+    // The team moved to another department meanwhile.
+    api.data.teams.find((candidate) => candidate.id === ids.anlTeam)!.departmentId =
+      ids.reportsArea;
+    api.data.links = api.data.links.filter((link) => link.teamId !== ids.anlTeam);
+
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Добавить' }));
+
+    expect(
+      await within(dialog).findByText(
+        'Команду можно связать только с проектом своего департамента.',
+      ),
+    ).toBeVisible();
+  });
+
   it('links two at once: one request, the rows appear and the notice counts them', async () => {
     const { api, dialog } = await openLink();
     await userEvent.click(within(dialog).getByRole('combobox', { name: 'Команды' }));
@@ -258,7 +293,7 @@ describe('feat-028 US-3 Scenario: «Добавить команду» links exis
     expect(await screen.findByText('Команда «Аналитика» добавлена.')).toBeInTheDocument();
   });
 
-  it('says «Все команды уже подключены к проекту.» when none is left, and «Ничего не найдено» for a text that matches nothing', async () => {
+  it('says «Все команды департамента уже подключены к проекту.» when none is left, and «Ничего не найдено» for a text that matches nothing', async () => {
     const data = exampleDataset();
     data.links.push(
       { projectId: ids.prm, teamId: ids.anlTeam },
@@ -267,13 +302,15 @@ describe('feat-028 US-3 Scenario: «Добавить команду» links exis
     const { dialog } = await openLink(PRM_TEAMS, data);
 
     await userEvent.click(within(dialog).getByRole('combobox', { name: 'Команды' }));
-    expect(await screen.findByText('Все команды уже подключены к проекту.')).toBeVisible();
+    expect(
+      await screen.findByText('Все команды департамента уже подключены к проекту.'),
+    ).toBeVisible();
     await userEvent.type(within(dialog).getByRole('combobox', { name: 'Команды' }), 'яяя');
     expect(await screen.findByText('Ничего не найдено')).toBeVisible();
     expect(within(dialog).getByRole('button', { name: 'Добавить' })).toBeDisabled();
   });
 
-  it('replaces the field with a note that links to «Команды» when the organization has no team at all (US-7)', async () => {
+  it('replaces the field with a note naming the department when it has no team at all (US-7, mod-022)', async () => {
     serveOrganizations(noTeamsDataset());
     renderPage({ path: PRM_TEAMS });
     await screen.findByRole('heading', {
@@ -285,11 +322,7 @@ describe('feat-028 US-3 Scenario: «Добавить команду» links exis
 
     const note = await within(dialog).findByRole('status');
     expect(note).toHaveTextContent(
-      'В организации пока нет команд. Создайте первую в разделе «Организация» → «Команды».',
-    );
-    expect(within(note).getByRole('link', { name: '«Команды»' })).toHaveAttribute(
-      'href',
-      `/organizations/${ids.alfa}/teams`,
+      'В департаменте «Платформа» нет команд. Создайте команду в этом департаменте.',
     );
     expect(within(dialog).queryByRole('combobox', { name: 'Команды' })).not.toBeInTheDocument();
     expect(within(dialog).getByRole('button', { name: 'Добавить' })).toBeDisabled();

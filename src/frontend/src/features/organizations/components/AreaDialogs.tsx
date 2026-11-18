@@ -14,6 +14,12 @@ import {
   TruncatedText,
 } from '../../../shared/ui';
 import { organizationErrorCodes } from '../../../shared/api/errorCodes';
+import { ActionButton } from '../../../shared/ui';
+import { RequiresCode } from '../../../shared/ui/RequiresOrganizationCode';
+import { useUnlinkTeam } from '../hooks/mutations';
+import { useTeams } from '../hooks/queries';
+import { UnlinkDialog } from './UnlinkDialog';
+import type { ProjectTeam } from '../api/organizationsApi';
 import { ApiError } from '../../../shared/api/httpClient';
 import type { Area, AreaNode, CreateAreaBody } from '../api/organizationsApi';
 import { useFocusInvalid } from '../hooks/useFocusInvalid';
@@ -308,6 +314,14 @@ export function MoveAreaDialog({
   const [alert, setAlert] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [contextGone, setContextGone] = useState(false);
+  /** The server's text of `project_has_teams` while the refusal and its list of teams are up (BR-TD-4). */
+  const [linksText, setLinksText] = useState<string | null>(null);
+  const [unlinking, setUnlinking] = useState<ProjectTeam | null>(null);
+  const linkedTeams = useTeams(organizationId, node.projectId ?? '', {
+    enabled: isProject && linksText !== null,
+    fresh: true,
+  });
+  const unlink = useUnlinkTeam(organizationId);
   const focusField = useFocusOnMount<HTMLInputElement>();
   const focusInvalid = useFocusInvalid();
   const nodes = tree.data ?? [];
@@ -326,10 +340,19 @@ export function MoveAreaDialog({
     setBusy(true);
     setAlert(null);
     setFieldError(undefined);
+    setLinksText(null);
     try {
       await submit(parent.id);
       onSucceeded({ parentId: parent.id });
     } catch (error) {
+      if (
+        error instanceof ApiError &&
+        error.errorCode === organizationErrorCodes.areaProjectHasTeams
+      ) {
+        setLinksText(apiErrorText(error));
+        setBusy(false);
+        return;
+      }
       let placed = placeRefusal(error, [field]);
       if (error instanceof ApiError && error.errorCode === organizationErrorCodes.areaNotFound) {
         // The destination or the node itself: the tree says which.
@@ -348,13 +371,67 @@ export function MoveAreaDialog({
     }
   }
 
+  const teamRows = linkedTeams.data ?? [];
+  const refusalBlock =
+    isProject && linksText !== null ? (
+      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+        <Typography variant="body2">{linksText}</Typography>
+        {teamRows.length > 0 && (
+          <Typography variant="body2">{moveAreaDialog.project.teams}</Typography>
+        )}
+        {teamRows.map((team) => (
+          <Box key={team.id} sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            <TruncatedText>{team.name}</TruncatedText>
+            {(team.canUnlink ?? true) && (
+              <ActionButton
+                label={moveAreaDialog.project.unlink}
+                tone="subtle"
+                size="compact"
+                aria-label={moveAreaDialog.project.unlinkRow(team.name)}
+                onClick={() => setUnlinking(team)}
+              />
+            )}
+          </Box>
+        ))}
+      </Box>
+    ) : null;
+
+  if (unlinking && node.projectId) {
+    // The unlink dialog stands in this one's place; this keeps the chosen department (BR-TD-4, design § 5.2).
+    return (
+      <RequiresCode holds={unlinking.canUnlink ?? true}>
+        <UnlinkDialog
+          organizationId={organizationId}
+          projectId={node.projectId}
+          projectName={node.name}
+          teamId={unlinking.id}
+          teamName={unlinking.name}
+          submit={(destinationTeamId) =>
+            unlink.mutateAsync({
+              projectId: node.projectId ?? '',
+              teamId: unlinking.id,
+              destinationTeamId,
+            })
+          }
+          onSucceeded={() => setUnlinking(null)}
+          onClose={(gone) => {
+            setUnlinking(null);
+            if (gone) {
+              setContextGone(true);
+            }
+          }}
+        />
+      </RequiresCode>
+    );
+  }
+
   return (
     <FormDialog
       open
       title={texts.title}
       submitLabel={moveAreaDialog.submit}
       busy={busy}
-      error={alert}
+      error={alert ?? refusalBlock}
       submitDisabled={parent === null}
       onSubmit={() => void handleSubmit()}
       onClose={() => onClose(contextGone)}
@@ -362,22 +439,26 @@ export function MoveAreaDialog({
       <Typography variant="body2" color="text.secondary">
         {below > 0 ? texts.withChildren(node.name, below) : texts.leaf(node.name)}
       </Typography>
-      <LocalPicker<PlaceOption>
-        inputRef={focusField}
-        label={texts.field}
-        required
-        error={fieldError}
-        busy={busy}
-        options={options}
-        loading={tree.isPending}
-        value={parent}
-        onChange={(next) => {
-          setParent(next);
-          setFieldError(undefined);
-        }}
-        getKey={placeKey}
-        getLabel={placeLabel}
-      />
+      {isProject && tree.isSuccess && options.length === 0 ? (
+        <Typography variant="body1">{moveAreaDialog.project.noOther}</Typography>
+      ) : (
+        <LocalPicker<PlaceOption>
+          inputRef={focusField}
+          label={texts.field}
+          required
+          error={fieldError}
+          busy={busy}
+          options={options}
+          loading={tree.isPending}
+          value={parent}
+          onChange={(next) => {
+            setParent(next);
+            setFieldError(undefined);
+          }}
+          getKey={placeKey}
+          getLabel={placeLabel}
+        />
+      )}
     </FormDialog>
   );
 }

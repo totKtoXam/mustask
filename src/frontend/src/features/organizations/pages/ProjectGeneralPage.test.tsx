@@ -215,8 +215,10 @@ describe('feat-043 design § 7.1: «Общие» places the project, «Пара�
     expect(screen.getByText('Основное')).toBeInTheDocument();
   });
 
-  it('«Общие» of a project at the top level says it is in no department', async () => {
-    serveOrganizations();
+  it('«Общие» of a project with no department (a node from before mod-022) says so', async () => {
+    const data = exampleDataset();
+    data.areas.find((area) => area.id === ids.anlRoot)!.parentId = null;
+    serveOrganizations(data);
     renderPage({ path: `/organizations/${ids.alfa}/projects/${ids.anl}/general` });
 
     expect(await screen.findByText('Проект не входит ни в один департамент')).toBeInTheDocument();

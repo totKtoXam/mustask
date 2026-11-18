@@ -20,14 +20,16 @@ type Errors = Partial<Record<'name' | 'key' | 'description' | 'teams' | 'locatio
  * on submit — the key as typed, never trimmed or upper-cased — and nothing sent while either is
  * refused; then an optional «Описание» (at most 2 000 characters, as typed) and «Команды», a
  * searchable multiselect over the organization's active teams, drawn only for a user who holds both
- * link codes. **A project is created with no team** (BR-OL-2): left empty, it has none, the normal case.
+ * link codes; its options are the teams of the chosen department only (mod-022, BR-TD-3). **A project is
+ * created with no team** (BR-OL-2): left empty, it has none, the normal case. «Расположение» is required
+ * and offers departments only, never the top level (BR-TD-6): the preset department, else the only one
+ * offered, else empty and «Выберите департамент» on submit.
  * A refusal lands on its field or in the dialog's `Alert` by its code; the input is kept.
  */
 export function CreateProjectDialog({
   organizationId,
   canLink,
   canPlaceInDepartment = false,
-  canPlaceAtTop = false,
   writableIds,
   presetPlaceId,
   onForbidden,
@@ -38,10 +40,8 @@ export function CreateProjectDialog({
   organizationId: string;
   /** The user holds `team.link` and `project.link`: «Команды» is drawn. */
   canLink: boolean;
-  /** The user holds `area.write`: a department can be the parent (api-contract § 5, POST /projects). */
+  /** The user holds `area.write` somewhere: the departments are offered (mod-022 api-contract § 1, POST /projects). */
   canPlaceInDepartment?: boolean;
-  /** The user holds `area.create`: «Организация», the top level, is offered; without it a department is required. */
-  canPlaceAtTop?: boolean;
   /** The departments the user may write (mod-019 § 5): only these are offered as the place. */
   writableIds?: ReadonlySet<string>;
   /** The place chosen at the start: the department whose «Проекты» opened the dialog. */
@@ -56,7 +56,6 @@ export function CreateProjectDialog({
   const [key, setKey] = useState('');
   const [description, setDescription] = useState('');
   const [teams, setTeams] = useState<TeamListItem[]>([]);
-  const canPlace = canPlaceInDepartment || canPlaceAtTop;
   const [chosenPlace, setPlace] = useState<PlaceOption | null>(null);
   const [errors, setErrors] = useState<Errors>({});
   const [alert, setAlert] = useState<string | null>(null);
@@ -68,23 +67,26 @@ export function CreateProjectDialog({
   const areasQuery = useAreaTree(organizationId, { enabled: canPlaceInDepartment, fresh: true });
   const placeOptions = placementOptionsFor(
     areasQuery.data ?? [],
-    canPlaceAtTop,
     canPlaceInDepartment,
     writableIds,
   );
-  // The preset place (or the first offered) stands until one is chosen; one no longer offered falls back.
+  // The preset department, else the only one offered (BR-TD-6), stands until one is chosen; one no longer offered falls back.
   const place =
     placeOptions.find((option) => option.id === chosenPlace?.id) ??
     placeOptions.find((option) => option.id === presetPlaceId) ??
-    placeOptions[0];
+    (placeOptions.length === 1 ? placeOptions[0] : undefined);
+  // BR-TD-3: only the chosen department's teams are offered.
+  const departmentTeams = teamOptions.filter((team) => team.departmentId === place?.id);
+  const chosenTeams = teams.filter((team) => team.departmentId === place?.id);
 
   async function handleSubmit() {
     const refused: Errors = {
       name: nameError(name),
       key: keyError(key),
       description: descriptionError(description),
+      location: place ? null : placementField.required,
     };
-    if (refused.name || refused.key || refused.description) {
+    if (refused.name || refused.key || refused.description || refused.location) {
       setErrors(refused);
       focusInvalid();
       return;
@@ -93,10 +95,10 @@ export function CreateProjectDialog({
     if (description !== '') {
       body.description = description;
     }
-    if (canLink && teams.length > 0) {
-      body.teamIds = teams.map((team) => team.id);
+    if (canLink && chosenTeams.length > 0) {
+      body.teamIds = chosenTeams.map((team) => team.id);
     }
-    if (canPlace && place && place.id !== null) {
+    if (place?.id) {
       body.parentAreaId = place.id;
     }
     setBusy(true);
@@ -108,12 +110,9 @@ export function CreateProjectDialog({
       if (error instanceof ApiError && error.status === 403) {
         onForbidden?.();
       }
-      const fields: RefusalField[] = ['name', 'key', 'description'];
+      const fields: RefusalField[] = ['name', 'key', 'description', 'location'];
       if (canLink) {
         fields.push('teams');
-      }
-      if (canPlace) {
-        fields.push('location');
       }
       const placed = placeRefusal(error, fields);
       setErrors({
@@ -141,12 +140,7 @@ export function CreateProjectDialog({
       if (placed.fields.location !== undefined) {
         // The departments are read again, and a place no longer offered drops (design § 7).
         void areasQuery.refetch().then((result) => {
-          const offered = placementOptionsFor(
-            result.data ?? [],
-            canPlaceAtTop,
-            canPlaceInDepartment,
-            writableIds,
-          );
+          const offered = placementOptionsFor(result.data ?? [], canPlaceInDepartment, writableIds);
           setPlace((current) =>
             offered.some((candidate) => candidate.id === current?.id) ? current : null,
           );
@@ -214,6 +208,22 @@ export function CreateProjectDialog({
           setErrors((current) => ({ ...current, description: null }));
         }}
       />
+      <LocalPicker<PlaceOption>
+        label={placementField.label}
+        required
+        hint={placementField.hint}
+        error={errors.location ?? undefined}
+        busy={busy}
+        options={placeOptions}
+        loading={areasQuery.isPending}
+        value={place ?? null}
+        onChange={(next) => {
+          setPlace(next);
+          setErrors((current) => ({ ...current, location: null }));
+        }}
+        getKey={(option) => option.id ?? '__top__'}
+        getLabel={(option) => option.label}
+      />
       {canLink && (
         <InlineMultiPickerField<TeamListItem>
           label={projectTexts.create.teams.label}
@@ -221,15 +231,17 @@ export function CreateProjectDialog({
           hint={projectTexts.create.teams.hint}
           busy={busy}
           error={errors.teams ?? undefined}
-          value={teams}
-          options={teamOptions}
+          value={chosenTeams}
+          options={departmentTeams}
           loading={teamsQuery.isPending}
           noOptionsText={
             teamsQuery.isError
               ? linkDialog.project.loadFailed
-              : teamOptions.length === 0
-                ? projectTexts.create.teams.none
-                : undefined
+              : !place
+                ? projectTexts.create.teams.chooseDepartment
+                : departmentTeams.length === 0
+                  ? projectTexts.create.teams.none(place.label)
+                  : undefined
           }
           onChange={(next) => {
             setTeams(next);
@@ -238,23 +250,6 @@ export function CreateProjectDialog({
           getOptionLabel={(team) => team.name}
           getOptionKey={(team) => team.id}
           isOptionEqualToValue={(first, second) => first.id === second.id}
-        />
-      )}
-      {canPlace && (
-        <LocalPicker<PlaceOption>
-          label={placementField.label}
-          hint={placementField.hint}
-          error={errors.location ?? undefined}
-          busy={busy}
-          options={placeOptions}
-          loading={areasQuery.isPending}
-          value={place ?? null}
-          onChange={(next) => {
-            setPlace(next);
-            setErrors((current) => ({ ...current, location: null }));
-          }}
-          getKey={(option) => option.id ?? '__top__'}
-          getLabel={(option) => option.label}
         />
       )}
     </FormDialog>

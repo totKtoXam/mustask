@@ -41,54 +41,39 @@ export function departmentsOf(areas: readonly AreaNode[]): AreaNode[] {
 }
 
 /**
- * One choice of a place picker: a node by its path, or the top level (`id: null`, design D-8). The
- * top level reads «Организация» and stands first; it is a place, not a node.
+ * One choice of a place picker: a node by its path. `id` stays nullable for the sub-area pickers'
+ * shared shape; a project's place is always a department (doc-016 BR-TD-6), so no option is the top level.
  */
 export interface PlaceOption {
   id: string | null;
   label: string;
 }
 
-export const ORGANIZATION_OPTION: PlaceOption = { id: null, label: ORGANIZATION_PLACE };
-
-/** «Расположение» of a new project: «Организация» first, then every department by name (design § 7). */
+/** «Расположение» of a new project: every department by name, never «Верхний уровень» (doc-016 BR-TD-6). */
 export function placementOptions(areas: readonly AreaNode[]): PlaceOption[] {
-  return [
-    ORGANIZATION_OPTION,
-    ...departmentsOf(areas).map((area) => ({ id: area.id, label: area.name })),
-  ];
+  return departmentsOf(areas).map((area) => ({ id: area.id, label: area.name }));
 }
 
 /**
- * «Расположение» of a new project by the caller's codes (api-contract § 5, POST /projects): a
- * department parent needs `area.write`, the top level `area.create`.
+ * «Расположение» of a new project by the caller's codes (mod-022 api-contract § 1, POST /projects): a
+ * department needs `area.write` on it, so only the departments the caller may write are offered.
  */
 export function placementOptionsFor(
   areas: readonly AreaNode[],
-  atTop: boolean,
   inDepartment: boolean,
   /** mod-019 § 5: the nodes the caller may write; absent: every department (the administrator's view). */
   writableIds?: ReadonlySet<string>,
 ): PlaceOption[] {
   const options = placementOptions(inDepartment ? areas : []);
-  const placed = atTop ? options : options.filter((option) => option.id !== null);
-  return writableIds
-    ? placed.filter((option) => option.id === null || writableIds.has(option.id))
-    : placed;
+  return writableIds ? options.filter((option) => writableIds.has(option.id ?? '')) : options;
 }
 
-/**
- * A project's move offer (design § 5.4, D-5): «Организация» when it is not the current place, then
- * every department except the current one.
- */
+/** A project's move offer (doc-016 BR-TD-6): every department except the current one, never the top level. */
 export function projectMoveOptions(
   areas: readonly AreaNode[],
   currentParentId: string | null,
 ): PlaceOption[] {
-  const places = departmentsOf(areas)
-    .filter((area) => area.id !== currentParentId)
-    .map((area) => ({ id: area.id, label: area.name }));
-  return currentParentId === null ? places : [ORGANIZATION_OPTION, ...places];
+  return placementOptions(areas).filter((option) => option.id !== currentParentId);
 }
 
 /**

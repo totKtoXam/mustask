@@ -8,6 +8,8 @@ import {
   ids,
   ownedKey,
   problem,
+  projectNode,
+  team,
 } from '../testFixtures';
 import { serveOrganizations, serveProblem } from '../testApi';
 import { renderPage } from '../testRender';
@@ -212,6 +214,65 @@ describe('feat-028 US-3 Scenario: «Добавить проект» links projec
     ]);
   });
 
+  it('offers the projects of the team’s department only, and says so when it has none (mod-022 BR-TD-3)', async () => {
+    const data = exampleDataset();
+    data.projects.push({
+      id: 'b0000000-0000-4000-8000-0000000000bb',
+      organizationId: ids.alfa,
+      name: 'Отчётный',
+      key: 'RPT',
+      active: true,
+    });
+    data.areas.push(
+      projectNode(
+        'd0000000-0000-4000-8000-0000000000bb',
+        ids.alfa,
+        'b0000000-0000-4000-8000-0000000000bb',
+        ids.reportsArea,
+      ),
+    );
+    const { dialog } = await openLink(data);
+    await userEvent.click(within(dialog).getByRole('combobox', { name: 'Проекты' }));
+    // «Отчётный» stands in «Отчёты», the team in «Платформа».
+    expect((await screen.findAllByRole('option')).map((option) => option.textContent)).toEqual([
+      'АналитикаANL',
+    ]);
+  });
+
+  it('says there is no project in a department with none (mod-022 BR-TD-3)', async () => {
+    const data = exampleDataset();
+    const lonely = 'c0000000-0000-4000-8000-0000000000cc';
+    data.teams.push(team(lonely, ids.alfa, 'Одинокая', null, ids.reportsArea));
+    serveOrganizations(data);
+    renderPage({ path: teamPage(lonely, ids.alfa, 'projects') });
+    await userEvent.click(await screen.findByRole('button', { name: 'Добавить проекты' }));
+    const dialog = await screen.findByRole('dialog', { name: 'Добавление проектов в команду' });
+
+    expect(await within(dialog).findByRole('status')).toHaveTextContent(
+      'В департаменте «Отчёты» нет проектов. Создайте проект в этом департаменте.',
+    );
+    expect(within(dialog).getByRole('button', { name: 'Добавить' })).toBeDisabled();
+  });
+
+  it('a stale list: the server’s refusal of another department lands under «Проекты» (mod-022)', async () => {
+    const { api, dialog } = await openLink();
+    await userEvent.click(within(dialog).getByRole('combobox', { name: 'Проекты' }));
+    await userEvent.click(await screen.findByRole('option', { name: /Аналитика/ }));
+    await userEvent.keyboard('{Escape}');
+    // The project was moved to another department meanwhile.
+    api.data.areas.find((entry) => entry.id === ids.anlRoot)!.parentId = ids.reportsArea;
+    api.data.links = api.data.links.filter((link) => link.projectId !== ids.anl);
+
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Добавить' }));
+
+    expect(
+      await within(dialog).findByText(
+        'Команду можно связать только с проектом своего департамента.',
+      ),
+    ).toBeVisible();
+    expect(api.data.links.some((link) => link.projectId === ids.anl)).toBe(false);
+  });
+
   it('links one: the request, the row, and the notice naming it', async () => {
     const { api, dialog } = await openLink();
     await userEvent.click(within(dialog).getByRole('combobox', { name: 'Проекты' }));
@@ -234,7 +295,7 @@ describe('feat-028 US-3 Scenario: «Добавить проект» links projec
           .getAllByRole('row')
           .slice(1)
           .map((row) => row.textContent),
-      ).toEqual(['АналитикаANL—', 'Пример проектаPRMПлатформа']),
+      ).toEqual(['АналитикаANLПлатформа', 'Пример проектаPRMПлатформа']),
     );
   });
 
@@ -247,6 +308,14 @@ describe('feat-028 US-3 Scenario: «Добавить проект» links projec
       key: 'CORE',
       active: true,
     });
+    data.areas.push(
+      projectNode(
+        'd0000000-0000-4000-8000-0000000000aa',
+        ids.alfa,
+        'b0000000-0000-4000-8000-0000000000aa',
+        ids.platformArea,
+      ),
+    );
     const { dialog } = await openLink(data);
     await userEvent.click(within(dialog).getByRole('combobox', { name: 'Проекты' }));
     await userEvent.click(await screen.findByRole('option', { name: /Аналитика/ }));
@@ -258,14 +327,16 @@ describe('feat-028 US-3 Scenario: «Добавить проект» links projec
     expect(await screen.findByText('Проекты добавлены: 2.')).toBeInTheDocument();
   });
 
-  it('says «Команда уже подключена ко всем проектам.» when none is left', async () => {
+  it('says «Команда уже подключена ко всем проектам департамента.» when none is left', async () => {
     const data = exampleDataset();
     data.links.push({ projectId: ids.anl, teamId: ids.platformTeam });
     const { dialog } = await openLink(data);
 
     await userEvent.click(within(dialog).getByRole('combobox', { name: 'Проекты' }));
 
-    expect(await screen.findByText('Команда уже подключена ко всем проектам.')).toBeVisible();
+    expect(
+      await screen.findByText('Команда уже подключена ко всем проектам департамента.'),
+    ).toBeVisible();
   });
 
   it('a project deactivated meanwhile lands under «Проекты», the choice drops and nothing is linked', async () => {
@@ -305,7 +376,7 @@ describe('feat-028 US-3 Scenario: «Добавить проект» links projec
     ).toBeInTheDocument();
   });
 
-  it('an organization with no active project says so in an information note, and «Добавить» stays unavailable', async () => {
+  it('a department with no active project says so in an information note, and «Добавить» stays unavailable', async () => {
     const data = exampleDataset();
     for (const project of data.projects.filter(
       (candidate) => candidate.organizationId === ids.alfa,
@@ -318,7 +389,7 @@ describe('feat-028 US-3 Scenario: «Добавить проект» links projec
     const dialog = await screen.findByRole('dialog', { name: 'Добавление проектов в команду' });
 
     expect(await within(dialog).findByRole('status')).toHaveTextContent(
-      'В организации нет активных проектов.',
+      'В департаменте «Платформа» нет проектов. Создайте проект в этом департаменте.',
     );
     expect(within(dialog).getByRole('button', { name: 'Добавить' })).toBeDisabled();
     expect(api.writes()).toEqual([]);

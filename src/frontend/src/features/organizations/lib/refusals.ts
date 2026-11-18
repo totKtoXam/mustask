@@ -65,6 +65,9 @@ const FIELDS_OF_CODE: Readonly<Record<string, readonly RefusalField[]>> = {
   [codes.teamNotFound]: ['team', 'destination', 'teams'],
   [codes.teamNotInProject]: ['team', 'destination'],
   [codes.projectNotFound]: ['projects'],
+  // mod-022 api-contract § 1: a stale link picker (BR-TD-3) and a project asked to the top level (BR-TD-6).
+  [codes.teamOtherDepartment]: ['teams', 'projects'],
+  [codes.areaProjectNeedsDepartment]: ['location'],
   [codes.teamMemberNotInOrganization]: ['members'],
 };
 
@@ -72,7 +75,11 @@ const FIELDS_OF_CODE: Readonly<Record<string, readonly RefusalField[]>> = {
 const VALIDATED_FIELDS: readonly RefusalField[] = ['name', 'key', 'description', 'destination'];
 
 /** A body key the server names that the panel's field goes by under another name (mod-021: `departmentId`). */
-const FIELD_OF_BODY_KEY: Readonly<Record<string, RefusalField>> = { departmentId: 'department' };
+const FIELD_OF_BODY_KEY: Readonly<Record<string, RefusalField>> = {
+  departmentId: 'department',
+  // mod-022: «Расположение» of «Новый проект» (BR-TD-6).
+  parentAreaId: 'location',
+};
 
 function alertOnly(error: unknown): PlacedRefusal {
   return { fields: {}, alert: apiErrorText(error), contextGone: notFoundLevel(error) !== null };

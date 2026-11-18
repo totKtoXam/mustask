@@ -154,6 +154,7 @@ export function TeamsPage() {
             end="project"
             organizationId={organizationId}
             ownName={project.data?.name ?? ''}
+            department={project.data?.department ?? undefined}
             linkedIds={teams.map((team) => team.id)}
             submit={(ids) => link.mutateAsync(ids)}
             onSucceeded={(chosen) => {

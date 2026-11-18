@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { ids } from '../testFixtures';
-import { people } from '../testMembersData';
+import { membersDataset, people } from '../testMembersData';
 import { openPage } from '../testMembersPage';
 
 // mod-019 design §§ 4-5: «Наследовать доступ» on a project's node, its read-only fact and the confirmation.
@@ -31,8 +31,10 @@ describe('mod-019 «Наследовать доступ»', () => {
     expect(screen.queryByRole('switch')).toBeNull();
   });
 
-  it('says that a top-level project has nothing to inherit from yet', async () => {
-    openPage({ path: TOP_LEVEL_PATH });
+  it('says that a project with no department has nothing to inherit from yet (a node from before mod-022)', async () => {
+    const data = membersDataset();
+    data.areas.find((area) => area.id === ids.anlRoot)!.parentId = null;
+    openPage({ path: TOP_LEVEL_PATH, data });
 
     expect(
       await screen.findByText(

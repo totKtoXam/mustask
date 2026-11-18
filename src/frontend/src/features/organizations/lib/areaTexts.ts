@@ -84,7 +84,6 @@ export const areaPage = {
     empty: 'В департаменте нет проектов',
     add: 'Добавить проект',
     create: 'Создать проект',
-    liftToTop: 'Вынести на верхний уровень',
     deactivatedCount: (count: number) => `${count} деактивирован`,
   },
   teams: {
@@ -144,6 +143,12 @@ export const moveAreaDialog = {
     leaf: (name: string) =>
       `Проект «${name}» переместится. Рабочие элементы, команды и связи проекта не изменятся.`,
     moved: (name: string) => `Проект «${name}» перемещён.`,
+    /** doc-016 design § 5.2: the refusal's list of linked teams (the server's text stands above it). */
+    teams: 'Команды:',
+    unlink: 'Отключить',
+    unlinkRow: (team: string) => `Отключить команду «${team}» от проекта`,
+    /** Written by the developer (design § 5.2 has none), for gate-3: no department to move to. */
+    noOther: 'Нет другого департамента, в который вы можете переместить проект.',
   },
   area: {
     title: 'Перемещение области',
@@ -155,26 +160,16 @@ export const moveAreaDialog = {
   },
 } as const;
 
-/** «Добавление проекта в департамент» and «Вынести на верхний уровень» (feat-043 design §§ 8.2, 8.3). */
+/** «Добавление проекта в департамент» (feat-043 design § 8.2; «Вынести на верхний уровень» is gone, doc-016 BR-TD-6). */
 export const placeProjectDialog = {
   title: 'Добавление проекта в департамент',
   submit: 'Переместить',
   field: 'Проект',
   current: (name: string, place: string) => `${name} — сейчас: ${place}`,
-  topLevelNow: 'верхний уровень',
   fromPlace: (project: string, from: string, to: string) =>
     `Проект «${project}» переместится из «${from}» в «${to}». Его области, команды и рабочие элементы не изменятся.`,
-  fromTop: (project: string, to: string) =>
-    `Проект «${project}» войдёт в департамент «${to}». Его области, команды и рабочие элементы не изменятся.`,
   moved: (project: string) => `Проект «${project}» перемещён.`,
   projectNotFound: 'Проект не найден',
-} as const;
-
-export const liftProjectDialog = {
-  title: 'Вынести на верхний уровень',
-  confirm: 'Вынести',
-  text: (project: string) =>
-    `Вынести проект «${project}» на верхний уровень? Команды, области и рабочие элементы проекта не изменятся.`,
 } as const;
 
 /** The deletion (design § 5.5). */
@@ -203,7 +198,8 @@ export const pickerMore = (shown: number, total: number) =>
 /** «Расположение» of «Новый проект» and of the project's «Общие» (design § 7). */
 export const placementField = {
   label: 'Расположение',
-  hint: 'Необязательно. Без департамента проект появится на верхнем уровне.',
+  hint: 'Проект всегда стоит в департаменте.',
+  required: 'Выберите департамент',
   move: 'Переместить',
 } as const;
 
