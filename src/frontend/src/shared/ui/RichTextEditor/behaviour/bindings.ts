@@ -1,4 +1,5 @@
 import { Extension, type Editor } from '@tiptap/core';
+import type { PastedImage } from '../images/controller';
 
 /** What a notice says: the image that was not pasted, the code that was copied. */
 export type NoticeKind = 'image' | 'copied' | 'copyFailed';
@@ -11,6 +12,14 @@ export interface EditorBindings {
   notice: (kind: NoticeKind) => void;
   /** Report a change that is still waiting for its delay, now (Tab leaving the body, blur). */
   flush: () => void;
+  /** The host passed `images` (feat-078): image paste and drop insert, the control exists. */
+  imagesEnabled: boolean;
+  /** Files from a paste or a drop; `pos` is the drop position. */
+  insertFiles: (files: File[], source: 'drop' | 'clipboard', pos?: number) => void;
+  /** Images the pasted html named, to be read or decoded and uploaded. */
+  insertPasted: (images: PastedImage[]) => void;
+  /** The references the document holds now (a cut-and-paste inside it needs no new upload). */
+  holdsImage: (id: string) => boolean;
 }
 
 /**
@@ -23,7 +32,15 @@ export const RtBindings = Extension.create<unknown, EditorBindings>({
   name: 'rtBindings',
 
   addStorage() {
-    return { openLink: () => {}, notice: () => {}, flush: () => {} };
+    return {
+      openLink: () => {},
+      notice: () => {},
+      flush: () => {},
+      imagesEnabled: false,
+      insertFiles: () => {},
+      insertPasted: () => {},
+      holdsImage: () => false,
+    };
   },
 });
 

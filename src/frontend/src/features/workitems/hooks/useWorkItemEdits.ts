@@ -77,6 +77,11 @@ export interface WorkItemEditsOptions {
    * nothing the edits lack). The card owns the editor; the hook owns the save.
    */
   flushDescription?: () => string | null;
+  /**
+   * feat-078 BR-IM-14: the uploads of the description's images still running, as a promise that
+   * settles when they end (`null`: none). A save waits for it, then flushes.
+   */
+  settleDescription?: () => Promise<void> | null;
 }
 
 export interface WorkItemEditsState {
@@ -140,6 +145,7 @@ export function useWorkItemEdits({
   onSaved,
   onRefreshed,
   flushDescription,
+  settleDescription,
 }: WorkItemEditsOptions): WorkItemEditsState {
   const { mutateAsync: sendChanges } = useSaveWorkItem(organizationId, projectId, identifier);
   const readItem = useRefreshWorkItem(organizationId, projectId, identifier);
@@ -262,23 +268,37 @@ export function useWorkItemEdits({
     if (working.current) {
       return 'busy';
     }
-    // feat-018: a description change the editor still holds is reported first, synchronously.
-    const held = flushDescription?.() ?? null;
-    const current = held === null ? edits : withEdit(item, edits, { field: 'description', value: held });
-    if (!hasUnsavedEdits(item, current)) {
-      return 'clean';
-    }
-    // The browser's checks: nothing is sent while one stands.
-    const checked = draftErrors(item, editedDraft(item, current));
-    if (Object.keys(checked).length > 0) {
-      setErrors((current) => ({ ...current, ...checked }));
-      focusFirst(checked);
-      return 'invalid';
-    }
+    // feat-078: images still uploading are waited for (the editor says so under the field).
+    // The wait is part of the save: the card shows its saving state and is locked meanwhile.
+    const uploading = settleDescription?.() ?? null;
     working.current = 'save';
     setSaving(true);
     setAlert(null);
     try {
+      let base = edits;
+      if (uploading) {
+        try {
+          await uploading;
+        } catch {
+          // An upload that failed removed its placeholder and told the member; the save goes on.
+        }
+        // What was touched while the wait ran is part of this save.
+        base = latestEdits.current;
+      }
+      // feat-018: a description change the editor still holds is reported first, synchronously.
+      const held = flushDescription?.() ?? null;
+      const current =
+        held === null ? base : withEdit(item, base, { field: 'description', value: held });
+      if (!hasUnsavedEdits(item, current)) {
+        return 'clean';
+      }
+      // The browser's checks: nothing is sent while one stands.
+      const checked = draftErrors(item, editedDraft(item, current));
+      if (Object.keys(checked).length > 0) {
+        setErrors((errorsNow) => ({ ...errorsNow, ...checked }));
+        focusFirst(checked);
+        return 'invalid';
+      }
       const saved = await sendChanges(touchedChanges(item, current));
       setEdits(NO_EDITS);
       setErrors({});
@@ -291,7 +311,17 @@ export function useWorkItemEdits({
       working.current = null;
       setSaving(false);
     }
-  }, [item, edits, sendChanges, notify, onSaved, refuse, focusFirst, flushDescription]);
+  }, [
+    item,
+    edits,
+    sendChanges,
+    notify,
+    onSaved,
+    refuse,
+    focusFirst,
+    flushDescription,
+    settleDescription,
+  ]);
 
   const saveAndClose = useCallback(
     async (close: () => void): Promise<SaveOutcome> => {

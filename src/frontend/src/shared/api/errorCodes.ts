@@ -164,6 +164,13 @@ export const workItemErrorCodes = {
    * `descriptionFormat` other than `plain` or `html` — a panel defect, so the form's banner, not the editor.
    */
   descriptionFormatUnknown: 'workitems.workitem.description_format_unknown',
+  /**
+   * feat-078 api-contract § 4, a field reason of `validationFailed`: the description refers to an image that is not
+   * this item's or no longer exists. The field's error, under «Описание».
+   */
+  descriptionImageUnavailable: 'workitems.workitem.description_image_unavailable',
+  /** feat-078 api-contract § 4, a field reason of `validationFailed`: more than 50 images in the description. */
+  descriptionTooManyImages: 'workitems.workitem.description_too_many_images',
   /** A field reason of `validationFailed`: a panel defect, shown as any other refusal. */
   requestIdInvalid: 'workitems.workitem.request_id_invalid',
   /** A field reason of `validationFailed`: a panel defect, shown as any other refusal. */

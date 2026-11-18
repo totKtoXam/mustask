@@ -72,6 +72,7 @@ src/backend/
   | `UnauthorizedException` | 401 |
   | `ForbiddenException` | 403 |
   | `ConflictException` | 409 |
+  | `ServiceUnavailableException` | 503, with `Retry-After` (a bounded resource is full: the image decode gate, ADR-0045) |
 
   The error code (`MustaskException.Code`) — format `<module>.<reason>`, e.g.
   `orders.not_found`; it goes to the client in `errorCode` and is used as

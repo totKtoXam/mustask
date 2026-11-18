@@ -106,6 +106,13 @@ public static class WorkItemText
     }
 
     /// <summary>
+    /// feat-078 BR-IM-8: more than 50 image elements (duplicates counted) in a reduced html description. Applied after
+    /// the visible-length check and before anything is locked.
+    /// </summary>
+    public static string? ValidateImages(int imageCount) =>
+        imageCount > WorkItemLimits.DescriptionMaxImages ? WorkItemErrorCodes.DescriptionTooManyImages : null;
+
+    /// <summary>
     /// What a reduced html description is stored as (BR-RT-6): the value as html, or <c>""</c> plain when its visible
     /// text has no non-whitespace character. The reducer decides <paramref name="hasContent"/> from the text it read.
     /// </summary>

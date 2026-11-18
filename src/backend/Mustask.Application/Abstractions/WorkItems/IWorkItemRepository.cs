@@ -59,6 +59,9 @@ public interface IWorkItemRepository
     /// <summary>The item the submission <paramref name="requestId"/> created in the project, or <c>null</c> (BR-M3-26).</summary>
     Task<Guid?> FindCreatedByRequestAsync(Guid projectId, Guid requestId, CancellationToken cancellationToken);
 
+    /// <summary>feat-078: locks the item <c>FOR SHARE</c> (an image insert) and answers its id, or <c>null</c> when it is gone; a deletion or a purge takes <c>FOR UPDATE</c> and so waits for the insert or is waited on.</summary>
+    Task<Guid?> ShareLockAsync(Guid projectId, int number, CancellationToken cancellationToken);
+
     /// <summary>The project's item with that number, locked <c>FOR UPDATE</c> and tracked; <c>null</c> when there is none.</summary>
     Task<WorkItem?> LockAsync(Guid projectId, int number, CancellationToken cancellationToken);
 

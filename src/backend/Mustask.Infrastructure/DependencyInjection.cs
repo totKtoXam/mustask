@@ -11,6 +11,7 @@ using Mustask.Application.Features.Organizations;
 using Mustask.Application.Features.WorkItems;
 using Mustask.Infrastructure.Boards;
 using Mustask.Infrastructure.Dictionaries;
+using Mustask.Infrastructure.Images;
 using Mustask.Infrastructure.Dictionaries.Seeding;
 using Mustask.Infrastructure.Iterations;
 using Mustask.Infrastructure.Organizations;
@@ -95,6 +96,9 @@ public static class DependencyInjection
         // Work items (mod-003): M3's repository and read model, and its answer to M1's area-usage port.
         builder.Services.AddWorkItemsInfrastructure();
 
+        // Images (feat-078): the intake and its decode gate.
+        builder.Services.AddImagesInfrastructure();
+
         // Boards and backlogs (mod-006): M4's backlog read model and the order's repository.
         builder.Services.AddBoardsInfrastructure();
 
@@ -116,6 +120,7 @@ public static class DependencyInjection
     {
         services.AddScoped<IWorkItemRepository, WorkItemRepository>();
         services.AddScoped<IWorkItemReadModel, WorkItemReadModel>();
+        services.AddScoped<IWorkItemReadAccess, WorkItemReadAccess>();
         services.AddScoped<IAreaUsage, WorkItemAreaUsage>();
         services.AddScoped<IWorkItemTeamOwnership, WorkItemTeamOwnership>();
 

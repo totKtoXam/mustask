@@ -52,6 +52,15 @@ public static class WorkItemErrorCodes
     /// </summary>
     public const string DescriptionFormatUnknown = "workitems.workitem.description_format_unknown";
 
+    /// <summary>
+    /// Field reason of <c>description</c>: an image element that names no image the writer may take into this item
+    /// (feat-078 BR-IM-8). One reason for every refusal; the whole write is refused.
+    /// </summary>
+    public const string DescriptionImageUnavailable = "workitems.workitem.description_image_unavailable";
+
+    /// <summary>Field reason of <c>description</c>: more than 50 image elements (feat-078 BR-IM-8).</summary>
+    public const string DescriptionTooManyImages = "workitems.workitem.description_too_many_images";
+
     /// <summary>Field reason of <c>requestId</c>: missing or not a well-formed id (BR-M3-26). A panel defect, not user input.</summary>
     public const string RequestIdInvalid = "workitems.workitem.request_id_invalid";
 

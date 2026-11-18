@@ -1,3 +1,7 @@
+using Mustask.Application.Features.Images;
+using Mustask.Application.Features.Images.GetImage;
+using Mustask.Application.Features.Images.ReduceDescriptionImage;
+using Mustask.Application.Features.Images.UploadDescriptionImage;
 using Mustask.Application.Features.Boards.GetBacklog;
 using Mustask.Application.Features.Boards.GetBoard;
 using Mustask.Application.Features.Boards.GetProjectBacklog;
@@ -205,6 +209,12 @@ public static class DependencyInjection
         // Delete and restore a work item (mod-005): routes of WorkItemEndpoints.cs too.
         services.AddScoped<DeleteWorkItemHandler>();
         services.AddScoped<RestoreWorkItemHandler>();
+
+        // Images in a description (feat-078): the two upload routes of ImagesEndpoints.cs share one flow.
+        services.AddScoped<DescriptionImageIntakeFlow>();
+        services.AddScoped<UploadDescriptionImageHandler>();
+        services.AddScoped<ReduceDescriptionImageHandler>();
+        services.AddScoped<GetImageHandler>();
 
         // The purge (mod-005 US-6): its handler collects the IWorkItemPurgeStep of every line that keeps data of its own
         // (ADR-0030 rule 7); none is registered in this line, so the collection is empty.

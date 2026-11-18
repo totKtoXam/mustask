@@ -15,7 +15,7 @@ describe('toolbar model', () => {
       ['block', ['h3', 'h4', 'size']],
       ['marks', ['bold', 'italic', 'underline', 'strike', 'code', 'colour', 'highlight', 'clear']],
       ['lists', ['bullet', 'ordered', 'indent', 'outdent']],
-      ['links', ['link', 'unlink', 'open', 'emoji']],
+      ['links', ['link', 'unlink', 'open', 'emoji', 'image']],
       ['code', ['codeblock', 'language', 'copy']],
       ['table', ['table', 'tableOps']],
     ]);
@@ -48,6 +48,7 @@ describe('toolbar model', () => {
       'Убрать ссылку',
       'Открыть в новой вкладке',
       'Эмодзи',
+      'Изображение',
       'Блок кода',
       'Язык кода',
       'Копировать код',

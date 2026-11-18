@@ -78,7 +78,11 @@ async function attempt(
     requestHeaders.set('Authorization', `Bearer ${token}`);
   }
   // A multipart body (a file upload) carries its own boundary: the browser sets the content type.
-  if (body !== undefined && !(body instanceof FormData)) {
+  // A Blob is sent as it is (the images routes, feat-078): the body is the file's bytes, nothing else.
+  const binary = typeof Blob !== 'undefined' && body instanceof Blob;
+  if (binary) {
+    requestHeaders.set('Content-Type', 'application/octet-stream');
+  } else if (body !== undefined && !(body instanceof FormData)) {
     requestHeaders.set('Content-Type', 'application/json');
   }
   return fetch(`${env.apiBaseUrl}${path}`, {
@@ -89,7 +93,11 @@ async function attempt(
     credentials: 'omit',
     headers: requestHeaders,
     body:
-      body === undefined ? undefined : body instanceof FormData ? body : JSON.stringify(body),
+      body === undefined
+        ? undefined
+        : binary || body instanceof FormData
+          ? (body as Blob | FormData)
+          : JSON.stringify(body),
   });
 }
 

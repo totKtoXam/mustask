@@ -20,6 +20,7 @@ internal sealed class CanonicalWriter
     private long markup;
     private long visible;
     private bool leafSeen;
+    private readonly List<Guid> imageIds = [];
 
     public CanonicalWriter(RichTextVocabulary vocabulary, long limit)
     {
@@ -30,6 +31,9 @@ internal sealed class CanonicalWriter
     public long VisibleLength => visible;
 
     public bool HasContent { get; private set; }
+
+    /// <summary>The ids of the written images, in document order, duplicates kept.</summary>
+    public IReadOnlyList<Guid> ImageIds => imageIds;
 
     /// <summary>The written html, and its length in code points (without what was only read and dropped).</summary>
     public string Html => builder.ToString();
@@ -50,6 +54,9 @@ internal sealed class CanonicalWriter
         {
             case Leaf leaf:
                 WriteLeaf(leaf);
+                break;
+            case ImageBlock image:
+                WriteImage(image);
                 break;
             case CodeBlock code:
                 WriteCode(code);
@@ -102,6 +109,19 @@ internal sealed class CanonicalWriter
 
         CloseAll();
         Markup("</" + tag + ">");
+    }
+
+    /// <summary>
+    /// The image element (BR-IM-7): void, two attributes in this order. It adds no visible character and no separator
+    /// (BR-IM-9) and is content on its own (BR-RT-6).
+    /// </summary>
+    private void WriteImage(ImageBlock image)
+    {
+        Markup("<img data-image-id=\"" + image.Id.ToString("D") + "\" alt=\"");
+        Attribute(image.Alt, escapeAngles: true);
+        Markup("\">");
+        imageIds.Add(image.Id);
+        HasContent = true;
     }
 
     private void WriteCode(CodeBlock code)
@@ -311,7 +331,7 @@ internal sealed class CanonicalWriter
         Count(text.Length);
     }
 
-    private void Attribute(string value)
+    private void Attribute(string value, bool escapeAngles = false)
     {
         foreach (var rune in value.EnumerateRunes())
         {
@@ -326,6 +346,15 @@ internal sealed class CanonicalWriter
                 case '"':
                     builder.Append("&quot;");
                     Count(6);
+                    break;
+                case '<' or '>' when escapeAngles:
+                    // An alternative is text: the angle brackets are not kept, so the attribute never holds markup and the
+                    // written value is what any serialiser writes (the stored value stays a fixed point).
+                    break;
+                case '\r':
+                    // As in text: a CR does not survive a parse of the written value, the canonical form is the LF.
+                    builder.Append('\n');
+                    Count(1);
                     break;
                 case 0xA0:
                     builder.Append("&nbsp;");

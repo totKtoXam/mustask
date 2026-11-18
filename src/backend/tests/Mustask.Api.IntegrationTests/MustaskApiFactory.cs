@@ -57,6 +57,9 @@ public sealed class MustaskApiFactory : WebApplicationFactory<Program>, IAsyncLi
     private const string KeycloakClientSecretEnvVar = "Keycloak__ClientSecret";
     private const string SessionPanelUrlEnvVar = "Session__PanelUrl";
 
+    // feat-078: the sweep of unbound image uploads runs only where a test calls it; no host of the suite ticks it by itself.
+    private const string ImagesSweepEnabledEnvVar = "Images__Sweep__Enabled";
+
     /// <summary>
     /// ≥ 32 characters and not one of
     /// the two known placeholder literals — every test that forces
@@ -150,6 +153,7 @@ public sealed class MustaskApiFactory : WebApplicationFactory<Program>, IAsyncLi
                 // Keycloak и не открывают реальную панель), лишь бы хост поднялся.
                 Environment.SetEnvironmentVariable(KeycloakClientSecretEnvVar, TestKeycloakClientSecret);
                 Environment.SetEnvironmentVariable(SessionPanelUrlEnvVar, "http://panel.invalid");
+                Environment.SetEnvironmentVariable(ImagesSweepEnabledEnvVar, "false");
             }
 
             // For a host a test builds straight from WebApplicationFactory<Program>
@@ -177,6 +181,7 @@ public sealed class MustaskApiFactory : WebApplicationFactory<Program>, IAsyncLi
                 Environment.SetEnvironmentVariable(KeycloakAudienceEnvVar, null);
                 Environment.SetEnvironmentVariable(KeycloakClientSecretEnvVar, null);
                 Environment.SetEnvironmentVariable(SessionPanelUrlEnvVar, null);
+                Environment.SetEnvironmentVariable(ImagesSweepEnabledEnvVar, null);
             }
         }
     }

@@ -83,6 +83,7 @@ gate-3: approved (confirmed by the human in chat, 2026-09-24, "Approved, squash"
 - 2026-09-22 [orchestrator] route confirmed by the human: docs, **L** (queue said M; raised by the human "L — усилить анализ"), stages 1–2 → gate-1 → gate-3 → local squash; gate-2 inapplicable (no screens); doc-001 dependency verified merged (b5fde80)
 - 2026-09-22 [new-task] size mismatch: queue has size:M, human confirmed L
 - 2026-09-22 [new-task] task started, worktree C:/Users/khamb/Workspace/devex/internal_products/mustask/.claude/worktrees/doc-002-work-items
+- 2026-11-18 [orchestrator] note from feat-078-description-images (BR-IM-18, review F-5): spec.md BR-M3-4 carries an «Amended by feat-078 (2026-11-18)» note — Описание's safe subset gains the image element (feat-078 BR-IM-7). Prose only.
 
 ## Notes
 

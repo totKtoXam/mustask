@@ -416,6 +416,14 @@ the rehearsal (tech-056):
   answers with the session cookie (~3.5 KB on a bare realm, more with every
   claim the shared realm adds) plus the OIDC cookies it clears; with nginx's
   default 4–8 KB header buffer every sign-in gets a 502.
+- `client_max_body_size 21m` (in `location /api/`): an image upload is the file's
+  bytes as the request body, and a reduction of a picture over 5 MB takes up to 20 MB
+  (20 971 520 bytes). nginx's default of 1 MB would answer 413 before the API sees the
+  request; 21 MB is the API's own cap and a little room, the API refuses what is over
+  it with its own answer. A proxy in front of this nginx needs the same limit.
+- `proxy_request_buffering` stays on (its default; do not write `off` in `location /api/`): nginx then
+  receives the whole body before it passes the request on, so a slow client holds nginx's temporary file and
+  not the API's memory while an image is read.
 
 ### 7.2 A path of a shared host
 
@@ -425,8 +433,9 @@ the locations, from
 [`deploy/vm/nginx-mustask-locations.conf`](../../deploy/vm/nginx-mustask-locations.conf):
 
 - `location /mustask/api/` goes to `127.0.0.1:5000` with the forwarded
-  headers and the same three proxy buffer settings as in 7.1 (the reason is
-  the same: without them every sign-in gets a 502);
+  headers, the same three proxy buffer settings as in 7.1 (the reason is
+  the same: without them every sign-in gets a 502) and the same
+  `client_max_body_size 21m` (images, see 7.1);
 - `location /mustask/` serves the panel from
   `/opt/mustask/current/panel/` through `alias`, and an unknown path falls
   back to `/mustask/index.html`; `/mustask` without the slash redirects to
@@ -585,6 +594,7 @@ under `/opt/mustask/releases/`; delete the ones you no longer need by hand
 | API exits at start naming a `Keycloak:*` or `Session:PanelUrl` key | Missing variable in `mustask.env`. |
 | API exits at start about a "known placeholder or shorter than 32" secret | `Keycloak__ClientSecret` is not the real `mustask-panel` secret. |
 | `nginx -t`: `unknown directive "http2"` | nginx older than 1.25.1 with an edited site: keep `listen 443 ssl http2;` (section 7). |
+| Pasting or uploading a picture into a description answers **413** from nginx (an HTML page, not the API's JSON) | `client_max_body_size 21m` is missing in `location /api/` (section 7), or a proxy in front of this nginx has a smaller limit. |
 | After the Keycloak login the browser gets **502** on `/api/session/callback`; nginx's error log says "upstream sent too big header" | The proxy buffers from section 7 are missing: the session cookie does not fit nginx's default header buffer. |
 | `/health` is unhealthy naming the realm; the log has a TLS / certificate error | The VM does not trust the CA of the Keycloak certificate (section 2). |
 | `dotnet ef` fails with `NETSDK1004` (without the kit) | Run `dotnet restore src/backend/Mustask.Infrastructure` first (section 3). |

@@ -49,6 +49,15 @@ guarantees it exists and differs from the Russian, not its quality
 |http.service_unavailable|503|Сервис временно недоступен, повторите позже.|Қызмет уақытша қолжетімсіз, кейінірек қайталаңыз.|assigned by HTTP status|—|needs review|
 |http.too_many_requests|429|Сервис сейчас занят. Повторите запрос через несколько секунд.|Қызмет қазір бос емес. Сұранысты бірнеше секундтан кейін қайталаңыз.|assigned by HTTP status|—|needs review|
 |http.unauthorized|401|Требуется аутентификация.|Аутентификация қажет.|assigned by HTTP status|—|needs review|
+|images.busy|503|Сервер сейчас обрабатывает другие изображения. Попробуйте ещё раз через несколько секунд.|Сервер қазір басқа суреттерді өңдеп жатыр. Бірнеше секундтан кейін қайталап көріңіз.|images|—|needs review|
+|images.image.not_found|404|Изображение недоступно.|Сурет қолжетімсіз.|images|—|needs review|
+|images.reduction.animated|400|Анимация больше 5 МБ. Уменьшите её в другой программе и вставьте снова.|Анимация 5 МБ-тан үлкен. Оны басқа бағдарламада кішірейтіп, қайта қойыңыз.|images|—|needs review|
+|images.reduction.cannot_reduce|400|Не удалось уменьшить изображение до 5 МБ без сильной потери качества. Уменьшите его в другой программе и вставьте снова.|Суретті сапасын қатты жоғалтпай 5 МБ-қа дейін кішірейту мүмкін болмады. Оны басқа бағдарламада кішірейтіп, қайта қойыңыз.|images|—|needs review|
+|images.reduction.too_large|400|Файл больше 20 МБ. Уменьшите изображение в другой программе и вставьте снова.|Файл 20 МБ-тан үлкен. Суретті басқа бағдарламада кішірейтіп, қайта қойыңыз.|images|—|needs review|
+|images.upload.animation_too_large|400|Анимация слишком большая: не больше 1 000 кадров.|Анимация тым үлкен: 1 000 кадрдан аспауы керек.|images|—|needs review|
+|images.upload.format_unsupported|400|Можно вставить только изображения PNG, JPEG, GIF или WebP.|Тек PNG, JPEG, GIF немесе WebP суреттерін қоюға болады.|images|—|needs review|
+|images.upload.too_large|400|Изображение больше 5 МБ. Уменьшите его и вставьте снова.|Сурет 5 МБ-тан үлкен. Оны кішірейтіп, қайта қойыңыз.|images|—|needs review|
+|images.upload.too_many_pixels|400|Изображение слишком большое: не больше 60 мегапикселей и 20 000 пикселей по стороне.|Сурет тым үлкен: 60 мегапикселден және әр қабырғасы бойынша 20 000 пикселден аспауы керек.|images|—|needs review|
 |imports.access_forbidden|403|У вас нет прав на эту операцию.|Бұл әрекетке құқығыңыз жоқ.|imports|—|needs review|
 |imports.dry_run.empty_file|any|В файле нет строк данных.|Файлда деректер жолдары жоқ.|imports|—|needs review|
 |imports.dry_run.no_identifier_column|any|Без столбца идентификатора каждая строка создаёт новый элемент.|Сәйкестендіргіш бағаны болмаса, әр жол жаңа элемент жасайды.|imports|—|needs review|
@@ -225,8 +234,10 @@ guarantees it exists and differs from the Russian, not its quality
 |workitems.workitem.date_out_of_range|400|Укажите дату с 2000 по 2099 год.|2000 жылдан 2099 жылға дейінгі күнді көрсетіңіз.|workitems|—|needs review|
 |workitems.workitem.deleted|409|Рабочий элемент удалён и доступен только для чтения.|Жұмыс элементі жойылған және тек оқуға арналған.|workitems|—|needs review|
 |workitems.workitem.description_format_unknown|400|Неизвестный формат описания. Обновите страницу и попробуйте ещё раз.|Сипаттама пішімі белгісіз. Бетті жаңартып, қайталап көріңіз.|workitems|—|needs review|
+|workitems.workitem.description_image_unavailable|400|Изображение больше недоступно. Удалите его и вставьте снова.|Сурет енді қолжетімсіз. Оны жойып, қайта қойыңыз.|workitems|—|needs review|
 |workitems.workitem.description_markup_too_large|400|Слишком много разметки. Упростите форматирование или сократите текст.|Белгілеу тым көп. Пішімдеуді жеңілдетіңіз немесе мәтінді қысқартыңыз.|workitems|—|needs review|
 |workitems.workitem.description_too_long|400|Не более 100 000 символов.|100 000 таңбадан аспауы керек.|workitems|—|needs review|
+|workitems.workitem.description_too_many_images|400|В описании может быть не больше 50 изображений.|Сипаттамада 50 суреттен артық болмауы керек.|workitems|—|needs review|
 |workitems.workitem.field_not_on_type|400|Это поле недоступно для рабочего элемента этого типа.|Бұл өріс осы түрдегі жұмыс элементі үшін қолжетімсіз.|workitems|—|needs review|
 |workitems.workitem.integer_required|400|Введите целое число.|Бүтін сан енгізіңіз.|workitems|—|needs review|
 |workitems.workitem.not_deleted|409|Рабочий элемент не удалён.|Жұмыс элементі жойылмаған.|workitems|—|needs review|

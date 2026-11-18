@@ -6,6 +6,10 @@
   with syntax highlighting through lowlight as editor decorations; package
   licences and the highlighter's behaviour are still confirmed at version
   pin time and on the spike)
+- Amended by: [ADR-0045](0045-image-store-in-own-schema-libvips-hourly-sweep.md)
+  (feat-078, 2026-11-17) — the allowed markup gains one image element holding
+  an opaque image reference and a text alternative; images replace the
+  "images dropped" rule (feat-018 BR-RT-4)
 - Context: feat-018-work-item-rich-text, stage 03-design (first design
   artifact, size `L`, spec D-2) — `docs/features/feat-018-work-item-rich-text/`.
   Departs from [ADR-0007](0007-frontend-ui-stack-and-screen-state-canon.md)

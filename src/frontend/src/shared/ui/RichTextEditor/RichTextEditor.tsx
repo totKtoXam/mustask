@@ -24,15 +24,27 @@ import {
 } from '../../lib/richText';
 import { DEFAULT_COPY, type RichTextCopy } from './copy';
 import type { EditorImplProps, RichTextChange } from './EditorImpl';
+import type { RichTextImages } from './images/host';
 import { loadEditorImpl } from './loadEditorImpl';
 
 export type { RichTextChange } from './EditorImpl';
 export type { RichTextCopy } from './copy';
+export {
+  ImageRefusal,
+  type ImageReductionResult,
+  type RichTextImages,
+  type StoredImage,
+} from './images/host';
 
 /** The imperative surface: a form's submit calls `flush()` before it reads the draft. */
 export interface RichTextEditorHandle {
   /** Reports a change that is still waiting for its delay, now. A no-op while the editor loads. */
   flush(): void;
+  /**
+   * Image uploads still running (feat-078 BR-IM-14): a promise that settles when they end — the
+   * helper reads «Дожидаемся загрузки изображений…» meanwhile — or `null` when none is running.
+   */
+  settle(): Promise<void> | null;
 }
 
 export interface RichTextEditorProps {
@@ -59,6 +71,12 @@ export interface RichTextEditorProps {
   counterFrom?: number;
   /** Overrides of the interface texts. */
   copy?: Partial<RichTextCopy>;
+  /**
+   * Images in the description (feat-078 design § Host seam): the upload and reduction operations
+   * and the address rule. Without it there is no «Изображение» control and image paste and drop
+   * insert nothing.
+   */
+  images?: RichTextImages;
   ref?: Ref<RichTextEditorHandle>;
   /** `@internal`, tests: the live editor, `null` on unmount. TipTap types never leave `shared/ui`. */
   onEditorReady?: (editor: Editor | null) => void;
@@ -107,12 +125,15 @@ export function RichTextEditor({
   maxVisible = DESCRIPTION_MAX_VISIBLE,
   counterFrom = DESCRIPTION_COUNTER_FROM,
   copy: copyOverrides,
+  images,
   ref,
   onEditorReady,
 }: RichTextEditorProps) {
   const copy = useMemo(() => ({ ...DEFAULT_COPY, ...copyOverrides }), [copyOverrides]);
   const ids = { helper: useId(), counter: useId(), notice: useId() };
   const flushRef = useRef<(() => void) | null>(null);
+  const settleRef = useRef<(() => Promise<void> | null) | null>(null);
+  const [waiting, setWaiting] = useState(false);
 
   // The notice line (design § States, plan § 9.2): one polite live region, always in the DOM.
   // The same message again — a second dropped image — is announced again: the region is
@@ -132,7 +153,19 @@ export function RichTextEditor({
     noticeRef.current = message;
     setNotice(message);
   }, []);
-  useImperativeHandle(ref, () => ({ flush: () => flushRef.current?.() }), []);
+  useImperativeHandle(
+    ref,
+    () => ({
+      flush: () => flushRef.current?.(),
+      settle: () => {
+        const settling = settleRef.current?.() ?? null;
+        if (!settling) return null;
+        setWaiting(true);
+        return settling.finally(() => setWaiting(false));
+      },
+    }),
+    [],
+  );
 
   // The editor's chunk: loaded once, and again when «Повторить» is pressed (a failed dynamic
   // import is not retried by the browser on its own, and a rejected `lazy` is cached forever,
@@ -171,7 +204,7 @@ export function RichTextEditor({
     onChange(change);
   };
 
-  const shown = errorText ?? (over ? copy.tooLong : helperText);
+  const shown = errorText ?? (over ? copy.tooLong : waiting ? copy.images.waiting : helperText);
   const showCounter = visible >= counterFrom;
   const describedBy =
     [shown ? ids.helper : null, showCounter ? ids.counter : null, ids.notice]
@@ -193,6 +226,8 @@ export function RichTextEditor({
             describedBy={describedBy}
             copy={copy}
             flushRef={flushRef}
+            settleRef={settleRef}
+            images={images}
             onNotice={showNotice}
             onEditorReady={onEditorReady}
           />
@@ -223,7 +258,7 @@ export function RichTextEditor({
         <FormHelperText
           id={ids.helper}
           error={invalid && shown !== undefined}
-          role={over && errorText === undefined ? 'alert' : undefined}
+          role={over && errorText === undefined ? 'alert' : waiting ? 'status' : undefined}
           sx={{ m: 0 }}
         >
           {shown}
@@ -250,7 +285,7 @@ export function RichTextEditor({
         color="text.secondary"
         role="status"
         aria-live="polite"
-        sx={{ display: 'block', px: 1.75, minHeight: 0 }}
+        sx={{ display: 'block', px: 1.75, minHeight: 0, whiteSpace: 'pre-line' }}
       >
         {notice}
       </Typography>

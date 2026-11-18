@@ -54,7 +54,7 @@
     {
       "id": "images-dropped",
       "story": "US-2",
-      "note": "No image element is stored in this task; the surrounding text stays, a link holding only an image is gone.",
+      "note": "An image with no data-image-id, a src alone, is dropped (BR-IM-7); the surrounding text stays, a link holding only an image is gone.",
       "input": "<p>a<img src=\"https://e.org/x.png\">b<img src=\"data:image/png;base64,AAAA\"><a href=\"https://e.org\"><img src=\"x.png\"></a>c</p>",
       "canonical": "<p>abc</p>"
     },
@@ -466,6 +466,118 @@
       "note": "An address holding < or > is not kept as a link (its serialisation in an attribute is not agreed between browsers): the text stays.",
       "input": "<p><a href=\"https://e.org/a&lt;b\">x</a> <a href=\"https://e.org/?q=&gt;\">y</a> <a href=\"mailto:a&lt;b@e.org\">z</a></p>",
       "canonical": "<p>x y z</p>"
+    },
+    {
+      "id": "image-attributes-reduced",
+      "story": "US-3",
+      "note": "An image keeps its reference and its text alternative; width, style, class, onerror and src are not stored.",
+      "input": "<p>a</p><img src=\"https://e.org/x.png\" data-image-id=\"0b9f6a2e-5c3d-4a7e-8f1b-2d4c6e8a0b1c\" alt=\"кот\" width=\"10\" style=\"x:y\" class=\"z\" onerror=\"x()\">",
+      "canonical": "<p>a</p><img data-image-id=\"0b9f6a2e-5c3d-4a7e-8f1b-2d4c6e8a0b1c\" alt=\"кот\">"
+    },
+    {
+      "id": "image-alt-cut",
+      "story": "US-3",
+      "note": "A text alternative of 300 code points is cut to the first 255.",
+      "input": "<img data-image-id=\"0b9f6a2e-5c3d-4a7e-8f1b-2d4c6e8a0b1c\" alt=\"яяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяя\">",
+      "canonical": "<img data-image-id=\"0b9f6a2e-5c3d-4a7e-8f1b-2d4c6e8a0b1c\" alt=\"яяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяя\">"
+    },
+    {
+      "id": "image-alt-missing",
+      "story": "US-3",
+      "note": "A missing text alternative is stored as an empty one.",
+      "input": "<img data-image-id=\"0b9f6a2e-5c3d-4a7e-8f1b-2d4c6e8a0b1c\">",
+      "canonical": "<img data-image-id=\"0b9f6a2e-5c3d-4a7e-8f1b-2d4c6e8a0b1c\" alt=\"\">"
+    },
+    {
+      "id": "image-alt-escaped",
+      "story": "US-3",
+      "note": "The text alternative is escaped as an attribute: & and the double quote.",
+      "input": "<img data-image-id=\"0b9f6a2e-5c3d-4a7e-8f1b-2d4c6e8a0b1c\" alt='a &amp; \"b\"'>",
+      "canonical": "<img data-image-id=\"0b9f6a2e-5c3d-4a7e-8f1b-2d4c6e8a0b1c\" alt=\"a &amp; &quot;b&quot;\">"
+    },
+    {
+      "id": "image-id-case",
+      "story": "US-3",
+      "note": "The reference is written lower case, in the D form.",
+      "input": "<img data-image-id=\"0B9F6A2E-5C3D-4A7E-8F1B-2D4C6E8A0B1C\" alt=\"\">",
+      "canonical": "<img data-image-id=\"0b9f6a2e-5c3d-4a7e-8f1b-2d4c6e8a0b1c\" alt=\"\">"
+    },
+    {
+      "id": "image-without-reference-dropped",
+      "story": "US-3",
+      "note": "An image with no valid reference (any source, a made-up reference) is dropped, the text around it kept.",
+      "input": "<p>a<img src=\"http://e.org/x.png\">b<img src=\"//e.org/x.png\">c<img data-image-id=\"not-a-guid\" alt=\"x\">d</p>",
+      "canonical": "<p>abcd</p>"
+    },
+    {
+      "id": "image-splits-paragraph",
+      "story": "US-3",
+      "note": "An image inside a paragraph is a block of its own: the paragraph is cut around it.",
+      "input": "<p>a<img data-image-id=\"0b9f6a2e-5c3d-4a7e-8f1b-2d4c6e8a0b1c\" alt=\"x\">b</p>",
+      "canonical": "<p>a</p><img data-image-id=\"0b9f6a2e-5c3d-4a7e-8f1b-2d4c6e8a0b1c\" alt=\"x\"><p>b</p>"
+    },
+    {
+      "id": "image-paragraph-start",
+      "story": "US-3",
+      "note": "An empty half is not kept.",
+      "input": "<p><img data-image-id=\"0b9f6a2e-5c3d-4a7e-8f1b-2d4c6e8a0b1c\" alt=\"x\">b</p>",
+      "canonical": "<img data-image-id=\"0b9f6a2e-5c3d-4a7e-8f1b-2d4c6e8a0b1c\" alt=\"x\"><p>b</p>"
+    },
+    {
+      "id": "image-in-list-item",
+      "story": "US-3",
+      "note": "In a list item an image is a block of its own, between the paragraphs.",
+      "input": "<ul><li><p>a<img data-image-id=\"0b9f6a2e-5c3d-4a7e-8f1b-2d4c6e8a0b1c\" alt=\"x\">b</p></li></ul>",
+      "canonical": "<ul><li><p>a</p><img data-image-id=\"0b9f6a2e-5c3d-4a7e-8f1b-2d4c6e8a0b1c\" alt=\"x\"><p>b</p></li></ul>"
+    },
+    {
+      "id": "image-only-list-item",
+      "story": "US-3",
+      "note": "A list item may hold an image alone.",
+      "input": "<ul><li><img data-image-id=\"0b9f6a2e-5c3d-4a7e-8f1b-2d4c6e8a0b1c\" alt=\"x\"></li></ul>",
+      "canonical": "<ul><li><img data-image-id=\"0b9f6a2e-5c3d-4a7e-8f1b-2d4c6e8a0b1c\" alt=\"x\"></li></ul>"
+    },
+    {
+      "id": "image-in-heading",
+      "story": "US-3",
+      "note": "An image inside a heading follows the heading.",
+      "input": "<h3><img data-image-id=\"0b9f6a2e-5c3d-4a7e-8f1b-2d4c6e8a0b1c\" alt=\"x\">Заголовок</h3>",
+      "canonical": "<h3>Заголовок</h3><img data-image-id=\"0b9f6a2e-5c3d-4a7e-8f1b-2d4c6e8a0b1c\" alt=\"x\">"
+    },
+    {
+      "id": "image-in-link",
+      "story": "US-3",
+      "note": "An image leaves the link: the link stays around its text, the image has none.",
+      "input": "<p><a href=\"https://e.org\">x<img data-image-id=\"0b9f6a2e-5c3d-4a7e-8f1b-2d4c6e8a0b1c\" alt=\"y\"></a></p>",
+      "canonical": "<p><a href=\"https://e.org\" rel=\"noopener noreferrer\">x</a></p><img data-image-id=\"0b9f6a2e-5c3d-4a7e-8f1b-2d4c6e8a0b1c\" alt=\"y\">"
+    },
+    {
+      "id": "image-in-table-or-code-dropped",
+      "story": "US-3",
+      "note": "An image in a table cell or a code block is dropped.",
+      "input": "<table><tbody><tr><td><p>a<img data-image-id=\"0b9f6a2e-5c3d-4a7e-8f1b-2d4c6e8a0b1c\" alt=\"x\"></p></td></tr></tbody></table><pre><code>c<img data-image-id=\"1c8e7b3f-6d4e-4b8f-9a2c-3e5d7f9b1c2d\" alt=\"y\"></code></pre>",
+      "canonical": "<table><tbody><tr><td><p>a</p></td></tr></tbody></table><pre><code>c</code></pre>"
+    },
+    {
+      "id": "image-two-in-a-row",
+      "story": "US-3",
+      "note": "Two images in a row: two images, nothing between them.",
+      "input": "<img data-image-id=\"0b9f6a2e-5c3d-4a7e-8f1b-2d4c6e8a0b1c\" alt=\"x\"><img data-image-id=\"1c8e7b3f-6d4e-4b8f-9a2c-3e5d7f9b1c2d\" alt=\"y\">",
+      "canonical": "<img data-image-id=\"0b9f6a2e-5c3d-4a7e-8f1b-2d4c6e8a0b1c\" alt=\"x\"><img data-image-id=\"1c8e7b3f-6d4e-4b8f-9a2c-3e5d7f9b1c2d\" alt=\"y\">"
+    },
+    {
+      "id": "image-same-twice",
+      "story": "US-3",
+      "note": "The same reference twice stays twice; the save counts elements.",
+      "input": "<img data-image-id=\"0b9f6a2e-5c3d-4a7e-8f1b-2d4c6e8a0b1c\" alt=\"\"><img data-image-id=\"0b9f6a2e-5c3d-4a7e-8f1b-2d4c6e8a0b1c\" alt=\"\">",
+      "canonical": "<img data-image-id=\"0b9f6a2e-5c3d-4a7e-8f1b-2d4c6e8a0b1c\" alt=\"\"><img data-image-id=\"0b9f6a2e-5c3d-4a7e-8f1b-2d4c6e8a0b1c\" alt=\"\">"
+    },
+    {
+      "id": "image-alt-angles",
+      "story": "US-3",
+      "note": "The angle brackets of a text alternative are not kept (the attribute never holds markup); the rest of the alternative stays.",
+      "input": "<img data-image-id=\"0b9f6a2e-5c3d-4a7e-8f1b-2d4c6e8a0b1c\" alt=\"a <b> c\">",
+      "canonical": "<img data-image-id=\"0b9f6a2e-5c3d-4a7e-8f1b-2d4c6e8a0b1c\" alt=\"a b c\">"
     }
   ]
 }

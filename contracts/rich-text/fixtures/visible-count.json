@@ -18,6 +18,9 @@
     { "id": "nbsp", "story": "US-4", "note": "U+00A0 counts 1 (written as an entity, never counted as six).", "html": "<p>a&nbsp;b</p>", "count": 3 },
     {"id":"br-inside-mark","story":"US-4","note":"A br inside a mark is one LF.","html":"<p><strong>a<br></strong>b</p>","count":3},
     {"id":"heading-and-code-block","story":"US-4","note":"One LF between the leaf blocks, one inside the code block.","html":"<h3>t</h3><pre><code>x\ny</code></pre>","count":5},
-    {"id":"cr-reference-counts-one","story":"US-4","note":"A CR reached by a numeric reference is one character, written as LF.","html":"<p>a&#13;b</p>","count":3}
+    {"id":"cr-reference-counts-one","story":"US-4","note":"A CR reached by a numeric reference is one character, written as LF.","html":"<p>a&#13;b</p>","count":3},
+    {"id":"image-between-text","story":"US-3","note":"An image adds no character and no line break; the line break between the two paragraphs is the existing rule.","html":"<p>a</p><img data-image-id=\"0b9f6a2e-5c3d-4a7e-8f1b-2d4c6e8a0b1c\" alt=\"x\"><p>b</p>","count":3},
+    {"id":"image-alone","story":"US-3","note":"An image alone has no visible character.","html":"<img data-image-id=\"0b9f6a2e-5c3d-4a7e-8f1b-2d4c6e8a0b1c\" alt=\"x\">","count":0},
+    {"id":"image-alt-not-counted","story":"US-3","note":"The text alternative is not visible text.","html":"<p>a</p><img data-image-id=\"0b9f6a2e-5c3d-4a7e-8f1b-2d4c6e8a0b1c\" alt=\"яяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяя\">","count":1}
   ]
 }

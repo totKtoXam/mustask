@@ -48,6 +48,14 @@ internal sealed class Leaf(LeafKind kind) : Block
     public List<Inline> Items { get; } = [];
 }
 
+/// <summary>An image (BR-IM-7): the id of a stored upload and its description; never an address.</summary>
+internal sealed class ImageBlock(Guid id, string alt) : Block
+{
+    public Guid Id { get; } = id;
+
+    public string Alt { get; } = alt;
+}
+
 /// <summary>A code block: language index into the vocabulary's family (<c>-1</c> plain) and its text.</summary>
 internal sealed class CodeBlock(int language, string text) : Block
 {
@@ -63,7 +71,7 @@ internal sealed class ListBlock(bool ordered) : Block
     public List<ItemBlock> Items { get; } = [];
 }
 
-/// <summary>A list item: paragraphs and nested lists only.</summary>
+/// <summary>A list item: paragraphs, nested lists and images.</summary>
 internal sealed class ItemBlock
 {
     public List<Block> Blocks { get; } = [];

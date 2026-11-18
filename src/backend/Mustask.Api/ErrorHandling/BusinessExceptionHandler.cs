@@ -123,6 +123,11 @@ public sealed class BusinessExceptionHandler : IExceptionHandler
 
         httpContext.Response.StatusCode = mustaskException.StatusCode;
 
+        if (mustaskException is ServiceUnavailableException unavailable)
+        {
+            httpContext.Response.Headers.RetryAfter = ((int)Math.Ceiling(unavailable.RetryAfter.TotalSeconds)).ToString(System.Globalization.CultureInfo.InvariantCulture);
+        }
+
         var problemDetails = BuildProblemDetails(mustaskException, detail);
 
         // Статус и решение "обработано" не зависят от результата записи тела:

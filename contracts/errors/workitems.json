@@ -37,6 +37,20 @@
       "kk": "Тақырып бір жолда болуы керек.",
       "kkNeedsReview": true
     },
+    "workitems.workitem.description_image_unavailable": {
+      "statuses": [400],
+      "params": {},
+      "ru": "Изображение больше недоступно. Удалите его и вставьте снова.",
+      "kk": "Сурет енді қолжетімсіз. Оны жойып, қайта қойыңыз.",
+      "kkNeedsReview": true
+    },
+    "workitems.workitem.description_too_many_images": {
+      "statuses": [400],
+      "params": {},
+      "ru": "В описании может быть не больше 50 изображений.",
+      "kk": "Сипаттамада 50 суреттен артық болмауы керек.",
+      "kkNeedsReview": true
+    },
     "workitems.workitem.description_too_long": {
       "statuses": [400],
       "params": {},

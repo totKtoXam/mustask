@@ -363,3 +363,35 @@ describe('feat-029 US-5: refresh and undo', () => {
     expect(t.notify).toHaveBeenCalledWith(cardTexts.notices.undone);
   });
 });
+
+describe('feat-078 BR-IM-14: a save waits for the description images still uploading', () => {
+  it('sends nothing until the uploads end, then flushes and sends the description', async () => {
+    let uploaded: () => void = () => {};
+    const settleDescription = vi.fn(() => new Promise<void>((resolve) => (uploaded = resolve)));
+    const flushDescription = vi.fn(() => '<p>с картинкой</p>');
+    const t = await setup({ hook: { settleDescription, flushDescription } });
+
+    let outcome: SaveOutcome | undefined;
+    let running: Promise<void> = Promise.resolve();
+    act(() => {
+      running = t
+        .state()
+        .save()
+        .then((value) => {
+          outcome = value;
+        });
+    });
+
+    expect(patches(t.api)).toHaveLength(0);
+    expect(flushDescription).not.toHaveBeenCalled();
+    expect(await t.state().save()).toBe('busy');
+
+    await act(async () => {
+      uploaded();
+      await running;
+    });
+
+    expect(outcome).toBe('saved');
+    expect(JSON.stringify(patches(t.api)[0]?.body)).toContain('с картинкой');
+  });
+});

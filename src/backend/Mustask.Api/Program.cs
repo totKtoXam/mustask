@@ -10,6 +10,7 @@ using Mustask.Api.Authorization;
 using Mustask.Api.Features.Boards;
 using Mustask.Api.Features.Search;
 using Mustask.Api.Features.Dictionaries;
+using Mustask.Api.Features.Images;
 using Mustask.Api.Features.Imports;
 using Mustask.Api.Features.Organizations;
 using Mustask.Api.Features.Process;
@@ -144,6 +145,7 @@ builder.Services.AddSingleton<IAuthorizationMiddlewareResultHandler, ForbiddenEr
 // principal — see HttpContextCurrentUser for the exact fallback order and
 // the anonymous constant.
 builder.Services.AddHttpContextAccessor();
+builder.Services.AddSingleton<Mustask.Api.Features.Images.UploadBodySlots>();
 builder.Services.AddScoped<ICurrentUser, HttpContextCurrentUser>();
 builder.Services.AddSingleton<Mustask.Application.Abstractions.Imports.IReasonText, Mustask.Api.Features.Imports.ReasonText>();
 
@@ -318,6 +320,7 @@ app.MapGrantEndpoints();
 app.MapProcessEndpoints();
 app.MapSessionEndpoints();
 app.MapWorkItemEndpoints();
+app.MapImagesEndpoints();
 app.MapImportEndpoints();
 app.MapBoardEndpoints();
 app.MapIterationsEndpoints();

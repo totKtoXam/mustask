@@ -27,6 +27,8 @@ public sealed class WorkItemErrorCatalogTests
         { WorkItemErrorCodes.TitleMultiline, 400, "", "Заголовок должен быть в одну строку." },
         { WorkItemErrorCodes.DescriptionTooLong, 400, "", "Не более 100 000 символов." },
         { WorkItemErrorCodes.DescriptionMarkupTooLarge, 400, "", "Слишком много разметки. Упростите форматирование или сократите текст." },
+        { WorkItemErrorCodes.DescriptionImageUnavailable, 400, "", "Изображение больше недоступно. Удалите его и вставьте снова." },
+        { WorkItemErrorCodes.DescriptionTooManyImages, 400, "", "В описании может быть не больше 50 изображений." },
         { WorkItemErrorCodes.DescriptionFormatUnknown, 400, "", "Неизвестный формат описания. Обновите страницу и попробуйте ещё раз." },
         { WorkItemErrorCodes.RequestIdInvalid, 400, "", "Не удалось отправить форму. Обновите страницу и попробуйте ещё раз." },
         { WorkItemErrorCodes.InvalidPage, 400, "", "Некорректный номер страницы." },

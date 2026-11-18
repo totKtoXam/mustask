@@ -21,6 +21,7 @@ gate-3: approved 2026-11-12 (human, in chat: "approve"; the open points are take
 ## Log
 
 - 2026-10-12 [new-task] task started, worktree C:/Users/khamb/Workspace/devex/internal_products/mustask/.claude/worktrees/feat-018-work-item-rich-text
+- 2026-11-18 [orchestrator] note from feat-078-description-images (BR-IM-18, review F-5): spec.md BR-RT-1, -3, -4, -5, -6, -8 and -12 carry «Amended by feat-078 (2026-11-18)» notes — images are stored as `<img data-image-id alt>` (ADR-0045), BR-RT-4 is replaced by feat-078's spec. Prose only, nothing in this task changes.
 
 ## Notes
 

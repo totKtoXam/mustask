@@ -22,6 +22,9 @@ public static class WorkItemLimits
     /// <summary>The longest html Описание a request may carry, in UTF-16 code units, checked before any parsing (BR-RT-7).</summary>
     public const int DescriptionRequestMaxLength = 2_000_000;
 
+    /// <summary>The most image elements an html Описание may hold, duplicates counted (feat-078 BR-IM-8).</summary>
+    public const int DescriptionMaxImages = 50;
+
     /// <summary>The rows of one page of a project's list (BR-M3-29).</summary>
     public const int ListPageSize = 50;
 

@@ -70,6 +70,15 @@ internal sealed class WorkItemRepository(MustaskDbContext context) : IWorkItemRe
             .Select(item => (Guid?)item.Id)
             .SingleOrDefaultAsync(cancellationToken);
 
+    public async Task<Guid?> ShareLockAsync(Guid projectId, int number, CancellationToken cancellationToken)
+    {
+        var held = await context.Database
+            .SqlQuery<Guid>($"SELECT id AS \"Value\" FROM work_items WHERE project_id = {projectId} AND number = {number} FOR SHARE")
+            .ToListAsync(cancellationToken);
+
+        return held.Count > 0 ? held[0] : null;
+    }
+
     public async Task<WorkItem?> LockAsync(Guid projectId, int number, CancellationToken cancellationToken)
     {
         await context.Database.ExecuteSqlInterpolatedAsync(

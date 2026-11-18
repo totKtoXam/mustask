@@ -22,6 +22,7 @@ export { tabularRows } from './spreadsheetPaste';
 export { legacyToHtml } from './legacy';
 export { promptAddress, readLinkAddress } from './linkAddress';
 export { findAutoLinks, type AutoLink } from './autolink';
+export { cutAlt, storedAlt } from './imageAlt';
 export {
   DESCRIPTION_COUNTER_FROM,
   DESCRIPTION_MAX_MARKUP,
