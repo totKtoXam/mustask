@@ -54,6 +54,7 @@ gate-3: pending
 - 2026-11-18 [backend-developer] fix round after code review round 1: F-1 (GIF, WebP ANMF and APNG fcTL frames outside their canvas refused as a format refusal; decoded size checked against the header before CopyMemory), F-2/D-2 cheap half (body buffer min(Content-Length, cap)+1, at most four big bodies held, vm.md/vm.ru.md note on proxy_request_buffering), F-3 (ADR-0045 prose), F-4 (IUploadBody comment) and D-14 (drop clears pending, pin flipped). Tests: Infrastructure.Tests Images 87/87, Api.IntegrationTests Features.Images 74/74, RichTextEditor images.qa 55/55 (see review.md § Fixes after review round 1). No contract change; gates untouched.
 - 2026-11-18 [backend-developer] fix round 2: F-6 (GIF decoded-size check refused only when bigger than the header; scale from the loaded size; tests for a screen larger than its frames and a load bigger than the header) and F-7 (UploadBodySlots per-host singleton instead of a static; 503 test for the fifth body). Infrastructure.Tests ImageIntakeEdge+HeaderReader 58/58, Api.IntegrationTests Reduce+Upload+ImagesQa 30/30. No contract change; gates untouched.
 - 2026-11-18 [code-reviewer] stage 8 round 2 (delta 7540e412..aa047131, review.md § Round 2 — code): approve, 0 blockers, 0 majors; F-1..F-4 closed; open minors F-5..F-8 and the rest of D-14 for gate-3; backend QA owed over the intake fix (readers, codec, HttpUploadBody)
+$L
 
 ## Notes
 
@@ -88,4 +89,3 @@ Inputs for the analysis (the orchestrator, 2026-11-16; sources are files, read t
   is not yet measured end to end (the spike projected about 8 s for a 12 MP noisy JPEG before
   tuning). Steps 5-11 (API slices, error catalog, reducer image element, SaveWorkItem binding,
   sweeper, nginx and docs) are not started. No contract change so far.
-- 2026-11-18 [orchestrator] stage 8 closed: code review round 2 approve (4758bf10), F-6/F-7 fixed in 0cfb1ca9; gate-3 package sent to the orchestrator session doc-012 (delegated decider per the human), verdict pending
