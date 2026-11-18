@@ -144,3 +144,35 @@ Direction 2: behaviour changed is the default-team and unlink-destination refusa
 `default-team` and `not_in_project`. feat-028 api-contract and spec describe 409 for "an active team not linked", with no hidden
 case; they remain true for a visible team, and the mod-017 pointer covers the general rule. Not swept: the frontend's copy for
 these two routes, since the 404 copy already exists.
+
+## Round 3 (merge)
+
+Read the conflict resolution of merge `7c3a4f3d` (origin/main with feat-061) by `git show --remerge-diff` over its 14 files. No tests
+run. The Api volume tests' wall-clock failures under machine load are noted only; they are not a correctness signal.
+
+**Verdict: approved** — blockers 0 · majors 0 · minors open 1 (R-7, a debt).
+
+- **One carrier, one computation.** `CallerAccess` takes feat-061's required `SightedIds? Sight`, and `Projects` is derived from it
+  (`CallerAccess.cs:27-32`). `AccessSet.SeenProjects()` (the sprint reads and reorder, through `VisibleProjectsAsync`) and
+  `Sighted()` (the lists and the multi-project views) both take their project ids from one private `SeenProjectIds()`
+  (`AccessSet.cs:78-81,138-149`). feat-061's `NotNarrowed` is gone, and no caller of it is left.
+- **No narrowing lost.** All eight conflicted handlers build the caller from `(await access.SetAsync(ct)).Sighted()`. Every
+  feat-062 predicate in `AggregateViewReadModel` and `BacklogReadModel` still reads `caller.Projects`, and the `projects` lists of
+  the team backlog and board still filter by it. feat-061's navigation reads still use `Sight` (`NavigationReadModel.cs:133-136`,
+  which throws for a non-admin with none). Overview and selector offers now pass `set.Sighted()` (feat-061).
+- **No fail-open path.** A non-admin with `Sight == null` still throws in `Projects`. The interface default `SetAsync` builds a set
+  with no sight rows, so a non-admin test double narrows to nothing rather than everything.
+- **Administrator unchanged.** `Sighted()` is null for the administrator, so `Projects` is `All` and no predicate is added.
+  `LoadSetAsync` returns for the administrator without a statement (`ScopedAccessReadModel.cs:94-97`), so switching the handlers
+  from `VisibleProjectsAsync` to `SetAsync` adds no administrator statement and the pins stand.
+- **The statement-count double is corrected, not weakened.** The handlers now call `SetAsync`. Without the override,
+  `MemberAccess` would hand them the empty default set: no sight statements, and every project narrowed away. The real, cached
+  set makes the member read take exactly the set's statements once. `member == administrator + set` for 5 and for 50 projects
+  still pins it.
+- **Prose.** The api-contract sentence that names `Sighted()` and the derived `Projects` matches the code.
+
+**R-7 · minor · design: a mutable cache inside a positional record.** `CallerAccess.cs:25-32` caches `Projects` in a private
+field of a `record`. Record equality compares that field, so two equal callers become unequal once one has read `Projects`, and a
+`with` copy would carry the cached value past a changed `Sight`. Nothing uses `with` on it today
+(searched `Mustask.Application`, `Infrastructure`, `Api` and the tests). Fix (debt): drop the cache and compute
+`VisibleProjects.Only(sight.Projects)` on each read, or wrap the ids without copying them.
