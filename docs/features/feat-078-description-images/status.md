@@ -13,7 +13,7 @@
 requirements-review: needs-human-decision (review.md Round 1: R-1..R-15, 14 resolved in the spec, R-14 accepted-risk; OQ-1..OQ-7 for the human)
 gate-1: approved (the human, 2026-11-17)
 gate-2: approved (the human, 2026-11-17)
-gate-3: approved — decided by the orchestrator under the human's delegation, 2026-11-18, conditional on QA delta of the intake fix + F-5 notes (both met: 96e0f102, 038c1b3d)
+gate-3: approved — decided by the orchestrator under the human's delegation, 2026-11-18, conditional on QA delta of the intake fix + F-5 notes (both met: 96e0f102, 038c1b3d) · PR #236 https://github.com/totKtoXam/mustask/pull/236
 
 ## Plan
 
