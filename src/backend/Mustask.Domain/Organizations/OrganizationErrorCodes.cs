@@ -122,6 +122,20 @@ public static class OrganizationErrorCodes
     /// <summary>The field reason of a team request that names no department (BR-TD-1): «Выберите департамент».</summary>
     public const string TeamDepartmentRequired = "organizations.team.department_required";
 
+    // ----- mod-022 (doc-016): projects stand in departments -----
+
+    /// <summary>A link between a team and a project standing in different departments is refused (BR-TD-3).</summary>
+    public const string TeamOtherDepartment = "organizations.team.other_department";
+
+    /// <summary>A project linked to a team is not moved to another department (BR-TD-4, OQ-9 A).</summary>
+    public const string AreaProjectHasTeams = "organizations.area.project_has_teams";
+
+    /// <summary>A project node moved to the top level is refused: a project stands in a department only (BR-TD-6).</summary>
+    public const string AreaProjectNeedsDepartment = "organizations.area.project_needs_department";
+
+    /// <summary>The field reason of a project creation that names no department (BR-TD-6): «Выберите департамент».</summary>
+    public const string ProjectDepartmentRequired = "organizations.project.department_required";
+
     // ----- mod-016: organization access (api-contract § 5) -----
 
     /// <summary>

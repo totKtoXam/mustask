@@ -142,8 +142,10 @@ guarantees it exists and differs from the Russian, not its quality
 |organizations.area.not_empty|409|Нельзя удалить область, в которой есть проекты, вложенные области или рабочие элементы|Жобалары, ішкі аймақтары немесе жұмыс элементтері бар аймақты жоюға болмайды|organizations|—|needs review|
 |organizations.area.not_found|404|Область не найдена.|Аймақ табылмады.|organizations|—|needs review|
 |organizations.area.outside_project|409|Вложенную область нельзя переместить за пределы её проекта|Ішкі аймақты өз жобасының шегінен тыс жылжытуға болмайды|organizations|—|needs review|
+|organizations.area.project_has_teams|409|Проект связан с командами. Отключите их перед перемещением.|Жоба командалармен байланысты. Көшірмес бұрын оларды ажыратыңыз.|organizations|—|needs review|
+|organizations.area.project_needs_department|409|Проект должен находиться в департаменте.|Жоба департаментте тұруы керек.|organizations|—|needs review|
 |organizations.area.root_is_fixed|409|Корневая область меняется только вместе с проектом|Түбірлік аймақ тек жобамен бірге өзгереді|organizations|—|needs review|
-|organizations.area.type_not_allowed|409|Область этого типа нельзя разместить в выбранном месте. Департамент стоит на верхнем уровне, проект — на верхнем уровне или в департаменте, вложенная область — внутри своего проекта.|Мұндай түрдегі аймақты таңдалған жерге орналастыруға болмайды. Департамент жоғарғы деңгейде, жоба — жоғарғы деңгейде немесе департаментте, ішкі аймақ — өз жобасының ішінде тұрады.|organizations|—|needs review|
+|organizations.area.type_not_allowed|409|Область этого типа нельзя разместить в выбранном месте. Департамент стоит на верхнем уровне, проект — в департаменте, вложенная область — внутри своего проекта.|Мұндай түрдегі аймақты таңдалған жерге орналастыруға болмайды. Департамент жоғарғы деңгейде, жоба — департаментте, ішкі аймақ — өз жобасының ішінде тұрады.|organizations|—|needs review|
 |organizations.description_length|400|Описание должно содержать не более 2000 символов|Сипаттама 2000 таңбадан аспауы керек|organizations|—|needs review|
 |organizations.grant.changed|409|Доступ уже изменён или отозван. Список обновлён.|Қолжетімділік бұрын өзгертілген немесе қайтарып алынған. Тізім жаңартылды.|organizations|—|needs review|
 |organizations.grant.role_invalid|400|Выберите роль: читатель, участник или менеджер|Рөлді таңдаңыз: оқырман, қатысушы немесе менеджер|organizations|—|needs review|
@@ -160,6 +162,7 @@ guarantees it exists and differs from the Russian, not its quality
 |organizations.organization.create_forbidden|403|Недостаточно прав|Құқықтар жеткіліксіз|organizations|—|needs review|
 |organizations.organization.name_taken|409|Название «{name}» уже занято|«{name}» атауы бос емес|organizations|—|needs review|
 |organizations.organization.not_found|404|Организация не найдена.|Ұйым табылмады.|organizations|—|needs review|
+|organizations.project.department_required|400|Выберите департамент|Департаментті таңдаңыз|organizations|—|needs review|
 |organizations.project.key_invalid|400|Ключ проекта: от 2 до 10 латинских заглавных букв и цифр, начиная с буквы|Жоба кілті: әріптен басталатын 2-ден 10-ға дейін латын бас әріптері мен цифрлар|organizations|—|needs review|
 |organizations.project.key_required|400|Укажите ключ проекта|Жоба кілтін көрсетіңіз|organizations|—|needs review|
 |organizations.project.key_taken|409|Ключ «{key}» уже используется в организации|«{key}» кілті ұйымда қолданылып жүр|organizations|—|needs review|
@@ -187,6 +190,7 @@ guarantees it exists and differs from the Russian, not its quality
 |organizations.team.name_taken|409|Команда с таким названием уже есть в организации|Ұйымда мұндай атауы бар команда бар|organizations|—|needs review|
 |organizations.team.not_found|404|Команда не найдена.|Команда табылмады.|organizations|—|needs review|
 |organizations.team.not_in_project|409|Команда не участвует в проекте.|Команда жобаға қатыспайды.|organizations|—|needs review|
+|organizations.team.other_department|409|Команду можно связать только с проектом своего департамента.|Команданы тек өз департаментінің жобасымен байланыстыруға болады.|organizations|—|needs review|
 |organizations.validation_failed|400|Проверьте правильность заполнения полей.|Өрістердің дұрыс толтырылғанын тексеріңіз.|organizations|—|needs review|
 |session.anonymous|401|Вы не вошли в систему.|Сіз жүйеге кірмегенсіз.|session|—|needs review|
 |session.expired|401|Сессия истекла. Войдите заново.|Сессия мерзімі аяқталды. Қайта кіріңіз.|session|—|needs review|
