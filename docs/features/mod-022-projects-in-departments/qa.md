@@ -39,7 +39,7 @@ Plan written from `doc-016` spec (BR-TD-3, -4, -6, -19 steps 2-3, -20, US-5, US-
 
 | Date | What was run | Result |
 |---|---|---|
-| 2026-11-18 | `Mustask.Api.IntegrationTests` filter `ProjectsInDepartments` (developer's 8 + QA 15) | 22 passed, 1 skipped (D-1 pin) |
+| 2026-11-18 | `Mustask.Api.IntegrationTests` filter `ProjectsInDepartments` (developer's 9 + QA 14) | 22 passed, 1 skipped (D-1 pin) |
 | 2026-11-18 | `Mustask.Infrastructure.Tests` filter `RichText`, alone | **not green, not the branch's**: every failure is a wall-clock budget assertion (`exceeded=True`, e.g. 4479 ms; `took 00:00:05.58`) on a loaded Windows machine, and the run ended with a test host crash. The branch changes no RichText or reducer file (`git diff origin/main...HEAD --name-only`). Counted 6 failing cases before the host died |
 | 2026-11-18 | Developer-reported sets (Application, Domain, Contracts, Architecture, migration tests) | not re-run (green, run economy) |
 
