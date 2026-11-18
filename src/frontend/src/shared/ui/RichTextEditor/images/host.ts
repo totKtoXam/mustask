@@ -68,6 +68,11 @@ export interface RichTextImages {
   /** Called once per address the editor is done with (an object URL is revoked here). */
   release?: (address: string) => void;
   limits?: Partial<ImageLimits>;
+  /**
+   * `false`: the viewer may read the images but not insert (no edit right): the control is absent
+   * and a pasted or dropped image file is ignored (design § Toolbar control). Default `true`.
+   */
+  canInsert?: boolean;
 }
 
 /** The ids, in the textual form the stored element uses (lower case, hyphenated). */

@@ -173,8 +173,11 @@ export function WorkItemCard({
     descriptionEditor.current?.flush();
     return reportedDescription.current;
   }, []);
+  // feat-078 BR-IM-14: a save waits for the image uploads the editor still runs.
+  const settleDescription = useCallback(() => descriptionEditor.current?.settle() ?? null, []);
   const state = useWorkItemEdits({
     flushDescription,
+    settleDescription,
     organizationId,
     projectId,
     identifier: item.identifier,
@@ -341,6 +344,10 @@ export function WorkItemCard({
           disabled={common.busy || common.readOnly}
           onChange={onDescription}
           editorRef={descriptionEditor}
+          organizationId={organizationId}
+          projectId={projectId}
+          identifier={item.identifier}
+          readOnly={common.readOnly}
           inputRef={fields.ref('description')}
         />
       ),

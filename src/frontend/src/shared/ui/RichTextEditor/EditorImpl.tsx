@@ -351,7 +351,7 @@ function EditorBody({
     // eslint-disable-next-line react-hooks/set-state-in-effect -- the controller belongs to the editor made in this effect
     setController(created);
     bindEditor(editor, {
-      imagesEnabled: images !== undefined,
+      imagesEnabled: images !== undefined && images.canInsert !== false,
       insertFiles: (files: File[], source: FileSource, pos?: number) => {
         void created.insertFiles(files, source, pos);
       },
@@ -378,7 +378,10 @@ function EditorBody({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [editor]);
   useEffect(() => {
-    if (editor) bindEditor(editor, { imagesEnabled: images !== undefined });
+    if (editor)
+      bindEditor(editor, {
+        imagesEnabled: images !== undefined && images.canInsert !== false,
+      });
   }, [editor, images]);
 
   useEffect(() => {

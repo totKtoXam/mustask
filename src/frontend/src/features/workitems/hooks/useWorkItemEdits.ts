@@ -77,6 +77,11 @@ export interface WorkItemEditsOptions {
    * nothing the edits lack). The card owns the editor; the hook owns the save.
    */
   flushDescription?: () => string | null;
+  /**
+   * feat-078 BR-IM-14: the uploads of the description's images still running, as a promise that
+   * settles when they end (`null`: none). A save waits for it, then flushes.
+   */
+  settleDescription?: () => Promise<void> | null;
 }
 
 export interface WorkItemEditsState {
@@ -140,6 +145,7 @@ export function useWorkItemEdits({
   onSaved,
   onRefreshed,
   flushDescription,
+  settleDescription,
 }: WorkItemEditsOptions): WorkItemEditsState {
   const { mutateAsync: sendChanges } = useSaveWorkItem(organizationId, projectId, identifier);
   const readItem = useRefreshWorkItem(organizationId, projectId, identifier);
@@ -262,9 +268,22 @@ export function useWorkItemEdits({
     if (working.current) {
       return 'busy';
     }
+    // feat-078: images still uploading are waited for (the editor says so under the field).
+    const uploading = settleDescription?.() ?? null;
+    if (uploading) {
+      working.current = 'save';
+      try {
+        await uploading;
+      } catch {
+        // An upload that failed removed its placeholder and told the member; the save goes on.
+      } finally {
+        working.current = null;
+      }
+    }
     // feat-018: a description change the editor still holds is reported first, synchronously.
     const held = flushDescription?.() ?? null;
-    const current = held === null ? edits : withEdit(item, edits, { field: 'description', value: held });
+    const current =
+      held === null ? edits : withEdit(item, edits, { field: 'description', value: held });
     if (!hasUnsavedEdits(item, current)) {
       return 'clean';
     }
@@ -291,7 +310,17 @@ export function useWorkItemEdits({
       working.current = null;
       setSaving(false);
     }
-  }, [item, edits, sendChanges, notify, onSaved, refuse, focusFirst, flushDescription]);
+  }, [
+    item,
+    edits,
+    sendChanges,
+    notify,
+    onSaved,
+    refuse,
+    focusFirst,
+    flushDescription,
+    settleDescription,
+  ]);
 
   const saveAndClose = useCallback(
     async (close: () => void): Promise<SaveOutcome> => {

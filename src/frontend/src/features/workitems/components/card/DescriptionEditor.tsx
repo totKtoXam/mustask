@@ -1,8 +1,9 @@
-import { memo, type FocusEvent, type Ref } from 'react';
+import { memo, useMemo, type FocusEvent, type Ref } from 'react';
 import {
   RichTextEditor,
   type RichTextEditorHandle,
 } from '../../../../shared/ui/RichTextEditor/RichTextEditor';
+import { itemImagesHost } from '../../api/workItemImagesApi';
 import { cardTexts } from '../../lib/cardTexts';
 import { TEXT_HELPER } from '../../lib/fields';
 import type { ElementRef } from '../../lib/fieldRegistry';
@@ -15,6 +16,12 @@ interface DescriptionEditorProps {
   disabled: boolean;
   onChange: (html: string) => void;
   editorRef: Ref<RichTextEditorHandle>;
+  /** Where the item's images live (feat-078): the editor's images are stored on this item. */
+  organizationId: string;
+  projectId: string;
+  identifier: string;
+  /** The viewer holds no edit right: the images show, the insert control is absent. */
+  readOnly: boolean;
   inputRef?: ElementRef;
 }
 
@@ -30,6 +37,10 @@ function DescriptionEditorView({
   disabled,
   onChange,
   editorRef,
+  organizationId,
+  projectId,
+  identifier,
+  readOnly,
   inputRef,
 }: DescriptionEditorProps) {
   function focusBody(event: FocusEvent<HTMLDivElement>) {
@@ -37,6 +48,11 @@ function DescriptionEditorView({
       event.currentTarget.querySelector<HTMLElement>('[contenteditable="true"]')?.focus();
     }
   }
+
+  const images = useMemo(
+    () => ({ ...itemImagesHost(organizationId, projectId, identifier), canInsert: !readOnly }),
+    [organizationId, projectId, identifier, readOnly],
+  );
 
   return (
     <div ref={inputRef} tabIndex={-1} onFocus={focusBody} style={{ outline: 'none' }}>
@@ -47,6 +63,7 @@ function DescriptionEditorView({
         disabled={disabled}
         helperText={TEXT_HELPER}
         errorText={error}
+        images={images}
         onChange={({ html }) => onChange(html)}
       />
     </div>
