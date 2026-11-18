@@ -10,7 +10,7 @@
 
 ## Gates
 
-gate-3: approved (2026-11-18, by the human in chat, after the gate-3 package; debts R-3 and F-4 accepted)
+gate-3: approved (2026-11-18, by the human in chat; also decided by the orchestrator under the human's delegation, 2026-11-18, conditional on the R-3 fix — fixed in 35255ab4; debt F-4 accepted)
 
 ## Plan
 
@@ -55,3 +55,4 @@ Verification: affected tests locally, the full verify.sh in CI.
 - 2026-11-18 [orchestrator] merged origin/main (45 commits) fitted to projects in departments: snapshot consistent (has-pending-model-changes clean); RefusalLogTests and the inventory body (OrganizationAddressedRoutes) now carry parentAreaId; SearchTestKit, SearchDataSet, SightTwin and the other main fixtures already placed projects in departments. Domain 1185, Application 927, Architecture 82, Contracts 258 green; Infrastructure and Api (Search, Sight, Organizations, Authorization, Boards, Iterations, Imports) green except load-timing volume tests (RichText reducer, SearchDatabase VolumeReads p95 640 vs 600 ms, three Boards volume tests); the inventory and refusal-log tests re-run green (543); tsc -b clean, no frontend file from main.
 - 2026-11-18 [orchestrator] gate-3 approved by the human in chat («gate-3 одобрен, открывай PR»), after the gate-3 package sent to the orchestrator session. Accepted with it: debts R-3 (the upgrade stops, all or nothing, when a top-level non-department node is already named «Проекты без департамента»; BR-TD-19 says no clash) and F-4 (no «Переместить» in a department's project row menu); US-5's selector «Создать проект» and organization «все» entries wait for feat-052/feat-063; the developers' copy listed in plan-frontend.md. Volume and timing tests over budget locally (RichText, SearchDatabaseTests.VolumeReads, three serial volume tests) are left to CI.
 - 2026-11-18 [backend] R-3 fixed: the upgrade names the fallback department with the first free «(2)», «(3)», … instead of aborting, finds it again on a rerun, logs the chosen name; spec BR-TD-19/BR-TD-6, plan-backend and review.md updated; clash tests replace the abort test.
+- 2026-11-18 [orchestrator] gate-3 condition from the orchestrator (under the human's delegation): R-3 must not abort a prod deploy — fixed in 35255ab4 (fallback «Проекты без департамента (N)», logged, clash and rerun tests green). Accepted as debts: F-4, US-5 entries waiting on feat-052/feat-063, BR-TD-6 400-first (noted in the spec), the developer-written copy, the local timing-only test failures (fixed before merge if CI is red).
