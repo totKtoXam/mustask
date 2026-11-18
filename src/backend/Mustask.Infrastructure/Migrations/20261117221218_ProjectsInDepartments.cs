@@ -10,7 +10,7 @@ namespace Mustask.Infrastructure.Migrations
     /// (2) <see cref="ProjectsInDepartmentsUpgrade.Script"/> places the top-level projects and cuts the links across departments, naming
     /// each in the log and in notices; (3) the shape check of <c>areas</c> then requires every project node to have a parent. Nothing
     /// is deleted before it is logged. The migration is irreversible in data: Down only relaxes the check, it does not return a project
-    /// to the top level and does not restore a cut link (the log names them; a stand reset is the clean way back).
+    /// to the top level and does not restore a cut link (Down drops the log table too: read it, or the migration notices, before going down; a stand reset is the clean way back).
     /// </summary>
     /// <inheritdoc />
     public partial class ProjectsInDepartments : Migration

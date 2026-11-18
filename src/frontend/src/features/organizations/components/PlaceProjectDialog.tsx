@@ -32,7 +32,7 @@ const placeLabel = (project: ProjectPlace) =>
  * «Добавление проекта в департамент» (feat-043 design § 8.2): one project at a time, from the active
  * projects that stand in another department (read from the area tree at open), each with its present
  * place. Once one is chosen the dialog says what moves from where. A project with a linked team is
- * refused by the server (BR-TD-4, `project_has_teams`) and the server's text is the dialog's alert. A refusal of the move lands under the field,
+ * refused by the server (BR-TD-4, `project_has_teams`): the dialog names its teams with «Отключить» (`ProjectTeamsRefusal`). A refusal of the move lands under the field,
  * a project that is gone drops from the choice and the offer is read again; the department gone is
  * the dialog's alert and the page reads itself again.
  */
@@ -77,8 +77,7 @@ export function PlaceProjectDialog({
         node.projectActive !== false &&
         node.parentId !== department.id &&
         node.parentId !== null &&
-        (writableIds === undefined ||
-          (writableIds.has(node.id) && (node.parentId === null || writableIds.has(node.parentId)))),
+        (writableIds === undefined || (writableIds.has(node.id) && writableIds.has(node.parentId))),
     )
     .map((node) => ({
       nodeId: node.id,

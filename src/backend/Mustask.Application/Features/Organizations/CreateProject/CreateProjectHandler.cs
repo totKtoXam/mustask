@@ -49,7 +49,7 @@ public sealed class CreateProjectHandler(
     public async Task<CreateProjectResult> Handle(CreateProjectCommand command, CancellationToken cancellationToken)
     {
         // 0. The second codes, first of all (D-7). The place decides who creates (mod-019 BR-SA-17, ADR-0038): area.write on the
-        // department named, area.create at the top level, judged before any lookup; a non-admin who lacks it gets 403 for every place —
+        // department named, judged before any lookup (no department named is a 400 at validation, doc-016 BR-TD-6); a non-admin who lacks it gets 403 for every place —
         // unknown, deleted, foreign or not a department included — so nothing is disclosed. A project that links needs both ends' link codes.
         var placeGuess = AddressedId.TryParse(command.ParentAreaId, out var guessedPlace) ? guessedPlace : Guid.Empty;
 
