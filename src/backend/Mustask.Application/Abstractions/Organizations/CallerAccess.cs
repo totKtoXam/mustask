@@ -22,11 +22,12 @@ namespace Mustask.Application.Abstractions.Organizations;
 /// </param>
 public sealed record CallerAccess(Guid OrganizationId, string UserId, OrganizationRole Role, SightedIds? Sight)
 {
-    private VisibleProjects? _projects;
-
-    /// <summary>The projects this caller's rows may come from; throws for a non-administrator whose sight was not given.</summary>
+    /// <summary>
+    /// The projects this caller's rows may come from; throws for a non-administrator whose sight was not given. Computed on each
+    /// read, not cached, so record equality and a <c>with</c> copy see only <see cref="Sight"/>.
+    /// </summary>
     public VisibleProjects Projects =>
-        _projects ??= Sight is { } sight
+        Sight is { } sight
             ? VisibleProjects.Only(sight.Projects)
             : Role == OrganizationRole.Admin
                 ? VisibleProjects.All
