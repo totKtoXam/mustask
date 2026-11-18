@@ -82,6 +82,8 @@ export class ImageController {
   private readonly listeners = new Set<() => void>();
   private readonly jobs = new Map<string, Job>();
   private queue: Offer[] = [];
+  /** A refusal said by the insert in hand stays readable: the «вставлено» of its other files waits. */
+  private refusalHeld = false;
   private reduction: AbortController | null = null;
   private idle: (() => void)[] = [];
   private readonly busyListeners = new Set<() => void>();
@@ -153,6 +155,7 @@ export class ImageController {
     if (!host || files.length === 0) return;
     const { copy } = this.runtime;
     const limits = this.limits;
+    this.refusalHeld = false;
     const refusals: string[] = [];
     const refuse = (text: string) => {
       if (!refusals.includes(text)) refusals.push(text);
@@ -207,7 +210,19 @@ export class ImageController {
       this.next();
     }
 
-    if (refusals.length > 0) this.runtime.ui.notice(refusals.slice(0, 4).join('\n'));
+    if (refusals.length > 0) this.sayHeld(refusals.slice(0, 4).join('\n'));
+  }
+
+  /** Raises a refusal and keeps it from being replaced by the success of the same action. */
+  private sayHeld(message: string) {
+    this.refusalHeld = true;
+    this.runtime.ui.notice(message);
+  }
+
+  /** «Изображение вставлено.»: not over a refusal the same action has said. */
+  private sayInserted() {
+    if (this.refusalHeld) return;
+    this.runtime.ui.notice(this.runtime.copy.inserted);
   }
 
   /** Images the clipboard's html carried (design § Paste of rich content). */
@@ -216,6 +231,7 @@ export class ImageController {
     if (!host || images.length === 0) return;
     const { copy } = this.runtime;
     const limits = this.limits;
+    this.refusalHeld = false;
     const refusals: string[] = [];
     let count = countImages(this.editor.state.doc) + this.queue.length + (this.state ? 1 : 0);
     const pieces: Piece[] = [];
@@ -242,7 +258,7 @@ export class ImageController {
       started.forEach((start) => start());
       this.release();
     }
-    if (refusals.length > 0) this.runtime.ui.notice(refusals.join('\n'));
+    if (refusals.length > 0) this.sayHeld(refusals.join('\n'));
   }
 
   /** An image of the clipboard's html as a file: read from the store (re-upload, BR-IM-13) or decoded. */
@@ -280,7 +296,7 @@ export class ImageController {
         (stored) => {
           if (signal.aborted) return;
           this.replacePlaceholder(token, stored.id, alt);
-          this.runtime.ui.notice(this.runtime.copy.inserted);
+          this.sayInserted();
         },
         (error: unknown) => {
           if (signal.aborted) return;
@@ -304,7 +320,10 @@ export class ImageController {
     );
     if (pos < 0) return;
     const image = schema.nodes.rtImage!.create({ imageId: id, alt });
-    view.dispatch(state.tr.replaceWith(pos, pos + 1, image));
+    // Selected by the insert, not by the keyboard: no keyboard hint over «вставлено».
+    this.runtime.pointerSelection = true;
+    // Not an edit of the member's: it leaves a notice of the same action standing.
+    view.dispatch(state.tr.replaceWith(pos, pos + 1, image).setMeta('rtImageWork', true));
   }
 
   private removePlaceholder(token: string) {
@@ -381,6 +400,7 @@ export class ImageController {
       imageId: result.image.id,
       alt: offer.alt,
     });
+    this.runtime.pointerSelection = true;
     insertPieces(this.editor, [{ node: image }], pos ?? undefined);
     this.finish(offer);
     this.runtime.ui.notice(this.runtime.copy.inserted);

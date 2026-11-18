@@ -141,6 +141,30 @@ describe('stored images (US-4)', () => {
     expect(await screen.findByText('Изображение недоступно')).toBeInTheDocument();
   });
 
+  it('announces an unavailable image once, not as an image inside an image (QA D-12)', async () => {
+    const { images } = host({
+      address: vi.fn(async () => {
+        throw new Error('404');
+      }),
+    });
+    await mountEditor(stored(), { images });
+
+    await screen.findByText('Изображение недоступно');
+    expect(screen.getAllByRole('img', { name: 'Изображение недоступно' })).toHaveLength(1);
+  });
+
+  it('names the full-size view by its title, not by the alternative (QA D-12)', async () => {
+    const user = userEvent.setup();
+    const { images } = host();
+    await mountEditor(stored('схема стенда'), { images, disabled: true });
+
+    await user.click(
+      await screen.findByRole('button', { name: 'Открыть в полном размере: схема стенда' }),
+    );
+
+    expect(await screen.findByRole('dialog', { name: 'Просмотр изображения' })).toBeInTheDocument();
+  });
+
   it('is one tab stop in the read-only view, named by its alternative, and opens full size', async () => {
     const user = userEvent.setup();
     const { images } = host();

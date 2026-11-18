@@ -20,9 +20,13 @@ export function slotsPlugin(): Plugin<Map<string, number>> {
         const meta = tr.getMeta(slotsKey) as SlotMeta | undefined;
         if (slots.size === 0 && !meta?.add) return slots;
         const next = new Map<string, number>();
+        // The slots keep the chosen order: the first stays left of what lands at its position, the
+        // others move right past it, so offers confirmed one after another do not land reversed.
+        let first = true;
         for (const [id, pos] of slots) {
           if (meta?.remove === id) continue;
-          next.set(id, tr.mapping.map(pos, -1));
+          next.set(id, tr.mapping.map(pos, first ? -1 : 1));
+          first = false;
         }
         for (const [id, pos] of meta?.add ?? []) next.set(id, pos);
         return next;

@@ -148,7 +148,7 @@ describe('F-1 the control', () => {
   });
 
   // D-5: the tooltip is the control's name, US-1 copy says «Вставить изображение».
-  it.fails('has the tooltip «Вставить изображение» (US-1 copy)', async () => {
+  it('has the tooltip «Вставить изображение» (US-1 copy)', async () => {
     const user = userEvent.setup();
     const { images } = host();
     const { button } = await mountEditor('<p>до</p>', { images });
@@ -203,7 +203,7 @@ describe('F-2, F-3 order, placeholder, alternative', () => {
 
   // D-11: an insert that ends the document leaves the new image selected, and the keyboard hint
   // («Enter — открыть…») replaces «Изображение вставлено.», though no key selected it.
-  it.fails('says «Изображение вставлено.» after an insert at the end of the text', async () => {
+  it('says «Изображение вставлено.» after an insert at the end of the text', async () => {
     const { images } = host();
     const { editor } = await mountEditor('<p>до</p>', { images });
     caret(editor(), positionOf(editor(), 'до') + 2);
@@ -330,7 +330,7 @@ describe('F-5, F-7 drop', () => {
 
   // D-11: «Изображение вставлено.» of the valid files replaces the refusal of the same action in
   // the one notice line, so a sighted member never reads why the PDF is missing.
-  it.fails('keeps the refusal readable after the valid files of the same drop go in', async () => {
+  it('keeps the refusal readable after the valid files of the same drop go in', async () => {
     const { images } = host();
     const { body, editor } = await mountEditor('<p>до</p>', { images });
     editor().view.posAtCoords = () => null;
@@ -530,7 +530,7 @@ describe('F-10, F-11 pasted rich content', () => {
   });
 
   // D-6: after a cut the document no longer holds the reference, so the paste uploads a copy.
-  it.fails('moves an image by cut and paste without a new upload (US-1)', async () => {
+  it('moves an image by cut and paste without a new upload (US-1)', async () => {
     stubFetch();
     const { images } = host();
     const { body, editor } = await mountEditor(`<p>до</p>${stored()}<p>после</p>`, { images });
@@ -784,7 +784,7 @@ describe('US-6 the reduction dialog', () => {
 
   // D-10: the chooser path calls the editor's delayed focus, which lands after the dialog opened;
   // the focus trap then holds the dialog frame, not «Уменьшить» (the paste path above is right).
-  it.fails('F-27 a chosen file over 5 MB: initial focus on «Уменьшить»', async () => {
+  it('F-27 a chosen file over 5 MB: initial focus on «Уменьшить»', async () => {
     const { dialog } = await offered();
 
     await act(async () => new Promise((resolve) => setTimeout(resolve, 100)));
@@ -905,37 +905,34 @@ describe('US-6 the reduction dialog', () => {
   });
 
   // D-7: the second slot of the queue is mapped to the left of the first confirmed image.
-  it.fails(
-    'F-31 a queue: the small file goes in at once, the offers one after another, the chosen order kept',
-    async () => {
-      const user = userEvent.setup();
-      const { dialog, editor, images } = await offered(
-        { upload: vi.fn(async () => image(ids[0]!)) },
-        file('малый.png', 'image/png', 2_000_000),
-        file('семь.jpg', 'image/jpeg', 7_000_000),
-        file('восемь.jpg', 'image/jpeg', 8_000_000),
-      );
+  it('F-31 a queue: the small file goes in at once, the offers one after another, the chosen order kept', async () => {
+    const user = userEvent.setup();
+    const { dialog, editor, images } = await offered(
+      { upload: vi.fn(async () => image(ids[0]!)) },
+      file('малый.png', 'image/png', 2_000_000),
+      file('семь.jpg', 'image/jpeg', 7_000_000),
+      file('восемь.jpg', 'image/jpeg', 8_000_000),
+    );
 
-      await waitFor(() => expect(images.upload).toHaveBeenCalledTimes(1));
-      expect(within(dialog).getByText('Файл 1 из 2 · семь.jpg')).toBeInTheDocument();
-      await user.click(within(dialog).getByRole('button', { name: 'Уменьшить' }));
-      await user.click(await within(dialog).findByRole('button', { name: 'Вставить' }));
+    await waitFor(() => expect(images.upload).toHaveBeenCalledTimes(1));
+    expect(within(dialog).getByText('Файл 1 из 2 · семь.jpg')).toBeInTheDocument();
+    await user.click(within(dialog).getByRole('button', { name: 'Уменьшить' }));
+    await user.click(await within(dialog).findByRole('button', { name: 'Вставить' }));
 
-      const second = await screen.findByText('Файл 2 из 2 · восемь.jpg');
-      const next = second.closest('[role="dialog"]') as HTMLElement;
-      await user.click(within(next).getByRole('button', { name: 'Уменьшить' }));
-      await user.click(await within(next).findByRole('button', { name: 'Вставить' }));
+    const second = await screen.findByText('Файл 2 из 2 · восемь.jpg');
+    const next = second.closest('[role="dialog"]') as HTMLElement;
+    await user.click(within(next).getByRole('button', { name: 'Уменьшить' }));
+    await user.click(await within(next).findByRole('button', { name: 'Вставить' }));
 
-      await waitFor(() =>
-        expect(outline(editor())).toEqual([
-          'paragraph:до',
-          `img:${ids[0]}`,
-          `img:${ids[1]}`,
-          `img:${ids[2]}`,
-        ]),
-      );
-    },
-  );
+    await waitFor(() =>
+      expect(outline(editor())).toEqual([
+        'paragraph:до',
+        `img:${ids[0]}`,
+        `img:${ids[1]}`,
+        `img:${ids[2]}`,
+      ]),
+    );
+  });
 
   it('F-31 a cancelled offer leaves no gap and the next opens', async () => {
     const user = userEvent.setup();

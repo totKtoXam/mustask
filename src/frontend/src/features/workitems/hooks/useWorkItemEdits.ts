@@ -269,35 +269,36 @@ export function useWorkItemEdits({
       return 'busy';
     }
     // feat-078: images still uploading are waited for (the editor says so under the field).
+    // The wait is part of the save: the card shows its saving state and is locked meanwhile.
     const uploading = settleDescription?.() ?? null;
-    if (uploading) {
-      working.current = 'save';
-      try {
-        await uploading;
-      } catch {
-        // An upload that failed removed its placeholder and told the member; the save goes on.
-      } finally {
-        working.current = null;
-      }
-    }
-    // feat-018: a description change the editor still holds is reported first, synchronously.
-    const held = flushDescription?.() ?? null;
-    const current =
-      held === null ? edits : withEdit(item, edits, { field: 'description', value: held });
-    if (!hasUnsavedEdits(item, current)) {
-      return 'clean';
-    }
-    // The browser's checks: nothing is sent while one stands.
-    const checked = draftErrors(item, editedDraft(item, current));
-    if (Object.keys(checked).length > 0) {
-      setErrors((current) => ({ ...current, ...checked }));
-      focusFirst(checked);
-      return 'invalid';
-    }
     working.current = 'save';
     setSaving(true);
     setAlert(null);
     try {
+      let base = edits;
+      if (uploading) {
+        try {
+          await uploading;
+        } catch {
+          // An upload that failed removed its placeholder and told the member; the save goes on.
+        }
+        // What was touched while the wait ran is part of this save.
+        base = latestEdits.current;
+      }
+      // feat-018: a description change the editor still holds is reported first, synchronously.
+      const held = flushDescription?.() ?? null;
+      const current =
+        held === null ? base : withEdit(item, base, { field: 'description', value: held });
+      if (!hasUnsavedEdits(item, current)) {
+        return 'clean';
+      }
+      // The browser's checks: nothing is sent while one stands.
+      const checked = draftErrors(item, editedDraft(item, current));
+      if (Object.keys(checked).length > 0) {
+        setErrors((errorsNow) => ({ ...errorsNow, ...checked }));
+        focusFirst(checked);
+        return 'invalid';
+      }
       const saved = await sendChanges(touchedChanges(item, current));
       setEdits(NO_EDITS);
       setErrors({});

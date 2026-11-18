@@ -356,20 +356,29 @@ function EditorBody({
         void created.insertFiles(files, source, pos);
       },
       insertPasted: (list) => created.insertPasted(list),
-      holdsImage: (id) => {
-        let held = false;
-        editor.state.doc.descendants((node) => {
-          if (node.type.name === 'rtImage' && node.attrs.imageId === id) held = true;
-          return !held;
-        });
-        return held;
-      },
+      // A cut image leaves the document before the paste asks: the references this editor has held
+      // count, so moving an image inside the description keeps it and uploads nothing (US-1).
+      holdsImage: (id) => known.has(id) || remember(editor).has(id),
     });
+    const known = new Set<string>();
+    const remember = (current: Editor) => {
+      current.state.doc.descendants((node) => {
+        if (node.type.name === 'rtImage') known.add(node.attrs.imageId as string);
+        return node.type.name !== 'rtImage';
+      });
+      return known;
+    };
+    remember(editor);
+    const track = ({ transaction }: { transaction: { docChanged: boolean } }) => {
+      if (transaction.docChanged) remember(editor);
+    };
+    editor.on('transaction', track);
     if (settleRef) {
       settleRef.current = () => (created.pending > 0 ? created.whenIdle() : null);
     }
     return () => {
       if (settleRef) settleRef.current = null;
+      editor.off('transaction', track);
       created.destroy();
       setController(null);
       runtime.addresses.dispose();
@@ -402,6 +411,7 @@ function EditorBody({
     const clearOnEdit = ({ transaction }: { transaction: { getMeta(key: string): unknown } }) => {
       const source = transaction.getMeta('uiEvent');
       if (source === 'paste' || source === 'drop') return;
+      if (transaction.getMeta('rtImageWork')) return;
       clear();
     };
     editor.on('update', clearOnEdit);
@@ -503,7 +513,9 @@ function EditorBody({
   return (
     <Box
       onDragEnter={(event) => {
-        if (images && event.dataTransfer?.types.includes('Files')) setDropping(true);
+        if (images && images.canInsert !== false && event.dataTransfer?.types.includes('Files')) {
+          setDropping(true);
+        }
       }}
       onDragLeave={(event) => {
         if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setDropping(false);
@@ -532,7 +544,8 @@ function EditorBody({
             const files = Array.from(event.target.files ?? []);
             event.target.value = '';
             if (files.length === 0) return;
-            editor.commands.focus();
+            // Synchronous: the delayed focus of the command would land after an offer's dialog opened.
+            editor.view.focus();
             void controller?.insertFiles(files, 'chooser');
           }}
         />

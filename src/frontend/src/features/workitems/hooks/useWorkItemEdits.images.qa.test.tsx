@@ -63,31 +63,28 @@ function waitingSave(state: () => { save: () => Promise<SaveOutcome> }) {
 
 describe('QA F-9: a save waiting for image uploads', () => {
   // D-4: the wait runs before `setSaving(true)`, so the card is not busy and its fields stay open.
-  it.fails(
-    'shows the usual saving state while it waits (design § Save with an upload running)',
-    async () => {
-      let uploaded: () => void = () => {};
-      const t = await setup({
-        settleDescription: () => new Promise<void>((resolve) => (uploaded = resolve)),
-        flushDescription: () => '<p>с картинкой</p>',
-      });
+  it('shows the usual saving state while it waits (design § Save with an upload running)', async () => {
+    let uploaded: () => void = () => {};
+    const t = await setup({
+      settleDescription: () => new Promise<void>((resolve) => (uploaded = resolve)),
+      flushDescription: () => '<p>с картинкой</p>',
+    });
 
-      const save = waitingSave(t.state);
+    const save = waitingSave(t.state);
 
-      expect(patches(t.api)).toHaveLength(0);
-      expect(t.state().saving).toBe(true);
+    expect(patches(t.api)).toHaveLength(0);
+    expect(t.state().saving).toBe(true);
 
-      await act(async () => {
-        uploaded();
-        await save.running;
-      });
-      expect(save.outcome()).toBe('saved');
-    },
-  );
+    await act(async () => {
+      uploaded();
+      await save.running;
+    });
+    expect(save.outcome()).toBe('saved');
+  });
 
   // D-4: the save sends the edits it captured before the wait, then empties the draft: the title
   // typed during the wait is neither sent nor kept.
-  it.fails('does not lose an edit of another field made while the save waits', async () => {
+  it('does not lose an edit of another field made while the save waits', async () => {
     let uploaded: () => void = () => {};
     const t = await setup({
       settleDescription: () => new Promise<void>((resolve) => (uploaded = resolve)),

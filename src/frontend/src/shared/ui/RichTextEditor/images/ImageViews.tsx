@@ -125,8 +125,9 @@ export function ImageView({ node, selected, editor, getPos, extension }: NodeVie
     <NodeViewWrapper
       data-rt-image=""
       contentEditable={false}
-      role="img"
-      aria-label={state.status === 'failed' ? copy.unavailable : name}
+      // A failed read draws its own «Изображение недоступно» (an image role): not named twice.
+      role={state.status === 'failed' ? undefined : 'img'}
+      aria-label={state.status === 'failed' ? undefined : name}
       onDoubleClick={() => state.status === 'ready' && runtime.ui.openView(target())}
     >
       <Box

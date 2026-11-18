@@ -191,24 +191,12 @@ export function FullSizeDialog({
   const state = useStoredImage(runtime, target.imageId);
   const narrow = useNarrow();
   const { view } = runtime.copy;
-  const titleId = useId();
 
   return (
-    <Dialog
-      open
-      onClose={onClose}
-      maxWidth="lg"
-      fullWidth
-      fullScreen={narrow}
-      aria-labelledby={titleId}
-    >
+    <Dialog open onClose={onClose} maxWidth="lg" fullWidth fullScreen={narrow}>
+      {/* The dialog is named by its title (the kit's title bar), not by the alt caption below. */}
       <DialogTitleBar title={view.title} onClose={onClose} />
-      <Typography
-        id={titleId}
-        variant="caption"
-        color="text.secondary"
-        sx={{ px: 3, display: 'block' }}
-      >
+      <Typography variant="caption" color="text.secondary" sx={{ px: 3, display: 'block' }}>
         {target.alt}
       </Typography>
       <DialogContent

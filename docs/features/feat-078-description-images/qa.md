@@ -379,6 +379,19 @@ limit under load, as the developer's file does); `useWorkItemEdits.images.qa.tes
 `paste.test.tsx` 17/17. Each `it.fails` was also run once as a plain `it` to confirm it fails for the
 defect's reason, not a timeout. `npx tsc -b` clean; ESLint and Prettier clean on the two new files.
 
+### Fixes after QA
+
+2026-11-18, frontend developer, same branch. Fixed, each pin flipped from `it.fails` to `it`:
+D-4 (`save` enters the saving state before the wait, so the card is locked; the save then reads the
+edits as they stand after the wait), D-6 (the editor remembers the references it has held, so a
+cut and paste inside one description keeps the id and uploads nothing), D-5 (tooltip «Вставить
+изображение»), D-7 (the first slot maps left, the later ones right, so confirmed offers keep the
+chosen order), D-10 (`editor.view.focus()` is synchronous, so the dialog keeps «Уменьшить»), D-11
+(a refusal of the action stays readable: the swap of a placeholder is no edit that clears it, and
+«вставлено» does not replace it; an insert's own selection raises no keyboard hint), D-12 (one
+image role for an unavailable image, no drop tint without `canInsert`, the full-size dialog named
+by its title; two tests added). Left as gate-3 debt, as asked: D-8, D-9, D-13.
+
 ### Verdict
 
 blockers: 0 · majors: 2 (D-4, D-6, returned to the frontend developer) · minors: 8 (D-5, D-7..D-13,

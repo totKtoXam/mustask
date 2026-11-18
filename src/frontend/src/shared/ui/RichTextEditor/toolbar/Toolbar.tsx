@@ -181,7 +181,12 @@ function ToolbarButton({
 }: ToolbarButtonProps) {
   const name = control.name(copy);
   const { pressed = false, disabled } = control.state(context);
-  const tooltip = control.shortcut ? `${name} (${formatShortcut(control.shortcut, mac)})` : name;
+  // «Изображение» is the name; the tooltip says what the button does (feat-078 design § Toolbar control).
+  const tooltip = control.shortcut
+    ? `${name} (${formatShortcut(control.shortcut, mac)})`
+    : control.id === 'image'
+      ? copy.images.insert
+      : name;
   const content = control.icon ? (
     <control.icon fontSize="small" />
   ) : (
