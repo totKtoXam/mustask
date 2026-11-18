@@ -46,6 +46,7 @@ gate-3: pending
 
 - 2026-11-18 [orchestrator] the human confirmed in this session («Да») that gate-3 of feat-078 is decided by the orchestrator session doc-012 (local_7646c220); its verdict goes into gate-3. Backend QA passed (0 blocker/major, minors D-1..D-3 carried to gate-3). Stage 6 started
 - 2026-11-18 [frontend-developer] stage 6 done: images in the Описание editor (nodes, placeholders, upload and reduction controllers, reduction dialog, full-size view, image menu, keyboard, read-only view, host seam) and the card wiring (a save waits for uploads); plan-frontend.md written; story-linked tests green; no contract change. Deviation: RichTextImages gained an optional canInsert so the card shows images yet hides the control for a viewer without the edit right (design: absent, not disabled).
+- 2026-11-18 [qa-engineer] stage 7 frontend QA (qa.md, Frontend): fail, blockers 0, majors 2 returned to the frontend developer — D-4 a save waiting for uploads is not busy and an edit typed during the wait is silently lost; D-6 cut and paste of an image re-uploads it (US-1 criterion). Minors 8 carried to gate-3 as debt (D-5, D-7..D-13: tooltip copy, queue order of two offers, non-images refusals read generic, data-image and animation sniff gaps, chooser focus in the offer, notices overwrite each other, small a11y leftovers, the 640 px toolbar check owed). canInsert deviation accepted. E2E: no (standing answer). Added images.qa.test.tsx (52) and useWorkItemEdits.images.qa.test.tsx (3); open defects pinned with it.fails
 
 ## Notes
 
