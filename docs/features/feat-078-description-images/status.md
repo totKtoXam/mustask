@@ -3,7 +3,7 @@
 - type: feature
 - size: L
 - branch: feat/078-description-images
-- stage: gate-3
+- stage: 07-mr-complete
 - epic: core/work-items
 - deps: feat-018
 - gates: gate-1, gate-2, gate-3
@@ -13,7 +13,7 @@
 requirements-review: needs-human-decision (review.md Round 1: R-1..R-15, 14 resolved in the spec, R-14 accepted-risk; OQ-1..OQ-7 for the human)
 gate-1: approved (the human, 2026-11-17)
 gate-2: approved (the human, 2026-11-17)
-gate-3: pending
+gate-3: approved — decided by the orchestrator under the human's delegation, 2026-11-18, conditional on QA delta of the intake fix + F-5 notes (both met: 96e0f102, 038c1b3d)
 
 ## Plan
 
@@ -56,6 +56,7 @@ gate-3: pending
 - 2026-11-18 [code-reviewer] stage 8 round 2 (delta 7540e412..aa047131, review.md § Round 2 — code): approve, 0 blockers, 0 majors; F-1..F-4 closed; open minors F-5..F-8 and the rest of D-14 for gate-3; backend QA owed over the intake fix (readers, codec, HttpUploadBody)
 - 2026-11-18 [orchestrator] stage 8 closed: code review round 2 approve (4758bf10), F-6/F-7 fixed in 0cfb1ca9; gate-3 package sent to the orchestrator session doc-012 (delegated decider per the human), verdict pending
 - 2026-11-18 [qa-engineer] backend QA delta over the intake fix (7540e412..0cfb1ca9; qa.md § Backend delta — intake fix): pass, blockers 0, majors 0, new minor D-15 (an APNG fcTL shorter than 26 bytes is skipped, not refused; no cap bypass) carried to gate-3 as debt. Added ImageIntakeFixQaTests (frame edges ±1 for GIF/ANMF/fcTL, 60 MP and 20 000 px boundaries per reader and after decoding, every-prefix and seeded-mutation runs through the intake, VP8X/fcTL order and length cases, F-6 scaling from the loaded size; 76 pass, D-15 pin skipped) and HttpUploadBodyQaTests (cap and cap+1 declared and chunked, lying Content-Length, read bound, slots and 503; 14/14). No DB used
+- 2026-11-18 [orchestrator] gate-3 approved by the orchestrator session doc-012 under the human's delegation; both conditions met (QA delta 96e0f102 pass with D-15 minor; F-5 notes 038c1b3d). Next: rebase onto origin/main (158 behind, conflicts incl. the model snapshot; AddImageStore regenerated on top), then PR
 
 ## Notes
 
