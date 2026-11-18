@@ -75,7 +75,6 @@ const DROPPED = new Set([
   'frame',
   'frameset',
   'applet',
-  'img',
   'hr',
 ]);
 
@@ -131,6 +130,13 @@ interface Leaf {
   readonly items: Inline[];
 }
 
+/** BR-IM-7: the id of a stored upload and its text alternative; never an address. */
+interface ImageBlock {
+  readonly type: 'image';
+  readonly id: string;
+  readonly alt: string;
+}
+
 interface CodeBlock {
   readonly type: 'code';
   readonly language: VocabularyToken | null;
@@ -170,12 +176,18 @@ interface RectangularTable {
   readonly rows: CellBlock[][];
 }
 
-type Block = Leaf | CodeBlock | ListBlock | TableBlock | RectangularTable;
+type Block = Leaf | ImageBlock | CodeBlock | ListBlock | TableBlock | RectangularTable;
 
 // --- containers ----------------------------------------------------------------------------------------------------
 
+function removeFrom<T>(list: T[], item: T): void {
+  const index = list.indexOf(item);
+  if (index >= 0) list.splice(index, 1);
+}
+
 abstract class Container {
   abstract add(block: Block): void;
+  abstract remove(block: Block): void;
 }
 
 class RootContainer extends Container {
@@ -183,6 +195,10 @@ class RootContainer extends Container {
 
   add(block: Block): void {
     this.blocks.push(block);
+  }
+
+  remove(block: Block): void {
+    removeFrom(this.blocks, block);
   }
 }
 
@@ -208,6 +224,10 @@ class ListContainer extends Container {
     }
     this.implicitItem.blocks.push(block);
   }
+
+  remove(block: Block): void {
+    if (this.implicitItem !== null) removeFrom(this.implicitItem.blocks, block);
+  }
 }
 
 class ItemContainer extends Container {
@@ -220,6 +240,10 @@ class ItemContainer extends Container {
 
   add(block: Block): void {
     this.item.blocks.push(block);
+  }
+
+  remove(block: Block): void {
+    removeFrom(this.item.blocks, block);
   }
 }
 
@@ -237,6 +261,10 @@ class TableContainer extends Container {
   add(block: Block): void {
     this.before.push(block);
   }
+
+  remove(block: Block): void {
+    removeFrom(this.before, block);
+  }
 }
 
 class RowContainer extends Container {
@@ -252,6 +280,10 @@ class RowContainer extends Container {
   add(block: Block): void {
     this.tableContainer.add(block);
   }
+
+  remove(block: Block): void {
+    this.tableContainer.remove(block);
+  }
 }
 
 class CellContainer extends Container {
@@ -266,6 +298,10 @@ class CellContainer extends Container {
     if (block.type === 'leaf') {
       this.cell.paragraphs.push(block);
     }
+  }
+
+  remove(block: Block): void {
+    if (block.type === 'leaf') removeFrom(this.cell.paragraphs, block);
   }
 }
 
@@ -296,6 +332,7 @@ function newFrame(element: Element): Frame {
 class DomConverter {
   private readonly containers: Container[] = [];
   private currentLeaf: Leaf | null = null;
+  private readonly pendingImages: ImageBlock[] = [];
   private marks: Marks = NO_MARKS;
   private inPre = false;
   private preText = '';
@@ -358,6 +395,12 @@ class DomConverter {
 
     if (name === 'br') {
       this.onBreak();
+      frame.skipped = true;
+      return false;
+    }
+
+    if (name === 'img') {
+      this.onImage(element);
       frame.skipped = true;
       return false;
     }
@@ -530,6 +573,37 @@ class DomConverter {
     leaf.items.push({ text: data, marks: canonicalMarks(this.marks, leaf.kind !== 'p') });
   }
 
+  /**
+   * BR-IM-7: an image is kept by its `data-image-id` (a uuid) and its `alt` only. It is a block of
+   * its own: a paragraph it sits in is cut around it, a heading holds it back until the heading
+   * closes, and in a code block or a table cell it is dropped.
+   */
+  private onImage(element: Element): void {
+    const id = element.getAttribute('data-image-id');
+    const trimmed = id === null ? '' : trimUnicodeWhiteSpace(id);
+    if (this.inPre || this.current() instanceof CellContainer || !UUID.test(trimmed)) return;
+
+    const image: ImageBlock = {
+      type: 'image',
+      id: trimmed.toLowerCase(),
+      alt: cutAlt(element.getAttribute('alt') ?? ''),
+    };
+
+    const leaf = this.currentLeaf;
+    if (leaf !== null && leaf.kind !== 'p') {
+      this.pendingImages.push(image);
+      return;
+    }
+
+    if (leaf !== null && leaf.items.length === 0) {
+      // An empty half is not kept.
+      this.current().remove(leaf);
+    }
+
+    this.closeLeaf();
+    this.current().add(image);
+  }
+
   private onBreak(): void {
     if (this.inPre) {
       this.preText += '\n';
@@ -561,6 +635,11 @@ class DomConverter {
 
   private closeLeaf(): void {
     this.currentLeaf = null;
+
+    if (this.pendingImages.length > 0) {
+      for (const image of this.pendingImages) this.current().add(image);
+      this.pendingImages.length = 0;
+    }
   }
 
   private startLeaf(kind: LeafKind): void {
@@ -637,6 +716,22 @@ class DomConverter {
       this.current().add(leaf);
     }
   }
+}
+
+const UUID = /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/;
+const MAX_ALT_CODE_POINTS = 255;
+
+/** At most 255 code points of the text alternative; longer is cut. */
+function cutAlt(alt: string): string {
+  let count = 0;
+  for (let index = 0; index < alt.length; ) {
+    const unit = alt.charCodeAt(index);
+    const next = alt.charCodeAt(index + 1);
+    const pair = unit >= 0xd800 && unit <= 0xdbff && next >= 0xdc00 && next <= 0xdfff;
+    if (++count > MAX_ALT_CODE_POINTS) return alt.slice(0, index);
+    index += pair ? 2 : 1;
+  }
+  return alt;
 }
 
 /** `colspan` / `rowspan`: a trimmed run of 1..9 ASCII digits, else 1. */
@@ -798,6 +893,9 @@ class CanonicalWriter {
       case 'leaf':
         this.writeLeaf(block);
         break;
+      case 'image':
+        this.writeImage(block);
+        break;
       case 'code':
         this.writeCode(block);
         break;
@@ -834,6 +932,14 @@ class CanonicalWriter {
 
     this.closeAll();
     this.markupText('</' + leaf.kind + '>');
+  }
+
+  /** BR-IM-7: void, two attributes in this order; no visible character, no separator (BR-IM-9); content on its own. */
+  private writeImage(image: ImageBlock): void {
+    this.markupText('<img data-image-id="' + image.id + '" alt="');
+    this.attribute(image.alt, true);
+    this.markupText('">');
+    this.hasContent = true;
   }
 
   private writeCode(code: CodeBlock): void {
@@ -1005,7 +1111,7 @@ class CanonicalWriter {
     this.count(text.length);
   }
 
-  private attribute(value: string): void {
+  private attribute(value: string, escapeAngles = false): void {
     let pending = 0;
     let run = 0;
 
@@ -1019,6 +1125,8 @@ class CanonicalWriter {
 
       let escaped: string | null = null;
       if (unit === 0) escaped = '';
+      else if (unit === 0x0d) escaped = '\n';
+      else if (escapeAngles && (unit === 0x3c || unit === 0x3e)) escaped = '';
       else if (unit === 0x26) escaped = '&amp;';
       else if (unit === 0x22) escaped = '&quot;';
       else if (unit === 0xa0) escaped = '&nbsp;';
