@@ -71,6 +71,15 @@ public sealed class AccessSet
         return _seenProjects[projectId] = SightRules.SeesProject(Role, visibleToOrganization, Reaching(ResourceScope.Project, projectId).Count > 0, memberOfLinkedTeam);
     }
 
+    /// <summary>
+    /// The projects the caller sees (BR-TD-17), by <see cref="SeesProject"/> over every project of the organization: the one set form
+    /// the multi-project reads narrow by. The administrator sees all.
+    /// </summary>
+    public VisibleProjects SeenProjects() =>
+        Role == OrganizationRole.Admin ? VisibleProjects.All : VisibleProjects.Only(SeenProjectIds());
+
+    private HashSet<Guid> SeenProjectIds() => _sight.Projects.Keys.Where(SeesProject).ToHashSet();
+
     /// <summary>Whether the caller sees the team (BR-TD-13); <c>false</c> for a team not in the organization.</summary>
     public bool SeesTeam(Guid teamId)
     {
@@ -135,7 +144,7 @@ public sealed class AccessSet
         }
 
         return new SightedIds(
-            _sight.Projects.Keys.Where(SeesProject).ToHashSet(),
+            SeenProjectIds(),
             _sight.Teams.Keys.Where(SeesTeam).ToHashSet(),
             _nodes.Values.Where(node => node.Type == AreaType.Department && SeesArea(node.Id)).Select(node => node.Id).ToHashSet());
     }

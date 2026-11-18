@@ -1,4 +1,5 @@
 using Mustask.Application.Abstractions.Iterations;
+using Mustask.Application.Abstractions.Organizations;
 using Mustask.Application.Features.Organizations;
 using Mustask.Domain.Iterations;
 using Mustask.Shared.Exceptions;
@@ -9,7 +10,7 @@ namespace Mustask.Application.Features.Iterations.GetCloseSprintPreview;
 /// What the close would do (US-5, BR-6): the items that would move and those that stay, and the team's Planned sprints to move
 /// to. Of an Active sprint only; the numbers are a preview, the close counts again under its locks.
 /// </summary>
-public sealed class GetCloseSprintPreviewHandler(IOrganizationStructure structure, ISprintReadModel sprints)
+public sealed class GetCloseSprintPreviewHandler(IOrganizationStructure structure, ISprintReadModel sprints, IOrganizationAccess access)
 {
     public async Task<ClosePreview> Handle(GetCloseSprintPreviewQuery query, CancellationToken cancellationToken)
     {
@@ -24,6 +25,6 @@ public sealed class GetCloseSprintPreviewHandler(IOrganizationStructure structur
             throw new ConflictException(SprintErrorCodes.NotActive);
         }
 
-        return await sprints.ClosePreviewAsync(teamId, sprintId, cancellationToken);
+        return await sprints.ClosePreviewAsync(teamId, sprintId, await access.VisibleProjectsAsync(cancellationToken), cancellationToken);
     }
 }

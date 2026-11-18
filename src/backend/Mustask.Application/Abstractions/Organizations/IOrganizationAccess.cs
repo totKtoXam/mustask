@@ -55,5 +55,11 @@ public interface IOrganizationAccess
     /// </summary>
     Task<bool> SeesAsync(ResourceScope scope, Guid objectId, CancellationToken cancellationToken) => Task.FromResult(true);
 
+    /// <summary>
+    /// The projects the caller sees (feat-062, BR-TD-17), for a read of several projects' rows to narrow by before paging. The
+    /// administrator sees all. No default: an implementation must say what its caller sees, so a new one fails closed (review R-3).
+    /// </summary>
+    Task<VisibleProjects> VisibleProjectsAsync(CancellationToken cancellationToken);
+
     private static readonly IReadOnlyDictionary<Guid, IReadOnlyList<GrantRole>> Empty = new Dictionary<Guid, IReadOnlyList<GrantRole>>();
 }

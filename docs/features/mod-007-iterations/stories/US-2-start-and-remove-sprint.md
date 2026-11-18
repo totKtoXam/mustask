@@ -44,7 +44,7 @@ Scenario Outline: Only a Planned sprint that holds no item outside «Удале�
     | Planned | only an item in «Удалена»                                     | it is gone, and that item has no sprint                                    |
     | Planned | integration                                                   | refused                                                                    |
     | Planned | only API, in «Закрыта»                                        | refused                                                                    |
-    | Planned | only notifications, while C is deactivated, or hidden from him (hidden: owed by feat-041) | refused, and the refusal names no item, project or count                   |
+    | Planned | only notifications, while C is deactivated, or hidden from him (hidden: delivered by feat-062) | refused, and the refusal names no item, project or count                   |
     | Active  | no item                                                       | refused                                                                    |
     | Closed  | its completed items                                           | refused: a Closed sprint is never removed                                  |
 

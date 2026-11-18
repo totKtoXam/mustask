@@ -38,7 +38,7 @@ internal sealed class AggregateViewReadModel(MustaskDbContext context, IUserDire
         ArgumentNullException.ThrowIfNull(scope);
 
         var counted = narrowed ? scope : scope with { Filter = WorkItemFilter.None, DepartmentsSet = false, DepartmentIds = [] };
-        var projects = ProjectsInScope(caller.OrganizationId, counted, null);
+        var projects = ProjectsInScope(caller.OrganizationId, caller.Projects, counted, null);
 
         return await (
                 from item in Items(counted)
@@ -56,7 +56,7 @@ internal sealed class AggregateViewReadModel(MustaskDbContext context, IUserDire
         var organizationId = caller.OrganizationId;
 
         var projects = await (
-                from project in context.Projects.AsNoTracking()
+                from project in context.Projects.AsNoTracking().WhereVisible(caller.Projects, project => project.Id)
                 where project.OrganizationId == organizationId && project.Status == ProjectStatus.Active
                 join node in context.Areas.AsNoTracking().Where(area => area.OrganizationId == organizationId && area.Type == AreaType.Project)
                     on project.Id equals node.ProjectId into nodes
@@ -86,9 +86,11 @@ internal sealed class AggregateViewReadModel(MustaskDbContext context, IUserDire
         ArgumentOutOfRangeException.ThrowIfLessThan(limit, 1);
 
         if (group.Grouping == AggregateGrouping.Project
-            && !await context.Projects.AsNoTracking().AnyAsync(
-                project => project.Id == group.Id && project.OrganizationId == caller.OrganizationId && project.Status == ProjectStatus.Active,
-                cancellationToken))
+            && !await context.Projects.AsNoTracking()
+                .WhereVisible(caller.Projects, project => project.Id)
+                .AnyAsync(
+                    project => project.Id == group.Id && project.OrganizationId == caller.OrganizationId && project.Status == ProjectStatus.Active,
+                    cancellationToken))
         {
             return new GroupPage(false, [], null);
         }
@@ -97,8 +99,8 @@ internal sealed class AggregateViewReadModel(MustaskDbContext context, IUserDire
         var take = limit + 1;
 
         var candidates = byRank
-            ? await RankCandidatesAsync(caller.OrganizationId, scope, group, after as RankPosition, take, cancellationToken)
-            : await ChangedCandidatesAsync(caller.OrganizationId, scope, group, after as ChangedPosition, take, cancellationToken);
+            ? await RankCandidatesAsync(caller.OrganizationId, caller.Projects, scope, group, after as RankPosition, take, cancellationToken)
+            : await ChangedCandidatesAsync(caller.OrganizationId, caller.Projects, scope, group, after as ChangedPosition, take, cancellationToken);
 
         var page = candidates.Take(limit).ToList();
         var next = candidates.Count > limit ? PositionOf(page[^1], byRank) : null;
@@ -116,7 +118,7 @@ internal sealed class AggregateViewReadModel(MustaskDbContext context, IUserDire
         ArgumentOutOfRangeException.ThrowIfLessThan(page, 1);
         ArgumentOutOfRangeException.ThrowIfLessThan(pageSize, 1);
 
-        var projects = ProjectsInScope(caller.OrganizationId, scope, null);
+        var projects = ProjectsInScope(caller.OrganizationId, caller.Projects, scope, null);
         var items = Items(scope);
 
         var count = await (from item in items join project in projects on item.ProjectId equals project.Id select item.Id).CountAsync(cancellationToken);
@@ -173,7 +175,7 @@ internal sealed class AggregateViewReadModel(MustaskDbContext context, IUserDire
 
         // The people of the items the selectors and the chosen states reach; the assignee and the keyword do not narrow their own options.
         var optionsScope = scope with { Filter = scope.Filter with { AssigneesSet = false, AssigneeIds = [], NoAssignee = false, Keyword = null } };
-        var projects = ProjectsInScope(caller.OrganizationId, optionsScope, null);
+        var projects = ProjectsInScope(caller.OrganizationId, caller.Projects, optionsScope, null);
 
         var ids = await (
                 from item in Items(optionsScope)
@@ -230,9 +232,11 @@ internal sealed class AggregateViewReadModel(MustaskDbContext context, IUserDire
     /// The active projects of the organization the selectors reach: the chosen projects, the projects placed in the chosen
     /// departments (a project's node under the department, ADR-0031), and — for a department or project group — that group's.
     /// </summary>
-    private IQueryable<Project> ProjectsInScope(Guid organizationId, AggregateScope scope, GroupSelector? group)
+    private IQueryable<Project> ProjectsInScope(Guid organizationId, VisibleProjects visible, AggregateScope scope, GroupSelector? group)
     {
-        var projects = context.Projects.AsNoTracking().Where(project => project.OrganizationId == organizationId && project.Status == ProjectStatus.Active);
+        var projects = context.Projects.AsNoTracking()
+            .Where(project => project.OrganizationId == organizationId && project.Status == ProjectStatus.Active)
+            .WhereVisible(visible, project => project.Id);
 
         if (scope.Filter.ProjectsSet)
         {
@@ -267,9 +271,9 @@ internal sealed class AggregateViewReadModel(MustaskDbContext context, IUserDire
     }
 
     private async Task<List<Candidate>> ChangedCandidatesAsync(
-        Guid organizationId, AggregateScope scope, GroupSelector group, ChangedPosition? after, int take, CancellationToken cancellationToken)
+        Guid organizationId, VisibleProjects visible, AggregateScope scope, GroupSelector group, ChangedPosition? after, int take, CancellationToken cancellationToken)
     {
-        var projects = ProjectsInScope(organizationId, scope, group);
+        var projects = ProjectsInScope(organizationId, visible, scope, group);
         var items = Items(scope);
 
         items = group switch
@@ -316,11 +320,11 @@ internal sealed class AggregateViewReadModel(MustaskDbContext context, IUserDire
     }
 
     private async Task<List<Candidate>> RankCandidatesAsync(
-        Guid organizationId, AggregateScope scope, GroupSelector group, RankPosition? after, int take, CancellationToken cancellationToken)
+        Guid organizationId, VisibleProjects visible, AggregateScope scope, GroupSelector group, RankPosition? after, int take, CancellationToken cancellationToken)
     {
         var projectId = group.Id!.Value;
         var levelId = scope.LevelId!.Value;
-        var projects = ProjectsInScope(organizationId, scope, group);
+        var projects = ProjectsInScope(organizationId, visible, scope, group);
 
         var ranked =
             from item in Items(scope)

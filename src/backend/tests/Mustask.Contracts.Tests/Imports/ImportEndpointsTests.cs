@@ -319,6 +319,7 @@ public sealed class ImportEndpointsTests
 
     private sealed class FixedAccess(OrganizationRole role) : IOrganizationAccess
     {
+        public Task<VisibleProjects> VisibleProjectsAsync(CancellationToken cancellationToken) => Task.FromResult(VisibleProjects.All);
         public OrganizationRole Role => role;
 
         public bool Holds(string code) => OrganizationRoleBundles.Holds(role, code);

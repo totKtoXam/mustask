@@ -170,6 +170,7 @@ public sealed class UnlinkTeamAtomicityTests(OrganizationsDatabaseFixture databa
     /// <summary>The caller as an administrator of the organization: the unlink asks for its second code.</summary>
     private sealed class AdministratorAccess : IOrganizationAccess
     {
+        public Task<VisibleProjects> VisibleProjectsAsync(CancellationToken cancellationToken) => Task.FromResult(VisibleProjects.All);
         public OrganizationRole Role => OrganizationRole.Admin;
 
         public bool Holds(string code) => OrganizationRoleBundles.Holds(Role, code);

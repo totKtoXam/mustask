@@ -1,5 +1,6 @@
 using System.Globalization;
 using Mustask.Application.Abstractions.Iterations;
+using Mustask.Application.Abstractions.Organizations;
 using Mustask.Application.Features.Organizations;
 using Mustask.Domain.Iterations;
 
@@ -9,7 +10,7 @@ namespace Mustask.Application.Features.Iterations.GetSprintOutcomeItems;
 /// The done items of a Closed sprint, 200 a page, by project key then number (US-5, BR-6, BR-14). Read from the close snapshot: an
 /// item purged since still has its line, by the identifier the snapshot built, with no title.
 /// </summary>
-public sealed class GetSprintOutcomeItemsHandler(IOrganizationStructure structure, ISprintReadModel sprints)
+public sealed class GetSprintOutcomeItemsHandler(IOrganizationStructure structure, ISprintReadModel sprints, IOrganizationAccess access)
 {
     public async Task<GetSprintOutcomeItemsResponse> Handle(GetSprintOutcomeItemsQuery query, CancellationToken cancellationToken)
     {
@@ -24,7 +25,7 @@ public sealed class GetSprintOutcomeItemsHandler(IOrganizationStructure structur
 
         var offset = int.TryParse(query.Offset, NumberStyles.None, CultureInfo.InvariantCulture, out var parsed) ? parsed : 0;
 
-        var page = await sprints.OutcomeItemsAsync(sprintId, offset, cancellationToken);
+        var page = await sprints.OutcomeItemsAsync(sprintId, offset, await access.VisibleProjectsAsync(cancellationToken), cancellationToken);
 
         return new GetSprintOutcomeItemsResponse(
             page.Items

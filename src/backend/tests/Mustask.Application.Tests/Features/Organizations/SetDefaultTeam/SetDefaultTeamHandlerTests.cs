@@ -2,6 +2,7 @@ using Mustask.Application.Abstractions.Organizations;
 using Mustask.Application.Features.Organizations.SetDefaultTeam;
 using Mustask.Application.Tests.TestDoubles;
 using Mustask.Application.Tests.TestDoubles.Organizations;
+using Mustask.Domain.Identity;
 using Mustask.Domain.Organizations;
 using Mustask.Shared.Exceptions;
 
@@ -39,7 +40,7 @@ public sealed class SetDefaultTeamHandlerTests
         private FakeProjectTeamRepository? _links;
 
         public SetDefaultTeamHandler Build(IProjectRepository projects) =>
-            new(new FakeOrganizationStructure(Store), projects, Links, new FakeUnitOfWork());
+            new(new FakeOrganizationStructure(Store), projects, Links, new FakeOrganizationAccess(OrganizationRole.Admin), new FakeUnitOfWork());
 
         public SetDefaultTeamCommand Command(string? teamId, string? projectId = null, string? organizationId = null) =>
             new(organizationId ?? Organization.Id.ToString(), projectId ?? Project.Project.Id.ToString(), teamId);

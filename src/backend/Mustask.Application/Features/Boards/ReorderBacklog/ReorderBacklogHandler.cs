@@ -1,5 +1,6 @@
 using Mustask.Application.Abstractions;
 using Mustask.Application.Abstractions.Boards;
+using Mustask.Application.Abstractions.Organizations;
 using Mustask.Application.Abstractions.Process;
 using Mustask.Application.Features.Organizations;
 using Mustask.Domain.Boards;
@@ -40,6 +41,7 @@ public sealed class ReorderBacklogHandler(
     IOrganizationStructure structure,
     IProcessDefinitionReadModel processes,
     IBacklogRepository backlogs,
+    IOrganizationAccess access,
     IUnitOfWork unitOfWork)
 {
     public async Task Handle(ReorderBacklogCommand command, CancellationToken cancellationToken)
@@ -89,12 +91,24 @@ public sealed class ReorderBacklogHandler(
                     throw new NotFoundException(OrganizationErrorCodes.TeamNotFound);
                 }
 
-                var order = StackRank.Order(await backlogs.ReadEntriesAsync(organizationId, scope, ct));
+                var entries = await backlogs.ReadEntriesAsync(organizationId, scope, ct);
+                var order = StackRank.Order(entries);
+
+                // feat-062 (BR-TD-17, feat-041 R-5): the backlog holds items of projects the caller does not see (they keep their
+                // places, the order is the team's whole). An id of one of them, as the moved item or as the anchor, names nothing
+                // for this caller: it is stale like an id that never existed, never a different answer.
+                var visible = await access.VisibleProjectsAsync(ct);
+                var hidden = entries.Where(entry => entry.ProjectId is { } project && !visible.Sees(project)).Select(entry => entry.ItemId).ToHashSet();
 
                 // 4. The move: a malformed or unknown item names nothing on this backlog, which is stale (BR-M4-26) — an
                 // item that has changed its owning team, before the reorder or while it waited, one of another team, of a
                 // deactivated project, in the Removed category or of another organization included, all alike (BR-TS-7).
                 if (!AddressedId.TryParse(command.ItemId, out var itemId))
+                {
+                    throw new ConflictException(BoardErrorCodes.ReorderStale);
+                }
+
+                if (hidden.Contains(itemId) || (position is StackRankPosition.AfterPosition { ItemId: { } anchored } && hidden.Contains(anchored)))
                 {
                     throw new ConflictException(BoardErrorCodes.ReorderStale);
                 }

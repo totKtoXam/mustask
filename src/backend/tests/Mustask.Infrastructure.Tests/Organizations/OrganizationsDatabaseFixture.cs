@@ -385,6 +385,7 @@ public sealed class OrganizationsDatabaseCollection : ICollectionFixture<Organiz
 /// </summary>
 internal sealed class StandInAdminAccess : IOrganizationAccess
 {
+        public Task<VisibleProjects> VisibleProjectsAsync(CancellationToken cancellationToken) => Task.FromResult(VisibleProjects.All);
     public OrganizationRole Role => OrganizationRole.Admin;
 
     public bool Holds(string code) => OrganizationRoleBundles.Holds(OrganizationRole.Admin, code);

@@ -122,7 +122,8 @@ internal sealed class BacklogRepository(MustaskDbContext context) : IBacklogRepo
                         item.number AS "Number",
                         CASE WHEN place.team_id = {teamId} AND place.backlog_level_id = {levelId} THEN place.position END AS "Place",
                         item.created_at AS "CreatedAt",
-                        project.key AS "ProjectKey"
+                        project.key AS "ProjectKey",
+                        project.id AS "ProjectId"
                  FROM work_items AS item
                  JOIN projects AS project ON project.id = item.project_id
                  LEFT JOIN backlog_places AS place ON place.work_item_id = item.id
@@ -136,7 +137,7 @@ internal sealed class BacklogRepository(MustaskDbContext context) : IBacklogRepo
                  """)
             .ToListAsync(cancellationToken);
 
-        return rows.Select(row => new StackRankEntry(row.ItemId, row.Number, row.Place, row.CreatedAt, row.ProjectKey)).ToList();
+        return rows.Select(row => new StackRankEntry(row.ItemId, row.Number, row.Place, row.CreatedAt, row.ProjectKey, row.ProjectId)).ToList();
     }
 
     public async Task SaveOrderAsync(Guid organizationId, TeamBacklogScope scope, IReadOnlyList<Guid> order, CancellationToken cancellationToken)
@@ -205,5 +206,7 @@ internal sealed class BacklogRepository(MustaskDbContext context) : IBacklogRepo
         public DateTimeOffset CreatedAt { get; set; }
 
         public string ProjectKey { get; set; } = null!;
+
+        public Guid ProjectId { get; set; }
     }
 }

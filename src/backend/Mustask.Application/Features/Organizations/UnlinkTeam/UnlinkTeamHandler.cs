@@ -124,6 +124,12 @@ public sealed class UnlinkTeamHandler(
                         throw new NotFoundException(OrganizationErrorCodes.TeamNotFound);
                     }
 
+                    // feat-062 (feat-041 R-5): a destination the caller does not see names nothing: 404, never the 409 of an unlinked team.
+                    if (!await access.SeesAsync(ResourceScope.Team, parsed, ct))
+                    {
+                        throw new NotFoundException(OrganizationErrorCodes.TeamNotFound);
+                    }
+
                     destinationId = parsed;
                 }
 

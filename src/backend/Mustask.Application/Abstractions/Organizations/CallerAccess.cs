@@ -13,12 +13,23 @@ namespace Mustask.Application.Abstractions.Organizations;
 /// <param name="OrganizationId">The organization of the address, which the scoped check has already found the caller a member of.</param>
 /// <param name="UserId">The caller's subject (the token's <c>sub</c>), the key of their memberships.</param>
 /// <param name="Role">The caller's role in <paramref name="OrganizationId"/>.</param>
-/// <param name="Sight">What the caller sees (feat-061, BR-TD-17): the ids of the visible projects, teams and departments; <c>null</c> for the administrator, who is not narrowed. <b>Required</b>, so a new read cannot forget it silently: the navigation reads apply it before paging and counting; the reads feat-062 has not reached yet say so with <see cref="NotNarrowed"/>.</param>
+/// <param name="Sight">
+/// What the caller sees (feat-061 and feat-062, BR-TD-17): the ids of the visible projects, teams and departments, from
+/// <see cref="AccessSet.Sighted"/>, the one set form of the sight rule; <c>null</c> for the administrator, who is not narrowed.
+/// <b>Required</b>, so a new read cannot forget it silently. The navigation reads narrow by it directly; a read of several projects'
+/// rows reaches the projects through <see cref="Projects"/>, which fails closed: a non-administrator caller with none is a defect,
+/// not an unrestricted read.
+/// </param>
 public sealed record CallerAccess(Guid OrganizationId, string UserId, OrganizationRole Role, SightedIds? Sight)
 {
     /// <summary>
-    /// A caller whose read does not narrow by sight yet: the multi-project Boards and WorkItems reads, which feat-062 brings under the rule.
-    /// Greppable on purpose; a read that names or counts departments, teams or projects takes <c>set.Sighted()</c> instead.
+    /// The projects this caller's rows may come from; throws for a non-administrator whose sight was not given. Computed on each
+    /// read, not cached, so record equality and a <c>with</c> copy see only <see cref="Sight"/>.
     /// </summary>
-    public static CallerAccess NotNarrowed(Guid organizationId, string userId, OrganizationRole role) => new(organizationId, userId, role, null);
+    public VisibleProjects Projects =>
+        Sight is { } sight
+            ? VisibleProjects.Only(sight.Projects)
+            : Role == OrganizationRole.Admin
+                ? VisibleProjects.All
+                : throw new InvalidOperationException("A read of several projects' rows needs the caller's sight (feat-062).");
 }

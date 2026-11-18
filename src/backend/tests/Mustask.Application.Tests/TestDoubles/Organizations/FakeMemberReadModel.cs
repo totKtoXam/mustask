@@ -78,6 +78,7 @@ public sealed class FakeMemberReadModel(InMemoryOrganizations store, IUserDirect
 /// <summary>A scripted <see cref="IOrganizationAccess"/>: the role is whatever the test says, and its bundle is the real one.</summary>
 public sealed class FakeOrganizationAccess(OrganizationRole role) : IOrganizationAccess
 {
+    public Task<VisibleProjects> VisibleProjectsAsync(CancellationToken cancellationToken) => Task.FromResult(VisibleProjects.All);
     public OrganizationRole Role { get; set; } = role;
 
     public bool Holds(string code) => OrganizationRoleBundles.Holds(Role, code);
