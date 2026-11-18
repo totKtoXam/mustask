@@ -18,14 +18,16 @@ public sealed class LinkProjectsToTeamHandlerTests
         public Fixture(OrganizationRole role = OrganizationRole.Admin)
         {
             Organization = Store.AddOrganization();
-            Alpha = Store.AddProject(Organization, "Альфа", "ALP");
-            Beta = Store.AddProject(Organization, "Бета", "BET");
-            Mars = Store.AddTeam(Organization, "MARS");
+            Department = Store.AddDepartment(Organization, "Разработка");
+            Alpha = Store.AddProject(Organization, "Альфа", "ALP", Department);
+            Beta = Store.AddProject(Organization, "Бета", "BET", Department);
+            Mars = Store.AddTeam(Organization, "MARS", Department);
             User.SubjectId = "admin-anna";
             Clock.UtcNow = new DateTimeOffset(2026, 10, 17, 3, 0, 0, TimeSpan.Zero);
             Handler = new LinkProjectsToTeamHandler(
                 new FakeProjectRepository(Store),
                 new FakeTeamRepository(Store),
+                new FakeAreaRepository(Store),
                 new FakeProjectTeamRepository(Store),
                 new FakeOrganizationAccess(role),
                 User,
@@ -38,6 +40,8 @@ public sealed class LinkProjectsToTeamHandlerTests
         public FakeCurrentUser User { get; } = new();
 
         public FakeClock Clock { get; } = new();
+
+        public Area Department { get; }
 
         public Organization Organization { get; }
 
@@ -169,6 +173,20 @@ public sealed class LinkProjectsToTeamHandlerTests
 
         await f.HandleAsync(f.Command([f.Alpha.Project.Id.ToString(), f.Beta.Project.Id.ToString()]));
 
-        Assert.Equal([$"lock team share {f.Mars.Id}", "link 2"], f.Store.Calls);
+        Assert.Equal([$"lock team share {f.Mars.Id}", $"lock project nodes share {string.Join(",", new[] { f.Alpha.Project.Id, f.Beta.Project.Id }.Order())}", "link 2"], f.Store.Calls);
+    }
+
+    // doc-016 BR-TD-3 (mod-022), US-5: a project of another department than the team's is refused 409 team.other_department, nothing linked.
+    [Fact]
+    public async Task Link_ProjectOfAnotherDepartment_Is409_NothingLinked()
+    {
+        var f = new Fixture();
+        var finance = f.Store.AddDepartment(f.Organization, "Финансы");
+        var gamma = f.Store.AddProject(f.Organization, "Гамма", "GAM", finance);
+
+        var refusal = await Assert.ThrowsAsync<ConflictException>(() => f.HandleAsync(f.Command([f.Alpha.Project.Id.ToString(), gamma.Project.Id.ToString()])));
+
+        Assert.Equal(OrganizationErrorCodes.TeamOtherDepartment, refusal.Code);
+        Assert.Empty(f.Store.Links);
     }
 }

@@ -53,9 +53,11 @@ public sealed class CreateProjectHandler(
         // unknown, deleted, foreign or not a department included — so nothing is disclosed. A project that links needs both ends' link codes.
         var placeGuess = AddressedId.TryParse(command.ParentAreaId, out var guessedPlace) ? guessedPlace : Guid.Empty;
 
+        // BR-TD-6 (mod-022): a project is created in a department only. A request naming none is judged by the top-level code as before (403 for who lacks it) and then refused as a
+        // value (400 «Выберите департамент») below and creates nothing.
         if (command.ParentAreaId is null
-                ? !access.Holds(PermissionCatalog.OrganizationsAreaCreate)
-                : !await access.HoldsOnAsync(PermissionCatalog.OrganizationsAreaWrite, placeGuess, cancellationToken))
+            ? !access.Holds(PermissionCatalog.OrganizationsAreaCreate)
+            : !await access.HoldsOnAsync(PermissionCatalog.OrganizationsAreaWrite, placeGuess, cancellationToken))
         {
             throw new ForbiddenException(OrganizationErrorCodes.AccessForbidden);
         }
@@ -107,6 +109,11 @@ public sealed class CreateProjectHandler(
                 if (!EntityDescription.TryCreate(command.Description, out var description))
                 {
                     errors["description"] = [EntityDescription.LengthReason];
+                }
+
+                if (command.ParentAreaId is null)
+                {
+                    errors["parentAreaId"] = [new FieldError(OrganizationErrorCodes.ProjectDepartmentRequired)];
                 }
 
                 if (errors.Count > 0)
@@ -166,6 +173,12 @@ public sealed class CreateProjectHandler(
                     if (locked.Count != teamIds.Count || locked.Any(team => !team.IsActive))
                     {
                         throw new NotFoundException(OrganizationErrorCodes.TeamNotFound);
+                    }
+
+                    // BR-TD-3: every team named stands in the project's department.
+                    if (locked.Any(team => team.DepartmentId != parentAreaId))
+                    {
+                        throw new ConflictException(OrganizationErrorCodes.TeamOtherDepartment);
                     }
                 }
 

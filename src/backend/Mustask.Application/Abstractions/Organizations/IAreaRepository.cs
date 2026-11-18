@@ -41,6 +41,19 @@ public interface IAreaRepository
     /// </summary>
     Task<Area?> LockProjectNodeAsync(Guid organizationId, Guid projectId, CancellationToken cancellationToken);
 
+    /// <summary>
+    /// mod-022 (BR-TD-3): the project's node locked <c>FOR SHARE</c> by one statement that also answers the department it stands in
+    /// (<c>Found</c> false when there is no node). A link takes it before it judges the project's place, so a link and a move of the
+    /// project (which holds the node <c>FOR NO KEY UPDATE</c>) end in one order.
+    /// </summary>
+    Task<(bool Found, Guid? DepartmentId)> LockProjectNodeForShareAsync(Guid organizationId, Guid projectId, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// The same for many projects in <b>one</b> statement (a link of N projects costs the same statements as one), ordered by project id
+    /// so two links lock in one order. The answer holds the projects that have a node, with the department each stands in.
+    /// </summary>
+    Task<IReadOnlyDictionary<Guid, Guid?>> LockProjectNodesForShareAsync(Guid organizationId, IReadOnlyCollection<Guid> projectIds, CancellationToken cancellationToken);
+
     Task<bool> HasChildrenAsync(Guid organizationId, Guid areaId, CancellationToken cancellationToken);
 
     /// <summary>The colours of the organization's departments, one entry per department (BR-TD-20): the input of the colour rule for a new one. A deleted department is gone, so it frees its colour.</summary>

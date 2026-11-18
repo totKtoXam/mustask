@@ -61,6 +61,28 @@ public sealed class FakeAreaRepository(InMemoryOrganizations store) : IAreaRepos
         return Task.FromResult(node is not null && VanishedAfterTheLock.Contains(node.Id) ? null : node);
     }
 
+    public Task<IReadOnlyDictionary<Guid, Guid?>> LockProjectNodesForShareAsync(
+        Guid organizationId, IReadOnlyCollection<Guid> projectIds, CancellationToken cancellationToken)
+    {
+        store.Record($"lock project nodes share {string.Join(",", projectIds.Order())}");
+
+        IReadOnlyDictionary<Guid, Guid?> found = store.Areas
+            .Where(area => area.OrganizationId == organizationId && area.Type == AreaType.Project && area.ProjectId is { } id && projectIds.Contains(id))
+            .ToDictionary(area => area.ProjectId!.Value, area => area.ParentId);
+
+        return Task.FromResult(found);
+    }
+
+    public Task<(bool Found, Guid? DepartmentId)> LockProjectNodeForShareAsync(Guid organizationId, Guid projectId, CancellationToken cancellationToken)
+    {
+        store.Record($"lock project node share {projectId}");
+
+        var node = store.Areas.SingleOrDefault(area =>
+            area.OrganizationId == organizationId && area.ProjectId == projectId && area.Type == AreaType.Project);
+
+        return Task.FromResult(node is null ? (false, (Guid?)null) : (true, node.ParentId));
+    }
+
     public Task<IReadOnlyList<string>> ListDepartmentColorsAsync(Guid organizationId, CancellationToken cancellationToken) =>
         Task.FromResult<IReadOnlyList<string>>(store.Areas
             .Where(area => area.OrganizationId == organizationId && area.Type == AreaType.Department)

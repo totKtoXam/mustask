@@ -97,6 +97,45 @@ internal sealed class AreaRepository(MustaskDbContext context) : IAreaRepository
             .ToDictionaryAsync(area => area.Id, area => area.Type, cancellationToken);
     }
 
+    public async Task<(bool Found, Guid? DepartmentId)> LockProjectNodeForShareAsync(Guid organizationId, Guid projectId, CancellationToken cancellationToken)
+    {
+        // One statement that locks and returns the place it read under the lock, no second read (a move that committed first is seen).
+        var held = await context.Database
+            .SqlQuery<Guid?>(
+                $"""
+                 SELECT parent_id AS "Value" FROM areas
+                 WHERE project_id = {projectId} AND organization_id = {organizationId} AND type = 2
+                 FOR SHARE
+                 """)
+            .ToListAsync(cancellationToken);
+
+        return held.Count == 0 ? (false, null) : (true, held[0]);
+    }
+
+    public async Task<IReadOnlyDictionary<Guid, Guid?>> LockProjectNodesForShareAsync(
+        Guid organizationId, IReadOnlyCollection<Guid> projectIds, CancellationToken cancellationToken)
+    {
+        var ids = projectIds.ToArray();
+        var held = await context.Database
+            .SqlQuery<NodePlace>(
+                $"""
+                 SELECT project_id AS "ProjectId", parent_id AS "ParentId" FROM areas
+                 WHERE project_id = ANY({ids}) AND organization_id = {organizationId} AND type = 2
+                 ORDER BY project_id
+                 FOR SHARE
+                 """)
+            .ToListAsync(cancellationToken);
+
+        return held.ToDictionary(row => row.ProjectId, row => row.ParentId);
+    }
+
+    private sealed class NodePlace
+    {
+        public Guid ProjectId { get; set; }
+
+        public Guid? ParentId { get; set; }
+    }
+
     public async Task<Area?> LockProjectNodeAsync(Guid organizationId, Guid projectId, CancellationToken cancellationToken)
     {
         var held = await context.Database

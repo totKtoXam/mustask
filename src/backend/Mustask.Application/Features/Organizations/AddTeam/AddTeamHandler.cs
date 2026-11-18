@@ -133,6 +133,9 @@ public sealed class AddTeamHandler(
                     throw new ConflictException(OrganizationErrorCodes.AreaTypeNotAllowed);
                 }
 
+                // BR-TD-3: the projects named stand in this department.
+                await LinkPlaces.EnsureSameDepartmentAsync(areas, organizationId, projectIds, departmentId, ct);
+
                 // 4. The members named (409): each an active member of this organization, known to the directory and active there
                 // (the same rule as an add on the team's page). Two statements and the directory's batches, whatever the number.
                 var userIds = (command.MemberIds ?? []).Where(id => id is not null).Select(id => id!).Distinct(StringComparer.Ordinal).ToList();

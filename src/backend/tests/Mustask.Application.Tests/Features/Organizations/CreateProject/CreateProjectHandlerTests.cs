@@ -63,8 +63,14 @@ public sealed class CreateProjectHandlerTests
             string? organizationId = null,
             string? description = null,
             IReadOnlyList<string?>? teamIds = null,
-            string? parentAreaId = null) =>
-            new(organizationId ?? Organization.Id.ToString(), name, key, description, teamIds, parentAreaId);
+            string? parentAreaId = null,
+            bool noDepartment = false) =>
+            new(organizationId ?? Organization.Id.ToString(), name, key, description, teamIds, noDepartment ? null : parentAreaId ?? Department.Id.ToString());
+
+        /// <summary>mod-022 (BR-TD-6): the department a command names unless the test says another or none.</summary>
+        public Area Department => department ??= Store.AddDepartment(Organization, "Общий департамент");
+
+        private Area? department;
 
         public Task<CreateProjectResult> HandleAsync(CreateProjectCommand command) => Handler.Handle(command, CancellationToken.None);
 
@@ -85,7 +91,7 @@ public sealed class CreateProjectHandlerTests
         var result = await f.HandleAsync(f.Command(name: " Пример проекта "));
 
         var (project, root) = f.StoredParts(result.Response.Id);
-        Assert.Equal(new ProjectResponse(project.Id, f.Organization.Id, "Пример проекта", "PRM", null, "blue"), result.Response);
+        Assert.Equal(new ProjectResponse(project.Id, f.Organization.Id, "Пример проекта", "PRM", null, "orange"), result.Response);
         Assert.Equal(ProjectStatus.Active, project.Status);
         Assert.Equal(f.Organization.Id, project.OrganizationId);
         Assert.Equal(Subject, project.CreatedBy);
@@ -94,7 +100,7 @@ public sealed class CreateProjectHandlerTests
         Assert.Null(project.DefaultTeamId);
 
         Assert.Equal("Пример проекта", root.Name);
-        Assert.Equal((AreaType.Project, project.Id, null), (root.Type, root.ProjectId, root.ParentId));
+        Assert.Equal((AreaType.Project, project.Id, f.Department.Id), (root.Type, root.ProjectId, root.ParentId));
     }
 
     // US-3 · "A project is created ready to use": nothing but the project, one team and one root is written, in one save, and
@@ -108,8 +114,8 @@ public sealed class CreateProjectHandlerTests
 
         Assert.Single(f.Store.Projects);
         Assert.Empty(f.Store.Teams);
-        Assert.Single(f.Store.Areas);
-        Assert.Equal([$"lock area tree {f.Organization.Id}", "save"], f.Store.Calls);
+        Assert.Single(f.Store.Areas, area => area.Type == AreaType.Project);
+        Assert.Equal([$"lock area tree {f.Organization.Id}", $"lock area share {f.Department.Id}", "save"], f.Store.Calls);
     }
 
     // US-3 · "A project is created ready to use": the key is kept exactly as sent, and the stored name is the trimmed one.
@@ -227,7 +233,7 @@ public sealed class CreateProjectHandlerTests
         Assert.Equal(reason, Assert.Single(refusal.Errors["key"]).Code);
         Assert.Empty(f.Store.Projects);
         Assert.Empty(f.Store.Teams);
-        Assert.Empty(f.Store.Areas);
+        Assert.DoesNotContain(f.Store.Areas, area => area.Type == AreaType.Project);
         Assert.Equal(0, f.Store.SaveCount);
     }
 
@@ -359,7 +365,7 @@ public sealed class CreateProjectHandlerTests
         Assert.Equal(ErrorParam.Text("PRM"), refusal.Params["key"]);
         Assert.Empty(f.Store.Projects);
         Assert.Empty(f.Store.Teams);
-        Assert.Empty(f.Store.Areas);
+        Assert.DoesNotContain(f.Store.Areas, area => area.Type == AreaType.Project);
     }
 
     // US-3 · "The name is unique in the organization": a concurrent creation took the name first, so the loser answers the
@@ -409,9 +415,9 @@ public sealed class CreateProjectHandlerTests
     public async Task Handle_WithDescriptionAndTeams_LinksExactlyThose_NoDefaultNamed()
     {
         var f = new Fixture();
-        var chosen = f.Store.AddTeam(f.Organization, "MARS");
-        var second = f.Store.AddTeam(f.Organization, "VENUS");
-        f.Store.AddTeam(f.Organization, "Не выбрана");
+        var chosen = f.Store.AddTeam(f.Organization, "MARS", f.Department);
+        var second = f.Store.AddTeam(f.Organization, "VENUS", f.Department);
+        f.Store.AddTeam(f.Organization, "Не выбрана", f.Department);
 
         var result = await f.HandleAsync(f.Command(description: " Описание\n", teamIds: [chosen.Id.ToString(), second.Id.ToString(), chosen.Id.ToString()]));
 
@@ -420,7 +426,7 @@ public sealed class CreateProjectHandlerTests
         Assert.Equal(new[] { chosen.Id, second.Id }.Order(), f.Store.Links.Where(link => link.ProjectId == project.Id).Select(link => link.TeamId).Order());
         Assert.All(f.Store.Links, link => Assert.Equal((Subject, f.Clock.UtcNow), (link.LinkedBy, link.LinkedAt)));
         Assert.Null(project.DefaultTeamId);
-        Assert.Equal([$"lock area tree {f.Organization.Id}", "lock teams share " + string.Join(",", new[] { chosen.Id, second.Id }.Order()), "save"], f.Store.Calls);
+        Assert.Equal([$"lock area tree {f.Organization.Id}", $"lock area share {f.Department.Id}", "lock teams share " + string.Join(",", new[] { chosen.Id, second.Id }.Order()), "save"], f.Store.Calls);
     }
 
     // feat-028 US-2 · "a choice that cannot be made": a team that is unknown, malformed, of another organization or deleted is
@@ -487,10 +493,8 @@ public sealed class CreateProjectHandlerTests
         var department = f.Store.AddDepartment(f.Organization, "Разработка");
 
         var under = await Assert.ThrowsAsync<ForbiddenException>(() => f.HandleAsync(f.Command(parentAreaId: department.Id.ToString())));
-        var top = await Assert.ThrowsAsync<ForbiddenException>(() => f.HandleAsync(f.Command()));
 
         Assert.Equal(OrganizationErrorCodes.AccessForbidden, under.Code);
-        Assert.Equal(OrganizationErrorCodes.AccessForbidden, top.Code);
         Assert.Empty(f.Store.Projects);
     }
     // OQ-5 A · a project may be created under a department: its node stands there, locked in the order tree, department, save.
@@ -525,18 +529,6 @@ public sealed class CreateProjectHandlerTests
         Assert.Equal(before, f.Store.Projects.Count);
     }
 
-    // OQ-12 A · the node takes the project's name at its level: a department of that name at the top refuses the project.
-    [Fact]
-    public async Task Handle_NameHeldByADepartmentAtTheLevel_IsAreaNameTaken()
-    {
-        var f = new Fixture();
-        f.Store.AddDepartment(f.Organization, "Пример проекта");
-
-        var refusal = await Assert.ThrowsAsync<ConflictException>(() => f.HandleAsync(f.Command(name: " пример ПРОЕКТА")));
-
-        Assert.Equal(OrganizationErrorCodes.AreaNameTaken, refusal.Code);
-        Assert.Empty(f.Store.Projects);
-    }
 
     // BR-M1-21: the creator is whoever the current user is at the time; two creations by two users keep two creators.
     [Fact]
