@@ -41,6 +41,8 @@ public sealed class SearchStructureHandlerTests
         public OrganizationRole Role => role;
 
         public bool Holds(string code) => code != PermissionCatalog.OrganizationsMembershipRead || membershipRead;
+
+        public Task<VisibleProjects> VisibleProjectsAsync(CancellationToken cancellationToken) => Task.FromResult(VisibleProjects.All);
     }
 
     private static SearchRow Row(SearchGroupKind kind, string name, int tier) =>
