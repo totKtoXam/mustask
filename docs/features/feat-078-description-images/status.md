@@ -3,7 +3,7 @@
 - type: feature
 - size: L
 - branch: feat/078-description-images
-- stage: 06-frontend
+- stage: gate-3
 - epic: core/work-items
 - deps: feat-018
 - gates: gate-1, gate-2, gate-3
@@ -88,3 +88,4 @@ Inputs for the analysis (the orchestrator, 2026-11-16; sources are files, read t
   is not yet measured end to end (the spike projected about 8 s for a 12 MP noisy JPEG before
   tuning). Steps 5-11 (API slices, error catalog, reducer image element, SaveWorkItem binding,
   sweeper, nginx and docs) are not started. No contract change so far.
+- 2026-11-18 [orchestrator] stage 8 closed: code review round 2 approve (4758bf10), F-6/F-7 fixed in 0cfb1ca9; gate-3 package sent to the orchestrator session doc-012 (delegated decider per the human), verdict pending
