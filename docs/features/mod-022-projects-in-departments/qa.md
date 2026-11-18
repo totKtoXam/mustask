@@ -63,3 +63,57 @@ Plan written from `doc-016` spec (BR-TD-3, -4, -6, -19 steps 2-3, -20, US-5, US-
 ### Verdict
 
 blockers: 0 · majors: 0 · minors: 2 · result: pass (backend)
+
+## Frontend
+
+Plan written from doc-016 (BR-TD-3, -4, -6, -20 for projects; US-5, US-2; `design.md` §§ 5, 7) before the diff was read. E2E: skipped by the human's standing decision (NO, paused).
+
+### Coverage matrix
+
+| Criterion / screen | Check | Test | Status |
+|---|---|---|---|
+| BR-TD-6 «Новый проект»: «Расположение» required, departments only, never «Верхний уровень» | options, helper, «Выберите департамент» on submit, nothing sent | `ProjectListPage.create.test` | pass |
+| BR-TD-6 preset: entry point, the only department, manager's own | department «Проекты», manager with one writable department | `CreateProjectByPlace.test` | pass |
+| BR-TD-6 no command without a place | reader sees no «Создать проект» | `CreateProjectByPlace.test`, `ProjectListPage.test` | pass |
+| BR-TD-6 server `department_required` / `project_needs_department` on the field | refusal placing, `parentAreaId` key | `refusals.test`, `testApi.test` | pass |
+| BR-TD-3 creation: «Команды» of the chosen department only, drops on change | | `ProjectListPage.create.test` | pass |
+| BR-TD-3 link pickers, both ends, empty states, stale refusal | | `TeamPage.test`, `TeamsPage.test` | pass |
+| BR-TD-4 project move: departments only, current excluded | | `AreasPage.test`, `ProjectGeneralPage.test` | pass |
+| BR-TD-4 `project_has_teams` kept in the dialog, teams, «Отключить», department kept, then move | | `AreasPage.test` | pass |
+| BR-TD-4 no other department (new) | text, no field, submit disabled | `ProjectPlaces.qa.test` | pass |
+| BR-TD-4 caller who may not unlink (new) | team named, no «Отключить» | `ProjectPlaces.qa.test` | pass |
+| BR-TD-6 «Вынести на верхний уровень» removed | | `AreaPage.test` | pass |
+| BR-TD-20 colour marks (list, page) | | `ProjectListPage.test`, `ProjectGeneralPage.test` | pass |
+| BR-TD-6 selector «＋ Создать проект», organization «все» | not built | - | out of scope (see below) |
+
+### Judgements on the developer's flags
+
+1. **Selector «＋ Создать проект» and organization «все»: out of scope, not a gap.** doc-016 spec § queue lines give `mod-NNN-projects-in-departments` only the creation/move/link rules and the upgrade; the selector entry is `feat-052` ("BR-TD-6's selector entry point") and the cascades `feat-063`. The dialog's `presetPlaceId` is what feat-052 will call. Carry to gate-3 as a note: US-5's first scenario's selector entry is not reachable until feat-052.
+2. «Добавить проект» on a department shows `project_has_teams` as an alert without the team list: minor (F-3).
+3. No «Переместить» in a department's project rows: minor (F-4). Design § 3 lists it; the move is reachable from the project's «Общие» and the tree row menu.
+4. Stale link picker shows the server text under the field: minor (F-2); design § 5.3 says `ErrorBanner`.
+5. **Unlink gated by server `canUnlink`: not a permission hole.** `canUnlink` is a display hint ("the unlink route decides", api-contract); the unlink request is authorized server-side. Hiding the button never grants anything. Only the default differs (`?? true` here, `?? canLink` on the pages), harmless as the server refuses.
+6. **`httpClient.files.test.ts` is not the branch's.** The failing case is `apiFetchBlob ...` with `answer.blob.text is not a function` (jsdom `Blob` has no `.text()`); the branch changes under `src/shared` only `api/errorCodes.ts` and its drift test, nothing the file imports in a way that touches Blob. Re-run in this tree: 2 of 3 pass, same one fails. Not run against a pristine origin/main tree (no second checkout); reasoning only.
+
+Invented copy (plan-frontend.md § 4): «Сначала выберите расположение.», «Нет другого департамента, в который вы можете переместить проект.» (mirrors the team's, same tone), «Команды:» / «Отключить» (mirrors «Проекты:»), «Команда уже подключена ко всем проектам департамента.» (mirrors «Все команды департамента уже подключены к проекту.», but the project's wording is «Все … уже подключены к проекту», the team's reads fine), «В департаменте «X» нет проектов. Создайте проект в этом департаменте.» (mirrors the design's teams line). Consistent with the design's tone; no change requested.
+
+### Runs
+
+| What | Result |
+|---|---|
+| `ProjectPlaces.qa.test.tsx` (2 new) | 2 passed |
+| `httpClient.files.test.ts` | 2 passed, 1 failed (jsdom `Blob.text`), not the branch's |
+| `tsc -b`, ESLint, Prettier on the new file | clean |
+| Developer's set over `features/organizations`, `shared/api`, `src/test` | not re-run (run economy; my own run of that set returned no captured output) |
+
+### Defects
+
+- **F-1 (minor).** In the project move dialog, after the last team is unlinked the refusal text «Проект связан с командами…» stays on screen with an empty list until «Переместить» is pressed again (`linksText` is cleared only on submit). By reading `AreaDialogs.tsx`; not pinned by a test. Steps: move a project with one team to another department, get the refusal, «Отключить», confirm.
+- **F-2 (minor).** Stale link picker (`team.other_department`) shows the text under the field, design § 5.3 asks for an `ErrorBanner`. Behaviour (nothing changes, list re-read) is right.
+- **F-3 (minor).** Department «Добавить проект» of a project with linked teams: server text as alert, no team list or «Отключить» there (design § 5.2 shows them in the move dialog only; the user must go to the project).
+- **F-4 (minor).** No row menu «Переместить» on a department's «Проекты» (design § 3).
+- **F-5 (nit).** `CreateProjectByPlace.test.tsx` last test title still says «Верхний уровень»; `TeamPage` passes `departmentName ?? ''`, which would read «В департаменте «» нет проектов» if the name were ever absent.
+
+### Verdict
+
+blockers: 0 · majors: 0 · minors: 4 · nits: 1 · result: pass (frontend)
