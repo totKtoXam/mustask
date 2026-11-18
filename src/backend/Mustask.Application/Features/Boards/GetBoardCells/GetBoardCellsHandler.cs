@@ -31,7 +31,7 @@ public sealed class GetBoardCellsHandler(
                 BoardErrorCodes.ValidationFailed,
                 new Dictionary<string, IReadOnlyList<FieldError>> { ["column"] = [new FieldError(BoardErrorCodes.InvalidParameter)] });
 
-        var caller = CallerAccess.NotNarrowed(organizationId, currentUser.SubjectId, access.Role);
+        var caller = new CallerAccess(organizationId, currentUser.SubjectId, access.Role, (await access.SetAsync(cancellationToken)).Sighted());
         var stateIds = column.Targets.Select(target => target.StateId).OfType<Guid>().ToList();
         var scope = AggregateSupport.ScopeOf(AggregateView.Boards, level, parsed, stateIds);
 

@@ -63,7 +63,7 @@ Scenario: A person who left the organization keeps their row
   When Vera opens the page
   Then her row shows her last known name marked «не в организации» and her recorded figures
 
-Scenario: Participants of hidden projects' items do not appear (owed by feat-041)
+Scenario: Participants of hidden projects' items do not appear (delivered by feat-062)
   Given all Борис's items of «Спринт 12» are in project C, «Ограниченный» with no grant for Vera
   When she opens the page
   Then there is no row for Борис, and every figure, the totals row included, equals what a twin organization without C gives her

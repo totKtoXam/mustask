@@ -161,7 +161,7 @@ public sealed class TeamBacklogMemberLockTests(OrganizationsDatabaseFixture data
         Assert.Equal(PostgresErrorCodes.LockNotAvailable, refusal.SqlState);
 
         await using var membership = database.NewContext();
-        var expected = await BacklogMembership.Members(membership, world.Scope, world.OrganizationId).Select(member => member.Item.Id).ToListAsync();
+        var expected = await BacklogMembership.Members(membership, world.Scope, world.OrganizationId, VisibleProjects.All).Select(member => member.Item.Id).ToListAsync();
         Assert.Equal(expected.Order(), entries.Select(entry => entry.ItemId).Order());
     }
 

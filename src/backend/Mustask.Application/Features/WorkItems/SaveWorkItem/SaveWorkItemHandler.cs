@@ -355,6 +355,12 @@ public sealed class SaveWorkItemHandler(
 
         var facts = await sprints.LockForShareAsync(organizationId, sprintId, cancellationToken);
 
+        // feat-062: a sprint of a team the caller does not see names nothing: the 404 of a missing sprint, not the 409 of another team.
+        if (facts is not null && !await access.SeesAsync(ResourceScope.Team, facts.TeamId, cancellationToken))
+        {
+            return (null, true);
+        }
+
         return (facts, facts is null);
     }
 
@@ -426,6 +432,12 @@ public sealed class SaveWorkItemHandler(
         }
 
         if (!AddressedId.TryParse(change.TeamId, out var teamId))
+        {
+            throw new NotFoundException(OrganizationErrorCodes.TeamNotFound);
+        }
+
+        // feat-062 (feat-041 R-5): a team the caller does not see names nothing: 404, never the 409 of an unlinked team.
+        if (!await access.SeesAsync(ResourceScope.Team, teamId, cancellationToken))
         {
             throw new NotFoundException(OrganizationErrorCodes.TeamNotFound);
         }

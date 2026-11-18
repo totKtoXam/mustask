@@ -27,6 +27,7 @@ public sealed class ParentWriteSecondCodeTests(MustaskApiFactory factory)
     /// <summary>A role that writes work items but may not write links: the member's bundle without <c>workitems.link.write</c>.</summary>
     private sealed class WritesButDoesNotLink : IOrganizationAccess
     {
+        public Task<VisibleProjects> VisibleProjectsAsync(CancellationToken cancellationToken) => Task.FromResult(VisibleProjects.All);
         public OrganizationRole Role => OrganizationRole.Member;
 
         public bool Holds(string code) => code != PermissionCatalog.WorkItemsLinkWrite && OrganizationRoleBundles.Holds(Role, code);

@@ -27,7 +27,7 @@ public sealed class GetBacklogGroupRowsHandler(
         var parsed = AggregateParameters.Parse(query.Request, AggregateView.Backlogs, groupRead: true);
         var level = AggregateSupport.LevelOf(await processes.FindByOrganizationAsync(organizationId, cancellationToken), query.Request.Level);
 
-        var caller = CallerAccess.NotNarrowed(organizationId, currentUser.SubjectId, access.Role);
+        var caller = new CallerAccess(organizationId, currentUser.SubjectId, access.Role, (await access.SetAsync(cancellationToken)).Sighted());
         var scope = AggregateSupport.ScopeOf(AggregateView.Backlogs, level, parsed);
 
         var page = await views.ReadGroupPageAsync(caller, scope, parsed.Group, parsed.After, parsed.Limit, cancellationToken);

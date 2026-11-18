@@ -1,7 +1,9 @@
 using Mustask.Application.Abstractions.Iterations;
+using Mustask.Application.Abstractions.Organizations;
 using Mustask.Domain.Iterations;
 using Mustask.Domain.Organizations;
 using Mustask.Domain.Process;
+using Mustask.Infrastructure.Organizations;
 using Mustask.Infrastructure.WorkItems;
 using Microsoft.EntityFrameworkCore;
 
@@ -17,8 +19,8 @@ internal sealed class SprintReadModel(MustaskDbContext context) : ISprintReadMod
 {
     private IQueryable<SprintSnapshotItem> Snapshot => context.Set<SprintSnapshotItem>().AsNoTracking();
 
-    private IQueryable<SprintSnapshotItem> ReachableSnapshot =>
-        Snapshot.Where(item => context.Projects.Any(project => project.Id == item.ProjectId && project.Status == ProjectStatus.Active));
+    private IQueryable<SprintSnapshotItem> ReachableSnapshot(VisibleProjects visible) =>
+        Snapshot.WhereVisible(visible, item => item.ProjectId).Where(item => context.Projects.Any(project => project.Id == item.ProjectId && project.Status == ProjectStatus.Active));
 
     public Task<SprintView?> FindAsync(Guid teamId, Guid sprintId, CancellationToken cancellationToken) =>
         context.Sprints
@@ -39,7 +41,7 @@ internal sealed class SprintReadModel(MustaskDbContext context) : ISprintReadMod
             .SingleOrDefaultAsync(cancellationToken);
 
     public async Task<SprintListPage> ListAsync(
-        Guid teamId, int? before, bool openOnly, Guid storiesLevelId, CancellationToken cancellationToken)
+        Guid teamId, int? before, bool openOnly, Guid storiesLevelId, VisibleProjects visible, CancellationToken cancellationToken)
     {
         var sprints = context.Sprints.AsNoTracking().Where(sprint => sprint.TeamId == teamId);
 
@@ -68,7 +70,7 @@ internal sealed class SprintReadModel(MustaskDbContext context) : ISprintReadMod
         var live = openIds.Count == 0
             ? new Dictionary<Guid, CountView>()
             : await (
-                    from item in WorkItemSets.Live(context).AsNoTracking()
+                    from item in WorkItemSets.Live(context).AsNoTracking().WhereVisible(visible, candidate => candidate.ProjectId)
                     where item.SprintId != null && openIds.Contains(item.SprintId.Value)
                     where context.Projects.Any(project => project.Id == item.ProjectId && project.Status == ProjectStatus.Active)
                     group item by item.SprintId!.Value into sprintItems
@@ -77,7 +79,7 @@ internal sealed class SprintReadModel(MustaskDbContext context) : ISprintReadMod
 
         var closed = closedIds.Count == 0
             ? new Dictionary<Guid, SprintCounts>()
-            : (Dictionary<Guid, SprintCounts>)await CountsBySprintAsync(closedIds, storiesLevelId, cancellationToken);
+            : (Dictionary<Guid, SprintCounts>)await CountsBySprintAsync(closedIds, storiesLevelId, visible, cancellationToken);
 
         var rows = shown
             .Select(sprint =>
@@ -103,10 +105,10 @@ internal sealed class SprintReadModel(MustaskDbContext context) : ISprintReadMod
 
     }
 
-    public async Task<ClosePreview> ClosePreviewAsync(Guid teamId, Guid sprintId, CancellationToken cancellationToken)
+    public async Task<ClosePreview> ClosePreviewAsync(Guid teamId, Guid sprintId, VisibleProjects visible, CancellationToken cancellationToken)
     {
         var held = await (
-                from item in WorkItemSets.Live(context).AsNoTracking()
+                from item in WorkItemSets.Live(context).AsNoTracking().WhereVisible(visible, candidate => candidate.ProjectId)
                 join state in context.StateDefinitions on item.StateId equals state.Id
                 where item.SprintId == sprintId
                 where context.Projects.Any(project => project.Id == item.ProjectId && project.Status == ProjectStatus.Active)
@@ -130,9 +132,9 @@ internal sealed class SprintReadModel(MustaskDbContext context) : ISprintReadMod
             destinations);
     }
 
-    public async Task<(int Items, decimal StoryPoints)> DoneTotalsAsync(Guid sprintId, CancellationToken cancellationToken)
+    public async Task<(int Items, decimal StoryPoints)> DoneTotalsAsync(Guid sprintId, VisibleProjects visible, CancellationToken cancellationToken)
     {
-        var rows = await ReachableSnapshot
+        var rows = await ReachableSnapshot(visible)
             .Where(item => item.SprintId == sprintId && item.IsDone)
             .GroupBy(_ => 1)
             .Select(group => new { Items = group.Count(), StoryPoints = group.Sum(item => item.StoryPoints) })
@@ -166,11 +168,11 @@ internal sealed class SprintReadModel(MustaskDbContext context) : ISprintReadMod
     }
 
     public async Task<IReadOnlyDictionary<Guid, SprintCounts>> CountsBySprintAsync(
-        IReadOnlyCollection<Guid> sprintIds, Guid levelId, CancellationToken cancellationToken)
+        IReadOnlyCollection<Guid> sprintIds, Guid levelId, VisibleProjects visible, CancellationToken cancellationToken)
     {
         var ids = sprintIds.ToArray();
 
-        var rows = await ReachableSnapshot
+        var rows = await ReachableSnapshot(visible)
             .Where(item => ids.Contains(item.SprintId) && item.LevelId == levelId)
             .GroupBy(item => item.SprintId)
             .Select(group => new
@@ -189,11 +191,11 @@ internal sealed class SprintReadModel(MustaskDbContext context) : ISprintReadMod
     }
 
     public async Task<IReadOnlyList<ParticipantCounts>> CountsByParticipantAsync(
-        IReadOnlyCollection<Guid> sprintIds, Guid levelId, CancellationToken cancellationToken)
+        IReadOnlyCollection<Guid> sprintIds, Guid levelId, VisibleProjects visible, CancellationToken cancellationToken)
     {
         var ids = sprintIds.ToArray();
 
-        var rows = await ReachableSnapshot
+        var rows = await ReachableSnapshot(visible)
             .Where(item => ids.Contains(item.SprintId) && item.LevelId == levelId)
             .GroupBy(item => new { item.SprintId, item.AssigneeId })
             .Select(group => new
@@ -227,9 +229,9 @@ internal sealed class SprintReadModel(MustaskDbContext context) : ISprintReadMod
         return members.ToHashSet(StringComparer.Ordinal);
     }
 
-    public async Task<OutcomeItemsPage> OutcomeItemsAsync(Guid sprintId, int offset, CancellationToken cancellationToken)
+    public async Task<OutcomeItemsPage> OutcomeItemsAsync(Guid sprintId, int offset, VisibleProjects visible, CancellationToken cancellationToken)
     {
-        var done = ReachableSnapshot.Where(item => item.SprintId == sprintId && item.IsDone);
+        var done = ReachableSnapshot(visible).Where(item => item.SprintId == sprintId && item.IsDone);
 
         var totals = await done
             .GroupBy(_ => 1)

@@ -14,6 +14,7 @@ public sealed class SetInheritsAccessHandlerTests
     /// <summary>A scripted access: the answer for <c>area.write</c> on an object is whatever <see cref="Answer"/> says.</summary>
     private sealed class ScriptedAccess : IOrganizationAccess
     {
+        public Task<VisibleProjects> VisibleProjectsAsync(CancellationToken cancellationToken) => Task.FromResult(VisibleProjects.All);
         public Func<Guid, bool> Answer { get; set; } = _ => true;
 
         public OrganizationRole Role => OrganizationRole.Member;

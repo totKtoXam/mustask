@@ -30,7 +30,7 @@ Scenario: A card move is offered only the states of the card's own type
   Then only the states of a story in its own project's process are drop targets
 
 Scenario: The board counts only what the viewer sees
-  Given C becomes «Ограниченный» with no grant for Vera (owed by feat-041)
+  Given C becomes «Ограниченный» with no grant for Vera (owed by feat-057)
   When she opens MARS's sprint board
   Then it shows API and integration, 2 items and 13 SP: the same answer as if C did not exist
   And a deactivated project's items count nowhere on it

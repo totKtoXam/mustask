@@ -1,4 +1,6 @@
 using Mustask.Application.Abstractions.Boards;
+using Mustask.Application.Abstractions.Organizations;
+using Mustask.Infrastructure.Organizations;
 using Mustask.Domain.Organizations;
 using Mustask.Domain.WorkItems;
 using Mustask.Infrastructure.WorkItems;
@@ -45,14 +47,14 @@ internal static class BacklogMembership
     /// stale statistics (a backlog placed a moment ago) expect one row and scan
     /// all of them for every item.
     /// </summary>
-    public static IQueryable<BacklogMember> Members(MustaskDbContext context, TeamBacklogScope scope, Guid organizationId)
+    public static IQueryable<BacklogMember> Members(MustaskDbContext context, TeamBacklogScope scope, Guid organizationId, VisibleProjects visible)
     {
         var typeIds = scope.TypeIds.ToList();
         var stateIds = scope.ShownStateIds.ToList();
         var teamId = scope.TeamId;
         var levelId = scope.LevelId;
 
-        return from item in WorkItemFilterPredicate.Apply(context, context.WorkItems.AsNoTracking(), scope.Filter)
+        return from item in WorkItemFilterPredicate.Apply(context, context.WorkItems.AsNoTracking(), scope.Filter).WhereVisible(visible, candidate => candidate.ProjectId)
                where item.OwningTeamId == teamId
                    && typeIds.Contains(item.TypeId)
                    && stateIds.Contains(item.StateId)
@@ -72,13 +74,13 @@ internal static class BacklogMembership
     /// <paramref name="scope"/> at once, in one statement — each with its place on the team's backlog of its own type's
     /// level, joined by the place's key as <see cref="Members"/> joins it.
     /// </summary>
-    public static IQueryable<BacklogMember> TreeMembers(MustaskDbContext context, TeamBacklogTreeScope scope, Guid organizationId)
+    public static IQueryable<BacklogMember> TreeMembers(MustaskDbContext context, TeamBacklogTreeScope scope, Guid organizationId, VisibleProjects visible)
     {
         var typeIds = scope.TypeIds.ToList();
         var stateIds = scope.ShownStateIds.ToList();
         var teamId = scope.TeamId;
 
-        return from item in WorkItemFilterPredicate.Apply(context, context.WorkItems.AsNoTracking(), scope.Filter)
+        return from item in WorkItemFilterPredicate.Apply(context, context.WorkItems.AsNoTracking(), scope.Filter).WhereVisible(visible, candidate => candidate.ProjectId)
                where item.OwningTeamId == teamId
                    && typeIds.Contains(item.TypeId)
                    && stateIds.Contains(item.StateId)

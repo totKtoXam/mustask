@@ -33,7 +33,7 @@ internal sealed class BacklogReadModel(MustaskDbContext context, IUserDirectory 
         ArgumentNullException.ThrowIfNull(caller);
 
         return ItemsAsync(
-            BacklogMembership.Members(context, scope, caller.OrganizationId),
+            BacklogMembership.Members(context, scope, caller.OrganizationId, caller.Projects),
             Tenant.OfOrganization(caller.OrganizationId),
             RowTime.OfTeam,
             cancellationToken);
@@ -44,7 +44,7 @@ internal sealed class BacklogReadModel(MustaskDbContext context, IUserDirectory 
         ArgumentNullException.ThrowIfNull(caller);
 
         return ItemsAsync(
-            BacklogMembership.TreeMembers(context, scope, caller.OrganizationId),
+            BacklogMembership.TreeMembers(context, scope, caller.OrganizationId, caller.Projects),
             Tenant.OfOrganization(caller.OrganizationId),
             RowTime.OfTeam,
             cancellationToken);

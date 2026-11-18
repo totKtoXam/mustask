@@ -10,8 +10,10 @@ namespace Mustask.Domain.Boards;
 /// backlog spans projects (feat-040 BR-TS-6), so its entries give <paramref name="CreatedAt"/> and
 /// <paramref name="ProjectKey"/> both: creation time, then the project key by character code, then the number. An
 /// entry that gives neither (a task row of a project's page) sorts on its number alone.
+/// <paramref name="ProjectId"/> is the entry's project on a team's backlog (feat-062: a reorder must know which entries the caller
+/// may not see, so it can answer an id of one as an id that names nothing); it decides no order.
 /// </summary>
-public sealed record StackRankEntry(Guid ItemId, int Number, int? Place, DateTimeOffset? CreatedAt = null, string? ProjectKey = null);
+public sealed record StackRankEntry(Guid ItemId, int Number, int? Place, DateTimeOffset? CreatedAt = null, string? ProjectKey = null, Guid? ProjectId = null);
 
 /// <summary>Where a reorder puts its item (BR-M4-25): the top, the bottom, or directly after one named item.</summary>
 public abstract record StackRankPosition

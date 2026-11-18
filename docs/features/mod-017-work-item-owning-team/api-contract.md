@@ -73,6 +73,8 @@ are ignored, as everywhere).
 | an active team of **another active project** of the organization | 409 `organizations.team.not_in_project` «Команда не участвует в проекте.» |
 | an active team of this project | accepted |
 
+A team the caller does not see answers 404 `organizations.team.not_found` instead of the 409 above (also on the default-team and unlink-destination bodies): feat-062 api-contract § 4.
+
 The refusal stores nothing of the request and consumes no number. The address's
 not-founds and the 403 come before it (§ 0.4).
 
