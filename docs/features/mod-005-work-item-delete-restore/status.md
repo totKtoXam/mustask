@@ -61,6 +61,7 @@ The light route (the human's choice of 2026-10-18): analysis → one requirement
 - 2026-10-18 [business-analyst] spec.md + US-1..US-6 (15c20a32): BR-DR-1..18; OQ-1..OQ-4 open, A recommended, for the human at gate-1.
 - 2026-10-18 [orchestrator] route L, light — confirmed by the human in chat («⭐ L, облегчённо»); gate-1 and gate-2 go to the human as one package after the design; E2E: no.
 - 2026-10-18 [new-task] task started (scripts/new-task.sh; its worktree was removed so a worktree-isolated agent could take the branch)
+- 2026-11-18 [orchestrator] note from feat-078-description-images (BR-IM-18, review F-5): spec.md BR-DR-12 and BR-DR-16 carry «Amended by feat-078 (2026-11-18)» notes — a purge also removes the item's images (feat-078 BR-IM-16, cascade from the item per ADR-0045). Prose only.
 
 ## Notes
 
