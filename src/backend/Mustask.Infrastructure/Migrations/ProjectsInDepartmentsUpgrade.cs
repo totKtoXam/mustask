@@ -107,8 +107,9 @@ public static class ProjectsInDepartmentsUpgrade
             v_project record;
             v_link record;
             v_fallback_id uuid;
-            v_fallback_name constant text := 'Проекты без департамента';
-            v_fallback_normalized constant text := 'ПРОЕКТЫ БЕЗ ДЕПАРТАМЕНТА';
+            v_fallback_name text;
+            v_fallback_normalized text;
+            v_suffix integer;
             v_target uuid;
             v_target_name text;
             v_rule text;
@@ -159,13 +160,22 @@ public static class ProjectsInDepartmentsUpgrade
                         v_rule := CASE WHEN v_tied > 1 THEN 'tie_by_name' ELSE 'most_teams' END;
                     ELSE
                         IF v_fallback_id IS NULL THEN
-                            SELECT id INTO v_fallback_id FROM areas
-                            WHERE organization_id = v_org.id AND parent_id IS NULL AND type = 1 AND normalized_name = v_fallback_normalized;
+                            -- A department of an earlier run is found again, a suffixed one too: the plain name first, then the lowest number.
+                            SELECT id, name INTO v_fallback_id, v_fallback_name FROM areas
+                            WHERE organization_id = v_org.id AND parent_id IS NULL AND type = 1
+                              AND normalized_name ~ '^ПРОЕКТЫ БЕЗ ДЕПАРТАМЕНТА( [(][0-9]+[)])?$'
+                            ORDER BY length(normalized_name), normalized_name
+                            LIMIT 1;
 
                             IF v_fallback_id IS NULL THEN
-                                IF EXISTS (SELECT 1 FROM areas WHERE organization_id = v_org.id AND parent_id IS NULL AND normalized_name = v_fallback_normalized) THEN
-                                    RAISE EXCEPTION 'mod-022: organization % has a top-level node named % that is not a department; rename it and run the migration again', v_org.id, v_fallback_name;
-                                END IF;
+                                -- The first free name: a top-level node of any type holding it does not abort the upgrade (gate-3 R-3).
+                                v_suffix := 1;
+                                LOOP
+                                    v_fallback_name := CASE WHEN v_suffix = 1 THEN 'Проекты без департамента' ELSE 'Проекты без департамента (' || v_suffix || ')' END;
+                                    v_fallback_normalized := upper(v_fallback_name);
+                                    EXIT WHEN NOT EXISTS (SELECT 1 FROM areas WHERE organization_id = v_org.id AND parent_id IS NULL AND normalized_name = v_fallback_normalized);
+                                    v_suffix := v_suffix + 1;
+                                END LOOP;
 
                                 v_fallback_id := gen_random_uuid();
                                 INSERT INTO areas (id, organization_id, parent_id, type, project_id, name, normalized_name, description, inherits_access, created_by, created_at, color)

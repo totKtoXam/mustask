@@ -44,11 +44,13 @@ plans, contract, `qa.md`, `status.md`; mod-021's review for comparison. No suite
   server's text as the alert") and `:18` ("a stale list … is the field's refusal") and the `PlaceProjectDialog.tsx` doc comment
   (same alert-only claim) describe the pre-fix behaviour; the code now lists the teams with «Отключить» (`ProjectTeamsRefusal`) and
   shows the stale-picker text as the dialog banner. Fix: reword the two rows and the comment.
-- **R-3 (minor) — spec "No name can clash" is not true in one corner.** doc-016 `spec.md:82` (BR-TD-19 (2)) says no name can
+- **R-3 (minor, FIXED) — spec "No name can clash" is not true in one corner.** doc-016 `spec.md:82` (BR-TD-19 (2)) says no name can
   clash; `ProjectsInDepartmentsUpgrade.cs:166-168` raises and stops the migration when a top-level node named «Проекты без
   департамента» exists when the fallback is first needed — e.g. a top-level *project* of that name not yet moved. The stop is safe
   (all-or-nothing, the message names the remedy, tested). Fix: weaken the spec sentence (name the stop) or place a project of
   that name before creating the fallback.
+  **Fixed at gate-3:** the upgrade takes the first free «Проекты без департамента (2)», «(3)», … instead of stopping, finds its own
+  suffixed department again on a rerun, logs the chosen name; spec BR-TD-19 reworded, tests replaced (clash → «(2)», «(2)» taken → «(3)»).
 - **R-4 (minor) — Down drops the record its own comment points to.** `20261117221218_ProjectsInDepartments.cs:13` says Down does
   not restore cut links "(the log names them …)", but Down executes `DROP TABLE IF EXISTS project_place_upgrade_log` (`:50`),
   so after Down nothing names them. Fix: keep the log on Down, or reword ("export the log first").

@@ -177,10 +177,10 @@ public sealed class ProjectsInDepartmentsMigrationTests(OrganizationsDatabaseFix
             legacy.ConnectionString, "UPDATE areas SET parent_id = NULL WHERE project_id = @p AND type = 2", ("p", legacy.Ids["A"])));
     }
 
-    // All or nothing: a top-level node named like the fallback that H would collide with stops the whole migration, and the data and
-    // the constraint stay as they were.
+    // The upgrade never aborts on a name clash: a top-level node that holds the fallback's name sends the fallback to the first free
+    // «(N)» name, the projects are placed there, the log and the notice carry the chosen name, and a second run creates nothing.
     [Fact]
-    public async Task Upgrade_ThatCannotPlaceAProject_FailsAsAWhole_AndChangesNothing()
+    public async Task Upgrade_WhenATopLevelNodeHoldsTheFallbackName_NamesItWithTheFirstFreeSuffix()
     {
         var legacy = await SeedLegacyAsync(existingFallback: false);
         await ExecuteAsync(
@@ -189,12 +189,37 @@ public sealed class ProjectsInDepartmentsMigrationTests(OrganizationsDatabaseFix
             ("n", Fallback),
             ("p", legacy.Ids["H"]));
 
-        var failure = await Assert.ThrowsAnyAsync<Exception>(() => MigrateAsync(legacy.ConnectionString, null));
+        var notices = await MigrateAsync(legacy.ConnectionString, null);
 
-        Assert.Contains("mod-022", failure.ToString(), StringComparison.Ordinal);
-        Assert.Equal([""], await QueryAsync(legacy.ConnectionString, "SELECT coalesce(to_regclass('project_place_upgrade_log')::text, '')"));
-        Assert.Equal(["5"], await QueryAsync(legacy.ConnectionString, "SELECT count(*) FROM areas WHERE type = 2 AND parent_id IS NULL"));
-        Assert.Equal(["13"], await QueryAsync(legacy.ConnectionString, "SELECT count(*) FROM project_teams"));
+        Assert.Equal(Fallback + " (2)", await DepartmentOfAsync(legacy, "H"));
+        Assert.Equal(["1"], await QueryAsync(legacy.ConnectionString, "SELECT count(*) FROM areas WHERE type = 1 AND name = @n AND organization_id = @o", ("n", Fallback + " (2)"), ("o", legacy.Romashka)));
+        Assert.Equal([Fallback + " (2)"], await QueryAsync(legacy.ConnectionString, "SELECT department_name FROM project_place_upgrade_log WHERE kind = 'department_created'"));
+        Assert.Contains(notices, n => n.Contains("department created: " + Fallback + " (2)", StringComparison.Ordinal));
+
+        var before = await FingerprintAsync(legacy.ConnectionString);
+        await ExecuteAsync(legacy.ConnectionString, ProjectsInDepartmentsUpgrade.Script);
+        Assert.Equal(before, await FingerprintAsync(legacy.ConnectionString));
+    }
+
+    [Fact]
+    public async Task Upgrade_WhenTheFirstSuffixIsTakenToo_NamesTheFallbackWithTheNextOne()
+    {
+        var legacy = await SeedLegacyAsync(existingFallback: false);
+        await ExecuteAsync(
+            legacy.ConnectionString,
+            "UPDATE areas SET name = @n, normalized_name = upper(@n) WHERE project_id = @p AND type = 2",
+            ("n", Fallback),
+            ("p", legacy.Ids["H"]));
+        await InsertProjectAsync(legacy.ConnectionString, legacy.Romashka, Fallback + " (2)", null, "Active", 50, "blue");
+
+        await MigrateAsync(legacy.ConnectionString, null);
+
+        Assert.Equal(Fallback + " (3)", await DepartmentOfAsync(legacy, "H"));
+        Assert.Equal([Fallback + " (3)"], await QueryAsync(legacy.ConnectionString, "SELECT department_name FROM project_place_upgrade_log WHERE kind = 'department_created'"));
+
+        var before = await FingerprintAsync(legacy.ConnectionString);
+        await ExecuteAsync(legacy.ConnectionString, ProjectsInDepartmentsUpgrade.Script);
+        Assert.Equal(before, await FingerprintAsync(legacy.ConnectionString));
     }
 
     // Down: the check relaxes and the log goes; the placement and the cuts stay (irreversible); it goes up again on what it left.
@@ -355,7 +380,7 @@ public sealed class ProjectsInDepartmentsMigrationTests(OrganizationsDatabaseFix
             INSERT INTO areas (id, organization_id, parent_id, type, project_id, name, normalized_name, inherits_access, created_by, created_at)
             VALUES (gen_random_uuid(), @o, @dept, 2, @p, @name, upper(@name), true, 'legacy-1', @at)
             """,
-            ("p", project), ("o", organization), ("name", name), ("key", name.Length == 1 ? name + "PR" : name), ("status", status),
+            ("p", project), ("o", organization), ("name", name), ("key", name.Length == 1 ? name + "PR" : name.Length > 10 ? "K" + minute : name), ("status", status),
             ("dept", (object?)department ?? DBNull.Value), ("at", Epoch.AddMinutes(minute)), ("color", colour));
 
         return project;

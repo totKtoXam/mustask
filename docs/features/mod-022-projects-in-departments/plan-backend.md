@@ -15,8 +15,8 @@ None: one connected change (the migration, the move rule, the link rule, the cre
    number of items made «Без команды»).
 2. `ProjectsInDepartmentsUpgrade.Script`, per organization: step 2 (each top-level project node, active or deactivated, goes to the
    department holding most of its linked teams as mod-021 placed them, ties by department name; else «Проекты без департамента»,
-   reused when present, created and coloured by the BR-TD-20 rule otherwise; a clashing non-department node of that name stops the
-   migration), then step 3 (every link whose ends stand in different departments is cut like feat-028 BR-OL-8 to «Без команды»:
+   reused when present, created and coloured by the BR-TD-20 rule otherwise; when a top-level node of any type already holds that name, the department takes the first free «Проекты без департамента (2)», «(3)», … and is found again by that name on a rerun; the upgrade never aborts on a name clash
+   (see above), then step 3 (every link whose ends stand in different departments is cut like feat-028 BR-OL-8 to «Без команды»:
    default team cleared, the team's places on the project's items dropped, the items' owner and sprint cleared in any state, the link
    removed; `changed_at` untouched, no history row). Every placement, created department and cut link is a log row and a `RAISE NOTICE`
    with names; one notice per organization sums up the counts.
