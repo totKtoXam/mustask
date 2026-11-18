@@ -33,7 +33,7 @@ public sealed class TeamsInDepartmentsMigrationTests(OrganizationsDatabaseFixtur
     {
         var legacy = await SeedLegacyAsync(existingFallback: false);
 
-        await MigrateAsync(legacy.ConnectionString, null);
+        await MigrateAsync(legacy.ConnectionString, "self");
 
         Assert.Equal("Логистика", await DepartmentOfAsync(legacy, "MARS"));
         Assert.Equal("Логистика", await DepartmentOfAsync(legacy, "VENUS"));
@@ -49,7 +49,7 @@ public sealed class TeamsInDepartmentsMigrationTests(OrganizationsDatabaseFixtur
     {
         var legacy = await SeedLegacyAsync(existingFallback: false);
 
-        var notices = await MigrateAsync(legacy.ConnectionString, null);
+        var notices = await MigrateAsync(legacy.ConnectionString, "self");
 
         Assert.Equal(
             [
@@ -81,7 +81,7 @@ public sealed class TeamsInDepartmentsMigrationTests(OrganizationsDatabaseFixtur
     {
         var legacy = await SeedLegacyAsync(existingFallback: false);
 
-        await MigrateAsync(legacy.ConnectionString, null);
+        await MigrateAsync(legacy.ConnectionString, "self");
 
         Assert.Equal(["1"], await QueryAsync(legacy.ConnectionString, "SELECT count(*) FROM areas WHERE type = 1 AND name = @n AND organization_id = @o", ("n", Fallback), ("o", legacy.Romashka)));
         Assert.Equal(["0"], await QueryAsync(legacy.ConnectionString, "SELECT count(*) FROM areas WHERE type = 1 AND name = @n AND organization_id = @o", ("n", Fallback), ("o", legacy.Other)));
@@ -95,7 +95,7 @@ public sealed class TeamsInDepartmentsMigrationTests(OrganizationsDatabaseFixtur
     {
         var legacy = await SeedLegacyAsync(existingFallback: true);
 
-        await MigrateAsync(legacy.ConnectionString, null);
+        await MigrateAsync(legacy.ConnectionString, "self");
 
         Assert.Equal(["1"], await QueryAsync(legacy.ConnectionString, "SELECT count(*) FROM areas WHERE type = 1 AND name = @n AND organization_id = @o", ("n", Fallback), ("o", legacy.Romashka)));
         Assert.Equal(legacy.Ids["Fallback"].ToString(), Assert.Single(await QueryAsync(legacy.ConnectionString, "SELECT department_id FROM teams WHERE id = @t", ("t", legacy.Ids["PLUTO"]))));
@@ -108,7 +108,7 @@ public sealed class TeamsInDepartmentsMigrationTests(OrganizationsDatabaseFixtur
     {
         var legacy = await SeedLegacyAsync(existingFallback: false);
 
-        await MigrateAsync(legacy.ConnectionString, null);
+        await MigrateAsync(legacy.ConnectionString, "self");
 
         Assert.Equal(["7|8|14"], await QueryAsync(legacy.ConnectionString, "SELECT concat_ws('|', (SELECT count(*) FROM teams), (SELECT count(*) FROM projects), (SELECT count(*) FROM project_teams))"));
         Assert.Equal([""], await QueryAsync(legacy.ConnectionString, "SELECT coalesce(to_regclass('area_teams')::text, '')"));
@@ -121,7 +121,7 @@ public sealed class TeamsInDepartmentsMigrationTests(OrganizationsDatabaseFixtur
     {
         var legacy = await SeedLegacyAsync(existingFallback: false);
 
-        await MigrateAsync(legacy.ConnectionString, null);
+        await MigrateAsync(legacy.ConnectionString, "self");
 
         // The story's examples: a blue department gives its teams orange, magenta, green.
         Assert.Equal("blue", await ColorOfAsync(legacy, "areas", "Логистика"));
@@ -152,10 +152,10 @@ public sealed class TeamsInDepartmentsMigrationTests(OrganizationsDatabaseFixtur
     public async Task Upgrade_RunAgain_ChangesNoColourAndNoPlace()
     {
         var legacy = await SeedLegacyAsync(existingFallback: false);
-        await MigrateAsync(legacy.ConnectionString, null);
+        await MigrateAsync(legacy.ConnectionString, "self");
         var before = await FingerprintAsync(legacy.ConnectionString);
 
-        await MigrateAsync(legacy.ConnectionString, null);
+        await MigrateAsync(legacy.ConnectionString, "self");
 
         Assert.Equal(before, await FingerprintAsync(legacy.ConnectionString));
     }
@@ -165,7 +165,7 @@ public sealed class TeamsInDepartmentsMigrationTests(OrganizationsDatabaseFixtur
     public async Task Upgrade_LeavesTheConstraintsOfThePlace()
     {
         var legacy = await SeedLegacyAsync(existingFallback: false);
-        await MigrateAsync(legacy.ConnectionString, null);
+        await MigrateAsync(legacy.ConnectionString, "self");
 
         await Assert.ThrowsAsync<PostgresException>(() => ExecuteAsync(
             legacy.ConnectionString,
@@ -197,7 +197,7 @@ public sealed class TeamsInDepartmentsMigrationTests(OrganizationsDatabaseFixtur
             ("n", Fallback),
             ("p", legacy.Ids["D"]));
 
-        var failure = await Assert.ThrowsAnyAsync<Exception>(() => MigrateAsync(legacy.ConnectionString, null));
+        var failure = await Assert.ThrowsAnyAsync<Exception>(() => MigrateAsync(legacy.ConnectionString, "self"));
 
         Assert.Contains("mod-021", failure.ToString(), StringComparison.Ordinal);
         Assert.Equal(["area_teams"], await QueryAsync(legacy.ConnectionString, "SELECT to_regclass('area_teams')::text"));
@@ -210,7 +210,7 @@ public sealed class TeamsInDepartmentsMigrationTests(OrganizationsDatabaseFixtur
     public async Task Down_RestoresTheLinkTable_WithOneLinkPerPlacedTeam()
     {
         var legacy = await SeedLegacyAsync(existingFallback: false);
-        await MigrateAsync(legacy.ConnectionString, null);
+        await MigrateAsync(legacy.ConnectionString, "self");
 
         await MigrateAsync(legacy.ConnectionString, "previous");
 
@@ -221,7 +221,7 @@ public sealed class TeamsInDepartmentsMigrationTests(OrganizationsDatabaseFixtur
         Assert.Equal(["7"], await QueryAsync(legacy.ConnectionString, "SELECT count(*) FROM teams"));
 
         // And it goes up again on the data it left.
-        await MigrateAsync(legacy.ConnectionString, null);
+        await MigrateAsync(legacy.ConnectionString, "self");
         Assert.Equal("Логистика", await DepartmentOfAsync(legacy, "MARS"));
     }
 
@@ -231,7 +231,7 @@ public sealed class TeamsInDepartmentsMigrationTests(OrganizationsDatabaseFixtur
     {
         var connectionString = await NewLegacyDatabaseAsync();
 
-        await MigrateAsync(connectionString, null);
+        await MigrateAsync(connectionString, "self");
 
         Assert.Equal(["0"], await QueryAsync(connectionString, "SELECT count(*) FROM team_place_upgrade_log"));
     }
@@ -267,7 +267,7 @@ public sealed class TeamsInDepartmentsMigrationTests(OrganizationsDatabaseFixtur
                 ("a", department), ("t", firstLink), ("o", legacy.Romashka), ("at", Epoch));
         }
 
-        await MigrateAsync(legacy.ConnectionString, null);
+        await MigrateAsync(legacy.ConnectionString, "self");
 
         Assert.Equal("Аудит", Assert.Single(await QueryAsync(legacy.ConnectionString, "SELECT a.name FROM teams t JOIN areas a ON a.id = t.department_id WHERE t.id = @t", ("t", tied))));
         Assert.Equal("Аудит", Assert.Single(await QueryAsync(legacy.ConnectionString, "SELECT a.name FROM teams t JOIN areas a ON a.id = t.department_id WHERE t.id = @t", ("t", firstLink))));
@@ -326,7 +326,7 @@ public sealed class TeamsInDepartmentsMigrationTests(OrganizationsDatabaseFixtur
             projectNames.Add($"P{index:00}");
         }
 
-        await MigrateAsync(cs, null);
+        await MigrateAsync(cs, "self");
 
         Assert.Equal(
             expectedDepartments,
@@ -370,7 +370,7 @@ public sealed class TeamsInDepartmentsMigrationTests(OrganizationsDatabaseFixtur
         var organization = await CreateOrganizationAsync(cs, "Пустая");
         await InsertTeamAsync(cs, organization, "GONE", "Deleted", 1);
 
-        await MigrateAsync(cs, null);
+        await MigrateAsync(cs, "self");
 
         Assert.Equal(["0"], await QueryAsync(cs, "SELECT count(*) FROM areas WHERE organization_id = @o", ("o", organization)));
         Assert.Equal(["blue"], await QueryAsync(cs, "SELECT color FROM teams WHERE organization_id = @o", ("o", organization)));
@@ -595,9 +595,13 @@ public sealed class TeamsInDepartmentsMigrationTests(OrganizationsDatabaseFixtur
         };
 
         var migrations = context.Database.GetMigrations().ToList();
-        var id = target is null
-            ? null
-            : migrations.TakeWhile(candidate => !candidate.EndsWith(Migration, StringComparison.Ordinal)).Last();
+        // "previous": the migration before this one; "self": this migration (mod-022's migration runs on top, so the story's data stops here).
+        var id = target switch
+        {
+            null => null,
+            "self" => migrations.Single(candidate => candidate.EndsWith(Migration, StringComparison.Ordinal)),
+            _ => migrations.TakeWhile(candidate => !candidate.EndsWith(Migration, StringComparison.Ordinal)).Last(),
+        };
 
         await context.GetService<IMigrator>().MigrateAsync(id);
 
