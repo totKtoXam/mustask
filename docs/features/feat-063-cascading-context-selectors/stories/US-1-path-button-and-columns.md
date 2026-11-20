@@ -57,20 +57,38 @@ Scenario: The department column is not narrowed by lower levels
   Then the department column still offers «все», «Логистика», «Финансы»
 
 Scenario: The team column keeps feat-043's own-team grouping
-  Given Ann is a member of VENUS
-  Then the team column lists VENUS under «Мои команды» and MARS under «Другие команды»
+  Given Ann is a member of VENUS and her selection is «Ромашка» / «Логистика» / «все» / «все»
+  Then the team column lists VENUS under «Мои команды» and MARS under «Другие команды», and not JUPITER
 
-Scenario: Only visible and active objects are offered
-  Given a project node's sub-area «Склад-1», a deactivated project B and a deleted team PHOBOS exist in «Логистика»
-  And Olga sees there only VENUS, «Логистика», A and MARS
-  Then Ann's columns never offer «Склад-1», the project node of A, B or PHOBOS
-  And Olga's department column offers «все», «Логистика», not «Финансы»; her project column offers «все», A, not B
+Scenario: Only active objects are offered
+  Given a sub-area «Склад-1», a deactivated project E and a deleted team PHOBOS exist in «Логистика»
+  Then Ann's columns never offer «Склад-1», the project node of A, E or PHOBOS
+
+Scenario: Only visible objects are offered
+  Given Olga sees in «Ромашка» only VENUS, MARS, A and «Логистика»; B is active and hidden from her
+  Then her department column offers «все», «Логистика», not «Финансы»
+  And her project column offers «все», A, not B
 
 Scenario: Empty offers (BR-TD-11)
   Given Pavel has no grant, no team, and no project is visible to him
   When he opens the panel
   Then the department column shows «все» and «Нет доступных департаментов»
   And the team column «все» and «Нет доступных команд», the project column «все» and «Нет доступных проектов»
+
+Scenario: A chosen department holding nothing visible
+  Given Ann's selection is «Ромашка» / «Маркетинг» / «все» / «все» and «Маркетинг» holds no team or project
+  Then the team column shows «все» and «Нет доступных команд», the project column «все» and «Нет доступных проектов»
+
+Scenario: A user with no organization
+  Given Nina has no active organization
+  Then the header keeps today's link «Нет организаций» and no panel opens
+
+Scenario: Organization «все» is inert here (BR-10; feat-064 lifts it)
+  Given Olga's selection is «Все организации»
+  Then the button reads «Все организации › все › все › все»
+  And the department, team and project columns show only «все» and the muted line «Выберите организацию»
+  And the search field is disabled with the helper «Выберите организацию»
+  And choosing an organization in the first column follows US-2
 
 Scenario: The lists follow the selection
   Given Ann's selection is «Ромашка» / «Логистика» / «все» / «все»
