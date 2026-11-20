@@ -20,7 +20,8 @@ gate-3: pending
 
 ## Log
 
-- 2026-11-20 [new-task] task started, worktree C:/Users/khamb/Workspace/devex/internal_products/mustask/.claude/worktrees/feat-063-cascading-context-selectors
+- 2026-11-20 [new-task] task started; the branch was moved into the orchestrating session's worktree `.claude/worktrees/admiring-bohr-8bfe03` (bound: `git branch --show-current` = feat/063-cascading-context-selectors)
+- 2026-11-20 [route] confirmed by the orchestrator session (doc-012-matrix-organization-model), acting for the human under the 2026-11-17 coordination delegation: feature, M, as in the queue. Grounds: no L threshold (ADR-0040 already accepted, no new project or slice, no migration, no breaking contract expected — any cascade/search params additive, no auth change); not S (panel + offers read, more than 5 files, two layers); 2 stories (doc-016 US-3, US-4 within one organization). Route: BA → requirements review → UX + prototype → gate-1 + gate-2 as one package → backend only if additive params are needed → frontend → one QA pass (E2E: no, standing answer) → one code-review round → gate-3 → PR (merge commit, auto-merge). Scope held strictly: feat-052 «Создать…» and feat-064 cross-organization stay out. Economy mode in force.
 
 ## Notes
 
