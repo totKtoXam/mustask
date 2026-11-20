@@ -102,3 +102,32 @@ Resolution:
 Accepted as designed, no finding: US-3 «Only the chosen organization is searched» narrows BR-TD-21 on purpose; feat-064 must replace that scenario. Size M holds: one panel, `selectorFit` rewrite, client search over one organization's offers, no migration.
 
 Verdict: needs rework — one business-analyst pass for R-1, R-2 (spec holes) and the minor fixes; no question needs the human (OQ-1 is decidable per R-5, OQ-2 is moot per R-4). Expected `approved-by-ai` after the pass.
+
+## Round 2 — requirements (delta)
+
+Delta read of the analyst's rework: `spec.md` and `stories/US-1`, `US-2` against R-1..R-10.
+
+| Finding | Status | Resolution |
+|---|---|---|
+| R-1 | resolved | spec BR-9; US-2 «A column choice moves the page and keeps the panel open» |
+| R-2 | resolved | US-2 «Choosing another organization» (page, panel, repair, nothing written for «Ромашка») |
+| R-3 | resolved | BR-3 states BR-TD-10 governs; the ADR-0040 note is held by the orchestrator (spec § Open questions) |
+| R-4 | resolved | § Out of scope "already delivered in main"; OQ-2 closed |
+| R-5 | resolved | BR-10 and US-1 «Organization «все» is inert here» with «Выберите организацию»; OQ-1 closed |
+| R-6 | resolved | US-1 «A chosen department holding nothing visible», «A user with no organization» |
+| R-7 | resolved | BR-11; the triggers are named in US-2's repair scenarios |
+| R-8 | resolved, except (a) | (b) the selection is given; (c) the deactivated project is E, B is active and hidden. For (a), see R-11 |
+| R-9 | resolved | spec NFR, statement-count line |
+| R-10 | resolved | BR-12 and the operation table's «Context notices» row; doc-016 design § 3.3 requires it |
+
+### R-11
+Severity: minor
+Affects: US-2 «A remembered value that is gone or hidden resets to «все»» (lines 79-82)
+Problem: The expected result contradicts the sight rules. Olga sees MARS only because she sees A, which is linked to it (BR-TD-13; US-1's cast: she sees VENUS, MARS, A, «Логистика», and is a member of VENUS only). Once A is hidden from her, MARS is hidden too, so BR-TD-18 also resets the team. The repaired selection is «Ромашка» / «Логистика» / «все» / «все» with «… Выбрано: Ромашка / Логистика.», not the MARS path the scenario expects. A test written from the scenario fails against a correct implementation.
+Required resolution: Either add "Olga holds a grant on MARS" to the Given and keep the expectation, or change the expectation to «Ромашка» / «Логистика» / «все» / «все» and «Ранее выбранный контекст недоступен. Выбрано: Ромашка / Логистика.»
+Status: open
+Resolution:
+
+Nothing else in the rework broke: the new BR-9..BR-12 agree with doc-016 design §§ 3.0, 3.3 and with ADR-0032 §§ 5-6, and the new scenarios are testable. (The ids run BR-1..3, BR-9..12, BR-4..8 in the table. That is cosmetic, and no finding is raised.)
+
+Verdict: `approved-by-ai` once R-11 is fixed. It needs a one-line fix in the story and no third round. The orchestrator can confirm the fix from the diff. Nothing is left for the human at gate-1.

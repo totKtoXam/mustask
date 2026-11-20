@@ -77,7 +77,8 @@ Scenario: A remembered selection that no longer fits is repaired (BR-11)
   Then the selection reads «Ромашка» / «Логистика» / VENUS / «все» and she sees «Ранее выбранный контекст недоступен. Выбрано: Ромашка / Логистика / VENUS.»
 
 Scenario: A remembered value that is gone or hidden resets to «все»
-  Given Olga's remembered selection is «Ромашка» / «Логистика» / MARS / A and A is now hidden from her
+  Given Olga holds a grant on MARS
+  And Olga's remembered selection is «Ромашка» / «Логистика» / MARS / A and A is now hidden from her
   When the shell first reads the offers of «Ромашка»
   Then the selection reads «Ромашка» / «Логистика» / MARS / «все» and she sees «Ранее выбранный контекст недоступен. Выбрано: Ромашка / Логистика / MARS.»
 
